@@ -1,0 +1,117 @@
+# Traceability Matrix
+
+Maps each clause of the brief (`docs/BRIEF.md`) → requirement ID → the test(s) that prove
+it. The CI traceability
+check reads test names (Principle XI) and fails if a requirement has no passing test or a
+test cites an unknown ID. The test names below describe *what* must be proven; files may
+live anywhere.
+
+Status: `Todo` · `Spec` · `Tested` (written, failing) · `Done`
+
+## Brief requirements
+
+| Brief | Requirement | ID | ADR | Tests | Status |
+|---|---|---|---|---|---|
+| §2 | Actors: Buyer maintains vendors, raises orders and records receipts; Approver approves above the threshold and cancels with a reason; Procurement Admin views outstanding orders across the organisation | FR-ACT-01 | 0004 | authorization matrix rows for each brief action × role (Buyer: vendor write, create, receive; Approver: approve, cancel with reason; Admin: organisation-wide outstanding report); every other role on each action refused with its exact code | Todo |
+| §3.1 | Shared vendor list with contact details and structured payment terms (NET, ADVANCE, PARTIAL_ADVANCE); any Buyer maintains; deactivate, never delete; normalised unique name | FR-VEN-01 | 0005 | vendor CRUD; each payment-term type, out-of-range → 400; duplicate name (case/spacing) → 409; both buyers use the same vendor; authz matrix rows | Todo |
+| §3.1 | An order references an existing, active vendor at create, edit, submit and approve | FR-VEN-02 | 0005 | missing vendor → 400 `VENDOR_NOT_FOUND`; inactive at create/edit/submit/approve → 409 `VENDOR_INACTIVE`; reject, receipt and cancel allowed after deactivation | Todo |
+| §3.1, §3.5 | Vendor snapshot on submit; later vendor edits don't change locked orders | FR-VEN-03 | 0005 | vendor edit after approval leaves snapshot unchanged | Todo |
+| §3.2 | An order has 1–500 lines (description, quantity, unit price) | FR-PO-01 | 0009 | no lines → 400; empty PATCH set → 400; 501 lines → 400 | Todo |
+| §3.2 | Initial state is `DRAFT`; routing on submit by total | FR-PO-02 | 0001 | create → `DRAFT`; submit routes at/above/below thresholds | Todo |
+| §1 | PO number `PO-{FY}-{seq:06d}` (Indian FY, Asia/Kolkata) assigned at creation, unique, never reused, never editable | FR-PO-05 | 0001 | 50 concurrent creates unique; no reuse after delete; poNumber in body → 400; raw-SQL change rejected; FY boundary 31 Mar 23:59:59 IST → `2025-26`, 1 Apr 00:00 IST → `2026-27` starting at `000001` (injected clock); format regex | Todo |
+| §3.2 | Draft line edits keep line identity; audit diff per line | FR-PO-06 | 0009 | update+insert+delete in one PATCH; stable IDs; foreign/duplicate id → 400 | Todo |
+| §3.3 | Total always derived, never editable, on any code path | FR-PO-03 | 0003 | integrity attack suite (total paths); total in body → 400; privileged UPDATE → `DERIVED_VALUE_READ_ONLY` | Todo |
+| §3.3 | Exact money arithmetic, no drift | FR-PO-07 | 0010 | 0.1×3; 7×0.0125; 500 fractional lines; limits; INR formatting | Todo |
+| §3.3 | Money is never a JS `number` | NFR-DATA-01 | 0010 | lint/type check bans `number` for money fields (branded decimal type); contract tests assert every money field in every response is a decimal string | Todo |
+| §3.4 | Over threshold requires approval before receipt; at/below auto-approves (`SYSTEM`) | FR-APR-01 | 0002 | production seed has exactly one tier; boundaries ₹1,00,000.00 (auto) / ₹1,00,000.0001 / ₹1,00,000.01 (one step); receipt on non-approved → 409 | Todo |
+| §3.4 | Edits mid-approval refused; withdraw → edit → resubmit re-routes | FR-APR-02 | 0001, 0002 | edit pending → 409; withdraw voids all steps; resubmit fresh chain; edit-vs-submit race (business outcome) | Todo |
+| §3.5 | Approved order locked: lines, total, vendor; specific error | FR-LCK-01 | 0001 | every edit path → 409 `ORDER_LOCKED`; raw-SQL line/vendor change rejected | Todo |
+| §3.5 | Only action on approved: cancel by Approver with reason, recorded distinctly | FR-LCK-02 | 0011 | reason required; `PO_CANCELLED` distinct from edits; fully received → 409; self-cancel → 403 `SELF_APPROVAL` | Todo |
+| §3.6 | Per-line receipts, partial, across several events; one command may cover several lines, all-or-nothing | FR-RCV-01 | 0011 | partial multi-event receipts; multi-line receipt with one line over → 409 naming it and nothing written; `received_at` in the future → 400; one audit entry per line | Todo |
+| §3.6 | Outstanding = ordered − Σ receipts; over-receipt rejected | FR-RCV-02 | 0003 | over-receipt → 409; exact fill then any → 409; raw-SQL receipt update/delete denied | Todo |
+| §4 | Receipts are events over time | FR-RCV-03 | 0003 | receipt history list (paginated) | Todo |
+| §4 | Store-vs-calculate chosen; drift impossible under bypass | FR-PO-04 | 0003 | integrity attack suite; reconciliation = 0 rows | Todo |
+| §3.7 | Outstanding orders filterable/grouped by vendor, with age | FR-RPT-01 | 0015 | filters by vendor and age bucket; excludes cancelled/rejected/fully received; partial receipt keeps it, final receipt removes it; age from approval; scoped to caller | Todo |
+| §3.7 | Real query; cost explainable as data grows | FR-RPT-02 | 0015, 0012 | committed `EXPLAIN` (page + COUNT) using the partial index with no lines/receipts scan; page-100 measurement | Todo |
+| §5 | API surface designed for the workflow and documented | NFR-API-01 | 0008, 0007 | see NFR-API-01 (generated, committed OpenAPI; contract tests on every response and error) | Todo |
+| §6 | Bad input rejected before business logic | NFR-VAL-01 | 0007 | negative qty/price → 400; order referencing a missing vendor → 400 `VENDOR_NOT_FOUND`, with no business-logic side effects; malformed JSON → 400; bad UUID → 400; unknown field → 400 | Todo |
+| §6 | Every action by an authenticated user; no anonymous path | NFR-AUTH-01 | 0004, 0016 | every non-public route without token → 401 (generated from route table; public list asserted); deactivated user can't log in and their tokens are rejected | Todo |
+| §6 | Every action tied to a real user: user profile | FR-USR-01 | 0016 | `GET /me` fields (id, name, email, phone, roles, status, createdAt); `PATCH /me` name and phone (E.164, `null` clears, invalid → 400); email/roles/status in body → 400; `USER_PROFILE_UPDATED` with before/after | Todo |
+| §6 | Editing an approved order via API → clear, specific failure (tested) | FR-LCK-01 | 0001 | see FR-LCK-01 | Todo |
+| §6 | Sharpest test: no path mismatches total or outstanding | FR-PO-03, FR-RCV-02 | 0003 | full integrity attack suite + reconciliation | Todo |
+| §6 | Report and any list filter/paginate without loading everything | NFR-PERF-01 | 0007, 0012 | pagination suite; query-count test; EXPLAIN per list | Todo |
+| §6 | Structured trace for raise, each approval decision, each receipt | NFR-AUD-01 | 0016 | payload per event (incl. `GOODS_RECEIPT_RECORDED` before/after/outstanding, `SYSTEM` auto-approval, dual-role `actingRole`); atomic with change; rollback leaves none; renaming a user doesn't change old entries' actor snapshot | Todo |
+| §6 | `docker compose up` + documented `.env` only | NFR-OPS-01 | 0020 | CI: clean checkout → up → health → login → order flow | Todo |
+| §7.1–7.3 | Walkthrough questions | — | 0013 | answers in `docs/walkthrough.md` (no test) | Todo |
+| §8 | Load test: 10k orders / 200 vendors, receipt histories, query plan | NFR-PERF-02 | 0012 | seeded scenario; plan committed | Todo |
+| §8 | Second tier; variable-length chain without special-casing | FR-APR-03 | 0002 | run against **policy fixtures, not the seed**: two-tier fixture → two-step chain (T6 then T7); three-tier chain by inserting a policy row only; chain length 0 at/below threshold; policy change mid-flight doesn't alter a submitted chain | Todo |
+| §8 | Two simultaneous receipts on one line: guarantee holds | FR-RCV-04 | 0006 | 50 parallel receipts never exceed ordered | Todo |
+
+## Production layer
+
+| Requirement | ID | ADR | Tests | Status |
+|---|---|---|---|---|
+| State table enforced; undefined transitions → 409 with code; DB transition trigger | FR-SM-01 | 0001 | one test per transition allowed/refused; raw-SQL illegal status change rejected | Todo |
+| Delete draft (owner); `PO_DRAFT_DELETED`; non-draft delete refused by DB | FR-SM-02 | 0001 | delete draft; audit records number + contents; raw-SQL delete approved → rejected | Todo |
+| Withdraw / reject flows | FR-SM-03 | 0001, 0002 | withdraw voids round; reject → `REJECTED` final; withdraw-vs-approve race | Todo |
+| Private orders, visibility, 404 vs 403 | FR-OWN-01 | 0004 | matrix × state × unauthenticated; dual-role receipt → 403 | Todo |
+| Separation of duties | FR-SOD-01 | 0004, 0002 | `SELF_APPROVAL` on approve, reject and cancel for a dual-role user; no `DUPLICATE_APPROVER` code in the registry or any code path | Todo |
+| Approval policy changed only through the operator CLI (`policy:set` / `policy:show`), new version per change, audited `OPERATOR` | FR-APR-05 | 0002, 0016 | new version created and used by the next submission; already submitted orders keep their version; invalid amount → error, no change; no-op on same value; audited `OPERATOR` with before/after, `osUser`, `host`; no HTTP write route | Todo |
+| Current approval policy readable (for the submit dialog) | FR-APR-04 | 0002 | `GET /api/approval-policy` returns the current tiers to Buyer, Approver, Admin; no-role → 403 `NO_ROLE_ASSIGNED` | Todo |
+| Audit catalogue, actor context required, append-only | NFR-AUD-02 | 0016 | raw SQL without actor → rejected; UPDATE/DELETE on audit denied | Todo |
+| Audit visibility: Admin all + org-wide log (filters, paginated); Buyer own orders + vendor history; Approver readable orders | NFR-AUD-03 | 0016 | per-role visibility; Buyer on other's timeline → 404; Approver on org log → 403; org-log filters + EXPLAIN | Todo |
+| `open_line_count` stored, guarded, reconciled (INV-6) | FR-RPT-03 | 0015, 0003 | raw-SQL write → denied/`DERIVED_VALUE_READ_ONLY`; included in reconciliation | Todo |
+| Concurrency (lock-then-read; business outcomes) | NFR-CON-01 | 0006 | concurrency suite | Todo |
+| Optimistic concurrency via `If-Match` | NFR-CON-03 | 0006 | missing → 400 `VERSION_REQUIRED` per command; stale → 409 `VERSION_CONFLICT`; `ETag` returned; receipts need none | Todo |
+| Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Todo |
+| Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Todo |
+| Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Todo |
+| Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH = 1 recompute; receipt = 0; status update = 0 | Todo |
+| Production-scale latency targets | NFR-PERF-04 | 0012 | load job (median of 3 runs) | Todo |
+| Config validation, health/readiness, logs, security baseline; local vs deployment profiles | NFR-OPS-02 | 0020 | invalid config exits; `APP_ENV=production` with `SEED_DEMO_DATA=true` or SMTP host `mailpit` → exits; readiness DB-down; headers; CORS denied by default | Todo |
+| Cookie auth: HttpOnly/Secure/SameSite=Strict cookies, scoped paths, no token readable by JS | NFR-SEC-01 | 0017 | cookie flags and paths asserted; no token in any response body | Todo |
+| Refresh rotation, reuse detection, 10 s sibling grace window | NFR-SEC-02 | 0017 | rotation; concurrent refreshes within 10 s both succeed and the session stays valid; reuse after 10 s → session revoked (401 `SESSION_REVOKED`) | Todo |
+| Session lifetimes: 7-day idle, 30-day absolute; rotation never extends the absolute limit | NFR-SEC-09 | 0017 | a session refreshed daily still ends at 30 days → 401 `SESSION_EXPIRED`; refresh-token expiry never exceeds the absolute expiry; 7 days idle → 401 `SESSION_EXPIRED` (injected clock) | Todo |
+| Logout, logout-all, revocation on deactivation/role change; roles loaded per request | NFR-SEC-03 | 0017, 0016 | logout (even with expired access token) and logout-all revoke; refresh cookie not sent outside `/api/auth`; deactivated user's next request → 401; removed role → next request 403 | Todo |
+| CSRF: SameSite + Origin check + double-submit header; CSRF cookie lives as long as the refresh cookie | NFR-SEC-04 | 0017 | CSRF token missing/wrong → 403 `CSRF_REJECTED`; cross-origin request → 403; after a simulated browser restart, refresh succeeds and the next state-changing request passes the CSRF check | Todo |
+| Passwords and login: argon2id, rate limits (shared store when multi-instance), identical failure response | NFR-SEC-05 | 0017 | login rate limit per IP and per account → 429; limit holds across two app instances with the shared store; in-memory store + multiple instances → startup fails; unknown email and wrong password give identical responses | Todo |
+| Security events logged separately from business audit, without secrets | NFR-SEC-06 | 0017 | events emitted for signup, verification, login success/failure, lockout, logout, reuse, session revoked, reset requested/completed, password changed, mail failure; no tokens/passwords/phones in logs (bootstrap and `admin:create` links the only exceptions) | Todo |
+| Same-origin deployment via nginx in compose | NFR-OPS-03 | 0017 | compose smoke: frontend and `/api` on one origin | Todo |
+| Frontend foundation: generated client/types, shared Zod forms, typed error mapping, request ID on error screens | NFR-FE-01 | 0018 | component tests per error code; `VERSION_CONFLICT` reload prompt; 503 retry; error boundary | Todo |
+| Frontend auth: single-flight refresh across tabs, retry, return URL | NFR-FE-02 | 0018, 0017 | unit test of refresh coordinator; Playwright silent refresh; failed refresh → login with returnTo | Todo |
+| Frontend money as decimal strings, en-IN INR | NFR-FE-03 | 0018, 0010 | lint/branded-type check; formatting tests | Todo |
+| Frontend lists: page numbers, URL state, debounced search; loading/empty/error states; pending submit disabled; Idempotency-Key on creates | NFR-FE-04 | 0018 | component tests; URL round-trip; double-submit prevented | Todo |
+| Frontend accessibility and security: WCAG 2.1 AA (axe), CSP, no raw HTML, dependency audit | NFR-FE-05 | 0018 | axe on every screen; CSP header asserted; lint ban; audit job | Todo |
+| Frontend performance: code splitting, bundle budget, 500-line editor targets | NFR-FE-06 | 0018, 0012 | bundle-budget CI check; editor interaction benchmark | Todo |
+| End-to-end flows against docker compose | NFR-FE-07 | 0018 | Playwright: login + refresh; create → submit → approve → partial receipt; locked-order error; 404/403 visibility; logout; signup → verify (Mailpit) → login; forgot → reset; profile + change password + session revoke; admin role change and deactivation; pending count updates | Todo |
+| Frontend account pages, Access pending screen, profile, admin users and access requests, nav counts | NFR-FE-08 | 0018 | neutral confirmation on account pages; token removed from URL after posting; password field codes mapped; no-role user routed to Access pending (signup date, message form, "Request sent on …", admin note) and `NO_ROLE_ASSIGNED` from any call routes there; profile edits and sessions list; role dropdown limited to three sets; access-requests tab with assign and dismiss; admin/self rows read-only; pending-approvals count and access-request badge | Todo |
+| Confirmation dialogs (frontend only): shared `ConfirmDialog`; confirm what can't be undone, ends something or changes another person's access; never reversible saves; unsaved-changes guard | NFR-FE-09 | 0018 | component test per dialog (content and facts, safe-button initial focus, Escape/outside close, disabled while pending so a double click sends one request, reason validation, server error inside with next step, `VERSION_CONFLICT` offers reload); axe on dialogs; no dialog on draft save, profile edit, vendor edit or vendor reactivation; Playwright: submit (expected outcome), receipt with fully-received wording, cancel with reason, delete draft, role change, unsaved-changes guard | Todo |
+| Traceability and ID-ban enforcement | NFR-DEV-01 | 0013 | traceability check; lint/commitlint | Todo |
+
+## Accounts and user management (production layer, signed off 2026-10-20)
+
+| Requirement | ID | ADR | Tests | Status |
+|---|---|---|---|---|
+| Restricted signup: domain allowlist, always 202, no role (`{}`) | FR-ACC-01 | 0017, 0016 | disallowed domain → 400 `SIGNUP_DOMAIN_NOT_ALLOWED`; case-insensitive domain; duplicate signup → same 202 + "already have an account" email; new account has role set `{}`; `roles` in body → 400 | Todo |
+| Email verification; unverified can't log in; resend always 202 | FR-ACC-02 | 0017, 0016 | unverified login → 401 `INVALID_CREDENTIALS`; verify → `ACTIVE`; resend for unknown/active email → 202, nothing sent | Todo |
+| One-time tokens: hashed, single use, purpose and expiry, superseded on reissue | FR-ACC-03 | 0017 | expired/used/superseded → 400 `INVALID_TOKEN`; only the hash stored | Todo |
+| Password policy and change-password | FR-ACC-04 | 0017 | 12/128/common-list field codes; wrong current → 400 `INCORRECT_PASSWORD`; change revokes other sessions, keeps current | Todo |
+| Forgot/reset password with equalised timing | FR-ACC-05 | 0017 | forgot for unknown email → 202 (timing within tolerance); reset revokes all sessions, clears lockout, activates `UNVERIFIED` | Todo |
+| Session list and revoke-one | FR-ACC-06 | 0017 | list shows only own sessions with `current`; revoked session's next refresh → 401 `SESSION_REVOKED`; other user's id → 404; revoking current clears cookies | Todo |
+| Account status, role sets, effects of role changes | FR-ACC-07 | 0016 | roles outside the three sets → 400; role-set `CHECK` rejects raw SQL; role change → sessions revoked and new role enforced; deactivation → 401; removing BUYER blocks create/edit/submit/withdraw/receive but keeps orders; removing APPROVER keeps earlier steps; dual-role user can't self-approve | Todo |
+| No-role users: only own profile, password, sessions, logout and access request | FR-ACC-08 | 0004, 0016 | verified no-role user logs in; every other endpoint → 403 `NO_ROLE_ASSIGNED`, before body validation (precedence); `{}` not assignable through the admin API | Todo |
+| Access request (user side) | FR-ACC-09 | 0016 | first send → `OPEN`; second send updates the message (one row); fourth in a day → 429; user with a role → 403; `GET` shows status, dates and admin note, 404 if none; new request allowed after dismissal; message rendered as text | Todo |
+| Per-account lockout (5 failures → 15 min), same 401 | NFR-SEC-07 | 0017 | sixth attempt with correct password → same 401; unlock after 15 min (injected clock); reset on success; holds across two instances | Todo |
+| Rate limits on signup, resend, forgot-password | NFR-SEC-08 | 0017 | per-IP → 429; per-email on a 202 endpoint still 202 and sends nothing | Todo |
+| Phone visible only to the user and Admins | NFR-PRIV-01 | 0016 | absent from all audit entries (snapshots and `details`; `USER_PROFILE_UPDATED` records set/changed/cleared only), Approver-readable responses and logs | Todo |
+| Phone purged 90 days after deactivation (DPDP) | NFR-PRIV-02 | 0016, 0020 | deactivated 91 days → cleared, 89 days or active → kept (injected clock); name/email kept; `USER_PHONE_PURGED` (`SYSTEM`, no number); reactivation doesn't restore; maintenance role can update only `phone` | Todo |
+| Admin user list: filters, pagination, stable sort, index, EXPLAIN | FR-ADM-01 | 0016 | role/status/`q` prefix (name, email, case-insensitive); page boundaries; sort (name, id) stability; committed `EXPLAIN` page + COUNT at 10k users; `lastLoginAt` present | Todo |
+| Admin user update: role sets, activation, If-Match, guards | FR-ADM-02 | 0016 | `ADMIN_NOT_MODIFIABLE`; `SELF_MODIFICATION`; `USER_UNVERIFIED`; missing/stale `If-Match`; other fields → 400; no-op writes nothing; `USER_ROLES_CHANGED`/`USER_DEACTIVATED`/`USER_REACTIVATED` before/after | Todo |
+| Admin-initiated reset email | FR-ADM-03 | 0016, 0017 | 202; standard reset email sent; `USER_PASSWORD_RESET_SENT`; admin never sees a password or token | Todo |
+| Admin bootstrap runs once (first start only) | FR-ADM-04 | 0016, 0017 | first start creates one admin and logs the link; second start prints nothing; concurrent starts create one; existing non-admin email → startup fails; login before the link is used (no password hash) runs the dummy hash → same 401 `INVALID_CREDENTIALS` | Todo |
+| Operator CLI for admin accounts (server-side only, `OPERATOR` audit actor) | FR-ADM-05 | 0016 | `admin:create` makes a second admin and prints a link; existing non-admin email → `EMAIL_IN_USE`, nothing changes; `admin:deactivate` deactivates one admin and revokes sessions; last active admin → `LAST_ADMIN`; concurrent deactivations leave one active; `admin:reactivate`; non-admin → `NOT_AN_ADMIN`; each change audited `OPERATOR` with `osUser`/`host`; audit `CHECK` rejects malformed actor fields; CLI-created admin can't log in before setting a password (same 401); no HTTP route reaches the CLI | Todo |
+| User audit events | NFR-AUD-04 | 0016 | payloads for `USER_SIGNED_UP`, `USER_EMAIL_VERIFIED`, `USER_PROFILE_UPDATED`, `USER_ROLES_CHANGED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `USER_PASSWORD_RESET_SENT`, `ACCESS_REQUESTED`, `ACCESS_REQUEST_RESOLVED`, `ACCESS_REQUEST_DISMISSED`, `USER_PHONE_PURGED`; visible only in the Admin org-wide log | Todo |
+| Mail adapter: SMTP config validated, sent after commit, Mailpit in compose (`local` profile only) | NFR-OPS-04 | 0017, 0020 | rollback sends nothing; mail failure logged, request succeeds; invalid SMTP config fails startup; compose smoke (local profile) reaches Mailpit | Todo |
+| Authorization matrix: every new endpoint × role cell, plus unauthenticated | NFR-AUTH-02 | 0004, 0016, 0017 | generated from the route table: profile, password, sessions, approval policy, pending count, own access request, admin users, admin access requests × Owner/Other Buyer, Approver, Admin, No role, anonymous | Todo |
+| Admin access requests | FR-ADM-06 | 0016 | list paginated with status filter and committed `EXPLAIN`; open-request badge count; assigning a role resolves the open request in the same transaction; dismiss with note shown to the user; dismissing a non-open request → 409 `ACCESS_REQUEST_NOT_OPEN`; deactivation dismisses the open request | Todo |
+| Retention: audit 8 years (Companies Act s.128(5)); session data and security logs purged 90 days after the session ends (DPDP); purge only under the maintenance role, run daily by the `maintenance` compose service | NFR-OPS-05 | 0016, 0017, 0020 | purge removes only rows past their limit (audit > 8 years, sessions ended > 90 days, used/expired one-time tokens > 7 days, idempotency keys > 24 h); app role `DELETE` on audit denied; purge as app role fails; overlapping run is a no-op (advisory lock); per-table counts logged; API config rejects maintenance credentials; compose smoke: `maintenance` service running and first run logged | Todo |
