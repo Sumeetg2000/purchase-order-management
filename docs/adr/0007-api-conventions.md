@@ -31,7 +31,7 @@
    be UUIDs.
 3. Reference resolution (vendor id, line ids).
 
-Field rules [TARGET]:
+Field rules:
 - `quantity`: an integer, 1–1,000,000
 - `unit_price`: a decimal, 0 to 999,999,999.9999, with at most 4 places
 - `description`: 1–500 characters

@@ -105,8 +105,8 @@ answer to an in-app access request (ADR-0016).
   account with no password hash yet: an admin created by bootstrap or `admin:create` before
   the set-password link is used.
 - Signup, resend and forgot-password **equalise response time**: mail is dispatched after
-  the response, and each handler pads to a fixed minimum duration (for example 400 ms
-  [TARGET]), so the work done for an existing account doesn't show in timing.
+  the response, and each handler pads to a fixed minimum duration of 400 ms, so the work
+  done for an existing account doesn't show in timing.
 
 ### Login, lockout and rate limits
 - `401 INVALID_CREDENTIALS` is the single response for an unknown email, a wrong password,
@@ -117,8 +117,9 @@ answer to an in-app access request (ADR-0016).
   - A successful login resets the counter. A completed reset clears the lock.
   - Accepted trade-off: anyone who knows an email can lock that account for 15 minutes.
     Per-IP rate limits slow this down, and the owner can always use forgot-password.
-- **Rate limits** [TARGET]:
-  - login: ≤ 10 per minute per IP and per account
+- **Rate limits**:
+  - login: ≤ 30 per minute per IP (offices share one IP) and ≤ 10 per minute per
+    account
   - signup: ≤ 5 per hour per IP and ≤ 3 per hour per email
   - resend-verification and forgot-password: ≤ 10 per hour per IP and ≤ 3 per hour per
     email
@@ -132,7 +133,7 @@ answer to an in-app access request (ADR-0016).
   revoked at, revoke reason.
 - **Two lifetimes**:
   - **Idle**: each refresh token is valid for 7 days, so a session unused for 7 days ends.
-  - **Absolute**: a session ends 30 days after login, however active it is [TARGET].
+  - **Absolute**: a session ends 30 days after login, however active it is.
     Rotation **never** extends it. A new refresh token's expiry is the earlier of
     now + 7 days and the session's absolute expiry. The refresh cookie's `Max-Age`
     matches.
@@ -244,7 +245,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
 - IP addresses and user agents are personal data, kept only as long as they serve
   security.
 - Session rows and their refresh tokens are purged **90 days after the session ends**
-  (revoked, or past its idle or absolute expiry) [TARGET].
+  (revoked, or past its idle or absolute expiry).
 - Security log entries are purged after 90 days in the log store.
 - The purge runs daily under the maintenance database role (ADR-0020).
 - Business audit has its own 8-year rule (ADR-0016).
@@ -327,7 +328,8 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - a cross-origin `Origin` → 403, on public endpoints as well
   - after a simulated browser restart (session cookies dropped), refresh succeeds and the
     next state-changing request passes the CSRF check
-- Login: the login rate limit → 429; an unknown email and a wrong password give identical
+- Login: the 31st attempt in a minute from one IP → 429, and the 11th on one account →
+  429 (even from different IPs); an unknown email and a wrong password give identical
   responses. An account with no password hash (bootstrap or CLI-created, link not yet
   used) runs the dummy hash and returns the same 401 `INVALID_CREDENTIALS`, with timing
   within tolerance of a wrong password.

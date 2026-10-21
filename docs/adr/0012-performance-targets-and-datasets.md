@@ -20,7 +20,7 @@
   10 min with zero pool-exhaustion or timeout errors, < 0.1% errors, and zero reconciliation
   rows.
 - Page 100 (offset about 5,000) is measured and recorded with no target.
-- **Frontend targets** [TARGET] (Playwright, 4× CPU throttling, production build):
+- **Frontend targets** (Playwright, 4× CPU throttling, production build):
   - 500-line editor: keystroke in a cell → next paint p95 ≤ 50 ms; add or remove a line
     p95 ≤ 100 ms; a loaded 500-line order interactive within 1,000 ms.
   - Interaction to Next Paint ≤ 200 ms on core flows.

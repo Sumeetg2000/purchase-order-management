@@ -1,8 +1,12 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 2.0.0 → 3.0.0
-Bump rationale: MAJOR (structure change). The constitution now holds only MUST-level
+Version change: 3.0.0 → 3.0.1
+Bump rationale: PATCH. The owner confirmed every [DEFAULT]/[TARGET] value in the ADRs on
+2026-10-21 (one change: login rate limit per IP raised to 30/min, ADR-0017), and the
+markers were removed. No principle changed.
+
+Previous change, 2.0.0 → 3.0.0: MAJOR (structure change). The constitution now holds only MUST-level
 principles. Numbers and mechanisms moved to the ADRs, so tuning a value no longer needs an
 amendment. Rule: "we believe something different" is a principle; "we picked a different
 number or mechanism" is an ADR.
@@ -30,7 +34,7 @@ Removed rules: DUPLICATE_APPROVER; "self-signup grants BUYER".
 
 Templates reviewed (not modified): plan, spec, tasks, checklist templates. They need no
 change: the Constitution Check reads principles I–XIII.
-Follow-up TODOs: remaining [DEFAULT]/[TARGET] markers in the ADRs await owner review.
+Follow-up TODOs: none.
 -->
 
 # Vendor & Purchase Order Management Constitution
@@ -47,9 +51,8 @@ reviewed in the PR, and needs no amendment unless it weakens a principle.
 The brief is `docs/BRIEF.md`. Markers: **[BRIEF §x]** binding requirement in that
 section of `docs/BRIEF.md` · **[ADR-NNNN]** recorded decision ·
 **[NEEDS SIGN-OFF]** would change the brief's actors, permissions or explicit rules, so it
-MUST NOT be built until the owner approves it. Inside ADRs, **[DEFAULT]** marks industry
-practice adopted where the brief is silent, and **[TARGET]** marks an assumed number. Both
-await owner confirmation.
+MUST NOT be built until the owner approves it. All ADR defaults and numeric targets were
+confirmed by the owner on 2026-10-21.
 
 ## Core Principles
 
@@ -317,8 +320,8 @@ Conventional Commits. `main` is always releasable.
   be deviated from.
 - **Compliance**: every plan's Constitution Check, every review gate and every PR verify
   Principles I–XIII.
-- `[DEFAULT]` and `[TARGET]` markers live in the ADRs and are confirmed there with the
-  owner.
+- A new assumption in an ADR (industry practice where the brief is silent, or an assumed
+  number) is named as unconfirmed in that ADR's status line until the owner confirms it.
 - Runtime guidance for agents lives in `CLAUDE.md` and MUST NOT contradict this document.
 
-**Version**: 3.0.0 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-20
+**Version**: 3.0.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-21

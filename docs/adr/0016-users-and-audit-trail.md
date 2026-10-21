@@ -132,7 +132,7 @@ email: notifications stay deferred (ADR-0019).
 - **Indexes**: `(name, id)`, `(status, name, id)`, `lower(name) text_pattern_ops` and
   `lower(email) text_pattern_ops` for the prefix search. `role` is a low-selectivity
   predicate applied on top. The page query and its `COUNT` have committed
-  `EXPLAIN (ANALYZE, BUFFERS)` output at a seeded 10,000-user dataset [TARGET], so the
+  `EXPLAIN (ANALYZE, BUFFERS)` output at a seeded 10,000-user dataset, so the
   index paths are exercised.
 
 ### Bootstrap admin

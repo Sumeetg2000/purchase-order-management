@@ -41,7 +41,7 @@
   invalid.
 - Graceful shutdown drains in-flight requests and closes the pool.
 
-### Security baseline [DEFAULT]
+### Security baseline
 - Helmet security headers, CORS denied by default (same origin, ADR-0017), and request
   body size limits.
 - Parameterized SQL only.
@@ -52,7 +52,7 @@
   - app (runtime)
   - maintenance (retention purges)
 
-### Observability [DEFAULT]
+### Observability
 - Structured JSON logs (pino) with a correlation id on every line. The id is also
   returned as a response header and stored in audit entries.
 - No secrets, tokens or phone numbers are logged. The only exceptions are the bootstrap and
@@ -93,8 +93,8 @@
 Docker compose **is** the deployment, so the purge runs there. Per Principle XII, a new
 runtime service needs an ADR, and this section is it.
 - It uses the same image as the API, with its own command: a simple loop that runs
-  `npm run maintenance -- purge` once a day, the first run at start, then sleeps 24 h
-  [TARGET]. No in-container cron, so there is no extra daemon.
+  `npm run maintenance -- purge` once a day, the first run at start, then sleeps 24 h.
+  No in-container cron, so there is no extra daemon.
 - It connects with the **maintenance role's credentials** (`MAINTENANCE_DATABASE_URL`).
   The API service never receives them, and the API's config schema rejects them if they're
   present.

@@ -18,5 +18,4 @@
 - CI fails if a section of `docs/BRIEF.md` (§1–§8) has no row in `docs/traceability.md`,
   or a requirement has no passing test. `docs/BRIEF.md` is kept unchanged. A change to it
   is a scope change, reviewed like an amendment.
-- Coverage of the domain and service layer is at least 90% of lines and branches
-  [TARGET].
+- Coverage of the domain and service layer is at least 90% of lines and branches.
