@@ -95,10 +95,14 @@ lint, typecheck and the secret scan.
   `typecheck` (all workspaces) — FR-038 — Verify: `npm run lint && npm run format:check &&
   npm run typecheck` pass. Scratch violations fail lint: a file with `any`, and a component
   using `dangerouslySetInnerHTML` (FR-027).
-- [ ] T007 Test runner — `vitest.workspace.ts`; `vitest.config.ts` in each package with the
-  JSON reporter writing to `reports/vitest-<package>.json`; one trivial passing test per
-  package (`*/tests/smoke.test.ts`); root script `test` — FR-038 — Verify: `npm test`
-  passes and writes three JSON reports.
+- [X] T007 Test runner — a `vitest.config.ts` in each package (web merges `vite.config.ts`),
+  each with the JSON reporter writing to `reports/vitest-<package>.json`; one trivial
+  passing test in `packages/contracts/tests/` and `apps/api/tests/` (web already has
+  `build-target.test.ts`); package `test` scripts, and a root `test` that runs every
+  workspace. The tsconfig is split per package: `tsconfig.build.json` emits `src/` only,
+  and `tsconfig.json` (no emit) covers `src/`, `tests/` and configs for typecheck, lint and
+  tests. Vitest 5 has no `vitest.workspace.ts`, and per-package configs keep `npm test -w`
+  self-contained — FR-038 — Verify: `npm test` passes and writes three JSON reports.
 - [ ] T008 CI skeleton for a public repository — `.github/workflows/ci.yml`:
   - triggers `pull_request` (to `main`) and `push` (to `main`) **only**, never
     `pull_request_target`

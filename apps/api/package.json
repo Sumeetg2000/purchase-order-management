@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b",
-    "typecheck": "tsc -b",
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "admin": "node dist/cli/admin.js"
+    "admin": "node dist/cli/admin.js",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "vitest": "5.0.5"
   },
   "dependencies": {
     "@po/contracts": "0.0.0",
