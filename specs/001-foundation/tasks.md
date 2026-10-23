@@ -103,7 +103,7 @@ lint, typecheck and the secret scan.
   and `tsconfig.json` (no emit) covers `src/`, `tests/` and configs for typecheck, lint and
   tests. Vitest 5 has no `vitest.workspace.ts`, and per-package configs keep `npm test -w`
   self-contained — FR-038 — Verify: `npm test` passes and writes three JSON reports.
-- [ ] T008 CI skeleton for a public repository — `.github/workflows/ci.yml`:
+- [X] T008 CI skeleton for a public repository — `.github/workflows/ci.yml`:
   - triggers `pull_request` (to `main`) and `push` (to `main`) **only**, never
     `pull_request_target`
   - `permissions: contents: read` and `concurrency` per ref
