@@ -14,5 +14,8 @@
     "format:check": "echo \"format:check: configured in T006\"",
     "typecheck": "echo \"typecheck: configured in T006\"",
     "test": "echo \"test: configured in T007\""
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
   }
 }

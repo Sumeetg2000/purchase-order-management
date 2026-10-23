@@ -60,7 +60,7 @@ lint, typecheck and the secret scan.
   `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`), `package-lock.json` — FR-038 — Verify: `npm ci` succeeds
   on Node 24.
-- [ ] T003 [P] Contracts package skeleton — `packages/contracts/package.json`,
+- [X] T003 [P] Contracts package skeleton — `packages/contracts/package.json`,
   `packages/contracts/tsconfig.json`, `packages/contracts/src/index.ts` (Zod 4
   dependency) — FR-020 — Verify: `npm run typecheck -w packages/contracts`.
 - [ ] T004 [P] API package skeleton:
