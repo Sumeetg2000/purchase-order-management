@@ -178,7 +178,7 @@ database harness, route registration and the transaction helper. Every story nee
   `apps/api/tests/integration/harness.test.ts` (`po_app` connects; `CREATE TABLE` as
   `po_app` → permission denied) — FR-016, FR-038 — Verify:
   `npm test -w apps/api -- harness` passes with only Docker running.
-- [ ] T016 [P] Tests for route registration and transactions, seen failing:
+- [X] T016 [P] Tests for route registration and transactions, seen failing:
   - `apps/api/tests/unit/define-route.test.ts`: a route without `access` makes app
     startup throw; a route not in the OpenAPI registry throws; `access: 'public'` routes
     register
