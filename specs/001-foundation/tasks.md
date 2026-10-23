@@ -79,7 +79,7 @@ lint, typecheck and the secret scan.
 
   — FR-002, FR-033 — Verify: `npm run build -w apps/api && npm run typecheck -w apps/api`,
   and `npm run admin -w apps/api -- --help` exits 0.
-- [ ] T005 [P] Web package skeleton — `apps/web/package.json` (React 19, Vite, TypeScript),
+- [X] T005 [P] Web package skeleton — `apps/web/package.json` (React 19, Vite, TypeScript),
   `apps/web/tsconfig.json`, `apps/web/vite.config.ts`, `apps/web/index.html`,
   `apps/web/src/main.tsx`, `apps/web/src/App.tsx`, and `browserslist` in
   `apps/web/package.json` (`last 2 Chrome versions, last 2 Edge versions, last 2 Firefox
