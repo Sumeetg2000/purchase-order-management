@@ -88,8 +88,9 @@ lint, typecheck and the secret scan.
   Verify: `npm run build -w apps/web` succeeds, and a unit test
   (`apps/web/tests/build-target.test.ts`) asserts that the resolved `build.target` equals
   the targets derived from `browserslist`.
-- [ ] T006 Lint and format — `eslint.config.mjs` (typescript-eslint strict-type-checked,
-  react-hooks, `react/no-danger` (bans `dangerouslySetInnerHTML`), no `any`, no non-null
+- [X] T006 Lint and format — `eslint.config.mjs` (typescript-eslint strict-type-checked,
+  react-hooks, a ban on `dangerouslySetInnerHTML` (done with the core `no-restricted-syntax`
+  rule, because `eslint-plugin-react`'s `react/no-danger` doesn't support ESLint 10 yet), no `any`, no non-null
   assertion, `no-restricted-syntax` placeholder for later rules), `.prettierrc`, `.prettierignore`, root scripts `lint`, `format:check` and
   `typecheck` (all workspaces) — FR-038 — Verify: `npm run lint && npm run format:check &&
   npm run typecheck` pass. Scratch violations fail lint: a file with `any`, and a component

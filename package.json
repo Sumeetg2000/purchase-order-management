@@ -10,13 +10,20 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "lint": "echo \"lint: configured in T006\"",
-    "format:check": "echo \"format:check: configured in T006\"",
-    "typecheck": "echo \"typecheck: configured in T006\"",
-    "test": "echo \"test: configured in T007\""
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "echo \"test: configured in T007\"",
+    "format": "prettier --write ."
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

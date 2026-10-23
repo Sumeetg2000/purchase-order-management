@@ -1,0 +1,12 @@
+dist/
+build/
+coverage/
+reports/
+node_modules/
+package-lock.json
+# Prose and generated tooling files keep their own formatting.
+*.md
+.specify/
+.claude/
+specs/
+docs/
