@@ -10,7 +10,8 @@
     "admin": "node dist/cli/admin.js",
     "test": "vitest run",
     "generate": "prisma generate",
-    "migrate": "node dist/migrate/run.js"
+    "migrate": "node dist/migrate/run.js",
+    "pretest": "prisma generate"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.2.1",

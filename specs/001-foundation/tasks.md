@@ -216,7 +216,7 @@ database harness, route registration and the transaction helper. Every story nee
 
   T047 extends it with constraint and trigger codes — FR-011, FR-018 base, FR-030 base —
   Verify: `transaction.test.ts` and `db-error-shapes.test.ts` pass.
-- [ ] T019 CI test job — `.github/workflows/ci.yml`: job `api` (`npm ci`, `npm test -w
+- [X] T019 CI test job — `.github/workflows/ci.yml`: job `api` (`npm ci`, `npm test -w
   apps/api` with Docker for Testcontainers, upload `reports/` as an artifact) — FR-038 —
   Verify: after the push, the draft PR's checks show `api` green alongside `static` and
   `secrets`.
