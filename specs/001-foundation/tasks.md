@@ -117,7 +117,7 @@ lint, typecheck and the secret scan.
   SC-004 — Verify: `actionlint` passes locally, and `docker run --rm -v
   "$PWD:/repo" ghcr.io/gitleaks/gitleaks:<pinned> git /repo` exits 0. Both jobs then run and
   pass on the draft PR (T009).
-- [ ] T009 Open a **draft** PR `001-foundation → main`, titled "Slice 0 — Foundation"
+- [X] T009 Open a **draft** PR `001-foundation → main`, titled "Slice 0 — Foundation"
   and linking `specs/001-foundation/spec.md`. The workflow triggers only on PRs to `main`
   and pushes to `main`, so from here on every push to the branch runs CI on this PR —
   FR-038 — Verify: `gh pr view --json isDraft,headRefName,baseRefName` shows
