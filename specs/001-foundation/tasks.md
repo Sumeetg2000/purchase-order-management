@@ -128,12 +128,13 @@ lint, typecheck and the secret scan.
   commits (`--from ${{ github.event.pull_request.base.sha }} --to ${{
   github.event.pull_request.head.sha }}`; the `static` checkout uses `fetch-depth: 0`) — FR-038 — Verify: `echo "bad message" | npx commitlint` fails, and
   `echo "chore: ok" | npx commitlint` passes.
-- [ ] T011 [P] Example environment and CI env generator — `.env.example` (every variable
+- [X] T011 [P] Example environment and CI env generator — `.env.example` (every variable
   in [contracts/config.md](contracts/config.md); secrets as `change-me-…` placeholders;
   `COMPOSE_PROFILES=local`, `APP_ENV=local`, `SEED_DEMO_DATA=true`),
   `scripts/ci-env.sh` (copies to `.env`, replaces every `change-me-…` value with
-  `openssl rand -hex 24`) — FR-007, FR-038 — Verify: `scripts/ci-env.sh && ! grep -q
-  change-me- .env`, and the `secrets` job stays green with `.env.example` committed.
+  `openssl rand -hex 24`) — FR-007, FR-038 — Verify: `scripts/ci-env.sh && ! grep -qE
+  '^[A-Z0-9_]+=change-me-' .env` (the header comment mentions the prefix, but no value
+  keeps it); the script refuses to overwrite an existing `.env` without `--force`; and the `secrets` job stays green with `.env.example` committed.
 
 **Checkpoint**: lint, typecheck and the secret scan guard every following commit.
 
@@ -228,8 +229,10 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
     maintenance; a `DATABASE_URL` user other than `po_app`; a maintenance URL user other
     than `po_maintenance`; migrate given `MAINTENANCE_DATABASE_URL`
   - `METRICS_PORT == HTTP_PORT` refused
-  - every key read by any process schema appears in `.env.example`, and `.env.example`
-    has no key that no schema reads (FR-007)
+  - every key read by any process schema appears in `.env.example`, either as a
+    `KEY=value` line or on its `# composed:` comment line (the three database URLs that
+    `docker-compose.yml` builds from the passwords); and `.env.example` has no key that no
+    schema reads (FR-007)
 
   Test names cite `NFR-OPS-02` — FR-003, FR-004, FR-007 — Verify: `npm test -w apps/api --
   config-rules` fails.
