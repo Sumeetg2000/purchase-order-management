@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prelint": "npm run generate -w @po/api"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

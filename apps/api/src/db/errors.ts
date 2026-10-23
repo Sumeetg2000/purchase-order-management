@@ -50,11 +50,31 @@ function adapterCause(error: Prisma.PrismaClientKnownRequestError): DriverAdapte
 
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
 
+// Node socket error codes for a database that can't be reached. The adapter usually wraps
+// them as P2010 DatabaseNotReachable, but on some hosts (the CI runner) the raw pg
+// connect error arrives unwrapped with one of these codes (research R5).
+const CONNECTION_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+]);
+
+function isConnectionError(error: unknown): boolean {
+  if (!(error instanceof Error) || error instanceof Prisma.PrismaClientKnownRequestError) {
+    return false;
+  }
+  const code = (error as Error & { code?: unknown }).code;
+  return typeof code === 'string' && CONNECTION_ERROR_CODES.has(code);
+}
+
 export type DbErrorClass = 'unavailable' | 'retryable' | 'other';
 
 /** Classifies an error for the transaction helper: give up with 503, retry, or rethrow. */
 export function classifyDbError(error: unknown): DbErrorClass {
-  if (isPoolTimeout(error)) return 'unavailable';
+  if (isPoolTimeout(error) || isConnectionError(error)) return 'unavailable';
   if (error instanceof Prisma.PrismaClientInitializationError) return 'unavailable';
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === 'P2028') return 'unavailable';

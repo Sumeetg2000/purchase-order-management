@@ -25,9 +25,9 @@ function run(env: Record<string, string | undefined>) {
 const valid = {
   HTTP_PORT: '3000',
   DATABASE_URL: 'postgres://po_app:pw@db:5432/po',
-  SMTP_PASSWORD: 'a-long-smtp-password',
-  API_TOKEN: 'a-long-api-token-value',
-  CLIENT_SECRET: 'a-long-client-secret',
+  SMTP_PASSWORD: 'xxxx-xxxx-xxxx-xxxx',
+  API_TOKEN: 'xxxx-xxxx-xxxx-xxxx',
+  CLIENT_SECRET: 'xxxx-xxxx-xxxx-xxxx',
 };
 
 describe('[NFR-OPS-02] config loader', () => {
@@ -48,10 +48,10 @@ describe('[NFR-OPS-02] config loader', () => {
 
   it('never prints the value of a key containing PASSWORD, SECRET, TOKEN or URL', () => {
     const secrets = {
-      DATABASE_URL: 'not-a-url-but-SECRET-VALUE-1',
-      SMTP_PASSWORD: 'pw-SECRET-2',
-      API_TOKEN: 'short-SECRET-3',
-      CLIENT_SECRET: 'tiny-SECRET-4',
+      DATABASE_URL: 'not-a-url-xxxx-1',
+      SMTP_PASSWORD: 'xxxx-xxxx-2',
+      API_TOKEN: 'xxxx-xxxx-3',
+      CLIENT_SECRET: 'xxxx-xxxx-4',
     };
     const { output, exitCode } = run({ ...valid, ...secrets });
     expect(exitCode).toBe(1);

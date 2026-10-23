@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
+import { classifyDbError } from '../../src/db/errors.js';
 import { createTestDatabase } from '../support/db.js';
 import { trackDatabase } from '../support/setup.js';
 
@@ -107,12 +108,20 @@ describe('[NFR-API-02] database error shapes (Prisma 7 + pg adapter)', () => {
     expect(cause(error)).toMatchObject({ originalCode: 'PO001' });
   });
 
-  it('an unreachable database is P2010 with DatabaseNotReachable', async () => {
+  // Two shapes were observed for the same failure: locally the adapter wraps it as P2010
+  // DatabaseNotReachable; on the CI runner the raw pg connect error (code ECONNREFUSED)
+  // arrives unwrapped. Both must classify as unavailable.
+  it('an unreachable database is P2010 DatabaseNotReachable or a raw ECONNREFUSED, both unavailable', async () => {
     const db = trackDatabase(await createTestDatabase());
     const unreachable = db.url('po_app').replace(/:\d+\//, ':1/');
     const prisma = await client({ url: unreachable, connectionTimeoutMs: 500 });
     const error = await caught(prisma.$queryRaw`SELECT 1`);
-    expect(error['code']).toBe('P2010');
-    expect(cause(error)).toMatchObject({ kind: 'DatabaseNotReachable' });
+    if (error['code'] === 'P2010') {
+      expect(cause(error)).toMatchObject({ kind: 'DatabaseNotReachable' });
+    } else {
+      expect(error).toBeInstanceOf(Error);
+      expect(error['code']).toBe('ECONNREFUSED');
+    }
+    expect(classifyDbError(error)).toBe('unavailable');
   });
 });

@@ -77,7 +77,7 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     | Pool exhausted, interactive transaction waits past `maxWait` | `PrismaClientKnownRequestError` `P2028` ("Unable to start a transaction in the given time") | `503 SERVICE_UNAVAILABLE` |
     | Interactive transaction runs past `timeout` | `P2028`, `meta.timeout` and `meta.timeTaken` set | `503 SERVICE_UNAVAILABLE` |
     | SQLSTATE `40001` / `40P01` | `P2010`, `meta.driverAdapterError.cause.kind = 'TransactionWriteConflict'`, `cause.originalCode` = the SQLSTATE (also accept `P2034`) | retried; then `503 CONCURRENCY_RETRY_EXHAUSTED` |
-    | Database unreachable | `P2010`, `cause.kind = 'DatabaseNotReachable'` | `503 SERVICE_UNAVAILABLE` |
+    | Database unreachable | locally: `P2010`, `cause.kind = 'DatabaseNotReachable'`. On the CI runner: the raw pg connect `Error` with `code: 'ECONNREFUSED'`, not wrapped by the adapter. Seen in the first CI run; the probe had only run locally. Node socket codes (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `ETIMEDOUT`, `EHOSTUNREACH`, `ENETUNREACH`) are matched by code | `503 SERVICE_UNAVAILABLE` |
     | Unique violation (model API) | `P2002`, `cause.constraint.index` names the constraint | per constraint, slice by slice |
     | Error raised by our triggers | `P2010`, `cause.originalCode` = our custom SQLSTATE (R6) | per code |
 

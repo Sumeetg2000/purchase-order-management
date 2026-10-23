@@ -210,7 +210,8 @@ database harness, route registration and the transaction helper. Every story nee
   `apps/api/src/db/errors.ts`:
   - `isPoolTimeout` (the pg-pool message match, the only one allowed)
   - `P2028` → `SERVICE_UNAVAILABLE`
-  - `DatabaseNotReachable` → `SERVICE_UNAVAILABLE`
+  - `DatabaseNotReachable`, and raw Node connection errors (`ECONNREFUSED` and similar, as
+    seen on the CI runner) → `SERVICE_UNAVAILABLE`
   - `TransactionWriteConflict` / `40001` / `40P01` / `P2034` → retryable, then
     `CONCURRENCY_RETRY_EXHAUSTED`
 

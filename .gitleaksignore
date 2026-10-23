@@ -1,0 +1,8 @@
+# Exact findings acknowledged as fake test fixtures (ADR-0020). Each line pins one
+# commit, file and line, so it cannot hide any other finding. Never add a value pattern
+# here; fix the source instead.
+#
+# Commit 0e72211 added obviously fake values ('short-pw-SECRET-2', 'short-SECRET-3') to
+# the config-loader test; later commits replaced them with low-entropy placeholders.
+0e72211f9ec1145bd26b0c16d079952a5fa3be72:apps/api/tests/unit/config-load.test.ts:generic-api-key:52
+0e72211f9ec1145bd26b0c16d079952a5fa3be72:apps/api/tests/unit/config-load.test.ts:generic-api-key:53
