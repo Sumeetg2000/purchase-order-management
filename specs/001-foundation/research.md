@@ -6,8 +6,11 @@ are the current stable release when the slice starts, and every version is pinne
 in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
 
 ## R1. Runtime versions
-- **Decision**: Node.js 24 (the active LTS line); TypeScript 5.x with `strict`;
+- **Decision**: Node.js 24 (the active LTS line); TypeScript 6.0 with `strict`;
   PostgreSQL 17, the same major in compose, tests and CI.
+  - **Updated at T003**: npm's `latest` TypeScript is 7.0, the native compiler, but
+    typescript-eslint supports TypeScript below 6.1. So the project pins 6.0.x, the last
+    release on the JavaScript compiler, and revisits once typescript-eslint supports 7.
 - **Rationale**: ADR-0020 asks for the active LTS and PostgreSQL 16+. PostgreSQL 17 is
   mature and supports everything ADR-0003 needs: statement-level triggers with transition
   tables, generated columns and column privileges.
@@ -121,7 +124,13 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
   privilege).
 
 ## R8. Prisma's role
-- **Decision**: Prisma for the client, the schema and migration files. Every trigger,
+- **Decision**: Prisma 7 for the client, the schema and migration files.
+  - **Updated at T004**: Prisma 7 needs a driver adapter, so the client connects through
+    `@prisma/adapter-pg` over `pg`. The project pins the stable 7.10.1, because npm's
+    `latest` tag for the CLI points at an 8.0 release candidate.
+  - npm 11 runs install scripts only for packages on the root `allowScripts` list, pinned
+    to exact versions: `prisma` and `@prisma/engines` (the schema engine `migrate`
+    needs), and `esbuild` (tsx and Vite). Every trigger,
   function, privilege and `CHECK` lives as raw SQL in the migration. A schema
   introspection test compares the live privileges, triggers and constraints against an
   expected list.

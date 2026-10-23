@@ -63,7 +63,7 @@ lint, typecheck and the secret scan.
 - [X] T003 [P] Contracts package skeleton — `packages/contracts/package.json`,
   `packages/contracts/tsconfig.json`, `packages/contracts/src/index.ts` (Zod 4
   dependency) — FR-020 — Verify: `npm run typecheck -w packages/contracts`.
-- [ ] T004 [P] API package skeleton:
+- [X] T004 [P] API package skeleton:
   - `apps/api/package.json`:
     - `dependencies`: Express 5, `@prisma/client`, **`prisma` (the CLI)**, pino, Zod 4. The
       CLI must be a runtime dependency, because `migrate` runs `prisma migrate deploy` in

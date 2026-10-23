@@ -26,6 +26,8 @@
     mail), so any relay works, Mailpit included.
   - `openapi-fetch`: a thin fetch client typed from the generated OpenAPI types
     (ADR-0008). It adds almost nothing to the bundle and generates no code beyond types.
+  - `@prisma/adapter-pg` with `pg`: Prisma 7 connects only through a driver adapter, and
+    this is the official one for PostgreSQL.
 - **Runtime**: nginx (same-origin edge), docker compose, an SMTP relay (Mailpit in
   compose, ADR-0017), and the `maintenance` service (below).
 - One API service, one PostgreSQL database, one React app, the nginx edge and the
@@ -58,6 +60,9 @@
 - Parameterized SQL only.
 - No secrets in the repository or images. Containers run as non-root.
 - Dependency scanning with no unresolved high or critical findings.
+- **Install scripts**: npm runs them only for packages on the root `allowScripts` list,
+  each pinned to an exact version. Upgrading such a package requires approving its script
+  again.
 - **Public repository**:
   - CI runs on `pull_request` and `push` only, never `pull_request_target`, with read-only
     permissions.
