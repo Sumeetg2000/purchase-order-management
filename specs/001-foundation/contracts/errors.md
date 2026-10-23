@@ -25,7 +25,8 @@ Field codes used in slice 0 (inside `details[]` of `VALIDATION_FAILED`):
 | `INVALID_FORMAT` | wrong type or format (e.g. not a UUID) |
 | `TOO_SHORT`, `TOO_LONG`, `OUT_OF_RANGE` | length or range limits |
 
-Database-level errors raised by triggers (`ACTOR_CONTEXT_REQUIRED`, `ACTOR_CONTEXT_MISMATCH`)
+Database-level errors raised by triggers (`ACTOR_CONTEXT_REQUIRED` with SQLSTATE `PO001`,
+`ACTOR_CONTEXT_MISMATCH` with `PO002`, mapped by SQLSTATE)
 never reach a client as such. The central mapper turns them into `INTERNAL_ERROR` and logs
 them, because they mean a code path forgot its actor context, which is a bug.
 

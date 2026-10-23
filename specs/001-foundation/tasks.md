@@ -187,9 +187,17 @@ database harness, route registration and the transaction helper. Every story nee
       or rollback, and don't leak to the next transaction on the same pooled connection
     - `40001` is retried up to 3 times, then fails `CONCURRENCY_RETRY_EXHAUSTED`
     - `afterCommit` callbacks run once after commit, and never after rollback
-    - a pool timeout maps to `SERVICE_UNAVAILABLE`
+    - pool exhaustion maps to `SERVICE_UNAVAILABLE` in both forms: a query outside a
+      transaction (pg-pool's bare `Error`) and a transaction past `maxWait` (`P2028`)
+    - a transaction past its `timeout` (`P2028`) maps to `SERVICE_UNAVAILABLE`
+  - `apps/api/tests/integration/db-error-shapes.test.ts`: the probe's findings as a
+    regression test, pinned to the locked Prisma, adapter and `pg` versions (research R5).
+    It covers the pg-pool timeout message; `P2028` for `maxWait` and `timeout`; `P2010`
+    with `TransactionWriteConflict` and `originalCode` for `40001` and `40P01`; `P2010`
+    with `DatabaseNotReachable`; and a custom SQLSTATE `PO001` arriving as
+    `cause.originalCode`. An upgrade that changes any shape fails here.
 
-  — FR-015, FR-011, FR-030 — Verify: both files fail (modules missing).
+  — FR-015, FR-011, FR-030 — Verify: all three files fail (modules missing).
 - [ ] T017 Route registration and app factory — `apps/api/src/http/define-route.ts`
   (method, path, `access`, request and response Zod schemas, handler; registers OpenAPI
   metadata; startup check), `apps/api/src/http/app.ts` (`createApp({ routes, config })`),
@@ -198,8 +206,16 @@ database harness, route registration and the transaction helper. Every story nee
 - [ ] T018 Transaction helper — `apps/api/src/db/client.ts` (Prisma client, explicit pool
   size), `apps/api/src/db/transaction.ts` (`withTransaction(ctx, fn)`:
   `set_config(..., true)` actor settings, `timeout` and `maxWait` from config, retries of
-  `40001`/`40P01` with jitter (3), `afterCommit` queue, pool and timeout → typed errors)
-  — FR-011, FR-018 base, FR-030 base — Verify: `transaction.test.ts` passes.
+  `40001`/`40P01` with jitter (3), `afterCommit` queue), and the first version of
+  `apps/api/src/db/errors.ts`:
+  - `isPoolTimeout` (the pg-pool message match, the only one allowed)
+  - `P2028` → `SERVICE_UNAVAILABLE`
+  - `DatabaseNotReachable` → `SERVICE_UNAVAILABLE`
+  - `TransactionWriteConflict` / `40001` / `40P01` / `P2034` → retryable, then
+    `CONCURRENCY_RETRY_EXHAUSTED`
+
+  T047 extends it with constraint and trigger codes — FR-011, FR-018 base, FR-030 base —
+  Verify: `transaction.test.ts` and `db-error-shapes.test.ts` pass.
 - [ ] T019 CI test job — `.github/workflows/ci.yml`: job `api` (`npm ci`, `npm test -w
   apps/api` with Docker for Testcontainers, upload `reports/` as an artifact) — FR-038 —
   Verify: after the push, the draft PR's checks show `api` green alongside `static` and
@@ -403,13 +419,19 @@ nothing secret leaks.
   — FR-008, FR-012, FR-013, SC-002, SC-003 — Verify: fails.
 - [ ] T041 [P] [US3] Overload and database error tests —
   `apps/api/tests/integration/overload.test.ts`:
-  - a pool of size 1 held busy → `503 SERVICE_UNAVAILABLE`
-  - a transaction timeout → `503`
+  - pool of size 1 held busy, then an HTTP request whose handler queries outside a
+    transaction (pg-pool's bare `timeout exceeded when trying to connect`) → `503
+    SERVICE_UNAVAILABLE`
+  - the same with a handler using `withTransaction` (`P2028`, past `maxWait`) → `503
+    SERVICE_UNAVAILABLE`
+  - a transaction past its `timeout` (`P2028`) → `503`
   - retries exhausted → `503 CONCURRENCY_RETRY_EXHAUSTED`
+  - database unreachable (`DatabaseNotReachable`) → `503`
 
-  Also `apps/api/tests/unit/db-errors.test.ts`: P2002, P2003, P2025 and P2024,
-  SQLSTATE `40001`/`40P01`, and trigger errors `ACTOR_CONTEXT_REQUIRED` →
-  `INTERNAL_ERROR` (logged) — FR-010, FR-011 — Verify: fails.
+  Also `apps/api/tests/unit/db-errors.test.ts`, using the error shapes recorded in research
+  R5: `P2002` (by `cause.constraint.index`), `P2003`, `P2025`, `P2028`, the pg-pool
+  timeout, `P2010` with `TransactionWriteConflict`, `DatabaseNotReachable`, and trigger
+  SQLSTATEs `PO001`/`PO002` → `INTERNAL_ERROR` (logged) — FR-010, FR-011 — Verify: fails.
 - [ ] T042 [P] [US3] API security tests — `apps/api/tests/integration/security.test.ts`:
   - helmet headers on API responses
   - an `Origin` not equal to `APP_ORIGIN` → `403 CSRF_REJECTED`
@@ -438,7 +460,9 @@ nothing secret leaks.
   `apps/api/src/http/middleware/parse-json.ts` (content-type check, 1 MB limit → `413`,
   malformed → `MALFORMED_JSON`), and Zod → field-code mapping in
   `apps/api/src/http/define-route.ts` — FR-008, FR-009 — Verify: T039 passes.
-- [ ] T047 [US3] Central database error mapper — `apps/api/src/db/errors.ts`; wiring
+- [ ] T047 [US3] Central database error mapper — extends `apps/api/src/db/errors.ts`
+  from T018 with constraint mapping (`P2002` by `cause.constraint.index`, `P2003`,
+  `P2025`) and the trigger SQLSTATEs (`PO001`, `PO002` → `INTERNAL_ERROR`, logged); wiring
   into `withTransaction` and the error middleware; and an ESLint `no-restricted-syntax`
   rule in `eslint.config.mjs` that bans `.message` reads on caught errors outside
   `db/errors.ts` — FR-010, FR-011 — Verify: T041 passes, and a scratch violation fails

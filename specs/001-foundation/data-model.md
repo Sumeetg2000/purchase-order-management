@@ -74,8 +74,8 @@ Conventions:
   - `SYSTEM`: all four are null.
   - `OPERATOR`: `actor_user_id` is null, and `details ? 'osUser' AND details ? 'host'`.
 - A `BEFORE INSERT` trigger fills the actor fields and `request_id` from the transaction's
-  actor context. It raises `ACTOR_CONTEXT_REQUIRED` if there is none, and
-  `ACTOR_CONTEXT_MISMATCH` if explicit values contradict the context.
+  actor context. It raises `ACTOR_CONTEXT_REQUIRED` (SQLSTATE `PO001`) if there is none,
+  and `ACTOR_CONTEXT_MISMATCH` (`PO002`) if explicit values contradict the context.
 - Index: `(occurred_at, id)`. Slice 1 adds the organisation-wide log's filter indexes.
 - Privileges: `po_app` gets `SELECT, INSERT`, never `UPDATE` or `DELETE`.
   `po_maintenance` gets `SELECT, DELETE` (purge after 8 years) and `INSERT` (for

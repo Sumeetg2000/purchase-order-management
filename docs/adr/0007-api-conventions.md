@@ -3,7 +3,8 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (validation order, field rules
   and the full status and code registry moved here from the constitution; `NO_ROLE_ASSIGNED`,
   access-request codes; `DUPLICATE_APPROVER` removed) · amended 2026-10-23 (`413
-  PAYLOAD_TOO_LARGE` and generic field codes, from the slice 0 plan)
+  PAYLOAD_TOO_LARGE` and generic field codes, from the slice 0 plan; the pg-pool timeout
+  exception and custom trigger SQLSTATEs, from the Prisma 7 adapter probe)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -25,6 +26,12 @@
 - Malformed JSON → 400. Non-UUID path ids → 400. DB and ORM errors are mapped in one module
   by SQLSTATE, constraint or trigger name, and Prisma code (P2002, P2003, P2025, …). Code
   never matches on message text, and a lint rule or test guards this.
+  - **One exception**: pg-pool's connection-timeout error carries no code, only the
+    message `timeout exceeded when trying to connect`. The central mapper recognises it by
+    that exact message, and nothing else in the codebase may do so. A regression test
+    pinned to the locked `pg` version fails if the message changes.
+  - Our own trigger errors use custom SQLSTATE codes (class `PO`, for example `PO001`), so
+    they're mapped by code.
 
 ### Validation order (before any business logic)
 1. Malformed JSON → `400`.

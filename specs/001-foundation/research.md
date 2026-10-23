@@ -65,14 +65,32 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
 
 ## R5. Database errors and transactions
 - **Decision**:
-  - `db/errors.ts` is the only place that maps SQLSTATE, constraint and trigger names, and
-    Prisma codes (P2002, P2003, P2025, P2024 pool timeout) to registry codes. A lint rule
-    bans reading `error.message` outside it.
+  - `db/errors.ts` is the only place that maps database and ORM errors to registry codes.
+    A lint rule bans reading `error.message` outside it.
+  - **Error shapes, as measured** with Prisma 7.10.1, `@prisma/adapter-pg` 7.10.1 and `pg`
+    8.23.1 against PostgreSQL 17 (a probe before Phase 2, kept as the regression test
+    `db-error-shapes.test.ts`). P2024 never appears with the driver adapter.
+
+    | Situation | What is thrown | Maps to |
+    |---|---|---|
+    | Pool exhausted, query outside a transaction | a bare `Error` from pg-pool: message `timeout exceeded when trying to connect`, no `code` (Prisma only adds `clientVersion`) | `503 SERVICE_UNAVAILABLE` |
+    | Pool exhausted, interactive transaction waits past `maxWait` | `PrismaClientKnownRequestError` `P2028` ("Unable to start a transaction in the given time") | `503 SERVICE_UNAVAILABLE` |
+    | Interactive transaction runs past `timeout` | `P2028`, `meta.timeout` and `meta.timeTaken` set | `503 SERVICE_UNAVAILABLE` |
+    | SQLSTATE `40001` / `40P01` | `P2010`, `meta.driverAdapterError.cause.kind = 'TransactionWriteConflict'`, `cause.originalCode` = the SQLSTATE (also accept `P2034`) | retried; then `503 CONCURRENCY_RETRY_EXHAUSTED` |
+    | Database unreachable | `P2010`, `cause.kind = 'DatabaseNotReachable'` | `503 SERVICE_UNAVAILABLE` |
+    | Unique violation (model API) | `P2002`, `cause.constraint.index` names the constraint | per constraint, slice by slice |
+    | Error raised by our triggers | `P2010`, `cause.originalCode` = our custom SQLSTATE (R6) | per code |
+
+  - **The one message match**: pg-pool's timeout error has no code, so `db/errors.ts`
+    recognises it by its exact message. It's the only message match in the codebase, it
+    lives only in `db/errors.ts`, and the regression test pinned to `pg` 8.23.1 fails if an
+    upgrade changes the message. Recorded in ADR-0007. Every query except readiness's
+    `SELECT 1` runs inside `withTransaction`, where pool waits arrive as `P2028` anyway.
   - `withTransaction(ctx, fn)` wraps every interactive transaction:
     - explicit `timeout` and `maxWait`
     - sets the actor context (R6)
     - retries `40001` and `40P01` up to 3 times with jitter
-    - maps pool and transaction timeouts to `503`
+    - maps pool and transaction timeouts (`P2028` and the pg-pool timeout) to `503`
     - collects `afterCommit` callbacks and runs them only once the transaction has
       committed
 - **Rationale**: Principle V and ADR-0006. Running `afterCommit` here enforces
@@ -89,7 +107,12 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - `app.os_user`, `app.os_host`
     - `app.request_id`
   - A trigger function `require_actor_context()` (`BEFORE INSERT OR UPDATE OR DELETE`)
-    raises `ACTOR_CONTEXT_REQUIRED` when `app.actor_type` is missing. It's attached to every
+    raises `ACTOR_CONTEXT_REQUIRED` when `app.actor_type` is missing.
+    - **Our trigger errors use custom SQLSTATE codes**, so `db/errors.ts` maps them by
+      code, never by message: class `PO` (unused by PostgreSQL), `PO001`
+      `ACTOR_CONTEXT_REQUIRED`, `PO002` `ACTOR_CONTEXT_MISMATCH`. Later slices add more,
+      for example `PO003` `DERIVED_VALUE_READ_ONLY`. The adapter exposes them as
+      `cause.originalCode`. It's attached to every
     audited table: `users` in slice 0, and more in later slices.
   - Service code writes audit rows explicitly, in the same transaction. A `BEFORE INSERT`
     trigger on `audit_entries` fills `request_id` and the actor fields from the context, and
