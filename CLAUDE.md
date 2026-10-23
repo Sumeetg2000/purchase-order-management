@@ -45,12 +45,12 @@ number, so slice 0 is `001-…`. Merge to `main` only when the slice is done.
 
 Details of each gate: see the constitution's "Development Workflow and Quality Gates".
 
-## Commands
-Placeholders. Fill these in during slice 0.
-- Start: `docker compose up` (local profile via `.env`, copied from `.env.example`)
-- Test: `TODO`
-- Lint: `TODO`
-- Typecheck: `TODO`
+## Commands (built in slice 0, `specs/001-foundation`)
+- Start (production-like, the only required setup): `cp .env.example .env && docker compose up`
+- Dev loop (API reload + Vite HMR, same origin): `npm run dev`
+- Test (needs only Docker): `npm test`
+- Lint: `npm run lint`
+- Typecheck: `npm run typecheck`
 
 ## Conventions
 - Conventional Commits. Requirement IDs go in test names only, never in code, comments or

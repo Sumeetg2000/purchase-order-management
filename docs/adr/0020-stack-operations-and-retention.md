@@ -1,7 +1,8 @@
 # ADR-0020: Technology stack, operations, security baseline and data retention
 
 - **Status:** Accepted · 2026-10-20 (moved here from the constitution, plus the retention
-  rules and the `maintenance` compose service)
+  rules and the `maintenance` compose service) · amended 2026-10-23 (internal-only metrics
+  port; public-repository CI rules and secret scanning; credential separation)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -47,6 +48,14 @@
 - Parameterized SQL only.
 - No secrets in the repository or images. Containers run as non-root.
 - Dependency scanning with no unresolved high or critical findings.
+- **Public repository**:
+  - CI runs on `pull_request` and `push` only, never `pull_request_target`, with read-only
+    permissions.
+  - Secrets come only from GitHub Actions secrets, and no check needs one, so pull requests
+    from forks pass using generated throwaway values.
+  - `.env.example` holds placeholders only.
+  - gitleaks scans every pull request's diff and the full history on `main`, as a required
+    check.
 - Least-privilege database roles (ADR-0003):
   - owner (migrations)
   - app (runtime)
@@ -57,8 +66,13 @@
   returned as a response header and stored in audit entries.
 - No secrets, tokens or phone numbers are logged. The only exceptions are the bootstrap and
   `admin:create` set-password links (ADR-0016).
-- `/healthz` checks liveness and `/readyz` checks the database. Latency and error metrics
-  are exposed.
+- `/healthz` checks liveness and `/readyz` checks the database.
+- **Metrics**: request latency and error rates are exposed in Prometheus format at
+  `/metrics`, on a separate internal-only API port.
+  - Docker compose declares that port with `expose` only, so it's reachable inside the
+    compose network and never published to the host with `ports`.
+  - nginx never routes `/metrics`, and returns `404` for it.
+  - No metrics server is bundled. A deployment that wants one scrapes the internal port.
 - Security events go to a separate `security` log stream (ADR-0017).
 
 ### Data safety
@@ -109,6 +123,8 @@ runtime service needs an ADR, and this section is it.
 - Invalid config exits non-zero. With `APP_ENV=production`, `SEED_DEMO_DATA=true` or an
   SMTP host of `mailpit` → exits non-zero.
 - Readiness fails when the database is down.
+- `/metrics` through nginx → 404. No host-published port serves it. The internal port
+  serves it inside the compose network.
 - Security headers are present. A cross-origin request is denied.
 - The purge (called directly) removes only expired rows of each kind, and runs only as the
   maintenance role. The app role's `DELETE` on audit is denied.
