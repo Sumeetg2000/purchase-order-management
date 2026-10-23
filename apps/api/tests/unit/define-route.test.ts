@@ -21,7 +21,8 @@ describe('[NFR-AUTH-01] route registration (deny by default)', () => {
   });
 
   it('refuses to start when a route declares no access', () => {
-    const { access: _omitted, ...withoutAccess } = health;
+    const withoutAccess: Record<string, unknown> = { ...health };
+    delete withoutAccess['access'];
     const route = withoutAccess as unknown as RouteDefinition;
     expect(() => createApp({ routes: [route] })).toThrow(RouteRegistrationError);
     expect(() => createApp({ routes: [route] })).toThrow(/access/);

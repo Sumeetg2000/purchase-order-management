@@ -198,7 +198,7 @@ database harness, route registration and the transaction helper. Every story nee
     `cause.originalCode`. An upgrade that changes any shape fails here.
 
   — FR-015, FR-011, FR-030 — Verify: all three files fail (modules missing).
-- [ ] T017 Route registration and app factory — `apps/api/src/http/define-route.ts`
+- [X] T017 Route registration and app factory — `apps/api/src/http/define-route.ts`
   (method, path, `access`, request and response Zod schemas, handler; registers OpenAPI
   metadata; startup check), `apps/api/src/http/app.ts` (`createApp({ routes, config })`),
   `apps/api/src/server.ts` (uses the factory) — FR-015 — Verify: `define-route.test.ts`
