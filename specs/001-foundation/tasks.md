@@ -167,7 +167,7 @@ database harness, route registration and the transaction helper. Every story nee
 
   — FR-016 — Verify: `docker run -d postgres:17…` then `node dist/migrate/run.js` twice
   against it; the second run is a no-op.
-- [ ] T015 Test database harness — `apps/api/tests/support/db.ts`:
+- [X] T015 Test database harness — `apps/api/tests/support/db.ts`:
   - start Testcontainers PostgreSQL 17 once per run
   - run T014's provisioning
   - create a migrated template database

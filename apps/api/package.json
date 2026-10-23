@@ -13,9 +13,11 @@
     "migrate": "node dist/migrate/run.js"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "12.2.1",
     "@types/express": "5.0.6",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
+    "testcontainers": "12.2.1",
     "tsx": "4.23.15",
     "vitest": "5.0.5"
   },
