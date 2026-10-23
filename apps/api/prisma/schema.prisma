@@ -1,0 +1,11 @@
+// Prisma 7 schema (research R8). Triggers, functions, CHECKs and grants live as raw SQL
+// in the migrations. The connection URL comes from prisma.config.ts (CLI) and from the
+// driver adapter (runtime).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

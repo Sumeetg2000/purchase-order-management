@@ -1,0 +1,28 @@
+# Environment files hold real secrets. Only the placeholder example is committed.
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# Test output and reports
+coverage/
+reports/
+playwright-report/
+test-results/
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Generated Prisma client (built by `prisma generate`)
+apps/api/src/generated/

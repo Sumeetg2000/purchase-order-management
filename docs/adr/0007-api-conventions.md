@@ -2,7 +2,9 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (validation order, field rules
   and the full status and code registry moved here from the constitution; `NO_ROLE_ASSIGNED`,
-  access-request codes; `DUPLICATE_APPROVER` removed)
+  access-request codes; `DUPLICATE_APPROVER` removed) · amended 2026-10-23 (`413
+  PAYLOAD_TOO_LARGE` and generic field codes, from the slice 0 plan; the pg-pool timeout
+  exception and custom trigger SQLSTATEs, from the Prisma 7 adapter probe)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -24,6 +26,12 @@
 - Malformed JSON → 400. Non-UUID path ids → 400. DB and ORM errors are mapped in one module
   by SQLSTATE, constraint or trigger name, and Prisma code (P2002, P2003, P2025, …). Code
   never matches on message text, and a lint rule or test guards this.
+  - **One exception**: pg-pool's connection-timeout error carries no code, only the
+    message `timeout exceeded when trying to connect`. The central mapper recognises it by
+    that exact message, and nothing else in the codebase may do so. A regression test
+    pinned to the locked `pg` version fails if the message changes.
+  - Our own trigger errors use custom SQLSTATE codes (class `PO`, for example `PO001`), so
+    they're mapped by code.
 
 ### Validation order (before any business logic)
 1. Malformed JSON → `400`.
@@ -47,6 +55,8 @@ Check precedence is in ADR-0004.
 ### Status and code registry
 One registry module holds every code. Every endpoint documents its codes in the OpenAPI.
 - `400 VALIDATION_FAILED`, with field codes:
+  - `MALFORMED_JSON`, `UNSUPPORTED_MEDIA_TYPE`, `REQUIRED`, `UNKNOWN_FIELD`,
+    `INVALID_FORMAT`, `TOO_SHORT`, `TOO_LONG`, `OUT_OF_RANGE`
   - `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`, `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`
   - `VERSION_REQUIRED`
   - `INVALID_PHONE`, `INVALID_ROLE_SET`
@@ -71,6 +81,7 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `IDEMPOTENCY_KEY_REUSED`
   - `ADMIN_NOT_MODIFIABLE`, `SELF_MODIFICATION`, `USER_UNVERIFIED`
   - `ACCESS_REQUEST_NOT_OPEN`
+- `413 PAYLOAD_TOO_LARGE`: a body over the size limit, refused before parsing.
 - `429 RATE_LIMITED`, with `Retry-After`.
 - `500 INTERNAL_ERROR`, with no internal details.
 - `503 SERVICE_UNAVAILABLE`, `CONCURRENCY_RETRY_EXHAUSTED`.

@@ -141,6 +141,8 @@ email: notifications stay deferred (ADR-0019).
   set-password link (a `RESET` token, ADR-0017) to the log.
 - It runs under an advisory lock, so two instances can't both create an admin. It is
   idempotent: once an admin exists it does nothing and never prints a token again.
+- It's audited as `ADMIN_CREATED` with actorType `SYSTEM` and `details.source =
+  "bootstrap"`.
 - If the link expires, the admin uses forgot-password.
 - This and the operator CLI's `admin:create` link (below) are the **only two exceptions**
   to "no tokens in logs" (Principle IX). Each is printed once, and the token is single-use
@@ -215,7 +217,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `ACCESS_REQUESTED` | request id; message (first send and each update) |
 | `ACCESS_REQUEST_RESOLVED` | request id; roles assigned; resolving admin |
 | `ACCESS_REQUEST_DISMISSED` | request id; note; dismissing admin, or "Account deactivated" |
-| `ADMIN_CREATED` | actorType `OPERATOR`; new admin's id, name and email; `osUser`, `host` |
+| `ADMIN_CREATED` | new admin's id, name and email; `details.source`: `cli` (actorType `OPERATOR`, with `osUser` and `host`) or `bootstrap` (actorType `SYSTEM`) |
 
 Authentication events (logins, lockouts, password changes, session revocations) are
 **security logs**, not business audit (ADR-0017).
