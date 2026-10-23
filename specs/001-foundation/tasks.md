@@ -123,7 +123,7 @@ lint, typecheck and the secret scan.
   FR-038 — Verify: `gh pr view --json isDraft,headRefName,baseRefName` shows
   `isDraft: true` and `001-foundation → main`, and the PR's checks show `static` and
   `secrets` green.
-- [ ] T010 [P] Commit message check — `commitlint.config.mjs` (conventional config), dev
+- [X] T010 [P] Commit message check — `commitlint.config.mjs` (conventional config), dev
   dependency `@commitlint/cli`, step in `static` that runs on `pull_request` over the PR's
   commits (`--from ${{ github.event.pull_request.base.sha }} --to ${{
   github.event.pull_request.head.sha }}`; the `static` checkout uses `fetch-depth: 0`) — FR-038 — Verify: `echo "bad message" | npx commitlint` fails, and
