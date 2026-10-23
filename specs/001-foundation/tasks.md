@@ -151,7 +151,7 @@ database harness, route registration and the transaction helper. Every story nee
     output
 
   — FR-003 — Verify: `npm test -w apps/api -- config-load` fails (module missing).
-- [ ] T013 Config loader and base logger — `apps/api/src/config/load.ts` (Zod parse →
+- [X] T013 Config loader and base logger — `apps/api/src/config/load.ts` (Zod parse →
   formatted key list → `process.exit(1)`), `apps/api/src/observability/logger.ts` (pino
   JSON to stdout, level from `LOG_LEVEL`) — FR-003 — Verify: T012 passes.
 - [ ] T014 Database role provisioning and baseline migration:

@@ -49,7 +49,7 @@ describe('[NFR-OPS-02] config loader', () => {
   it('never prints the value of a key containing PASSWORD, SECRET, TOKEN or URL', () => {
     const secrets = {
       DATABASE_URL: 'not-a-url-but-SECRET-VALUE-1',
-      SMTP_PASSWORD: 'short-pw-SECRET-2',
+      SMTP_PASSWORD: 'pw-SECRET-2',
       API_TOKEN: 'short-SECRET-3',
       CLIENT_SECRET: 'tiny-SECRET-4',
     };
