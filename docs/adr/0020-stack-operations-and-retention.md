@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-20 (moved here from the constitution, plus the retention
   rules and the `maintenance` compose service) · amended 2026-10-23 (internal-only metrics
-  port; public-repository CI rules and secret scanning; credential separation)
+  port; public-repository CI rules and secret scanning; credential separation; runtime
+  libraries from the slice 0 plan)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -16,6 +17,15 @@
 - **Tests**: Vitest + Supertest + Testcontainers, fast-check, Testing Library, MSW,
   Playwright and axe.
 - **Tooling**: k6 or autocannon, and oasdiff.
+- **Runtime libraries** (beyond those above; ADR-0018 records the frontend ones):
+  - `pino-http`: request logging for pino, binding the correlation id to every line of a
+    request (ADR-0020 observability).
+  - `prom-client`: the standard Prometheus client for Node, for the internal `/metrics`
+    endpoint. It needs no metrics server.
+  - `nodemailer`: a provider-neutral SMTP client behind the `Mailer` interface (ADR-0017
+    mail), so any relay works, Mailpit included.
+  - `openapi-fetch`: a thin fetch client typed from the generated OpenAPI types
+    (ADR-0008). It adds almost nothing to the bundle and generates no code beyond types.
 - **Runtime**: nginx (same-origin edge), docker compose, an SMTP relay (Mailpit in
   compose, ADR-0017), and the `maintenance` service (below).
 - One API service, one PostgreSQL database, one React app, the nginx edge and the

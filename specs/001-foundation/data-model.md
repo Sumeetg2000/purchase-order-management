@@ -44,7 +44,8 @@ Conventions:
 
 - Index: `(user_id, purpose) WHERE used_at IS NULL AND superseded_at IS NULL`, for
   superseding.
-- Index: `(COALESCE(used_at, expires_at))`, for the purge.
+- Index: `(COALESCE(used_at, superseded_at, expires_at))`, for the purge. It's the same
+  expression as the purge rule, so the purge can use it.
 - Privileges: `po_app` gets `SELECT, INSERT, UPDATE`. `po_maintenance` gets
   `SELECT, DELETE`.
 - Validity rule (used from slice 1): a token is valid only when `used_at`, `superseded_at`
@@ -97,6 +98,12 @@ gone at commit or rollback.
 `code` (UPPER_SNAKE_CASE, unique) · HTTP `status` · `title` · `fieldDetails` (whether
 `details[{ path, code }]` applies). Lives in `packages/contracts/src/errors.ts`. The codes for
 slice 0 are listed in [contracts/errors.md](contracts/errors.md).
+
+## _prisma_migrations (created by Prisma)
+
+Owned by `po_owner`. `po_app` gets `SELECT` only, so readiness can confirm that no
+migration is pending or failed. `po_maintenance` gets nothing. Granted in the baseline
+migration.
 
 ## Database functions and advisory locks
 

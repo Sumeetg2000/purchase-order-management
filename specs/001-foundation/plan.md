@@ -66,7 +66,7 @@ Chrome, Edge, Firefox and Safari.
 - public repository: CI needs no secrets, never uses `pull_request_target`, and
   `.env.example` holds placeholders only
 
-**Scale/Scope**: about 8 compose services, 3 tables, 2 public endpoints, 1 CLI command,
+**Scale/Scope**: 6 compose services (db, migrate, api, web, maintenance, mailpit), 3 tables, 2 public endpoints, 1 CLI command,
 1 shell screen plus the demo route, and 7 CI jobs
 
 ## Constitution Check

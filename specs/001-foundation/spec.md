@@ -56,7 +56,7 @@ decided, this spec points to its ADR instead of repeating it.
 
 An operator copies the example environment file, runs one command, and gets the whole
 system running: the database, schema migrations, the first administrator, the API, the
-web app behind a single same-origin edge, the daily maintenance job and, locally, a test
+web app behind a single same-origin edge, the daily maintenance service and, locally, a test
 mail inbox. They can ask the system whether it is alive and whether it is ready.
 
 **Why this priority**: The brief requires it (§6). Every later slice and every test
@@ -64,7 +64,7 @@ environment depends on it.
 
 **Independent Test**: From a clean checkout, copy the example environment, start the
 stack, and confirm that the health and readiness checks pass, the web app loads, the API
-answers on the same origin, and the maintenance job and test inbox are running.
+answers on the same origin, and the maintenance service and test inbox are running.
 
 **Acceptance Scenarios**:
 
@@ -301,7 +301,7 @@ locally and confirm a test message reaches the local inbox.
 
 ### User Story 8 - Old data is purged on schedule (Priority: P3)
 
-A maintenance job runs once a day as a separate service with its own restricted database
+The maintenance service runs once a day with its own restricted database
 credentials. It removes data that has passed its retention period, never runs twice at
 the same time, and logs how much it removed.
 
@@ -339,7 +339,7 @@ Start a second run during the first and confirm it does nothing.
   before parsing.
 - Migrations run while the API is already up (restart order): the API waits until
   migrations finish, and readiness fails until then.
-- The maintenance job crashes mid-run: its run lock is released, and the next daily
+- The maintenance service crashes mid-run: its run lock is released, and the next daily
   run proceeds.
 - Two bootstrap runs race: the run lock lets exactly one create the administrator.
 - The mail server is unreachable at startup: settings are validated for shape, but
@@ -363,7 +363,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 - **FR-002**: Starting the stack with one command, using only a copy of the documented
   example environment file, MUST bring up the database, apply migrations, run the admin
   bootstrap, and start the API, the web app, the same-origin edge and the maintenance
-  service. Locally, it MUST also start the test mail inbox. *(NFR-OPS-01, NFR-OPS-03)*
+  service. Locally, it MUST also start the test mail inbox. *(NFR-OPS-01 part — login lands in slice
+  1, and the order flow in slice 6; NFR-OPS-03)*
 - **FR-003**: Every service MUST validate its configuration at startup, and exit non-zero
   naming each invalid setting without printing secret values. *(NFR-OPS-02)*
 - **FR-004**: In the production environment, startup MUST be refused when demo seeding is
@@ -442,7 +443,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 
 **Frontend shell**
 - **FR-023**: The web app MUST provide page routing, a not-found page, and a per-page
-  error boundary whose error screen shows the request id. *(NFR-FE-01)*
+  error boundary whose error screen shows the request id. *(NFR-FE-01 part — the
+  `VERSION_CONFLICT` prompt lands in slice 3)*
 - **FR-024**: Every page pattern MUST provide loading, empty and error states. Temporary
   failures (`503`) offer a retry, and errors are mapped by code to user messages.
   *(NFR-FE-01, NFR-FE-04 part)*
