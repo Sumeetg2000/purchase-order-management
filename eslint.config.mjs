@@ -15,6 +15,7 @@ export default defineConfig(
       'reports/**',
       '.specify/**',
       '.claude/**',
+      'apps/api/src/generated/**',
     ],
   },
   js.configs.recommended,

@@ -154,7 +154,7 @@ database harness, route registration and the transaction helper. Every story nee
 - [X] T013 Config loader and base logger — `apps/api/src/config/load.ts` (Zod parse →
   formatted key list → `process.exit(1)`), `apps/api/src/observability/logger.ts` (pino
   JSON to stdout, level from `LOG_LEVEL`) — FR-003 — Verify: T012 passes.
-- [ ] T014 Database role provisioning and baseline migration:
+- [X] T014 Database role provisioning and baseline migration:
   - `apps/api/db-init/roles.sql`: idempotent `po_owner`, `po_app`, `po_maintenance`, all
     `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`; `po_owner` owns the database and
     schema; `REVOKE ALL ON SCHEMA public FROM PUBLIC`

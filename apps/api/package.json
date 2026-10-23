@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b tsconfig.build.json",
-    "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.json",
+    "build": "prisma generate && tsc -b tsconfig.build.json",
+    "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin": "node dist/cli/admin.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "generate": "prisma generate",
+    "migrate": "node dist/migrate/run.js"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

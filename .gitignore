@@ -23,3 +23,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Generated Prisma client (built by `prisma generate`)
+apps/api/src/generated/
