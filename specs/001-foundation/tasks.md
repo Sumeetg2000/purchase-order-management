@@ -145,7 +145,7 @@ lint, typecheck and the secret scan.
 **Purpose**: config loading, logging base, database roles and migrations, the test
 database harness, route registration and the transaction helper. Every story needs them.
 
-- [ ] T012 Tests for the config loader, seen failing — `apps/api/tests/unit/config-load.test.ts`:
+- [X] T012 Tests for the config loader, seen failing — `apps/api/tests/unit/config-load.test.ts`:
   - an invalid or missing key exits `1`, naming the key and the reason
   - a value whose key contains `PASSWORD`, `SECRET`, `TOKEN` or `URL` never appears in the
     output
