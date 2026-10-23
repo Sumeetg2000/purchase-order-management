@@ -54,7 +54,7 @@ lint, typecheck and the secret scan.
   `.env`, `.env.*` with `!.env.example`, `node_modules/`, `dist/`, `build/`, `coverage/`,
   `playwright-report/`, `test-results/`, `reports/`, `*.tsbuildinfo`, `.vite/` and
   `.DS_Store` (research R24) — FR-001 — Verify: `printf '.env\n.env.local\nnode_modules/x\ndist/x\ncoverage/x\nbuild/x\n' | git check-ignore --stdin` lists all six lines, and `git check-ignore .env.example` prints nothing.
-- [ ] T002 Root npm workspace — `package.json` (workspaces `apps/*`, `packages/*`;
+- [X] T002 Root npm workspace — `package.json` (workspaces `apps/*`, `packages/*`;
   engines node 24; scripts `lint`, `format:check`, `typecheck` and `test` as stubs),
   `.nvmrc` (`24`), `.npmrc` (`engine-strict=true`, `save-exact=true`),
   `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`,
