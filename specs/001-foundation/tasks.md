@@ -50,7 +50,7 @@ US4's schema to check against. Every P1 story still finishes before any P2 story
 **Purpose**: the repository is safe to work in, and every later commit lands under
 lint, typecheck and the secret scan.
 
-- [ ] T001 Add the root ignore rules **before any `.env` exists** — `.gitignore`. Cover
+- [X] T001 Add the root ignore rules **before any `.env` exists** — `.gitignore`. Cover
   `.env`, `.env.*` with `!.env.example`, `node_modules/`, `dist/`, `build/`, `coverage/`,
   `playwright-report/`, `test-results/`, `reports/`, `*.tsbuildinfo`, `.vite/` and
   `.DS_Store` (research R24) — FR-001 — Verify: `printf '.env\n.env.local\nnode_modules/x\ndist/x\ncoverage/x\nbuild/x\n' | git check-ignore --stdin` lists all six lines, and `git check-ignore .env.example` prints nothing.
