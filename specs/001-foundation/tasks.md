@@ -203,7 +203,7 @@ database harness, route registration and the transaction helper. Every story nee
   metadata; startup check), `apps/api/src/http/app.ts` (`createApp({ routes, config })`),
   `apps/api/src/server.ts` (uses the factory) — FR-015 — Verify: `define-route.test.ts`
   passes.
-- [ ] T018 Transaction helper — `apps/api/src/db/client.ts` (Prisma client, explicit pool
+- [X] T018 Transaction helper — `apps/api/src/db/client.ts` (Prisma client, explicit pool
   size), `apps/api/src/db/transaction.ts` (`withTransaction(ctx, fn)`:
   `set_config(..., true)` actor settings, `timeout` and `maxWait` from config, retries of
   `40001`/`40P01` with jitter (3), `afterCommit` queue), and the first version of

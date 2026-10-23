@@ -149,11 +149,11 @@ describe('[NFR-OPS-04] afterCommit', () => {
     const { options } = await setup();
     let called = false;
     await expect(
-      withTransaction(options, async (_tx, { afterCommit }) => {
+      withTransaction(options, (_tx, { afterCommit }) => {
         afterCommit(() => {
           called = true;
         });
-        throw new Error('rolled back');
+        return Promise.reject(new Error('rolled back'));
       }),
     ).rejects.toThrow('rolled back');
     expect(called).toBe(false);
@@ -161,9 +161,9 @@ describe('[NFR-OPS-04] afterCommit', () => {
 
   it('swallows a failing callback so the committed result still returns', async () => {
     const { options } = await setup();
-    const result = await withTransaction(options, async (_tx, { afterCommit }) => {
+    const result = await withTransaction(options, (_tx, { afterCommit }) => {
       afterCommit(() => Promise.reject(new Error('smtp down')));
-      return 42;
+      return Promise.resolve(42);
     });
     expect(result).toBe(42);
   });
