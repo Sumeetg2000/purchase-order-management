@@ -122,6 +122,9 @@ describe('[NFR-API-02] database error shapes (Prisma 7 + pg adapter)', () => {
       expect(error).toBeInstanceOf(Error);
       expect(error['code']).toBe('ECONNREFUSED');
     }
-    expect(classifyDbError(error)).toBe('unavailable');
+    const ctor = (error as { constructor?: { name?: string } }).constructor?.name ?? 'unknown';
+    expect(classifyDbError(error), `class ${ctor}, code ${String(error['code'])}`).toBe(
+      'unavailable',
+    );
   });
 });

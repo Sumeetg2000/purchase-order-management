@@ -62,10 +62,10 @@ const CONNECTION_ERROR_CODES = new Set([
   'ENETUNREACH',
 ]);
 
+// Matched by code whatever the error's class: the raw pg error and a Prisma error that
+// carries the Node code have both been observed.
 function isConnectionError(error: unknown): boolean {
-  if (!(error instanceof Error) || error instanceof Prisma.PrismaClientKnownRequestError) {
-    return false;
-  }
+  if (!(error instanceof Error)) return false;
   const code = (error as Error & { code?: unknown }).code;
   return typeof code === 'string' && CONNECTION_ERROR_CODES.has(code);
 }

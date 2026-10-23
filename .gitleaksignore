@@ -2,7 +2,9 @@
 # commit, file and line, so it cannot hide any other finding. Never add a value pattern
 # here; fix the source instead.
 #
-# Commit 0e72211 added obviously fake values ('short-pw-SECRET-2', 'short-SECRET-3') to
-# the config-loader test; later commits replaced them with low-entropy placeholders.
+# Commit 0e72211 added two obviously fake fixture values to the config-loader test;
+# later commits replaced them with low-entropy placeholders. Commit b207b2a quoted one of
+# them in this file's comment; the comment no longer does.
 0e72211f9ec1145bd26b0c16d079952a5fa3be72:apps/api/tests/unit/config-load.test.ts:generic-api-key:52
 0e72211f9ec1145bd26b0c16d079952a5fa3be72:apps/api/tests/unit/config-load.test.ts:generic-api-key:53
+b207b2a77359744a27eed07acdce15f95637de35:.gitleaksignore:generic-api-key:5
