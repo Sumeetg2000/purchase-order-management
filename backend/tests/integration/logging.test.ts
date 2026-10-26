@@ -82,10 +82,17 @@ describe('[NFR-OPS-02] correlation ids', () => {
     expect(untagged).toEqual([]);
   });
 
+  it('[NFR-OPS-02] echoes a 36-character id, such as a client-generated UUID', async () => {
+    const { app } = buildApp();
+    const id = '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f';
+    const res = await request(app).get('/work').set('X-Request-Id', id);
+    expect(res.headers['x-request-id']).toBe(id);
+  });
+
   it.each([
     ['absent', undefined],
     ['too short', 'short'],
-    ['over 64 characters', 'a'.repeat(65)],
+    ['over 36 characters', 'a'.repeat(37)],
     ['with invalid characters', 'bad id with spaces!'],
   ])('[NFR-OPS-02] replaces an id that is %s with a UUIDv7', async (_case, header) => {
     const { app, lines } = buildApp();

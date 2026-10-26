@@ -187,10 +187,13 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
 ## R10. Logging, correlation and redaction
 - **Decision**:
   - pino with pino-http, writing JSON to stdout.
-  - Correlation id header `X-Request-Id`: accepted if it matches `^[A-Za-z0-9._-]{8,64}$`,
+  - Correlation id header `X-Request-Id`: accepted if it matches `^[A-Za-z0-9._-]{8,36}$`,
     otherwise replaced with a UUIDv7. It's echoed in the response header, bound to every log
     line through a per-request child logger, put in problem bodies as `correlationId`, and
     set as `app.request_id` in the actor context.
+    - **Updated at the US3 review**: the limit was 64. It is 36, which still fits a UUID
+      and stays below the 43-character run the log checks treat as a token (SC-003), so a
+      client-chosen id can never look like a secret in the logs.
   - pino `redact` paths cover cookies, `authorization`, `set-cookie`, any `password`,
     `token`, `secret` or `phone` key, at any depth.
   - The bootstrap and `admin:create` print their link with a dedicated logger call marked

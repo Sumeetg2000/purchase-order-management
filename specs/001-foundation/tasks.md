@@ -409,7 +409,7 @@ nothing secret leaks.
   — FR-008, FR-009 — Verify: fails.
 - [X] T040 [P] [US3] Correlation and redaction tests —
   `backend/tests/integration/logging.test.ts`:
-  - a valid `X-Request-Id` is echoed; one that's invalid, over 64 characters or absent is
+  - a valid `X-Request-Id` is echoed; one that's invalid, over 36 characters or absent is
     replaced with a UUIDv7
   - every log line of a request carries the id
   - cookie, `authorization`, `set-cookie`, and nested `password`, `token`, `secret` and
@@ -458,7 +458,7 @@ nothing secret leaks.
   `Problem`, `FieldError`), and the `AppError` class in `packages/contracts/src/app-error.ts`
   — FR-008 — Verify: T038 passes.
 - [X] T045 [US3] Correlation id and redacting logger —
-  `backend/src/http/middleware/correlation.ts` (validate `^[A-Za-z0-9._-]{8,64}$` or
+  `backend/src/http/middleware/correlation.ts` (validate `^[A-Za-z0-9._-]{8,36}$` or
   generate a UUIDv7; set the header; child logger; `ctx.requestId`), and the `redact`
   paths plus the `oneTimeLink` channel in `backend/src/observability/logger.ts`;
   pino-http wiring in `backend/src/http/app.ts` — FR-012, FR-013 — Verify: T040 passes.
