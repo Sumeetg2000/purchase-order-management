@@ -47,8 +47,12 @@ Conventions:
   superseding.
 - Index: `(COALESCE(used_at, superseded_at, expires_at))`, for the purge. It's the same
   expression as the purge rule, so the purge can use it.
-- Privileges: `po_app` gets `SELECT, INSERT, UPDATE`. `po_maintenance` gets
-  `SELECT, DELETE`.
+- Privileges: `po_app` gets `SELECT, INSERT`, and `UPDATE` on `used_at` and
+  `superseded_at` only, so it can't change a token's hash, owner, purpose or expiry.
+  `po_maintenance` gets `SELECT, DELETE`. (Narrowed at T079 from a table-wide `UPDATE`.)
+- Checks: `token_hash` is 32 bytes; `expires_at > created_at`. Both indexes live in the
+  migration only (`prisma migrate diff` ignores partial and expression indexes); a token
+  test pins their definitions.
 - Validity rule (used from slice 1): a token is valid only when `used_at`, `superseded_at`
   are null and `expires_at > now()`. Every other case is `INVALID_TOKEN`.
 - Purge rule: delete when `COALESCE(used_at, superseded_at, expires_at) < now() - 7 days`.

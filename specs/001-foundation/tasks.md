@@ -701,7 +701,7 @@ T114).
 
 ### Implementation for User Story 5
 
-- [ ] T079 [US5] One-time tokens table — `backend/prisma/migrations/0005_one_time_tokens/migration.sql`.
+- [X] T079 [US5] One-time tokens table — `backend/prisma/migrations/0005_one_time_tokens/migration.sql`.
   Columns:
   - `purpose` "`RESET` | `VERIFY_EMAIL` (`CHECK`)"
   - `token_hash` bytea `UNIQUE`
@@ -712,24 +712,24 @@ T114).
   Grants: `po_app` gets `SELECT, INSERT, UPDATE`;
   `po_maintenance` gets `SELECT, DELETE`. Also update `roles.test.ts`'s expected list —
   FR-035 — Verify: T051 still passes with the new table.
-- [ ] T080 [US5] Token service and minimal user repository —
+- [X] T080 [US5] Token service and minimal user repository —
   `backend/src/tokens/one-time.ts` (create, hash, supersede),
   `backend/src/users/repository.ts` (find by email, any admin exists, create admin) —
   FR-035 — Verify: T075 passes.
-- [ ] T081 [US5] Bootstrap — `backend/src/db/locks.ts` (`ADMIN_LOCK`, `PURGE_LOCK`
+- [X] T081 [US5] Bootstrap — `backend/src/db/locks.ts` (`ADMIN_LOCK`, `PURGE_LOCK`
   constants), `backend/src/bootstrap/run.ts` (`pg_advisory_xact_lock(ADMIN_LOCK)`,
   `SYSTEM` context, create, audit, print the link block through the `oneTimeLink`
   channel), step 3 in `backend/src/migrate/run.ts` as `po_app`, and `migrate`'s
   `BOOTSTRAP_ADMIN_*` variables in `docker-compose.yml` — FR-032 — Verify: T076 passes,
   and `docker compose logs migrate` shows one link.
-- [ ] T082 [US5] Operator CLI and `admin:create` — `backend/src/cli/admin.ts` (extends
+- [X] T082 [US5] Operator CLI and `admin:create` — `backend/src/cli/admin.ts` (extends
   T004's stub: `util.parseArgs`, Zod argument validation, exit codes 0/1/2/3, `OPERATOR` context with
   `os.userInfo().username` and `os.hostname()`), `backend/src/cli/commands/admin-create.ts`,
   with the `admin` script unchanged (`node dist/cli/admin.js`; see
   [contracts/cli.md](contracts/cli.md))
   — FR-033, FR-034 — Verify: T077 passes, and `docker compose exec api npm run admin --
   admin:create --email second@example.local --name "Second Admin"` prints a link.
-- [ ] T083 [US5] Traceability: FR-ADM-04 → `Done` — `docs/traceability.md` (FR-ADM-05 and
+- [X] T083 [US5] Traceability: FR-ADM-04 → `Done` — `docs/traceability.md` (FR-ADM-05 and
   FR-ACC-03 stay `Tested` until slices 1 and 4).
 
 - [ ] T084 [US5] Story checkpoint review: run `/code-review` and `/security-review` over this story's

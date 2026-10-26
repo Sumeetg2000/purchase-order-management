@@ -15,9 +15,11 @@ route reaches it (a route-table test). Rules come from ADR-0016.
 | Exit code | Meaning |
 |---|---|
 | `0` | success, or a no-op (a message says what was already true) |
-| `1` | usage or validation error (`USAGE`, `INVALID_ARGUMENT`) |
+| `1` | usage, validation or configuration error (`USAGE`, `INVALID_ARGUMENT`, `INVALID_CONFIGURATION`) |
 | `2` | a rule refused the command (`EMAIL_IN_USE`, and later `LAST_ADMIN`, `NOT_AN_ADMIN`) |
-| `3` | infrastructure failure (database unreachable or lock timeout) (`UNAVAILABLE`) |
+| `3` | infrastructure failure (database unreachable or lock timeout) (`UNAVAILABLE`), or an unexpected failure (`INTERNAL_ERROR`) |
+
+Error messages never echo argument values. Every failure leaves the database unchanged.
 
 ## Commands in slice 0
 
