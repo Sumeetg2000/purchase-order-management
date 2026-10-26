@@ -21,7 +21,7 @@ function event(details: Record<string, unknown>): AuditEvent {
     entityId: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f',
     // Cast: these shapes are what the types should already refuse; this checks the
     // run-time guard behind them.
-    details: details as AuditEvent['details'],
+    details: details as unknown as AuditEvent['details'],
   };
 }
 
