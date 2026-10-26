@@ -271,6 +271,52 @@ describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
   });
 });
 
+describe('[NFR-AUD-02] the actor CHECK holds even without the triggers', () => {
+  // As the superuser with triggers off, standing in for a backfill or a replaced trigger.
+  async function insertRaw(db: TestDatabase, columns: string, values: string) {
+    const admin = await db.client('postgres');
+    await admin.query('BEGIN');
+    try {
+      await admin.query('SET LOCAL session_replication_role = replica');
+      await admin.query(
+        `INSERT INTO audit_entries (action, entity_type, entity_id, ${columns})
+         VALUES ('ADMIN_CREATED', 'user', '${USER_ID}', ${values})`,
+      );
+      await admin.query('COMMIT');
+    } catch (error) {
+      await admin.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  it.each([
+    ['actor_name', `'Asha Rao'`],
+    ['actor_email', `'asha@example.local'`],
+    ['acting_role', `'ADMIN'`],
+  ])('[NFR-AUD-02] an OPERATOR entry carrying %s is refused', async (column, value) => {
+    const db = trackDatabase(await createTestDatabase());
+    expect(
+      await sqlstate(() =>
+        insertRaw(
+          db,
+          `actor_type, details, ${column}`,
+          `'OPERATOR', '{"osUser": "deploy", "host": "ops-1"}', ${value}`,
+        ),
+      ),
+    ).toBe('23514');
+  });
+
+  it('[NFR-AUD-02] a well-formed OPERATOR entry passes the CHECK', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    await insertRaw(
+      db,
+      'actor_type, details',
+      `'OPERATOR', '{"osUser": "deploy", "host": "ops-1"}'`,
+    );
+    expect(await auditRows(db)).toHaveLength(1);
+  });
+});
+
 describe('[NFR-AUD-02] typed audit writer', () => {
   it('[NFR-AUD-02] writeAudit records a typed event inside withTransaction, the actor coming from the context', async () => {
     const db = trackDatabase(await createTestDatabase());

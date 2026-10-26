@@ -36,7 +36,9 @@ CREATE TABLE audit_entries (
       AND actor_user_id IS NULL AND actor_name IS NULL
       AND actor_email IS NULL AND acting_role IS NULL)
     OR (actor_type = 'OPERATOR'
-      AND actor_user_id IS NULL AND details ? 'osUser' AND details ? 'host')
+      AND actor_user_id IS NULL AND actor_name IS NULL
+      AND actor_email IS NULL AND acting_role IS NULL
+      AND details ? 'osUser' AND details ? 'host')
   )
 );
 

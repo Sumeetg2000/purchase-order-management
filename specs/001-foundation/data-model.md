@@ -72,7 +72,8 @@ Conventions:
 - `CHECK` that ties the actor fields to `actor_type`:
   - `USER`: `actor_user_id`, `actor_name`, `actor_email` and `acting_role` are not null.
   - `SYSTEM`: all four are null.
-  - `OPERATOR`: `actor_user_id` is null, and `details ? 'osUser' AND details ? 'host'`.
+  - `OPERATOR`: `actor_user_id`, `actor_name`, `actor_email` and `acting_role` are null,
+    and `details ? 'osUser' AND details ? 'host'`.
 - A `BEFORE INSERT` trigger fills the actor fields and `request_id` from the transaction's
   actor context. It raises `ACTOR_CONTEXT_REQUIRED` (SQLSTATE `PO001`) if there is none,
   and `ACTOR_CONTEXT_MISMATCH` (`PO002`) if explicit values contradict the context.
