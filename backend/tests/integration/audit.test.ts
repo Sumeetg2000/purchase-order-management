@@ -31,7 +31,11 @@ async function sqlstate(run: () => Promise<unknown>): Promise<string | undefined
   }
 }
 
-/** Runs statements in one transaction with the given transaction-local settings. */
+/**
+ * Runs statements in one transaction with the given transaction-local settings. Like
+ * withTransaction, it binds the context to this transaction (app.actor_txid) unless the
+ * settings give their own value.
+ */
 async function inTx(
   client: pg.Client,
   settings: Record<string, string>,
@@ -40,6 +44,9 @@ async function inTx(
 ) {
   await client.query('BEGIN');
   try {
+    if (!('app.actor_txid' in settings)) {
+      await client.query(`SELECT set_config('app.actor_txid', txid_current()::text, true)`);
+    }
     for (const [name, value] of Object.entries(settings)) {
       await client.query('SELECT set_config($1, $2, true)', [name, value]);
     }
@@ -123,6 +130,78 @@ describe('[NFR-AUD-02] actor context is required for audited changes', () => {
       );
     },
   );
+});
+
+describe('[NFR-AUD-02] the actor context belongs to one transaction', () => {
+  const systemSession = [
+    `SET app.actor_type = 'SYSTEM'`,
+    `SET app.actor_user_id = ''`,
+    `SET app.actor_name = ''`,
+    `SET app.actor_email = ''`,
+    `SET app.acting_role = ''`,
+    `SET app.os_user = ''`,
+    `SET app.os_host = ''`,
+  ];
+
+  it('[NFR-AUD-02] a session-level SET of the actor settings is refused in a later transaction', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    for (const statement of systemSession) await app.query(statement);
+    // Even an actor_txid copied from an earlier transaction can't match a later one.
+    const { rows } = await app.query<{ txid: string }>('SELECT txid_current()::text AS txid');
+    await app.query(`SELECT set_config('app.actor_txid', $1, false)`, [rows[0]?.txid]);
+
+    const later = async (sql: string | [string, unknown[]]) => {
+      await app.query('BEGIN');
+      try {
+        if (typeof sql === 'string') await app.query(sql);
+        else await app.query(sql[0], sql[1]);
+        await app.query('COMMIT');
+      } catch (error) {
+        await app.query('ROLLBACK');
+        throw error;
+      }
+    };
+    expect(await sqlstate(() => later(insertAudit()))).toBe(ACTOR_CONTEXT_REQUIRED);
+    expect(await sqlstate(() => later(insertUser()))).toBe(ACTOR_CONTEXT_REQUIRED);
+    expect(await sqlstate(() => app.query(insertAudit()))).toBe(ACTOR_CONTEXT_REQUIRED);
+    expect(await auditRows(db)).toHaveLength(0);
+  });
+
+  it('[NFR-AUD-02] a transaction-local context without app.actor_txid is refused', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    const unbound = { ...userActor, 'app.actor_txid': '' };
+    expect(await sqlstate(() => inTx(app, unbound, [insertAudit()]))).toBe(ACTOR_CONTEXT_REQUIRED);
+    expect(await sqlstate(() => inTx(app, unbound, [insertUser()]))).toBe(ACTOR_CONTEXT_REQUIRED);
+  });
+
+  it('[NFR-AUD-02] withTransaction binds the context to its own transaction', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const prisma: AppPrismaClient = createPrismaClient({
+      url: db.url('po_app'),
+      poolSize: 1,
+      connectionTimeoutMs: 2_000,
+    });
+    try {
+      const bound = await withTransaction(
+        {
+          prisma,
+          actor: { type: 'SYSTEM' },
+          requestId: 'req-txid-0001',
+          timeoutMs: 5_000,
+          maxWaitMs: 2_000,
+          logger: testLogger(),
+        },
+        (tx) =>
+          tx.$queryRaw<{ bound: boolean }[]>`
+            SELECT current_setting('app.actor_txid', true) = txid_current()::text AS bound`,
+      );
+      expect(bound[0]?.bound).toBe(true);
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
 });
 
 describe('[NFR-AUD-02] users timestamps', () => {
