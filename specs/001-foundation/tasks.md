@@ -610,32 +610,32 @@ T114).
 
 ### Implementation for User Story 2
 
-- [ ] T065 [US2] Traceability check — `scripts/check-traceability.mjs` (parses
+- [X] T065 [US2] Traceability check — `scripts/check-traceability.mjs` (parses
   `docs/traceability.md`, `docs/BRIEF.md` §1–§8, and `reports/*.json` from Vitest and
   Playwright), root script `check:traceability` — FR-039 — Verify: T061 passes, and
   `npm run check:traceability` passes on the repo.
-- [ ] T066 [US2] ID ban — `scripts/check-requirement-ids.mjs`,
+- [X] T066 [US2] ID ban — `scripts/check-requirement-ids.mjs`,
   `scripts/requirement-id-allowlist.txt`, root script `check:ids`, step in the `static` job
   — FR-038 — Verify: T059 passes, and `npm run check:ids` passes on the repo.
-- [ ] T067 [US2] Commit subject rule — `scripts/commitlint-plugin-requirement-ids.mjs`,
+- [X] T067 [US2] Commit subject rule — `scripts/commitlint-plugin-requirement-ids.mjs`,
   registered in `commitlint.config.mjs` — FR-038 — Verify: T060 passes.
-- [ ] T068 [US2] OpenAPI generator and committed document — `packages/contracts/src/openapi.ts`
+- [X] T068 [US2] OpenAPI generator and committed document — `packages/contracts/src/openapi.ts`
   (zod-openapi from `define-route` metadata and the registry; `servers: [{ url: '/api' }]`,
   the same prefix the web client uses), root script
   `contract:generate`, and `packages/contracts/openapi/openapi.json` (committed) —
   FR-020 — Verify: T062's contracts test passes, and a rerun leaves `git diff --exit-code`
   clean.
-- [ ] T069 [US2] Contract tests wired to the committed document —
+- [X] T069 [US2] Contract tests wired to the committed document —
   `backend/tests/support/openapi-validator.ts` (AJV against `openapi.json`) — FR-022 —
   Verify: T062's API contract test passes.
-- [ ] T070 [US2] Generated web client — `frontend/src/api/schema.d.ts` (openapi-typescript
+- [X] T070 [US2] Generated web client — `frontend/src/api/schema.d.ts` (openapi-typescript
   output, committed), `frontend/src/api/client.ts` (openapi-fetch, base `/api`, problem
   parsing), and script `contract:types`, with the drift check covering this file — FR-022
   — Verify: `npm run contract:types && git diff --exit-code frontend/src/api`.
-- [ ] T071 [US2] Reconciliation file — `backend/src/db/reconciliation.sql` (zero
+- [X] T071 [US2] Reconciliation file — `backend/src/db/reconciliation.sql` (zero
   invariants yet, returns 0 rows; header comment says slice 3 adds INV-1–INV-6) — FR-038 —
   Verify: T063 passes.
-- [ ] T072 [US2] CI jobs:
+- [X] T072 [US2] CI jobs:
   - `contract`: generate, `git diff --exit-code`, and `oasdiff breaking` against
     `origin/main`'s document. It fails unless the PR carries the `breaking` label, read from
     the event payload.
@@ -646,7 +646,7 @@ T114).
 
   — `.github/workflows/ci.yml` — FR-021, FR-038, FR-039 — Verify: all jobs green on the draft PR. A throwaway commit that removes a schema field
   turns `contract` red on the PR unless the `breaking` label is added; revert it afterwards.
-- [ ] T073 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Done` — `docs/traceability.md` —
+- [X] T073 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Done` — `docs/traceability.md` —
   Verify: `npm run check:traceability` passes.
 
 - [ ] T074 [US2] Story checkpoint review: run `/code-review` over this story's

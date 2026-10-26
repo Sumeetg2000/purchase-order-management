@@ -34,7 +34,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | §4 | Store-vs-calculate chosen; drift impossible under bypass | FR-PO-04 | 0003 | integrity attack suite; reconciliation = 0 rows | Todo |
 | §3.7 | Outstanding orders filterable/grouped by vendor, with age | FR-RPT-01 | 0015 | filters by vendor and age bucket; excludes cancelled/rejected/fully received; partial receipt keeps it, final receipt removes it; age from approval; scoped to caller | Todo |
 | §3.7 | Real query; cost explainable as data grows | FR-RPT-02 | 0015, 0012 | committed `EXPLAIN` (page + COUNT) using the partial index with no lines/receipts scan; page-100 measurement | Todo |
-| §5 | API surface designed for the workflow and documented | NFR-API-01 | 0008, 0007 | see NFR-API-01 (generated, committed OpenAPI; contract tests on every response and error) | Tested |
+| §5 | API surface designed for the workflow and documented | NFR-API-01 | 0008, 0007 | see NFR-API-01 (generated, committed OpenAPI; contract tests on every response and error) | Done |
 | §6 | Bad input rejected before business logic | NFR-VAL-01 | 0007 | negative qty/price → 400; order referencing a missing vendor → 400 `VENDOR_NOT_FOUND`, with no business-logic side effects; malformed JSON → 400; bad UUID → 400; unknown field → 400 | Tested |
 | §6 | Every action by an authenticated user; no anonymous path | NFR-AUTH-01 | 0004, 0016 | every non-public route without token → 401 (generated from route table; public list asserted); deactivated user can't log in and their tokens are rejected | Tested |
 | §6 | Every action tied to a real user: user profile | FR-USR-01 | 0016 | `GET /me` fields (id, name, email, phone, roles, status, createdAt); `PATCH /me` name and phone (E.164, `null` clears, invalid → 400); email/roles/status in body → 400; `USER_PROFILE_UPDATED` with before/after | Todo |
@@ -65,7 +65,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | Concurrency (lock-then-read; business outcomes) | NFR-CON-01 | 0006 | concurrency suite | Todo |
 | Optimistic concurrency via `If-Match` | NFR-CON-03 | 0006 | missing → 400 `VERSION_REQUIRED` per command; stale → 409 `VERSION_CONFLICT`; `ETag` returned; receipts need none | Todo |
 | Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Done |
-| Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Tested |
+| Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Done |
 | Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Done |
 | Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH = 1 recompute; receipt = 0; status update = 0 | Todo |
 | Production-scale latency targets | NFR-PERF-04 | 0012 | load job (median of 3 runs) | Todo |
@@ -87,7 +87,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | End-to-end flows against docker compose; latest 2 versions of Chrome, Edge, Firefox, Safari | NFR-FE-07 | 0018 | Playwright on Chromium per PR, and on Chromium, Firefox and WebKit nightly and on `main`: login + refresh; create → submit → approve → partial receipt; locked-order error; 404/403 visibility; logout; signup → verify (Mailpit) → login; forgot → reset; profile + change password + session revoke; admin role change and deactivation; pending count updates | Spec |
 | Frontend account pages, Access pending screen, profile, admin users and access requests, nav counts | NFR-FE-08 | 0018 | neutral confirmation on account pages; token removed from URL after posting; password field codes mapped; no-role user routed to Access pending (signup date, message form, "Request sent on …", admin note) and `NO_ROLE_ASSIGNED` from any call routes there; profile edits and sessions list; role dropdown limited to three sets; access-requests tab with assign and dismiss; admin/self rows read-only; pending-approvals count and access-request badge | Todo |
 | Confirmation dialogs (frontend only): shared `ConfirmDialog`; confirm what can't be undone, ends something or changes another person's access; never reversible saves; unsaved-changes guard | NFR-FE-09 | 0018 | component test per dialog (content and facts, safe-button initial focus, Escape/outside close, disabled while pending so a double click sends one request, reason validation, server error inside with next step, `VERSION_CONFLICT` offers reload); axe on dialogs; no dialog on draft save, profile edit, vendor edit or vendor reactivation; Playwright: submit (expected outcome), receipt with fully-received wording, cancel with reason, delete draft, role change, unsaved-changes guard | Spec |
-| Traceability and ID-ban enforcement | NFR-DEV-01 | 0013 | traceability check; lint/commitlint | Tested |
+| Traceability and ID-ban enforcement | NFR-DEV-01 | 0013 | traceability check; lint/commitlint | Done |
 
 ## Accounts and user management (production layer, signed off 2026-10-20)
 
