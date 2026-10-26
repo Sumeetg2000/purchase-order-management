@@ -13,6 +13,13 @@ base="${1:?usage: contract-breaking.sh <base-revision>}"
 doc=packages/contracts/openapi/openapi.json
 oasdiff_image=tufin/oasdiff:v1.33.0
 
+# A base that isn't in the history (a force-push, a shallow fetch, an all-zero SHA) must
+# not pass for "nothing to compare".
+if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+  echo "contract-breaking: base commit $base is not in the fetched history" >&2
+  exit 1
+fi
+
 if ! git cat-file -e "$base:$doc" 2>/dev/null; then
   echo "contract-breaking: $base has no $doc yet, so there is nothing to compare"
   exit 0
