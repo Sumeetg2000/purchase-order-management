@@ -322,7 +322,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   `.env.example`), `.git`, `node_modules` at every level, `dist`, `build`, `coverage`,
   `reports`, `playwright-report`, `test-results`, `*.tsbuildinfo`, `docs`, `specs`,
   `.specify` and `.claude` — FR-001, FR-002 — Verify: checked by T031's image checks.
-- [ ] T031 [P] [US1] API image — `deploy/api.Dockerfile` (multi-stage
+- [X] T031 [P] [US1] API image — `deploy/api.Dockerfile` (multi-stage
   `node:24.x-alpine`, `npm ci --omit=dev` for runtime, non-root user, entrypoints for
   `dist/server.js`, `dist/migrate/run.js` and `dist/maintenance/loop.js`; the Prisma
   schema and migrations copied in) — FR-002 — Verify: `docker build -f
