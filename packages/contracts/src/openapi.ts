@@ -63,7 +63,8 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
       headers: responseHeaders,
-      content: { 'application/json': { schema } },
+      // 204 has no body, so no content type either.
+      ...(status === '204' ? {} : { content: { 'application/json': { schema } } }),
     };
   }
   const byStatus = new Map<number, ErrorCode[]>();
@@ -86,7 +87,9 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
     operationId: operation.operationId,
     summary: operation.summary,
     'x-access': operation.access,
-    ...(params || query ? { requestParams: { path: params, query } } : {}),
+    ...(params || query
+      ? { requestParams: { ...(params ? { path: params } : {}), ...(query ? { query } : {}) } }
+      : {}),
     ...(body ? { requestBody: { content: { 'application/json': { schema: body } } } } : {}),
     responses,
   } as ZodOpenApiOperationObject;
