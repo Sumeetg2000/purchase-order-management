@@ -4,6 +4,7 @@
 --
 -- Custom SQLSTATEs (class PO), mapped by code in backend/src/db/errors.ts:
 --   PO001 ACTOR_CONTEXT_REQUIRED  now also: a context not bound to the current transaction
+--   PO003 AUDIT_IMMUTABLE         any UPDATE of an audit entry, by any role
 
 -- The actor context must be bound to the transaction that uses it: withTransaction sets
 -- app.actor_txid to txid_current() alongside the other settings, all transaction-local.
@@ -55,3 +56,24 @@ BEGIN
   RETURN NULL;
 END
 $$;
+
+-- Audit entries are never changed, by any role, the owner included: no grant gives
+-- UPDATE, and this trigger refuses it where ownership would allow it. Without it the owner
+-- could rewrite an entry and back-date it past retention for the purge to remove.
+CREATE FUNCTION audit_immutable() RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  RAISE EXCEPTION 'AUDIT_IMMUTABLE' USING
+    ERRCODE = 'PO003',
+    DETAIL = format('audit entry %s can''t be changed', OLD.id);
+END
+$$;
+
+REVOKE ALL ON FUNCTION audit_immutable() FROM PUBLIC;
+
+CREATE TRIGGER audit_immutable
+  BEFORE UPDATE ON audit_entries
+  FOR EACH ROW EXECUTE FUNCTION audit_immutable();

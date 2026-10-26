@@ -119,7 +119,13 @@ export type ConstraintErrors = Readonly<Record<string, () => AppError>>;
 
 export const CONSTRAINT_ERRORS: ConstraintErrors = {};
 
-// Our trigger functions raise custom SQLSTATEs in class PO (research R6).
+// Our trigger functions raise custom SQLSTATEs in class PO (research R6). Each one means a
+// bug in our code, never a client error, so all of them map to INTERNAL_ERROR:
+//   PO001 ACTOR_CONTEXT_REQUIRED  no actor context, or an incomplete, inconsistent or
+//                                 stale one (not bound to the current transaction)
+//   PO002 ACTOR_CONTEXT_MISMATCH  an explicit audit value contradicts the context
+//   PO003 AUDIT_IMMUTABLE         an UPDATE of an audit entry, by any role
+//   PO004 AUDIT_RETENTION_ACTIVE  deleting an audit entry inside its 8-year retention
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 
 export interface MapDbErrorOptions {
