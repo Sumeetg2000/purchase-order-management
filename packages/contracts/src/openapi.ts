@@ -92,9 +92,17 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   } as ZodOpenApiOperationObject;
 }
 
+/** The document for the API's operations. */
 export function generateOpenApiDocument(): ReturnType<typeof createDocument> {
+  return buildOpenApiDocument(Object.values(OPERATIONS));
+}
+
+/** The document for any set of operations (the generator's own tests use made-up ones). */
+export function buildOpenApiDocument(
+  operations: readonly OperationContract[],
+): ReturnType<typeof createDocument> {
   const paths: Record<string, Record<string, ZodOpenApiOperationObject>> = {};
-  for (const operation of Object.values(OPERATIONS) as OperationContract[]) {
+  for (const operation of operations) {
     const path = toOpenApiPath(operation.path);
     paths[path] = { ...paths[path], [operation.method]: operationObject(operation) };
   }

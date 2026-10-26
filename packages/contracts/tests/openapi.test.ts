@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ERROR_CODES } from '../src/index.js';
-import { generateOpenApiDocument, serializeOpenApiDocument } from '../src/openapi.js';
+import { z } from 'zod';
+import {
+  buildOpenApiDocument,
+  generateOpenApiDocument,
+  serializeOpenApiDocument,
+} from '../src/openapi.js';
 
 type Json = Record<string, unknown>;
 const COMMITTED = new URL('../openapi/openapi.json', import.meta.url);
@@ -72,5 +77,22 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
   it('[NFR-API-01] generation is deterministic and matches the committed document', () => {
     expect(serializeOpenApiDocument()).toBe(serializeOpenApiDocument());
     expect(readFileSync(COMMITTED, 'utf8')).toBe(serializeOpenApiDocument());
+  });
+
+  it('[NFR-API-01] documents a 204 response without a body', () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'delete',
+        path: '/items/:id',
+        operationId: 'deleteItem',
+        summary: 'test only',
+        access: 'public',
+        request: { params: z.strictObject({ id: z.uuid() }) },
+        responses: { 204: z.void() },
+      },
+    ]) as unknown as Json;
+    const noContent = at(built, 'paths', '/items/{id}', 'delete', 'responses', '204');
+    expect(noContent['content']).toBeUndefined();
+    expect(noContent['description']).toBe('No content');
   });
 });
