@@ -12,6 +12,13 @@ import {
 
 const ROLE_PASSWORDS = ['DB_OWNER_PASSWORD', 'DB_APP_PASSWORD', 'DB_MAINTENANCE_PASSWORD'] as const;
 
+// Provisioning sets each role's password from DB_*_PASSWORD, and the later steps log in
+// with these URLs, so the two must agree.
+const URL_PASSWORDS = [
+  ['OWNER_DATABASE_URL', 'DB_OWNER_PASSWORD'],
+  ['DATABASE_URL', 'DB_APP_PASSWORD'],
+] as const;
+
 export const migrateConfig = defineProcessConfig({
   process: 'migrate',
   shape: {
@@ -38,6 +45,15 @@ export const migrateConfig = defineProcessConfig({
         ctx.addIssue({ code: 'custom', path: [key], message: `must differ from ${earlier}` });
       }
       seen.set(config[key], key);
+    }
+    for (const [urlKey, passwordKey] of URL_PASSWORDS) {
+      if (decodeURIComponent(new URL(config[urlKey]).password) !== config[passwordKey]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [urlKey],
+          message: `password must equal ${passwordKey}`,
+        });
+      }
     }
     if (config.APP_ENV === 'production' && config.SEED_DEMO_DATA) {
       ctx.addIssue({

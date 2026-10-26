@@ -142,6 +142,7 @@ describe('[NFR-OPS-02] config rules: production refusals', () => {
         APP_ENV: 'production',
         SEED_DEMO_DATA: 'false',
         DB_APP_PASSWORD: 'change-me-app-local-only',
+        DATABASE_URL: 'postgres://po_app:change-me-app-local-only@db:5432/po',
       },
       'DB_APP_PASSWORD',
     );
@@ -166,6 +167,7 @@ describe('[NFR-OPS-02] config rules: production refusals', () => {
     const { exitCode } = run(migrateConfig, {
       ...migrateEnv,
       DB_APP_PASSWORD: 'change-me-app-local-only',
+      DATABASE_URL: 'postgres://po_app:change-me-app-local-only@db:5432/po',
     });
     expect(exitCode).toBeUndefined();
   });
@@ -241,6 +243,26 @@ describe('[NFR-OPS-02] config rules: credential separation', () => {
       { ...migrateEnv, OWNER_DATABASE_URL: appUrl },
       'OWNER_DATABASE_URL',
     );
+  });
+
+  it('[NFR-OPS-05] migrate refuses role URLs whose password differs from the role password it provisions', () => {
+    const staleOwner = 'postgres://po_owner:xxxx-stale-xxxx-xxxx@db:5432/po';
+    const staleApp = 'postgres://po_app:xxxx-stale-xxxx-xxxx@db:5432/po';
+    const owner = expectRefused(
+      migrateConfig,
+      { ...migrateEnv, OWNER_DATABASE_URL: staleOwner },
+      'OWNER_DATABASE_URL',
+    );
+    const app = expectRefused(
+      migrateConfig,
+      { ...migrateEnv, DATABASE_URL: staleApp },
+      'DATABASE_URL',
+    );
+    for (const output of [owner, app]) {
+      expect(output).not.toContain('xxxx-stale-xxxx-xxxx');
+      expect(output).not.toContain('xxxx-owner-xxxx-xxxx');
+      expect(output).not.toContain('xxxx-app-xxxx-xxxx');
+    }
   });
 
   it('[NFR-OPS-05] reports a forbidden variable even when other keys are also invalid', () => {
