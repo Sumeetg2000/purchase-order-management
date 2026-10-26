@@ -46,9 +46,12 @@ async function setActorContext(tx: TransactionClient, actor: ActorContext, reque
   const user = actor.type === 'USER' ? actor : undefined;
   const operator = actor.type === 'OPERATOR' ? actor : undefined;
   // set_config(..., true) is transaction-local: gone at commit or rollback, so a pooled
-  // connection never carries one request's actor into the next (research R6).
+  // connection never carries one request's actor into the next (research R6). actor_txid
+  // binds the context to this transaction; the triggers refuse a context bound to no
+  // transaction or another one, such as a stray session-level SET.
   await tx.$executeRaw`
-    SELECT set_config('app.actor_type', ${actor.type}, true),
+    SELECT set_config('app.actor_txid', txid_current()::text, true),
+           set_config('app.actor_type', ${actor.type}, true),
            set_config('app.actor_user_id', ${user?.userId ?? ''}, true),
            set_config('app.actor_name', ${user?.name ?? ''}, true),
            set_config('app.actor_email', ${user?.email ?? ''}, true),
