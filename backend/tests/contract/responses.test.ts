@@ -3,7 +3,7 @@ import request, { type Response } from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
-import { createApp } from '../../src/http/app.js';
+import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { healthRoutes, listMigrations } from '../../src/http/routes/health.js';
 import { createTestDatabase } from '../support/db.js';
@@ -26,7 +26,7 @@ afterEach(async () => {
 async function appFor(url: string) {
   const prisma = createPrismaClient({ url, poolSize: 2, connectionTimeoutMs: 1_000 });
   clients.push(prisma);
-  return createApp({
+  return createTestApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
     routes: [

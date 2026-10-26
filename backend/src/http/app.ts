@@ -23,7 +23,15 @@ export interface CreateAppOptions {
   appOrigin: string;
   /** Records request metrics; they are served by the separate metrics listener. */
   metrics?: Metrics;
+  /**
+   * Tests only: operations for test-only routes (to provoke errors the real routes can't).
+   * They can't name a contract operation. The server never passes this; a test checks no
+   * other source file mentions it.
+   */
+  testOnlyOperations?: Readonly<Record<string, OperationContract>>;
 }
+
+type Operations = Readonly<Record<string, OperationContract | undefined>>;
 
 function describeRoute(route: Pick<OperationContract, 'method' | 'path'>): string {
   return `${route.method.toUpperCase()} ${route.path}`;
@@ -33,9 +41,19 @@ const CONTRACT_FIELDS = ['summary', 'access', 'request', 'responses', 'errors'] 
 
 /**
  * Startup check: every route declares a known access level and documented responses, and
- * a route that names a contract operation serves exactly that operation.
+ * serves exactly one operation of the contract (or, in tests, of the test-only registry),
+ * so nothing is served that the OpenAPI document doesn't describe.
  */
-export function validateRoutes(routes: readonly RouteDefinition[]): void {
+export function validateRoutes(
+  routes: readonly RouteDefinition[],
+  testOnlyOperations: Operations = {},
+): void {
+  const shadowed = Object.keys(testOnlyOperations).filter((id) => Object.hasOwn(OPERATIONS, id));
+  if (shadowed.length > 0) {
+    throw new RouteRegistrationError(
+      `The test-only registry names contract operations: ${shadowed.join(', ')}`,
+    );
+  }
   const operationIds = new Set<string>();
   const endpoints = new Set<string>();
 
@@ -58,10 +76,17 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
     if (endpoints.has(label)) {
       throw new RouteRegistrationError(`Duplicate route ${label}`);
     }
-    const contract = (OPERATIONS as Readonly<Record<string, OperationContract | undefined>>)[
-      route.operationId
-    ];
-    if (contract && (contract.method !== route.method || contract.path !== route.path)) {
+    const contract = Object.hasOwn(OPERATIONS, route.operationId)
+      ? (OPERATIONS as Operations)[route.operationId]
+      : Object.hasOwn(testOnlyOperations, route.operationId)
+        ? testOnlyOperations[route.operationId]
+        : undefined;
+    if (!contract) {
+      throw new RouteRegistrationError(
+        `Route ${label} serves operation "${route.operationId}", which is not in the contract`,
+      );
+    }
+    if (contract.method !== route.method || contract.path !== route.path) {
       throw new RouteRegistrationError(
         `Route ${label} claims operation "${route.operationId}", which the contract defines as ${describeRoute(contract)}`,
       );
@@ -69,9 +94,7 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
     // A route spreads its operation and adds a handler. Anything it overrides would be
     // served differently from what the document says, so the fields must be the contract's
     // own values.
-    const changed = contract
-      ? CONTRACT_FIELDS.filter((field) => route[field] !== contract[field])
-      : [];
+    const changed = CONTRACT_FIELDS.filter((field) => route[field] !== contract[field]);
     if (changed.length > 0) {
       throw new RouteRegistrationError(
         `Route ${label} changes ${changed.join(', ')} of contract operation "${route.operationId}"`,
@@ -82,8 +105,14 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
   }
 }
 
-export function createApp({ routes, logger, appOrigin, metrics }: CreateAppOptions): Express {
-  validateRoutes(routes);
+export function createApp({
+  routes,
+  logger,
+  appOrigin,
+  metrics,
+  testOnlyOperations,
+}: CreateAppOptions): Express {
+  validateRoutes(routes, testOnlyOperations);
 
   const app = express();
   app.disable('x-powered-by');

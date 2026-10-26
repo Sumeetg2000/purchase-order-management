@@ -1,11 +1,11 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createApp } from '../../src/http/app.js';
+import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { testLogger } from '../support/log-capture.js';
 
-const app = createApp({
+const app = createTestApp({
   logger: testLogger(),
   appOrigin: 'http://localhost:8080',
   routes: [

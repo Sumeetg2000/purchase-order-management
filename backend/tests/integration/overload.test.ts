@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction } from '../../src/db/transaction.js';
-import { createApp } from '../../src/http/app.js';
+import { createTestApp } from '../support/test-app.js';
 import { requestIdOf } from '../../src/http/middleware/correlation.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { createTestDatabase } from '../support/db.js';
@@ -44,7 +44,7 @@ function appFor(prisma: AppPrismaClient) {
     retry: { retries: 3, baseDelayMs: 1 },
   });
 
-  return createApp({
+  return createTestApp({
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
     routes: [

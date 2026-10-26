@@ -4,7 +4,7 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createPrismaClient } from '../../src/db/client.js';
-import { createApp } from '../../src/http/app.js';
+import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { createShutdown } from '../../src/http/shutdown.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
@@ -50,7 +50,7 @@ async function slowServer(db: TestDatabase) {
   let release!: () => void;
   const released = new Promise<void>((resolve) => (release = resolve));
 
-  const app = createApp({
+  const app = createTestApp({
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
     routes: [

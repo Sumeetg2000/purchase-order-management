@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createApp } from '../../src/http/app.js';
+import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { sendProblem } from '../../src/http/problem.js';
 import { createMetrics, createMetricsServer } from '../../src/observability/metrics.js';
@@ -12,7 +12,7 @@ import { testLogger } from '../support/log-capture.js';
 
 function testApp() {
   const metrics = createMetrics();
-  const app = createApp({
+  const app = createTestApp({
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
     metrics,
@@ -114,7 +114,7 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
     const metrics = createMetrics();
     let entered!: () => void;
     const started = new Promise<void>((resolve) => (entered = resolve));
-    const app = createApp({
+    const app = createTestApp({
       logger: testLogger(),
       appOrigin: 'http://localhost:8080',
       metrics,
