@@ -76,6 +76,18 @@ function toFieldErrors(prefix: string, issues: readonly ZodIssue[]): FieldError[
   return errors.filter((e) => !seen.has(e.path) && seen.add(e.path));
 }
 
+/**
+ * A route without a query or body schema accepts none (strict by default, ADR-0007).
+ * Path parameters always come from the route pattern itself.
+ */
+function undeclared(part: 'params' | 'query' | 'body', prefix: string, raw: unknown): FieldError[] {
+  if (part === 'params' || raw === undefined) return [];
+  if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+    return Object.keys(raw).map((key) => ({ path: `${prefix}.${key}`, code: 'UNKNOWN_FIELD' }));
+  }
+  return [{ path: prefix, code: 'UNKNOWN_FIELD' }];
+}
+
 const PARTS = [
   ['params', 'path'],
   ['query', 'query'],
@@ -95,6 +107,7 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
       const schema = route.request?.[part];
       const raw: unknown = req[part];
       if (!schema) {
+        details.push(...undeclared(part, prefix, raw));
         input[part] = raw;
         continue;
       }

@@ -35,6 +35,9 @@ function buildApp() {
         operationId: 'testWork',
         summary: 'test only',
         access: 'public',
+        request: {
+          query: z.strictObject({ token: z.string().optional(), page: z.string().optional() }),
+        },
         responses: { 200: z.object({}) },
         handler: (req, res) => {
           req.log.info({ step: 'inside handler' }, 'working');

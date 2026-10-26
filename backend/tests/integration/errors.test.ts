@@ -9,7 +9,7 @@ import { capturedLines, testLogger } from '../support/log-capture.js';
 const APP_ORIGIN = 'http://localhost:8080';
 
 function buildApp() {
-  const calls = { create: 0, read: 0 };
+  const calls = { create: 0, read: 0, archive: 0 };
   const app = createApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
@@ -42,6 +42,19 @@ function buildApp() {
         responses: { 200: z.object({ ok: z.boolean() }) },
         handler: (_req, res) => {
           calls.read += 1;
+          res.json({ ok: true });
+        },
+      }),
+      defineRoute({
+        method: 'post',
+        path: '/items/:id/archive',
+        operationId: 'testArchiveItem',
+        summary: 'test only',
+        access: 'public',
+        request: { params: z.strictObject({ id: z.uuid() }) },
+        responses: { 200: z.object({ ok: z.boolean() }) },
+        handler: (_req, res) => {
+          calls.archive += 1;
           res.json({ ok: true });
         },
       }),
@@ -156,6 +169,28 @@ describe('[NFR-VAL-01] request validation before business logic', () => {
       (line) => line['requestId'] === body['correlationId'] && line['msg'] === 'unhandled error',
     );
     expect(errorLines).toEqual([]);
+  });
+
+  it('[NFR-VAL-01] a route without a query or body schema accepts neither', async () => {
+    const { app, calls } = buildApp();
+    const id = '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f';
+
+    const query = await request(app).get(`/items/${id}?foo=bar`);
+    expect(expectProblem(query, 400, 'VALIDATION_FAILED')['details']).toEqual([
+      { path: 'query.foo', code: 'UNKNOWN_FIELD' },
+    ]);
+
+    const body = await request(app)
+      .post(`/items/${id}/archive`)
+      .send({ status: 'APPROVED', total: 0 });
+    expect(expectProblem(body, 400, 'VALIDATION_FAILED')['details']).toEqual([
+      { path: 'body.status', code: 'UNKNOWN_FIELD' },
+      { path: 'body.total', code: 'UNKNOWN_FIELD' },
+    ]);
+    expect(calls.read + calls.archive).toBe(0);
+
+    expect((await request(app).post(`/items/${id}/archive`)).status).toBe(200);
+    expect(calls.archive).toBe(1);
   });
 
   it('[NFR-VAL-01] a valid request reaches the handler', async () => {
