@@ -31,6 +31,15 @@ describe('[NFR-DEV-01] commit subject rule', () => {
     });
   });
 
+  it('[NFR-DEV-01] an ID in the scope fails too', async () => {
+    for (const message of ['feat(T072): add vendor list', 'fix(FR-PO-01): recompute totals']) {
+      assert.deepEqual(await check(message), {
+        valid: false,
+        rules: ['subject-no-requirement-ids'],
+      });
+    }
+  });
+
   it('[NFR-DEV-01] IDs in the body are allowed', async () => {
     assert.deepEqual(
       await check('feat(api): add the health route\n\nCovers NFR-OPS-01 and T021.'),
