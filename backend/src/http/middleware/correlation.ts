@@ -1,9 +1,10 @@
+import { REQUEST_ID_PATTERN } from '@po/contracts';
 import type { RequestHandler, Response } from 'express';
 import { uuidv7 } from '../../lib/uuid.js';
 
-// Up to 36 characters: room for a UUID, and below the 43-character run the log checks
-// treat as a token, so a client id can never look like a secret in the logs.
-const VALID_REQUEST_ID = /^[A-Za-z0-9._-]{8,36}$/;
+// REQUEST_ID_PATTERN allows up to 36 characters: room for a UUID, and below the
+// 43-character run the log checks treat as a token, so a client id can never look like a
+// secret in the logs.
 
 /**
  * Accepts the client's X-Request-Id if it is well formed, otherwise generates a UUIDv7.
@@ -13,7 +14,7 @@ const VALID_REQUEST_ID = /^[A-Za-z0-9._-]{8,36}$/;
 export function correlation(): RequestHandler {
   return (req, res, next) => {
     const supplied = req.get('x-request-id');
-    const id = supplied !== undefined && VALID_REQUEST_ID.test(supplied) ? supplied : uuidv7();
+    const id = supplied !== undefined && REQUEST_ID_PATTERN.test(supplied) ? supplied : uuidv7();
     req.id = id;
     res.locals['requestId'] = id;
     res.setHeader('X-Request-Id', id);

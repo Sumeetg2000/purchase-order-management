@@ -6,24 +6,22 @@ import {
 } from 'zod-openapi';
 import { ERROR_REGISTRY, type ErrorCode } from './errors.js';
 import { OPERATIONS, type OperationContract } from './operations.js';
+import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
 
 // Generates the OpenAPI document from the operation contracts and the error registry
 // (ADR-0008, research R12). `npm run contract:generate` writes it to
 // packages/contracts/openapi/openapi.json, which is committed; CI fails on any drift.
 
-/** The correlation id format the API accepts and echoes (research R10). */
-export const REQUEST_ID_PATTERN = '^[A-Za-z0-9._-]{8,36}$';
-
 const requestIdHeader = z
   .string()
-  .regex(new RegExp(REQUEST_ID_PATTERN))
+  .regex(REQUEST_ID_PATTERN)
   .meta({
     header: {
       id: 'XRequestId',
       description:
-        'Correlation id. If the client sends a value matching ^[A-Za-z0-9._-]{8,36}$ (room ' +
-        'for a UUID), it is echoed back; otherwise a generated UUIDv7 is returned.',
+        `Correlation id. If the client sends a value matching ${REQUEST_ID_PATTERN.source} ` +
+        '(room for a UUID), it is echoed back; otherwise a generated UUIDv7 is returned.',
     },
   });
 
