@@ -51,4 +51,5 @@ Rules checked by tests:
 - The compose file test: `api` and `maintenance` declare only their allowed variables.
 - `METRICS_PORT` equal to `HTTP_PORT` → exit 1.
 - An error message never contains the value of a key whose name includes `PASSWORD`,
-  `SECRET`, `TOKEN` or `URL`. URLs embed credentials.
+  `SECRET`, `TOKEN`, `URL` or `KEY`. URLs embed credentials, and `*_KEY` covers the
+  signing keys slice 1 adds.

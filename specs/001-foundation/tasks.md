@@ -147,8 +147,8 @@ database harness, route registration and the transaction helper. Every story nee
 
 - [X] T012 Tests for the config loader, seen failing — `apps/api/tests/unit/config-load.test.ts`:
   - an invalid or missing key exits `1`, naming the key and the reason
-  - a value whose key contains `PASSWORD`, `SECRET`, `TOKEN` or `URL` never appears in the
-    output
+  - a value whose key contains `PASSWORD`, `SECRET`, `TOKEN`, `URL` or `KEY` never appears
+    in the output
 
   — FR-003 — Verify: `npm test -w apps/api -- config-load` fails (module missing).
 - [X] T013 Config loader and base logger — `apps/api/src/config/load.ts` (Zod parse →

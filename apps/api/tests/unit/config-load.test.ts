@@ -8,6 +8,7 @@ const schema = z.object({
   SMTP_PASSWORD: z.string().min(16),
   API_TOKEN: z.string().min(16),
   CLIENT_SECRET: z.string().min(16),
+  JWT_SIGNING_KEY: z.string().min(32),
 });
 
 function run(env: Record<string, string | undefined>) {
@@ -28,6 +29,7 @@ const valid = {
   SMTP_PASSWORD: 'xxxx-xxxx-xxxx-xxxx',
   API_TOKEN: 'xxxx-xxxx-xxxx-xxxx',
   CLIENT_SECRET: 'xxxx-xxxx-xxxx-xxxx',
+  JWT_SIGNING_KEY: 'xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx',
 };
 
 describe('[NFR-OPS-02] config loader', () => {
@@ -44,6 +46,24 @@ describe('[NFR-OPS-02] config loader', () => {
     expect(output).toMatch(/HTTP_PORT: .+/);
     expect(output).toMatch(/API_TOKEN: .+/);
     expect(output).not.toMatch(/DATABASE_URL/);
+  });
+
+  it('never prints the value of a *_KEY variable (signing keys, slice 1)', () => {
+    const schemaWithRefine = z.object({
+      JWT_SIGNING_KEY: z.string().refine((v) => v.length >= 32, {
+        error: (issue) => `too short: ${String(issue.input)}`,
+      }),
+    });
+    const lines: string[] = [];
+    let exitCode: number | undefined;
+    loadConfig(
+      schemaWithRefine,
+      { JWT_SIGNING_KEY: 'xxxx-key-value-7' },
+      { write: (line) => lines.push(line), exit: (code) => (exitCode = code) },
+    );
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toMatch(/JWT_SIGNING_KEY/);
+    expect(lines.join('\n')).not.toContain('xxxx-key-value-7');
   });
 
   it('never prints the value of a key containing PASSWORD, SECRET, TOKEN or URL', () => {

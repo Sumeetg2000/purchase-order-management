@@ -11,8 +11,9 @@ const defaultIo: LoadConfigIo = {
 };
 
 // Keys whose values may be credentials. Their values are never printed, even when a
-// validation message would otherwise echo them. URLs embed passwords.
-const SENSITIVE_KEY = /PASSWORD|SECRET|TOKEN|URL/;
+// validation message would otherwise echo them. URLs embed passwords; *_KEY covers
+// signing keys (JWT and CSRF, slice 1).
+const SENSITIVE_KEY = /PASSWORD|SECRET|TOKEN|URL|KEY/;
 
 function scrub(message: string, env: Record<string, string | undefined>): string {
   let out = message;
