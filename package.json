@@ -20,7 +20,8 @@
     "prelint": "npm run generate -w @po/backend && npm run build -w @po/contracts",
     "check:traceability": "node scripts/check-traceability.mjs",
     "check:ids": "node scripts/check-requirement-ids.mjs",
-    "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs"
+    "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs",
+    "contract:types": "npm run contract:types -w @po/frontend"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
@@ -43,5 +44,10 @@
     "cpu-features": false,
     "ssh2": false,
     "protobufjs": false
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "6.0.3"
+    }
   }
 }

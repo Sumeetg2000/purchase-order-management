@@ -40,6 +40,8 @@ export default defineConfig(
       '.specify/**',
       '.claude/**',
       'backend/src/generated/**',
+      // Generated from the committed OpenAPI document by openapi-typescript.
+      'frontend/src/api/schema.d.ts',
       // Inputs for the check scripts' tests, not code.
       'scripts/tests/fixtures/**',
     ],

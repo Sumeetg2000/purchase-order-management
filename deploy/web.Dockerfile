@@ -15,6 +15,9 @@ COPY frontend/package.json frontend/
 RUN npm ci --no-audit --no-fund
 
 COPY tsconfig.base.json ./
+# The web client imports the error registry and problem schema from the contracts package.
+COPY packages/contracts packages/contracts
+RUN npm run build -w @po/contracts
 COPY frontend frontend
 RUN npm run build -w @po/frontend
 

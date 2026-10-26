@@ -12,3 +12,4 @@ specs/
 docs/
 # Generated and committed; CI compares a fresh generation byte for byte.
 packages/contracts/openapi/
+frontend/src/api/schema.d.ts
