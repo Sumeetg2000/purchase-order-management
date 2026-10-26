@@ -35,6 +35,10 @@ export async function runPurgeCycle(
   return counts;
 }
 
+// setTimeout clamps delays above 2^31-1 ms (about 24.8 days) to 1 ms, so longer waits
+// are chained.
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 export interface MaintenanceLoopOptions {
   tasks: readonly PurgeTask[];
   db: AppPrismaClient;
@@ -59,8 +63,15 @@ export function startMaintenanceLoop({ tasks, db, logger, intervalMs }: Maintena
       },
     );
     void current.then(() => {
-      if (!stopped) timer = setTimeout(tick, intervalMs);
+      if (!stopped) wait(intervalMs);
     });
+  };
+  const wait = (remainingMs: number) => {
+    const step = Math.min(remainingMs, MAX_TIMER_MS);
+    timer = setTimeout(() => {
+      if (remainingMs > step) wait(remainingMs - step);
+      else tick();
+    }, step);
   };
   tick();
 

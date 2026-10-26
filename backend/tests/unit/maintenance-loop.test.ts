@@ -1,5 +1,5 @@
 import { pino } from 'pino';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runPurgeCycle, startMaintenanceLoop } from '../../src/maintenance/loop.js';
 import { purgeTasks, type PurgeTask } from '../../src/maintenance/registry.js';
 
@@ -73,5 +73,30 @@ describe('[NFR-OPS-05] maintenance loop skeleton', () => {
     expect(failed?.['failed']).toEqual(['first']);
     expect(failed?.['counts']).toEqual({ second: 2 });
     expect(lines.some((l) => l['msg'] === 'purge run complete')).toBe(false);
+  });
+
+  describe('[NFR-OPS-05] long intervals', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('[NFR-OPS-05] waits the full interval even beyond the 24.8-day timer limit', async () => {
+      vi.useFakeTimers();
+      const { logger } = capture();
+      let calls = 0;
+      const tasks: PurgeTask[] = [{ name: 't', run: () => Promise.resolve((calls += 1)) }];
+      const thirtyDays = 30 * 24 * 60 * 60 * 1_000;
+
+      const loop = startMaintenanceLoop({ tasks, db, logger, intervalMs: thirtyDays });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(calls).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(thirtyDays - 1_000);
+      expect(calls).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(calls).toBe(2);
+      await loop.stop();
+    });
   });
 });
