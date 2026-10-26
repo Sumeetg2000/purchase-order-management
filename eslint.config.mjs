@@ -40,6 +40,8 @@ export default defineConfig(
       '.specify/**',
       '.claude/**',
       'backend/src/generated/**',
+      // Inputs for the check scripts' tests, not code.
+      'scripts/tests/fixtures/**',
     ],
   },
   js.configs.recommended,
