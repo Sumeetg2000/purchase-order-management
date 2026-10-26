@@ -1,3 +1,5 @@
+import { AppError } from '@po/contracts';
+import type { Logger } from 'pino';
 import { Prisma } from '../generated/prisma/client.js';
 
 // The only module that inspects database and ORM errors (ADR-0007). The shapes below
@@ -41,6 +43,8 @@ export function isPoolTimeout(error: unknown): boolean {
 interface DriverAdapterCause {
   kind?: string;
   originalCode?: string;
+  /** Unique and foreign-key violations name the constraint here (research R5). */
+  constraint?: { index?: string };
 }
 
 function adapterCause(error: Prisma.PrismaClientKnownRequestError): DriverAdapterCause | undefined {
@@ -89,4 +93,69 @@ export function classifyDbError(error: unknown): DbErrorClass {
     }
   }
   return 'other';
+}
+
+/**
+ * Constraint name → the error a client gets when it is violated. Each slice adds the
+ * constraints its business rules rely on (for example a duplicate vendor name).
+ */
+export type ConstraintErrors = Readonly<Record<string, () => AppError>>;
+
+export const CONSTRAINT_ERRORS: ConstraintErrors = {};
+
+// Our trigger functions raise custom SQLSTATEs in class PO (research R6).
+const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
+
+export interface MapDbErrorOptions {
+  logger: Logger;
+  constraints?: ConstraintErrors;
+}
+
+/**
+ * The one translation from database and ORM errors to registry codes (ADR-0007).
+ * Returns undefined for anything that is not a database error. Unexpected database
+ * errors become INTERNAL_ERROR and are logged here with what identifies them.
+ */
+export function mapDbError(
+  error: unknown,
+  { logger, constraints = CONSTRAINT_ERRORS }: MapDbErrorOptions,
+): AppError | undefined {
+  if (error instanceof DatabaseUnavailableError) {
+    return new AppError('SERVICE_UNAVAILABLE', { cause: error });
+  }
+  if (error instanceof ConcurrencyRetryExhaustedError) {
+    return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
+  }
+
+  const kind = classifyDbError(error);
+  if (kind === 'unavailable') return new AppError('SERVICE_UNAVAILABLE', { cause: error });
+  // A conflict outside withTransaction's retry loop is reported like exhausted retries.
+  if (kind === 'retryable') return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
+
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
+  const cause = adapterCause(error);
+
+  if (error.code === 'P2002' || error.code === 'P2003') {
+    const constraint = cause?.constraint?.index;
+    const toError =
+      constraint !== undefined && Object.hasOwn(constraints, constraint)
+        ? constraints[constraint]
+        : undefined;
+    if (toError) return toError();
+    logger.error(
+      { err: error, prismaCode: error.code, constraint },
+      'unmapped constraint violation',
+    );
+    return new AppError('INTERNAL_ERROR', { cause: error });
+  }
+  if (error.code === 'P2025') return new AppError('NOT_FOUND', { cause: error });
+
+  const sqlstate = cause?.originalCode;
+  if (sqlstate !== undefined && TRIGGER_SQLSTATE.test(sqlstate)) {
+    // A code path forgot its actor context or contradicted it: a bug, never a client error.
+    logger.error({ err: error, sqlstate }, 'database trigger refused the change');
+    return new AppError('INTERNAL_ERROR', { cause: error });
+  }
+  logger.error({ err: error, prismaCode: error.code, sqlstate }, 'unmapped database error');
+  return new AppError('INTERNAL_ERROR', { cause: error });
 }

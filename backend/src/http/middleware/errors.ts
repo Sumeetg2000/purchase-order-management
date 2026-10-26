@@ -1,6 +1,7 @@
 import { AppError } from '@po/contracts';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { Logger } from 'pino';
+import { mapDbError } from '../../db/errors.js';
 import { sendProblem } from '../problem.js';
 
 /** Any request no route matched, including an undefined method on a known path. */
@@ -36,6 +37,8 @@ export function toAppError(error: unknown, logger: Logger): AppError {
   if (error instanceof AppError) return error;
   const parsed = fromBodyParser(error);
   if (parsed) return parsed;
+  const fromDatabase = mapDbError(error, { logger });
+  if (fromDatabase) return fromDatabase;
   logger.error({ err: error }, 'unhandled error');
   return new AppError('INTERNAL_ERROR', { cause: error });
 }

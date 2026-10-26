@@ -72,13 +72,16 @@ function appFor(prisma: AppPrismaClient) {
   });
 }
 
-/** Holds the only pooled connection for 1.5 s. */
-async function holdPool(prisma: AppPrismaClient) {
+/**
+ * Holds the only pooled connection for 1.5 s. Returned inside an object: an async function
+ * returning the promise itself would wait for the hold to end.
+ */
+async function holdPool(prisma: AppPrismaClient): Promise<{ released: Promise<unknown> }> {
   const hold = prisma.$transaction((t) => t.$queryRaw`SELECT pg_sleep(1.5)::text`, {
     timeout: 5_000,
   });
-  await new Promise((resolve) => setTimeout(resolve, 150));
-  return hold;
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  return { released: hold };
 }
 
 function expect503(res: Response, code = 'SERVICE_UNAVAILABLE') {
@@ -104,17 +107,17 @@ describe('[NFR-CON-02] overload returns 503, never 500 or a hang', () => {
   it('[NFR-CON-02] a query outside a transaction with the pool exhausted is 503 SERVICE_UNAVAILABLE', async () => {
     const db = trackDatabase(await createTestDatabase());
     const prisma = prismaFor(db.url('po_app'));
-    const hold = await holdPool(prisma);
+    const { released } = await holdPool(prisma);
     expect503(await request(appFor(prisma)).get('/raw'));
-    await hold;
+    await released;
   });
 
   it('[NFR-CON-02] a transaction waiting past maxWait with the pool exhausted is 503 SERVICE_UNAVAILABLE', async () => {
     const db = trackDatabase(await createTestDatabase());
     const prisma = prismaFor(db.url('po_app'));
-    const hold = await holdPool(prisma);
+    const { released } = await holdPool(prisma);
     expect503(await request(appFor(prisma)).get('/tx'));
-    await hold;
+    await released;
   });
 
   it('[NFR-CON-02] a transaction past its timeout is 503 SERVICE_UNAVAILABLE', async () => {

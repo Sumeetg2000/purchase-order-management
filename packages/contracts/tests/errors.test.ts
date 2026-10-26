@@ -95,7 +95,8 @@ describe('[NFR-API-02] problem schema', () => {
 
   it('[NFR-API-02] rejects an unknown code, a missing correlation id and extra fields', () => {
     expect(problemSchema.safeParse({ ...valid, code: 'TEAPOT' }).success).toBe(false);
-    const { correlationId: _omitted, ...withoutId } = valid;
+    const withoutId: Record<string, unknown> = { ...valid };
+    delete withoutId['correlationId'];
     expect(problemSchema.safeParse(withoutId).success).toBe(false);
     expect(problemSchema.safeParse({ ...valid, stack: 'at x' }).success).toBe(false);
   });
