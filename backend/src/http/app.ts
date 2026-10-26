@@ -29,9 +29,11 @@ function describeRoute(route: Pick<OperationContract, 'method' | 'path'>): strin
   return `${route.method.toUpperCase()} ${route.path}`;
 }
 
+const CONTRACT_FIELDS = ['summary', 'access', 'request', 'responses', 'errors'] as const;
+
 /**
  * Startup check: every route declares a known access level and documented responses, and
- * a route that names a contract operation serves it at the contract's method and path.
+ * a route that names a contract operation serves exactly that operation.
  */
 export function validateRoutes(routes: readonly RouteDefinition[]): void {
   const operationIds = new Set<string>();
@@ -62,6 +64,17 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
     if (contract && (contract.method !== route.method || contract.path !== route.path)) {
       throw new RouteRegistrationError(
         `Route ${label} claims operation "${route.operationId}", which the contract defines as ${describeRoute(contract)}`,
+      );
+    }
+    // A route spreads its operation and adds a handler. Anything it overrides would be
+    // served differently from what the document says, so the fields must be the contract's
+    // own values.
+    const changed = contract
+      ? CONTRACT_FIELDS.filter((field) => route[field] !== contract[field])
+      : [];
+    if (changed.length > 0) {
+      throw new RouteRegistrationError(
+        `Route ${label} changes ${changed.join(', ')} of contract operation "${route.operationId}"`,
       );
     }
     operationIds.add(route.operationId);
