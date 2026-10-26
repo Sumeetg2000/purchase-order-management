@@ -63,8 +63,10 @@ services:
       DB_POOL_SIZE: ${DB_POOL_SIZE}
       DB_TX_TIMEOUT_MS: ${DB_TX_TIMEOUT_MS}
       DB_TX_MAX_WAIT_MS: ${DB_TX_MAX_WAIT_MS}
-      HTTP_PORT: ${HTTP_PORT}
-      METRICS_PORT: ${METRICS_PORT}
+      # Container ports, fixed because the edge proxies to api:3000 and 9464 is exposed.
+      # The .env values apply only to processes run on the host.
+      HTTP_PORT: '3000'
+      METRICS_PORT: '9464'
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_SECURE: ${SMTP_SECURE}
@@ -75,7 +77,7 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- "http://127.0.0.1:$${HTTP_PORT}/healthz" >/dev/null']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/healthz >/dev/null']
       interval: 5s
       timeout: 3s
       retries: 12

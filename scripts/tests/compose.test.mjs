@@ -103,6 +103,14 @@ describe('[NFR-OPS-02] compose exposure', () => {
     assert.deepEqual(services.api.expose, ['9464']);
     assert.equal(services.api.ports, undefined);
   });
+  it('[NFR-OPS-03] api listens on the ports the edge proxies to and compose exposes', () => {
+    const nginx = readFileSync(new URL('../../deploy/nginx/default.conf', import.meta.url), 'utf8');
+    const env = environment('api');
+    assert.equal(String(env.HTTP_PORT), '3000');
+    assert.equal(String(env.METRICS_PORT), '9464');
+    assert.match(nginx, /http:\/\/api:3000\b/);
+    assert.deepEqual(services.api.expose, [String(env.METRICS_PORT)]);
+  });
 });
 
 describe('[NFR-OPS-05] compose credential separation', () => {
