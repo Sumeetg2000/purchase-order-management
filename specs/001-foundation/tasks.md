@@ -305,7 +305,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   Implement the variables, production refusals, `change-me-` refusal, credential
   separation and the port check from contracts/config.md — FR-003, FR-004 — Verify: T020
   passes.
-- [ ] T028 [US1] Health and readiness routes — `backend/src/http/routes/health.ts`
+- [X] T028 [US1] Health and readiness routes — `backend/src/http/routes/health.ts`
   (`access: 'public'`; readiness runs `SELECT 1` and checks `_prisma_migrations` has no
   pending or failed rows) — FR-005 — Verify: T021 passes.
 - [ ] T029 [US1] Graceful shutdown — `backend/src/server.ts`
