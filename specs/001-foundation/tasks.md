@@ -500,7 +500,7 @@ transaction leaves no entry.
 
 ### Tests for User Story 4 (write first, run, see them fail)
 
-- [ ] T051 [P] [US4] Role and privilege snapshot test — `backend/tests/integration/roles.test.ts`:
+- [X] T051 [P] [US4] Role and privilege snapshot test — `backend/tests/integration/roles.test.ts`:
   - all three roles are `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`; `po_app` and
     `po_maintenance` own nothing
   - table grants equal the expected list in [data-model.md](data-model.md), including
@@ -508,7 +508,7 @@ transaction leaves no entry.
   - `po_app` can't `ALTER TABLE`, `DISABLE TRIGGER` or `SET session_replication_role`
 
   — FR-016, SC-005 — Verify: fails.
-- [ ] T052 [P] [US4] Audit enforcement tests — `backend/tests/integration/audit.test.ts`:
+- [X] T052 [P] [US4] Audit enforcement tests — `backend/tests/integration/audit.test.ts`:
   - insert into `users` without actor context → `ACTOR_CONTEXT_REQUIRED`
   - `UPDATE` or `DELETE` on `audit_entries` as `po_app` → permission denied
   - `USER` without `actor_user_id` → refused; `OPERATOR` without `osUser`/`host` →
@@ -520,7 +520,7 @@ transaction leaves no entry.
   Also `backend/tests/unit/audit-write.test.ts`: a typed slice 0 event (`ADMIN_CREATED`)
   type-checks, and an unknown event name or wrong `details` shape doesn't (`expectTypeOf`).
   Test names cite `NFR-AUD-02` — FR-017, FR-018, FR-019, SC-005 — Verify: fails.
-- [ ] T053 [US4] Traceability: NFR-AUD-02 → `Tested` — `docs/traceability.md`.
+- [X] T053 [US4] Traceability: NFR-AUD-02 → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 4
 

@@ -59,7 +59,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | Separation of duties | FR-SOD-01 | 0004, 0002 | `SELF_APPROVAL` on approve, reject and cancel for a dual-role user; no `DUPLICATE_APPROVER` code in the registry or any code path | Todo |
 | Approval policy changed only through the operator CLI (`policy:set` / `policy:show`), new version per change, audited `OPERATOR` | FR-APR-05 | 0002, 0016 | new version created and used by the next submission; already submitted orders keep their version; invalid amount → error, no change; no-op on same value; audited `OPERATOR` with before/after, `osUser`, `host`; no HTTP write route | Todo |
 | Current approval policy readable (for the submit dialog) | FR-APR-04 | 0002 | `GET /api/approval-policy` returns the current tiers to Buyer, Approver, Admin; no-role → 403 `NO_ROLE_ASSIGNED` | Todo |
-| Audit catalogue, actor context required, append-only | NFR-AUD-02 | 0016 | raw SQL without actor → rejected; UPDATE/DELETE on audit denied | Spec |
+| Audit catalogue, actor context required, append-only | NFR-AUD-02 | 0016 | raw SQL without actor → rejected; UPDATE/DELETE on audit denied | Tested |
 | Audit visibility: Admin all + org-wide log (filters, paginated); Buyer own orders + vendor history; Approver readable orders | NFR-AUD-03 | 0016 | per-role visibility; Buyer on other's timeline → 404; Approver on org log → 403; org-log filters + EXPLAIN | Todo |
 | `open_line_count` stored, guarded, reconciled (INV-6) | FR-RPT-03 | 0015, 0003 | raw-SQL write → denied/`DERIVED_VALUE_READ_ONLY`; included in reconciliation | Todo |
 | Concurrency (lock-then-read; business outcomes) | NFR-CON-01 | 0006 | concurrency suite | Todo |
