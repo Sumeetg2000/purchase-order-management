@@ -83,7 +83,8 @@ Conventions:
 - Index: `(occurred_at, id)`. Slice 1 adds the organisation-wide log's filter indexes.
 - Privileges: `po_app` gets `SELECT, INSERT`, never `UPDATE` or `DELETE`.
   `po_maintenance` gets `SELECT, DELETE` (purge after 8 years) and `INSERT` (for
-  `USER_PHONE_PURGED`, used from slice 1).
+  `USER_PHONE_PURGED`, used from slice 1). `INSERT` is granted on every column except
+  `id`, so no writer can choose an entry's id.
 
 ## Actor context (transaction-local settings)
 

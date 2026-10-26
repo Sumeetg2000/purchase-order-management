@@ -11,14 +11,30 @@ const ROLES = ['po_owner', 'po_app', 'po_maintenance'] as const;
 /** Every grant on tables, views and sequences in public, excluding the owner's own. */
 const EXPECTED_RELATION_GRANTS = [
   '_prisma_migrations po_app SELECT',
-  'audit_entries po_app INSERT',
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
-  'audit_entries po_maintenance INSERT',
   'audit_entries po_maintenance SELECT',
   'users po_app INSERT',
   'users po_app SELECT',
   'users po_app UPDATE',
+];
+
+// INSERT on audit_entries is granted per column, never on id, so no writer can choose an
+// entry's id (OVERRIDING SYSTEM VALUE).
+const AUDIT_INSERT_COLUMNS = [
+  'acting_role',
+  'action',
+  'actor_email',
+  'actor_name',
+  'actor_type',
+  'actor_user_id',
+  'details',
+  'entity_id',
+  'entity_type',
+  'occurred_at',
+  'order_id',
+  'po_number',
+  'request_id',
 ];
 
 async function rows<T extends pg.QueryResultRow>(client: pg.Client, sql: string): Promise<T[]> {
@@ -94,16 +110,23 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(grants.map((g) => g.grant)).toEqual(EXPECTED_RELATION_GRANTS);
   });
 
-  it('[NFR-AUD-02] no column-level grants exist yet', async () => {
+  it('[NFR-AUD-02] column grants are exactly INSERT on the audit columns other than id', async () => {
     const { admin } = await freshDb();
-    const columns = await rows<{ col: string }>(
+    const columns = await rows<{ grant: string }>(
       admin,
-      `SELECT c.relname || '.' || a.attname AS col
+      `SELECT c.relname || '.' || a.attname || ' '
+                || CASE WHEN x.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END
+                || ' ' || x.privilege_type AS grant
          FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
          JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND a.attacl IS NOT NULL`,
+         CROSS JOIN LATERAL aclexplode(a.attacl) x
+        WHERE n.nspname = 'public' AND a.attacl IS NOT NULL
+        ORDER BY 1`,
     );
-    expect(columns).toEqual([]);
+    const expected = ['po_app', 'po_maintenance']
+      .flatMap((role) => AUDIT_INSERT_COLUMNS.map((col) => `audit_entries.${col} ${role} INSERT`))
+      .sort();
+    expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
   it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC)', async () => {

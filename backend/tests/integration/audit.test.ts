@@ -216,6 +216,19 @@ describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
     },
   );
 
+  it.each(['po_app', 'po_maintenance'] as const)(
+    '[NFR-AUD-02] %s cannot choose an audit entry id (OVERRIDING SYSTEM VALUE)',
+    async (role) => {
+      const db = trackDatabase(await createTestDatabase());
+      const client = await db.client(role);
+      const forged = `INSERT INTO audit_entries (id, action, entity_type, entity_id, details)
+                      OVERRIDING SYSTEM VALUE VALUES (1, 'ADMIN_CREATED', 'user', '${USER_ID}', '{}')`;
+      expect(await sqlstate(() => inTx(client, { 'app.actor_type': 'SYSTEM' }, [forged]))).toBe(
+        INSUFFICIENT_PRIVILEGE,
+      );
+    },
+  );
+
   it('[NFR-AUD-02] a rolled-back transaction leaves no entry', async () => {
     const db = trackDatabase(await createTestDatabase());
     const app = await db.client('po_app');

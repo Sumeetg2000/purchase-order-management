@@ -172,6 +172,10 @@ CREATE TRIGGER audit_retention_guard
   FOR EACH ROW EXECUTE FUNCTION audit_retention_guard();
 
 -- po_app writes entries but never changes or removes them. po_maintenance purges entries
--- past retention and, from slice 1, records USER_PHONE_PURGED.
-GRANT SELECT, INSERT ON TABLE audit_entries TO po_app;
-GRANT SELECT, DELETE, INSERT ON TABLE audit_entries TO po_maintenance;
+-- past retention and, from slice 1, records USER_PHONE_PURGED. INSERT is granted on every
+-- column except id, so no writer can choose an entry's id (OVERRIDING SYSTEM VALUE).
+GRANT SELECT ON TABLE audit_entries TO po_app;
+GRANT SELECT, DELETE ON TABLE audit_entries TO po_maintenance;
+GRANT INSERT (occurred_at, actor_type, actor_user_id, actor_name, actor_email, acting_role,
+              action, entity_type, entity_id, order_id, po_number, details, request_id)
+  ON TABLE audit_entries TO po_app, po_maintenance;
