@@ -64,9 +64,9 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | `open_line_count` stored, guarded, reconciled (INV-6) | FR-RPT-03 | 0015, 0003 | raw-SQL write → denied/`DERIVED_VALUE_READ_ONLY`; included in reconciliation | Todo |
 | Concurrency (lock-then-read; business outcomes) | NFR-CON-01 | 0006 | concurrency suite | Todo |
 | Optimistic concurrency via `If-Match` | NFR-CON-03 | 0006 | missing → 400 `VERSION_REQUIRED` per command; stale → 409 `VERSION_CONFLICT`; `ETag` returned; receipts need none | Todo |
-| Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Tested |
+| Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Done |
 | Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Spec |
-| Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Tested |
+| Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Done |
 | Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH = 1 recompute; receipt = 0; status update = 0 | Todo |
 | Production-scale latency targets | NFR-PERF-04 | 0012 | load job (median of 3 runs) | Todo |
 | Config validation, health/readiness, logs, security baseline; local vs deployment profiles | NFR-OPS-02 | 0020 | invalid config exits; `APP_ENV=production` with `SEED_DEMO_DATA=true` or SMTP host `mailpit` → exits; readiness DB-down; `/metrics` via nginx → 404, not on any host-published port, served on the internal port; API/CLI refuse owner, superuser and maintenance credentials, and a non-`po_app` URL; maintenance refuses everything but its own URL; gitleaks fails on a committed fake secret; headers; CORS denied by default | Spec |

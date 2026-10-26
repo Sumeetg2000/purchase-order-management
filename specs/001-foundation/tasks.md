@@ -478,7 +478,7 @@ nothing secret leaks.
   `npm run lint`.
 - [X] T048 [US3] API security middleware — `backend/src/http/middleware/security.ts`
   (helmet; origin guard → `CSRF_REJECTED`; `cors` disabled) — FR-014 — Verify: T042 passes.
-- [ ] T049 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Done` — `docs/traceability.md`
+- [X] T049 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Done` — `docs/traceability.md`
   — Verify: T038–T042 green in the `api` job.
 
 - [ ] T050 [US3] Story checkpoint review: run `/code-review` and `/security-review` over this story's
