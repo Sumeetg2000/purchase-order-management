@@ -69,6 +69,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # SC-001 measures from a clean checkout, so the clock starts before the build.
+      - name: Record start time
+        run: echo "SMOKE_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # .env from .env.example with random throwaway secrets: no repository secrets needed.
+      - name: Write .env
+        run: scripts/ci-env.sh
+      - name: Start the stack
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Smoke test
+        run: scripts/smoke.sh
+      - name: Compose logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
+
   secrets:
     name: secrets
     runs-on: ubuntu-24.04
