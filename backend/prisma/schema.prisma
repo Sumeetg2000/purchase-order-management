@@ -9,3 +9,19 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// Minimal users table (migration 0002_users). Never deleted: po_app has no DELETE.
+model User {
+  id            String    @id @db.Uuid
+  name          String
+  email         String    @unique(map: "users_email_key")
+  roles         String[]  @default([])
+  status        String
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  passwordHash  String?   @map("password_hash")
+  version       Int       @default(1)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}

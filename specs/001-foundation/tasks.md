@@ -524,7 +524,7 @@ transaction leaves no entry.
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Users table (minimal) — `backend/prisma/migrations/0002_users/migration.sql`
+- [X] T054 [US4] Users table (minimal) — `backend/prisma/migrations/0002_users/migration.sql`
   and `schema.prisma`. Columns and checks:
   - `name` "1–100 characters (`CHECK`)"
   - `email` "stored lower-cased (`CHECK email = lower(email)`), `UNIQUE`"
