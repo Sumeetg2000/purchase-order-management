@@ -120,13 +120,19 @@ describe('[FR-ACC-03] one-time tokens', () => {
     expect(used?.superseded_at).toBeNull();
   });
 
-  it('[FR-ACC-03] po_app cannot delete tokens; po_maintenance can only read and delete them', async () => {
+  it('[FR-ACC-03] po_app can only mark tokens used or superseded, never delete them; po_maintenance can only read and delete them', async () => {
     const { db, issue } = await setup();
     await issue();
     const app = await db.client('po_app');
     await expect(app.query('DELETE FROM one_time_tokens')).rejects.toMatchObject({
       code: '42501',
     });
+    for (const column of ['expires_at', 'token_hash', 'user_id', 'purpose']) {
+      await expect(
+        app.query(`UPDATE one_time_tokens SET ${column} = ${column}`),
+        column,
+      ).rejects.toMatchObject({ code: '42501' });
+    }
     const maintenance = await db.client('po_maintenance');
     await expect(
       maintenance.query('UPDATE one_time_tokens SET used_at = now()'),

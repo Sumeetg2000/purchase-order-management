@@ -16,7 +16,6 @@ const EXPECTED_RELATION_GRANTS = [
   'audit_entries po_maintenance SELECT',
   'one_time_tokens po_app INSERT',
   'one_time_tokens po_app SELECT',
-  'one_time_tokens po_app UPDATE',
   'one_time_tokens po_maintenance DELETE',
   'one_time_tokens po_maintenance SELECT',
   'users po_app INSERT',
@@ -115,7 +114,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(grants.map((g) => g.grant)).toEqual(EXPECTED_RELATION_GRANTS);
   });
 
-  it('[NFR-AUD-02] column grants are exactly INSERT on the audit columns other than id', async () => {
+  it("[NFR-AUD-02] column grants are exactly INSERT on the audit columns other than id, and UPDATE of a token's used and superseded times", async () => {
     const { admin } = await freshDb();
     const columns = await rows<{ grant: string }>(
       admin,
@@ -128,9 +127,14 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         WHERE n.nspname = 'public' AND a.attacl IS NOT NULL
         ORDER BY 1`,
     );
-    const expected = ['po_app', 'po_maintenance']
-      .flatMap((role) => AUDIT_INSERT_COLUMNS.map((col) => `audit_entries.${col} ${role} INSERT`))
-      .sort();
+    const expected = [
+      ...['po_app', 'po_maintenance'].flatMap((role) =>
+        AUDIT_INSERT_COLUMNS.map((col) => `audit_entries.${col} ${role} INSERT`),
+      ),
+      // po_app marks a token used or superseded; it can never change its hash, owner or expiry.
+      'one_time_tokens.superseded_at po_app UPDATE',
+      'one_time_tokens.used_at po_app UPDATE',
+    ].sort();
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
