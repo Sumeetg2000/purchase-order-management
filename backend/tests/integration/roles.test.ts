@@ -173,7 +173,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     const { admin } = await freshDb();
     const triggers = await rows<{ trigger: string }>(
       admin,
-      `SELECT c.relname || ' ' || t.tgname || ' ' || t.tgenabled AS trigger
+      `SELECT c.relname || ' ' || t.tgname || ' ' || t.tgenabled::text AS trigger
          FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
         WHERE NOT t.tgisinternal ORDER BY 1`,
     );

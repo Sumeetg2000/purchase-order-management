@@ -536,7 +536,7 @@ transaction leaves no entry.
 
   Grants: `po_app` gets `SELECT, INSERT, UPDATE` (no `DELETE`) — FR-016, FR-032 base —
   Verify: the users part of T051 passes.
-- [ ] T055 [US4] Audit table, triggers and grants —
+- [X] T055 [US4] Audit table, triggers and grants —
   `backend/prisma/migrations/0003_audit/migration.sql`:
   - `audit_entries` columns per data-model
   - the actor `CHECK` ("`USER`: `actor_user_id`, `actor_name`, `actor_email` and

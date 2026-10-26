@@ -76,6 +76,10 @@ Conventions:
 - A `BEFORE INSERT` trigger fills the actor fields and `request_id` from the transaction's
   actor context. It raises `ACTOR_CONTEXT_REQUIRED` (SQLSTATE `PO001`) if there is none,
   and `ACTOR_CONTEXT_MISMATCH` (`PO002`) if explicit values contradict the context.
+- The fill trigger always sets `occurred_at` from the database clock, overwriting any
+  supplied value, so an entry can't be back-dated.
+- A `BEFORE DELETE` trigger, `audit_retention_guard`, refuses deleting an entry younger
+  than 8 years (`AUDIT_RETENTION_ACTIVE`, SQLSTATE `PO004`), for every role.
 - Index: `(occurred_at, id)`. Slice 1 adds the organisation-wide log's filter indexes.
 - Privileges: `po_app` gets `SELECT, INSERT`, never `UPDATE` or `DELETE`.
   `po_maintenance` gets `SELECT, DELETE` (purge after 8 years) and `INSERT` (for
@@ -111,6 +115,7 @@ migration.
 |---|---|
 | `require_actor_context()` | trigger function; refuses audited changes without context |
 | `audit_fill_actor()` | trigger function on `audit_entries`; fills and verifies the actor fields |
+| `audit_retention_guard()` | trigger function on `audit_entries`; refuses deleting an entry inside its 8-year retention |
 | advisory lock `ADMIN_LOCK` (constant) | bootstrap and every operator CLI command |
 | advisory lock `PURGE_LOCK` (constant) | the maintenance purge |
 

@@ -111,7 +111,15 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - **Our trigger errors use custom SQLSTATE codes**, so `db/errors.ts` maps them by
       code, never by message: class `PO` (unused by PostgreSQL), `PO001`
       `ACTOR_CONTEXT_REQUIRED`, `PO002` `ACTOR_CONTEXT_MISMATCH`. Later slices add more,
-      for example `PO003` `DERIVED_VALUE_READ_ONLY`. The adapter exposes them as
+      for example `PO003` `DERIVED_VALUE_READ_ONLY`.
+    - **Updated at T055**: `PO004` `AUDIT_RETENTION_ACTIVE` is raised by a `BEFORE DELETE`
+      row trigger on `audit_entries` for any entry younger than 8 years, for every role
+      including the owner. A grant can't limit `po_maintenance`'s `DELETE` to expired
+      rows; the trigger does. `PO001` also covers an incomplete or inconsistent context
+      (a `USER` without its user id, name, email or acting role; an `OPERATOR` without
+      OS user or host; a `SYSTEM` context carrying actor fields). The trigger functions
+      are `SECURITY INVOKER` with `search_path = pg_catalog, pg_temp`, owned by
+      `po_owner`, with `EXECUTE` revoked from `PUBLIC` (triggers fire without it). The adapter exposes them as
       `cause.originalCode`. It's attached to every
     audited table: `users` in slice 0, and more in later slices.
   - Service code writes audit rows explicitly, in the same transaction. A `BEFORE INSERT`
