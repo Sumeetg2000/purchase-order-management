@@ -38,13 +38,19 @@ function resolve(node: unknown, path: string[]): { node: Json; path: string[] } 
   return { node: node as Json, path };
 }
 
-/** The document path whose pattern matches a request path, e.g. /items/{id}. */
-function documentedPath(requestPath: string): string | undefined {
-  const paths = Object.keys(document['paths'] ?? {});
+/** Of the given document paths, the one whose pattern matches a request path. */
+export function matchDocumentedPath(
+  paths: readonly string[],
+  requestPath: string,
+): string | undefined {
   return paths.find((candidate) => {
     const pattern = candidate.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[^}]+\}/g, '[^/]+');
     return new RegExp(`^${pattern}$`).test(requestPath);
   });
+}
+
+function documentedPath(requestPath: string): string | undefined {
+  return matchDocumentedPath(Object.keys((document['paths'] ?? {}) as Json), requestPath);
 }
 
 /** Whether the document has a path matching this request path. */
