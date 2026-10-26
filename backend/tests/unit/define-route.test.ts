@@ -8,12 +8,7 @@ import { productionRoutes } from '../../src/http/routes/index.js';
 import { testLogger } from '../support/log-capture.js';
 
 const health = defineRoute({
-  method: 'get',
-  path: '/healthz',
-  operationId: 'getHealth',
-  summary: 'Liveness',
-  access: 'public',
-  responses: { 200: z.object({ status: z.literal('ok') }) },
+  ...OPERATIONS.getHealth,
   handler: (_req, res) => {
     res.json({ status: 'ok' });
   },
@@ -58,6 +53,18 @@ describe('[NFR-API-01] routes follow the contract', () => {
     expect(() => createApp({ ...appOptions, routes: [moved] })).toThrow(/contract/);
     const otherMethod = { ...health, method: 'post' as const };
     expect(() => createApp({ ...appOptions, routes: [otherMethod] })).toThrow(/contract/);
+  });
+
+  it('[NFR-API-01] refuses a route that spreads a contract operation but changes what it documents', () => {
+    const changed: RouteDefinition[] = [
+      { ...health, request: { query: z.strictObject({ verbose: z.string() }) } },
+      { ...health, responses: { 200: z.object({ status: z.string() }) } },
+      { ...health, errors: ['NOT_FOUND'] },
+      { ...health, summary: 'Something else' },
+    ];
+    for (const route of changed) {
+      expect(() => createApp({ ...appOptions, routes: [route] })).toThrow(/contract/);
+    }
   });
 
   it('[NFR-API-01] the production routes are exactly the contract operations', () => {
