@@ -6,6 +6,7 @@ import { createApp } from '../../src/http/app.js';
 import { healthRoutes, listMigrations } from '../../src/http/routes/health.js';
 import { createTestDatabase } from '../support/db.js';
 import { trackDatabase } from '../support/setup.js';
+import { testLogger } from '../support/log-capture.js';
 
 const clients: AppPrismaClient[] = [];
 
@@ -35,6 +36,8 @@ async function closedPort(): Promise<number> {
 
 async function appFor(url: string, expectedMigrations?: readonly string[]) {
   return createApp({
+    logger: testLogger(),
+    appOrigin: 'http://localhost:8080',
     routes: healthRoutes({
       prisma: prismaFor(url),
       expectedMigrations: expectedMigrations ?? (await listMigrations()),
@@ -100,6 +103,8 @@ describe('[NFR-OPS-02] health and readiness', () => {
     // A connection that is open but never answers, as in a network partition.
     const hung = { $queryRaw: () => new Promise(() => undefined) } as unknown as AppPrismaClient;
     const app = createApp({
+      logger: testLogger(),
+      appOrigin: 'http://localhost:8080',
       routes: healthRoutes({ prisma: hung, expectedMigrations: ['0001_baseline'], timeoutMs: 200 }),
     });
     const begun = Date.now();

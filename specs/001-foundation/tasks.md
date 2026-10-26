@@ -457,7 +457,7 @@ nothing secret leaks.
   `fieldDetails`; `ErrorCode` type), `packages/contracts/src/schemas/problem.ts` (Zod
   `Problem`, `FieldError`), and the `AppError` class in `packages/contracts/src/app-error.ts`
   — FR-008 — Verify: T038 passes.
-- [ ] T045 [US3] Correlation id and redacting logger —
+- [X] T045 [US3] Correlation id and redacting logger —
   `backend/src/http/middleware/correlation.ts` (validate `^[A-Za-z0-9._-]{8,64}$` or
   generate a UUIDv7; set the header; child logger; `ctx.requestId`), and the `redact`
   paths plus the `oneTimeLink` channel in `backend/src/observability/logger.ts`;

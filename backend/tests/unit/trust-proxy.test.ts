@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createApp } from '../../src/http/app.js';
 import { defineRoute } from '../../src/http/define-route.js';
+import { testLogger } from '../support/log-capture.js';
 
 const app = createApp({
+  logger: testLogger(),
+  appOrigin: 'http://localhost:8080',
   routes: [
     defineRoute({
       method: 'get',

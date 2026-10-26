@@ -34,6 +34,8 @@ async function main() {
 
   const metrics = createMetrics();
   const app = createApp({
+    logger,
+    appOrigin: config.APP_ORIGIN,
     metrics,
     routes: [...healthRoutes({ prisma, expectedMigrations: await listMigrations(), logger })],
   });

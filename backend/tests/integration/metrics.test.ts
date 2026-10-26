@@ -7,10 +7,13 @@ import { createApp } from '../../src/http/app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { sendProblem } from '../../src/http/problem.js';
 import { createMetrics, createMetricsServer } from '../../src/observability/metrics.js';
+import { testLogger } from '../support/log-capture.js';
 
 function testApp() {
   const metrics = createMetrics();
   const app = createApp({
+    logger: testLogger(),
+    appOrigin: 'http://localhost:8080',
     metrics,
     routes: [
       defineRoute({
@@ -108,6 +111,8 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
     let entered!: () => void;
     const started = new Promise<void>((resolve) => (entered = resolve));
     const app = createApp({
+      logger: testLogger(),
+      appOrigin: 'http://localhost:8080',
       metrics,
       routes: [
         defineRoute({

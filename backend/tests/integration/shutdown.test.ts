@@ -9,6 +9,7 @@ import { defineRoute } from '../../src/http/define-route.js';
 import { createShutdown } from '../../src/http/shutdown.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { trackDatabase } from '../support/setup.js';
+import { testLogger } from '../support/log-capture.js';
 
 const silent = pino({ level: 'silent' });
 
@@ -50,6 +51,8 @@ async function slowServer(db: TestDatabase) {
   const released = new Promise<void>((resolve) => (release = resolve));
 
   const app = createApp({
+    logger: testLogger(),
+    appOrigin: 'http://localhost:8080',
     routes: [
       defineRoute({
         method: 'get',

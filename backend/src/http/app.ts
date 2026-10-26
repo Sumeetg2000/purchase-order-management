@@ -1,6 +1,10 @@
 import express, { type Express } from 'express';
+import type { Logger } from 'pino';
+import { pinoHttp } from 'pino-http';
+import { serializeRequest, serializeResponse } from '../observability/logger.js';
 import type { Metrics } from '../observability/metrics.js';
 import { ACCESS_LEVELS, type RouteDefinition } from './define-route.js';
+import { correlation } from './middleware/correlation.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 
 export class RouteRegistrationError extends Error {
@@ -9,6 +13,10 @@ export class RouteRegistrationError extends Error {
 
 export interface CreateAppOptions {
   routes: readonly RouteDefinition[];
+  /** Every request gets a child logger bound to its correlation id. */
+  logger: Logger;
+  /** The only origin allowed to call the API (same-origin deployment, ADR-0017). */
+  appOrigin: string;
   /** Records request metrics; they are served by the separate metrics listener. */
   metrics?: Metrics;
 }
@@ -46,7 +54,7 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
   }
 }
 
-export function createApp({ routes, metrics }: CreateAppOptions): Express {
+export function createApp({ routes, logger, metrics }: CreateAppOptions): Express {
   validateRoutes(routes);
 
   const app = express();
@@ -57,6 +65,16 @@ export function createApp({ routes, metrics }: CreateAppOptions): Express {
   if (metrics) {
     app.use(metricsMiddleware(metrics));
   }
+  app.use(correlation());
+  app.use(
+    pinoHttp({
+      logger,
+      // Bind only the correlation id to the request's child logger, as `requestId`.
+      quietReqLogger: true,
+      customAttributeKeys: { reqId: 'requestId' },
+      serializers: { req: serializeRequest, res: serializeResponse },
+    }),
+  );
 
   for (const route of routes) {
     app.route(route.path)[route.method](route.handler);
