@@ -117,6 +117,32 @@ These are covered by the API integration suite (`npm test -w backend -- audit`):
   concurrent run is a no-op.
 - `docker compose logs maintenance` shows the first run with per-table counts.
 
+## Troubleshooting
+
+### `migrate` exits 255 with `exec …: operation not permitted`
+
+Snap-packaged Docker (`snap install docker`, the Ubuntu default) refuses to start any
+container with `no-new-privileges`, which `docker-compose.yml` sets on every service built
+from this repository. Every other container then waits on `migrate`.
+
+**Fix (recommended):** install Docker Engine from Docker's apt repository
+(<https://docs.docker.com/engine/install/ubuntu/>) and remove the snap.
+
+**Local workaround:** create `docker-compose.override.yml` in the repository root. Compose
+loads it automatically, and `.gitignore` keeps it out of git. It resets only
+`security_opt`; `cap_drop: [ALL]` stays in force:
+
+```yaml
+services:
+  migrate: { security_opt: !reset [] }
+  api: { security_opt: !reset [] }
+  web: { security_opt: !reset [] }
+  maintenance: { security_opt: !reset [] }
+```
+
+CI runs the unmodified `docker-compose.yml` on Docker Engine, so the full hardening is
+still checked on every pull request.
+
 ## Done
 
 Every command above behaves as stated, CI is green on the pull request, and the

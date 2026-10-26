@@ -26,3 +26,6 @@ Thumbs.db
 
 # Generated Prisma client (built by `prisma generate`)
 backend/src/generated/
+
+# Local compose overrides (e.g. the snap Docker workaround in specs/001-foundation/quickstart.md)
+docker-compose.override.yml
