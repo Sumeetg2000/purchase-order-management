@@ -127,6 +127,15 @@ describe('[NFR-PRIV-01] log redaction', () => {
   });
 });
 
+describe('[NFR-PRIV-01] logged URLs', () => {
+  it('[NFR-PRIV-01] redacts only sensitive query values and keeps the rest exactly as sent', async () => {
+    const { app, lines } = buildApp();
+    await request(app).get('/work?page=a%20b&token=xxxx-query-13');
+    const urls = lines.map((l) => (l['req'] as { url?: string } | undefined)?.url).filter(Boolean);
+    expect(urls).toContain('/work?page=a%20b&token=[Redacted]');
+  });
+});
+
 describe('[NFR-PRIV-01] redaction of errors and deep values', () => {
   it('[NFR-PRIV-01] redacts sensitive properties carried by a logged error and its cause', () => {
     const { logger, lines } = createCapture();

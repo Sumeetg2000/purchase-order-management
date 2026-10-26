@@ -31,15 +31,30 @@ export function redactDeep(value: unknown, depth = 0): unknown {
   return out;
 }
 
-/** Redacts the values of sensitive query parameters, keeping the rest of the URL. */
+function decodedKey(raw: string): string {
+  try {
+    return decodeURIComponent(raw.replaceAll('+', ' '));
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Redacts the values of sensitive query parameters and leaves every other byte of the URL
+ * as the client sent it. Keys are decoded before matching, so encoding can't hide them.
+ */
 export function redactUrl(url: string): string {
   const queryStart = url.indexOf('?');
   if (queryStart === -1) return url;
-  const params = new URLSearchParams(url.slice(queryStart + 1));
-  for (const key of [...params.keys()]) {
-    if (SENSITIVE_KEY.test(key)) params.set(key, REDACTED);
-  }
-  return `${url.slice(0, queryStart)}?${params.toString().replaceAll('%5BRedacted%5D', REDACTED)}`;
+  const pairs = url
+    .slice(queryStart + 1)
+    .split('&')
+    .map((pair) => {
+      const equals = pair.indexOf('=');
+      const key = equals === -1 ? pair : pair.slice(0, equals);
+      return SENSITIVE_KEY.test(decodedKey(key)) ? `${key}=${REDACTED}` : pair;
+    });
+  return `${url.slice(0, queryStart)}?${pairs.join('&')}`;
 }
 
 interface SerializedRequest {
