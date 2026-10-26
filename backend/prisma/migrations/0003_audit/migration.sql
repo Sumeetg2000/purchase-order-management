@@ -112,6 +112,8 @@ BEGIN
     OR (NEW.request_id IS NOT NULL AND NEW.request_id IS DISTINCT FROM ctx_request_id)
     OR (NEW.details ? 'osUser' AND NEW.details ->> 'osUser' IS DISTINCT FROM ctx_os_user)
     OR (NEW.details ? 'host' AND NEW.details ->> 'host' IS DISTINCT FROM ctx_os_host)
+    -- Only an operator's entry may name an OS user or host, even with a null value.
+    OR (ctx_type <> 'OPERATOR' AND (NEW.details ? 'osUser' OR NEW.details ? 'host'))
   THEN
     RAISE EXCEPTION 'ACTOR_CONTEXT_MISMATCH' USING
       ERRCODE = 'PO002', DETAIL = 'an explicit audit value contradicts the actor context';

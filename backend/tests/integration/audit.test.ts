@@ -202,6 +202,20 @@ describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
     expect(await sqlstate(() => inTx(app, operator, [forged]))).toBe(ACTOR_CONTEXT_MISMATCH);
   });
 
+  it.each([
+    ['USER', userActor],
+    ['SYSTEM', { 'app.actor_type': 'SYSTEM' }],
+  ])(
+    '[NFR-AUD-02] a %s entry may not carry operator keys in details, even as null',
+    async (_type, ctx) => {
+      const db = trackDatabase(await createTestDatabase());
+      const app = await db.client('po_app');
+      const forged = `INSERT INTO audit_entries (action, entity_type, entity_id, details)
+                    VALUES ('ADMIN_CREATED', 'user', '${USER_ID}', '{"osUser": null, "host": null}')`;
+      expect(await sqlstate(() => inTx(app, ctx, [forged]))).toBe(ACTOR_CONTEXT_MISMATCH);
+    },
+  );
+
   it('[NFR-AUD-02] a rolled-back transaction leaves no entry', async () => {
     const db = trackDatabase(await createTestDatabase());
     const app = await db.client('po_app');
