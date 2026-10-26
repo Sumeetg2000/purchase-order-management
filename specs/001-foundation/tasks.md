@@ -317,6 +317,11 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   `backend/src/server.ts`, and a request-timing middleware in
   `backend/src/http/middleware/metrics.ts` (see [contracts/metrics.md](contracts/metrics.md))
   — FR-040 — Verify: T023 passes.
+- [ ] T030a [US1] Root `.dockerignore` — `.dockerignore`. Both images build from the
+  repository root, so the build context must exclude: `.env` and `.env.*` (keeping
+  `.env.example`), `.git`, `node_modules` at every level, `dist`, `build`, `coverage`,
+  `reports`, `playwright-report`, `test-results`, `*.tsbuildinfo`, `docs`, `specs`,
+  `.specify` and `.claude` — FR-001, FR-002 — Verify: checked by T031's image checks.
 - [ ] T031 [P] [US1] API image — `deploy/api.Dockerfile` (multi-stage
   `node:24.x-alpine`, `npm ci --omit=dev` for runtime, non-root user, entrypoints for
   `dist/server.js`, `dist/migrate/run.js` and `dist/maintenance/loop.js`; the Prisma
@@ -326,6 +331,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   - `docker run --rm <img> npx --no-install prisma --version` prints the pinned version,
     so the CLI is present without dev dependencies
   - `docker run --rm <img> npm run admin -- --help` exits 0 and prints usage
+  - the built image contains no `.env` file and no `.git` directory (T030a)
 - [ ] T032 [P] [US1] Web image and edge config — `deploy/web.Dockerfile` (build
   `frontend`, then `nginx:stable-alpine`, non-root), `deploy/nginx/default.conf` (serve
   the SPA with history fallback; `location /api/` → `http://api:3000/`;
@@ -989,7 +995,7 @@ previous story's checkpoint review is green on the draft PR. Parallel work happe
 - **Foundational (T012–T019)**: needs Setup. T014 → T015 → T016 → T017 and T018 → T019.
   T012 → T013 can run alongside T014.
 - **US1 (T020–T037)**: tests T020–T024 [P], then T025 and T026. Then T027–T030 (each after
-  its test), T031 and T032 [P], T033, T034 (needs T027–T033), T035, T036, and review T037.
+  its test), T030a, T031 and T032 [P], T033, T034 (needs T027–T033), T035, T036, and review T037.
 - **US3 (T038–T050)**: tests T038–T042 [P], then T043, implementation T044–T049, review
   T050. It builds on US1's app factory (T017) and server (T029).
 - **US4 (T051–T058)**: tests T051–T052 [P], then T053, implementation T054–T057, review
