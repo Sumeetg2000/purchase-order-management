@@ -66,7 +66,9 @@ BEGIN
   END IF;
   IF NOT (
     (ctx_type = 'USER'
-      AND ctx_user_id IS NOT NULL AND ctx_name IS NOT NULL
+      -- coalesce: a missing id makes the match NULL, which must count as a failure.
+      AND coalesce(ctx_user_id ~ '^[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}$', false)
+      AND ctx_name IS NOT NULL
       AND ctx_email IS NOT NULL AND ctx_role IS NOT NULL
       AND ctx_os_user IS NULL AND ctx_os_host IS NULL)
     OR (ctx_type = 'SYSTEM'
@@ -103,7 +105,7 @@ DECLARE
   ctx_request_id text := nullif(current_setting('app.request_id', true), '');
 BEGIN
   IF (NEW.actor_type IS NOT NULL AND NEW.actor_type IS DISTINCT FROM ctx_type)
-    OR (NEW.actor_user_id IS NOT NULL AND NEW.actor_user_id::text IS DISTINCT FROM ctx_user_id)
+    OR (NEW.actor_user_id IS NOT NULL AND NEW.actor_user_id IS DISTINCT FROM ctx_user_id::uuid)
     OR (NEW.actor_name IS NOT NULL AND NEW.actor_name IS DISTINCT FROM ctx_name)
     OR (NEW.actor_email IS NOT NULL AND NEW.actor_email IS DISTINCT FROM ctx_email)
     OR (NEW.acting_role IS NOT NULL AND NEW.acting_role IS DISTINCT FROM ctx_role)

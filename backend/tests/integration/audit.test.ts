@@ -109,6 +109,7 @@ describe('[NFR-AUD-02] actor context is required for audited changes', () => {
     ['OPERATOR without a host', { 'app.actor_type': 'OPERATOR', 'app.os_user': 'deploy' }],
     ['SYSTEM with an actor id', { 'app.actor_type': 'SYSTEM', 'app.actor_user_id': USER_ID }],
     ['an unknown actor type', { 'app.actor_type': 'ROBOT' }],
+    ['USER with a user id that is not a UUID', { ...userActor, 'app.actor_user_id': 'not-a-uuid' }],
   ])(
     '[NFR-AUD-02] an incomplete or inconsistent context is refused: %s',
     async (_case, settings) => {
@@ -178,6 +179,15 @@ describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
       ).toBe(ACTOR_CONTEXT_MISMATCH);
     },
   );
+
+  it('[NFR-AUD-02] an explicit actor_user_id equal to the context, in another letter case, is accepted', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    const upperCaseContext = { ...userActor, 'app.actor_user_id': USER_ID.toUpperCase() };
+    await inTx(app, upperCaseContext, [insertAudit(', actor_user_id', `, '${USER_ID}'`)]);
+    const [row] = await auditRows(db);
+    expect(row?.['actor_user_id']).toBe(USER_ID);
+  });
 
   it('[NFR-AUD-02] an operator osUser in details that contradicts the context is ACTOR_CONTEXT_MISMATCH', async () => {
     const db = trackDatabase(await createTestDatabase());
