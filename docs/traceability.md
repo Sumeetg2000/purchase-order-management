@@ -35,8 +35,8 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | §3.7 | Outstanding orders filterable/grouped by vendor, with age | FR-RPT-01 | 0015 | filters by vendor and age bucket; excludes cancelled/rejected/fully received; partial receipt keeps it, final receipt removes it; age from approval; scoped to caller | Todo |
 | §3.7 | Real query; cost explainable as data grows | FR-RPT-02 | 0015, 0012 | committed `EXPLAIN` (page + COUNT) using the partial index with no lines/receipts scan; page-100 measurement | Todo |
 | §5 | API surface designed for the workflow and documented | NFR-API-01 | 0008, 0007 | see NFR-API-01 (generated, committed OpenAPI; contract tests on every response and error) | Spec |
-| §6 | Bad input rejected before business logic | NFR-VAL-01 | 0007 | negative qty/price → 400; order referencing a missing vendor → 400 `VENDOR_NOT_FOUND`, with no business-logic side effects; malformed JSON → 400; bad UUID → 400; unknown field → 400 | Spec |
-| §6 | Every action by an authenticated user; no anonymous path | NFR-AUTH-01 | 0004, 0016 | every non-public route without token → 401 (generated from route table; public list asserted); deactivated user can't log in and their tokens are rejected | Spec |
+| §6 | Bad input rejected before business logic | NFR-VAL-01 | 0007 | negative qty/price → 400; order referencing a missing vendor → 400 `VENDOR_NOT_FOUND`, with no business-logic side effects; malformed JSON → 400; bad UUID → 400; unknown field → 400 | Tested |
+| §6 | Every action by an authenticated user; no anonymous path | NFR-AUTH-01 | 0004, 0016 | every non-public route without token → 401 (generated from route table; public list asserted); deactivated user can't log in and their tokens are rejected | Tested |
 | §6 | Every action tied to a real user: user profile | FR-USR-01 | 0016 | `GET /me` fields (id, name, email, phone, roles, status, createdAt); `PATCH /me` name and phone (E.164, `null` clears, invalid → 400); email/roles/status in body → 400; `USER_PROFILE_UPDATED` with before/after | Todo |
 | §6 | Editing an approved order via API → clear, specific failure (tested) | FR-LCK-01 | 0001 | see FR-LCK-01 | Todo |
 | §6 | Sharpest test: no path mismatches total or outstanding | FR-PO-03, FR-RCV-02 | 0003 | full integrity attack suite + reconciliation | Todo |
@@ -64,9 +64,9 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | `open_line_count` stored, guarded, reconciled (INV-6) | FR-RPT-03 | 0015, 0003 | raw-SQL write → denied/`DERIVED_VALUE_READ_ONLY`; included in reconciliation | Todo |
 | Concurrency (lock-then-read; business outcomes) | NFR-CON-01 | 0006 | concurrency suite | Todo |
 | Optimistic concurrency via `If-Match` | NFR-CON-03 | 0006 | missing → 400 `VERSION_REQUIRED` per command; stale → 409 `VERSION_CONFLICT`; `ETag` returned; receipts need none | Todo |
-| Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Spec |
+| Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Tested |
 | Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Spec |
-| Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Spec |
+| Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Tested |
 | Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH = 1 recompute; receipt = 0; status update = 0 | Todo |
 | Production-scale latency targets | NFR-PERF-04 | 0012 | load job (median of 3 runs) | Todo |
 | Config validation, health/readiness, logs, security baseline; local vs deployment profiles | NFR-OPS-02 | 0020 | invalid config exits; `APP_ENV=production` with `SEED_DEMO_DATA=true` or SMTP host `mailpit` → exits; readiness DB-down; `/metrics` via nginx → 404, not on any host-published port, served on the internal port; API/CLI refuse owner, superuser and maintenance credentials, and a non-`po_app` URL; maintenance refuses everything but its own URL; gitleaks fails on a committed fake secret; headers; CORS denied by default | Spec |
@@ -104,7 +104,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | Access request (user side) | FR-ACC-09 | 0016 | first send → `OPEN`; second send updates the message (one row); fourth in a day → 429; user with a role → 403; `GET` shows status, dates and admin note, 404 if none; new request allowed after dismissal; message rendered as text | Todo |
 | Per-account lockout (5 failures → 15 min), same 401 | NFR-SEC-07 | 0017 | sixth attempt with correct password → same 401; unlock after 15 min (injected clock); reset on success; holds across two instances | Todo |
 | Rate limits on signup, resend, forgot-password | NFR-SEC-08 | 0017 | per-IP → 429; per-email on a 202 endpoint still 202 and sends nothing | Todo |
-| Phone visible only to the user and Admins | NFR-PRIV-01 | 0016 | absent from all audit entries (snapshots and `details`; `USER_PROFILE_UPDATED` records set/changed/cleared only), Approver-readable responses and logs | Spec |
+| Phone visible only to the user and Admins | NFR-PRIV-01 | 0016 | absent from all audit entries (snapshots and `details`; `USER_PROFILE_UPDATED` records set/changed/cleared only), Approver-readable responses and logs | Tested |
 | Phone purged 90 days after deactivation (DPDP) | NFR-PRIV-02 | 0016, 0020 | deactivated 91 days → cleared, 89 days or active → kept (injected clock); name/email kept; `USER_PHONE_PURGED` (`SYSTEM`, no number); reactivation doesn't restore; maintenance role can update only `phone` | Todo |
 | Admin user list: filters, pagination, stable sort, index, EXPLAIN | FR-ADM-01 | 0016 | role/status/`q` prefix (name, email, case-insensitive); page boundaries; sort (name, id) stability; committed `EXPLAIN` page + COUNT at 10k users; `lastLoginAt` present | Todo |
 | Admin user update: role sets, activation, If-Match, guards | FR-ADM-02 | 0016 | `ADMIN_NOT_MODIFIABLE`; `SELF_MODIFICATION`; `USER_UNVERIFIED`; missing/stale `If-Match`; other fields → 400; no-op writes nothing; `USER_ROLES_CHANGED`/`USER_DEACTIVATED`/`USER_REACTIVATED` before/after | Todo |
