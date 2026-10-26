@@ -133,7 +133,7 @@ commitlint.config.mjs
 └── nightly.yml                    # Playwright on Chromium, Firefox, WebKit
 deploy/
 ├── api.Dockerfile                 # used by migrate, api, maintenance
-├── web.Dockerfile                 # builds apps/web, serves it with nginx
+├── web.Dockerfile                 # builds frontend, serves it with nginx
 ├── security-headers.mjs           # single source of the CSP and headers (nginx + Vite dev server)
 └── nginx/default.conf             # /api/ proxy, /metrics 404, CSP and security headers
 scripts/
@@ -144,7 +144,7 @@ scripts/
 ├── ci-env.sh                      # .env from .env.example with random throwaway secrets
 ├── dev-env.mjs                    # .env for host-run dev processes (hosts → 127.0.0.1)
 └── smoke.sh                       # health, readiness, web, maintenance first run, metrics exposure
-apps/api/
+backend/
 ├── prisma/
 │   ├── schema.prisma
 │   └── migrations/                # raw SQL: tables, CHECKs, triggers, functions, grants
@@ -179,7 +179,7 @@ apps/api/
     ├── unit/
     ├── integration/               # roles, audit, errors, transaction, bootstrap, CLI, purge, mail, config
     └── contract/                  # responses vs committed OpenAPI
-apps/web/
+frontend/
 ├── src/
 │   ├── app/                       # router (data router), providers, shell layout
 │   ├── api/                       # generated types + openapi-fetch client
@@ -197,7 +197,7 @@ packages/contracts/
 └── openapi/openapi.json           # generated, committed
 ```
 
-**Structure Decision**: a web application split into `apps/api`, `apps/web` and
+**Structure Decision**: a web application split into `backend`, `frontend` and
 `packages/contracts`, in npm workspaces (research R2). The contract package is the single
 source shared by both apps (ADR-0008). Deployment files live in `deploy/`, and check
 scripts in `scripts/`.

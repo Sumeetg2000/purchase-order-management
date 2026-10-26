@@ -15,7 +15,7 @@ export default defineConfig(
       'reports/**',
       '.specify/**',
       '.claude/**',
-      'apps/api/src/generated/**',
+      'backend/src/generated/**',
     ],
   },
   js.configs.recommended,
@@ -41,13 +41,13 @@ export default defineConfig(
     },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}'],
+    files: ['frontend/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ['apps/api/**/*.ts', 'packages/**/*.ts', 'scripts/**/*.{js,mjs}'],
+    files: ['backend/**/*.ts', 'packages/**/*.ts', 'scripts/**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
   },
   {

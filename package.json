@@ -4,7 +4,8 @@
   "description": "Vendor & Purchase Order Management",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "backend",
+    "frontend"
   ],
   "engines": {
     "node": ">=24 <25"
@@ -15,7 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
-    "prelint": "npm run generate -w @po/api"
+    "prelint": "npm run generate -w @po/backend"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

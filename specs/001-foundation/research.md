@@ -19,8 +19,8 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
 
 ## R2. Repository layout
 - **Decision**: one repository using npm workspaces:
-  - `apps/api`: Express API, the operator CLI, the bootstrap and the purge
-  - `apps/web`: React app
+  - `backend`: Express API, the operator CLI, the bootstrap and the purge
+  - `frontend`: React app
   - `packages/contracts`: Zod schemas, the error registry and the OpenAPI generator
   - The root holds shared tooling, scripts and CI.
 - **Rationale**: the contract package must be shared by the API and the web app (ADR-0008).
@@ -239,7 +239,7 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - If no admin exists, it creates the user and a `RESET` token, and writes the audit
       entry `ADMIN_CREATED` (`details.source = "bootstrap"`).
     - It prints the link `APP_ORIGIN/reset-password?token=…` once.
-  - The CLI is `apps/api/src/cli/admin.ts`, run as `npm run admin -- <command>`.
+  - The CLI is `backend/src/cli/admin.ts`, run as `npm run admin -- <command>`.
     - It parses commands with Node's `util.parseArgs` and validates arguments with Zod.
     - Each command runs in one transaction under the same lock, with actor context
       `OPERATOR`, plus `os.userInfo().username` and `os.hostname()`.
@@ -425,7 +425,7 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     compose.dev.yaml up -d db migrate mailpit`. The override publishes the database on
     `127.0.0.1:5432` and Mailpit's SMTP on `127.0.0.1:1025`, loopback only, for the
     host-run processes. Nothing in the production-like `docker-compose.yml` changes.
-  - **API with reload**: `tsx watch apps/api/src/server.ts` on the host. It reads `.env`
+  - **API with reload**: `tsx watch backend/src/server.ts` on the host. It reads `.env`
     through `scripts/dev-env.mjs`, which rewrites only the database and SMTP hosts to
     `127.0.0.1`. The same config validation runs, including credential separation:
     `dev-env` passes the API only `DATABASE_URL`.

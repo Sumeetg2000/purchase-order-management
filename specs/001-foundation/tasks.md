@@ -38,8 +38,8 @@ US4's schema to check against. Every P1 story still finishes before any P2 story
 
 ## Path conventions
 
-- `apps/api/`: API, migrate, bootstrap, CLI, maintenance
-- `apps/web/`: React app
+- `backend/`: API, migrate, bootstrap, CLI, maintenance
+- `frontend/`: React app
 - `packages/contracts/`: Zod schemas, error registry, OpenAPI generator
 - `deploy/`, `scripts/`, `.github/workflows/`: deployment, check scripts, CI
 
@@ -54,7 +54,7 @@ lint, typecheck and the secret scan.
   `.env`, `.env.*` with `!.env.example`, `node_modules/`, `dist/`, `build/`, `coverage/`,
   `playwright-report/`, `test-results/`, `reports/`, `*.tsbuildinfo`, `.vite/` and
   `.DS_Store` (research R24) — FR-001 — Verify: `printf '.env\n.env.local\nnode_modules/x\ndist/x\ncoverage/x\nbuild/x\n' | git check-ignore --stdin` lists all six lines, and `git check-ignore .env.example` prints nothing.
-- [X] T002 Root npm workspace — `package.json` (workspaces `apps/*`, `packages/*`;
+- [X] T002 Root npm workspace — `package.json` (workspaces `packages/*`, `backend`, `frontend`;
   engines node 24; scripts `lint`, `format:check`, `typecheck` and `test` as stubs),
   `.nvmrc` (`24`), `.npmrc` (`engine-strict=true`, `save-exact=true`),
   `tsconfig.base.json` (`strict`, `noUncheckedIndexedAccess`,
@@ -64,7 +64,7 @@ lint, typecheck and the secret scan.
   `packages/contracts/tsconfig.json`, `packages/contracts/src/index.ts` (Zod 4
   dependency) — FR-020 — Verify: `npm run typecheck -w packages/contracts`.
 - [X] T004 [P] API package skeleton:
-  - `apps/api/package.json`:
+  - `backend/package.json`:
     - `dependencies`: Express 5, `@prisma/client`, **`prisma` (the CLI)**, pino, Zod 4. The
       CLI must be a runtime dependency, because `migrate` runs `prisma migrate deploy` in
       the `--omit=dev` image.
@@ -72,21 +72,21 @@ lint, typecheck and the secret scan.
       images run.
     - scripts `build`, `start` (`node dist/server.js`), `typecheck`, and
       `admin` (`node dist/cli/admin.js`, never tsx)
-  - `apps/api/tsconfig.json`
-  - `apps/api/src/server.ts` (starts an empty Express app on `HTTP_PORT`)
-  - `apps/api/src/cli/admin.ts` (a stub runner: `--help` prints usage and exits 0, and any
+  - `backend/tsconfig.json`
+  - `backend/src/server.ts` (starts an empty Express app on `HTTP_PORT`)
+  - `backend/src/cli/admin.ts` (a stub runner: `--help` prints usage and exits 0, and any
     other command exits 1 with `ERROR USAGE`; T082 adds the commands)
 
-  — FR-002, FR-033 — Verify: `npm run build -w apps/api && npm run typecheck -w apps/api`,
-  and `npm run admin -w apps/api -- --help` exits 0.
-- [X] T005 [P] Web package skeleton — `apps/web/package.json` (React 19, Vite, TypeScript),
-  `apps/web/tsconfig.json`, `apps/web/vite.config.ts`, `apps/web/index.html`,
-  `apps/web/src/main.tsx`, `apps/web/src/App.tsx`, and `browserslist` in
-  `apps/web/package.json` (`last 2 Chrome versions, last 2 Edge versions, last 2 Firefox
+  — FR-002, FR-033 — Verify: `npm run build -w backend && npm run typecheck -w backend`,
+  and `npm run admin -w backend -- --help` exits 0.
+- [X] T005 [P] Web package skeleton — `frontend/package.json` (React 19, Vite, TypeScript),
+  `frontend/tsconfig.json`, `frontend/vite.config.ts`, `frontend/index.html`,
+  `frontend/src/main.tsx`, `frontend/src/App.tsx`, and `browserslist` in
+  `frontend/package.json` (`last 2 Chrome versions, last 2 Edge versions, last 2 Firefox
   versions, last 2 Safari versions`, research R22). Vite doesn't read `browserslist`, so
   `vite.config.ts` sets `build.target` from it with `browserslist-to-esbuild` — FR-041 —
-  Verify: `npm run build -w apps/web` succeeds, and a unit test
-  (`apps/web/tests/build-target.test.ts`) asserts that the resolved `build.target` equals
+  Verify: `npm run build -w frontend` succeeds, and a unit test
+  (`frontend/tests/build-target.test.ts`) asserts that the resolved `build.target` equals
   the targets derived from `browserslist`.
 - [X] T006 Lint and format — `eslint.config.mjs` (typescript-eslint strict-type-checked,
   react-hooks, a ban on `dangerouslySetInnerHTML` (done with the core `no-restricted-syntax`
@@ -97,7 +97,7 @@ lint, typecheck and the secret scan.
   using `dangerouslySetInnerHTML` (FR-027).
 - [X] T007 Test runner — a `vitest.config.ts` in each package (web merges `vite.config.ts`),
   each with the JSON reporter writing to `reports/vitest-<package>.json`; one trivial
-  passing test in `packages/contracts/tests/` and `apps/api/tests/` (web already has
+  passing test in `packages/contracts/tests/` and `backend/tests/` (web already has
   `build-target.test.ts`); package `test` scripts, and a root `test` that runs every
   workspace. The tsconfig is split per package: `tsconfig.build.json` emits `src/` only,
   and `tsconfig.json` (no emit) covers `src/`, `tests/` and configs for typecheck, lint and
@@ -145,44 +145,44 @@ lint, typecheck and the secret scan.
 **Purpose**: config loading, logging base, database roles and migrations, the test
 database harness, route registration and the transaction helper. Every story needs them.
 
-- [X] T012 Tests for the config loader, seen failing — `apps/api/tests/unit/config-load.test.ts`:
+- [X] T012 Tests for the config loader, seen failing — `backend/tests/unit/config-load.test.ts`:
   - an invalid or missing key exits `1`, naming the key and the reason
   - a value whose key contains `PASSWORD`, `SECRET`, `TOKEN`, `URL` or `KEY` never appears
     in the output
 
-  — FR-003 — Verify: `npm test -w apps/api -- config-load` fails (module missing).
-- [X] T013 Config loader and base logger — `apps/api/src/config/load.ts` (Zod parse →
-  formatted key list → `process.exit(1)`), `apps/api/src/observability/logger.ts` (pino
+  — FR-003 — Verify: `npm test -w backend -- config-load` fails (module missing).
+- [X] T013 Config loader and base logger — `backend/src/config/load.ts` (Zod parse →
+  formatted key list → `process.exit(1)`), `backend/src/observability/logger.ts` (pino
   JSON to stdout, level from `LOG_LEVEL`) — FR-003 — Verify: T012 passes.
 - [X] T014 Database role provisioning and baseline migration:
-  - `apps/api/db-init/roles.sql`: idempotent `po_owner`, `po_app`, `po_maintenance`, all
+  - `backend/db-init/roles.sql`: idempotent `po_owner`, `po_app`, `po_maintenance`, all
     `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`; `po_owner` owns the database and
     schema; `REVOKE ALL ON SCHEMA public FROM PUBLIC`
-  - `apps/api/prisma/schema.prisma` (datasource only)
-  - `apps/api/prisma/migrations/0001_baseline/migration.sql`: schema usage grants to
+  - `backend/prisma/schema.prisma` (datasource only)
+  - `backend/prisma/migrations/0001_baseline/migration.sql`: schema usage grants to
     `po_app` and `po_maintenance`, plus `GRANT SELECT ON _prisma_migrations TO po_app`
     (readiness reads it, T028). Nothing else.
-  - `apps/api/src/migrate/run.ts`: step 1 db-init as superuser, step 2
+  - `backend/src/migrate/run.ts`: step 1 db-init as superuser, step 2
     `prisma migrate deploy` as `po_owner`
 
   — FR-016 — Verify: `docker run -d postgres:17…` then `node dist/migrate/run.js` twice
   against it; the second run is a no-op.
-- [X] T015 Test database harness — `apps/api/tests/support/db.ts`:
+- [X] T015 Test database harness — `backend/tests/support/db.ts`:
   - start Testcontainers PostgreSQL 17 once per run
   - run T014's provisioning
   - create a migrated template database
   - give each test a fresh `CREATE DATABASE … TEMPLATE` clone and connections as
     `po_app`, `po_maintenance` and `po_owner`
 
-  Also `apps/api/tests/support/setup.ts`, plus a sanity test
-  `apps/api/tests/integration/harness.test.ts` (`po_app` connects; `CREATE TABLE` as
+  Also `backend/tests/support/setup.ts`, plus a sanity test
+  `backend/tests/integration/harness.test.ts` (`po_app` connects; `CREATE TABLE` as
   `po_app` → permission denied) — FR-016, FR-038 — Verify:
-  `npm test -w apps/api -- harness` passes with only Docker running.
+  `npm test -w backend -- harness` passes with only Docker running.
 - [X] T016 [P] Tests for route registration and transactions, seen failing:
-  - `apps/api/tests/unit/define-route.test.ts`: a route without `access` makes app
+  - `backend/tests/unit/define-route.test.ts`: a route without `access` makes app
     startup throw; a route not in the OpenAPI registry throws; `access: 'public'` routes
     register
-  - `apps/api/tests/integration/transaction.test.ts`:
+  - `backend/tests/integration/transaction.test.ts`:
     - the actor context settings are visible inside the transaction and gone after commit
       or rollback, and don't leak to the next transaction on the same pooled connection
     - `40001` is retried up to 3 times, then fails `CONCURRENCY_RETRY_EXHAUSTED`
@@ -190,7 +190,7 @@ database harness, route registration and the transaction helper. Every story nee
     - pool exhaustion maps to `SERVICE_UNAVAILABLE` in both forms: a query outside a
       transaction (pg-pool's bare `Error`) and a transaction past `maxWait` (`P2028`)
     - a transaction past its `timeout` (`P2028`) maps to `SERVICE_UNAVAILABLE`
-  - `apps/api/tests/integration/db-error-shapes.test.ts`: the probe's findings as a
+  - `backend/tests/integration/db-error-shapes.test.ts`: the probe's findings as a
     regression test, pinned to the locked Prisma, adapter and `pg` versions (research R5).
     It covers the pg-pool timeout message; `P2028` for `maxWait` and `timeout`; `P2010`
     with `TransactionWriteConflict` and `originalCode` for `40001` and `40P01`; `P2010`
@@ -198,16 +198,16 @@ database harness, route registration and the transaction helper. Every story nee
     `cause.originalCode`. An upgrade that changes any shape fails here.
 
   — FR-015, FR-011, FR-030 — Verify: all three files fail (modules missing).
-- [X] T017 Route registration and app factory — `apps/api/src/http/define-route.ts`
+- [X] T017 Route registration and app factory — `backend/src/http/define-route.ts`
   (method, path, `access`, request and response Zod schemas, handler; registers OpenAPI
-  metadata; startup check), `apps/api/src/http/app.ts` (`createApp({ routes, config })`),
-  `apps/api/src/server.ts` (uses the factory) — FR-015 — Verify: `define-route.test.ts`
+  metadata; startup check), `backend/src/http/app.ts` (`createApp({ routes, config })`),
+  `backend/src/server.ts` (uses the factory) — FR-015 — Verify: `define-route.test.ts`
   passes.
-- [X] T018 Transaction helper — `apps/api/src/db/client.ts` (Prisma client, explicit pool
-  size), `apps/api/src/db/transaction.ts` (`withTransaction(ctx, fn)`:
+- [X] T018 Transaction helper — `backend/src/db/client.ts` (Prisma client, explicit pool
+  size), `backend/src/db/transaction.ts` (`withTransaction(ctx, fn)`:
   `set_config(..., true)` actor settings, `timeout` and `maxWait` from config, retries of
   `40001`/`40P01` with jitter (3), `afterCommit` queue), and the first version of
-  `apps/api/src/db/errors.ts`:
+  `backend/src/db/errors.ts`:
   - `isPoolTimeout` (the pg-pool message match, the only one allowed)
   - `P2028` → `SERVICE_UNAVAILABLE`
   - `DatabaseNotReachable`, and raw Node connection errors (`ECONNREFUSED` and similar, as
@@ -218,7 +218,7 @@ database harness, route registration and the transaction helper. Every story nee
   T047 extends it with constraint and trigger codes — FR-011, FR-018 base, FR-030 base —
   Verify: `transaction.test.ts` and `db-error-shapes.test.ts` pass.
 - [X] T019 CI test job — `.github/workflows/ci.yml`: job `api` (`npm ci`, `npm test -w
-  apps/api` with Docker for Testcontainers, upload `reports/` as an artifact) — FR-038 —
+  backend` with Docker for Testcontainers, upload `reports/` as an artifact) — FR-038 —
   Verify: after the push, the draft PR's checks show `api` green alongside `static` and
   `secrets`.
 
@@ -238,7 +238,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
 ### Tests for User Story 1 (write first, run, see them fail)
 
-- [ ] T020 [P] [US1] Config rule tests — `apps/api/tests/unit/config-rules.test.ts`.
+- [ ] T020 [P] [US1] Config rule tests — `backend/tests/unit/config-rules.test.ts`.
   Cover every rule in [contracts/config.md](contracts/config.md):
   - production refuses `SEED_DEMO_DATA=true`, `SMTP_HOST=mailpit` and any `change-me-`
     secret
@@ -251,19 +251,19 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
     `docker-compose.yml` builds from the passwords); and `.env.example` has no key that no
     schema reads (FR-007)
 
-  Test names cite `NFR-OPS-02` — FR-003, FR-004, FR-007 — Verify: `npm test -w apps/api --
+  Test names cite `NFR-OPS-02` — FR-003, FR-004, FR-007 — Verify: `npm test -w backend --
   config-rules` fails.
-- [ ] T021 [P] [US1] Health and readiness tests — `apps/api/tests/integration/health.test.ts`:
+- [ ] T021 [P] [US1] Health and readiness tests — `backend/tests/integration/health.test.ts`:
   - `/healthz` → `200 {status:"ok"}`
   - `/readyz` → `200` with `database` and `migrations` both `ok`
   - with the database stopped, `/readyz` → `503 SERVICE_UNAVAILABLE` and `/healthz` → `200`
   - with a pending migration, `/readyz` → `503`
 
   — FR-005 — Verify: fails.
-- [ ] T022 [P] [US1] Graceful shutdown test — `apps/api/tests/integration/shutdown.test.ts`
+- [ ] T022 [P] [US1] Graceful shutdown test — `backend/tests/integration/shutdown.test.ts`
   (an in-flight slow request completes after `SIGTERM`, new connections are refused, and
   the pool is closed before exit) — FR-006 — Verify: fails.
-- [ ] T023 [P] [US1] Metrics listener test — `apps/api/tests/integration/metrics.test.ts`:
+- [ ] T023 [P] [US1] Metrics listener test — `backend/tests/integration/metrics.test.ts`:
   - `/metrics` on `METRICS_PORT` returns Prometheus text with `po_http_requests_total`
   - the main port returns `404` for `/metrics`
   - labels use route patterns, never raw paths
@@ -301,21 +301,21 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
 ### Implementation for User Story 1
 
-- [ ] T027 [US1] Config schemas per process — `apps/api/src/config/{api.ts,cli.ts,migrate.ts,maintenance.ts,rules.ts}`.
+- [ ] T027 [US1] Config schemas per process — `backend/src/config/{api.ts,cli.ts,migrate.ts,maintenance.ts,rules.ts}`.
   Implement the variables, production refusals, `change-me-` refusal, credential
   separation and the port check from contracts/config.md — FR-003, FR-004 — Verify: T020
   passes.
-- [ ] T028 [US1] Health and readiness routes — `apps/api/src/http/routes/health.ts`
+- [ ] T028 [US1] Health and readiness routes — `backend/src/http/routes/health.ts`
   (`access: 'public'`; readiness runs `SELECT 1` and checks `_prisma_migrations` has no
   pending or failed rows) — FR-005 — Verify: T021 passes.
-- [ ] T029 [US1] Graceful shutdown — `apps/api/src/server.ts`
+- [ ] T029 [US1] Graceful shutdown — `backend/src/server.ts`
   (`SIGTERM`/`SIGINT` → stop accepting, drain with a timeout, `$disconnect`, exit 0) —
   FR-006 — Verify: T022 passes.
-- [ ] T030 [US1] Metrics — `apps/api/src/observability/metrics.ts` (prom-client histogram
+- [ ] T030 [US1] Metrics — `backend/src/observability/metrics.ts` (prom-client histogram
   `po_http_request_duration_seconds`, counters `po_http_requests_total` and
   `po_http_errors_total`, default metrics), a second listener on `METRICS_PORT` in
-  `apps/api/src/server.ts`, and a request-timing middleware in
-  `apps/api/src/http/middleware/metrics.ts` (see [contracts/metrics.md](contracts/metrics.md))
+  `backend/src/server.ts`, and a request-timing middleware in
+  `backend/src/http/middleware/metrics.ts` (see [contracts/metrics.md](contracts/metrics.md))
   — FR-040 — Verify: T023 passes.
 - [ ] T031 [P] [US1] API image — `deploy/api.Dockerfile` (multi-stage
   `node:24.x-alpine`, `npm ci --omit=dev` for runtime, non-root user, entrypoints for
@@ -327,14 +327,14 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
     so the CLI is present without dev dependencies
   - `docker run --rm <img> npm run admin -- --help` exits 0 and prints usage
 - [ ] T032 [P] [US1] Web image and edge config — `deploy/web.Dockerfile` (build
-  `apps/web`, then `nginx:stable-alpine`, non-root), `deploy/nginx/default.conf` (serve
+  `frontend`, then `nginx:stable-alpine`, non-root), `deploy/nginx/default.conf` (serve
   the SPA with history fallback; `location /api/` → `http://api:3000/`;
   `location = /metrics { return 404; }`) — FR-002, FR-040 — Verify: `docker build -f
   deploy/web.Dockerfile .` succeeds.
-- [ ] T033 [US1] Maintenance loop skeleton — `apps/api/src/maintenance/loop.ts` (validates
+- [ ] T033 [US1] Maintenance loop skeleton — `backend/src/maintenance/loop.ts` (validates
   maintenance config, runs registered purge tasks at start and every
   `PURGE_INTERVAL_HOURS`; logs `purge run complete` with per-task counts, an empty map
-  for now; a failed run logs an error and continues), `apps/api/src/maintenance/registry.ts`
+  for now; a failed run logs an error and continues), `backend/src/maintenance/registry.ts`
   — FR-036 (skeleton) — Verify: `node dist/maintenance/loop.js` with a valid maintenance
   URL logs one `purge run complete` line.
 - [ ] T034 [US1] Compose stack — `docker-compose.yml`:
@@ -388,7 +388,7 @@ nothing secret leaks.
 
   — FR-008 — Verify: fails.
 - [ ] T039 [P] [US3] Error response tests, using test-only routes —
-  `apps/api/tests/integration/errors.test.ts`:
+  `backend/tests/integration/errors.test.ts`:
   - malformed JSON → `400 VALIDATION_FAILED [{path:"body",code:"MALFORMED_JSON"}]`
   - a body without `application/json` → `UNSUPPORTED_MEDIA_TYPE`
   - an unknown field → `UNKNOWN_FIELD`
@@ -402,7 +402,7 @@ nothing secret leaks.
 
   — FR-008, FR-009 — Verify: fails.
 - [ ] T040 [P] [US3] Correlation and redaction tests —
-  `apps/api/tests/integration/logging.test.ts`:
+  `backend/tests/integration/logging.test.ts`:
   - a valid `X-Request-Id` is echoed; one that's invalid, over 64 characters or absent is
     replaced with a UUIDv7
   - every log line of a request carries the id
@@ -410,7 +410,7 @@ nothing secret leaks.
     `phone` values are redacted
   - only the `oneTimeLink` logger path may print a token-shaped value
 
-  Also `apps/api/tests/support/log-capture.ts` and `apps/api/tests/support/response-audit.ts`,
+  Also `backend/tests/support/log-capture.ts` and `backend/tests/support/response-audit.ts`,
   each with a global `afterAll` that fails the run:
   - if any captured log line has a token-shaped value outside that path (SC-003)
   - if any error response seen by Supertest in the whole suite isn't
@@ -419,7 +419,7 @@ nothing secret leaks.
 
   — FR-008, FR-012, FR-013, SC-002, SC-003 — Verify: fails.
 - [ ] T041 [P] [US3] Overload and database error tests —
-  `apps/api/tests/integration/overload.test.ts`:
+  `backend/tests/integration/overload.test.ts`:
   - pool of size 1 held busy, then an HTTP request whose handler queries outside a
     transaction (pg-pool's bare `timeout exceeded when trying to connect`) → `503
     SERVICE_UNAVAILABLE`
@@ -429,11 +429,11 @@ nothing secret leaks.
   - retries exhausted → `503 CONCURRENCY_RETRY_EXHAUSTED`
   - database unreachable (`DatabaseNotReachable`) → `503`
 
-  Also `apps/api/tests/unit/db-errors.test.ts`, using the error shapes recorded in research
+  Also `backend/tests/unit/db-errors.test.ts`, using the error shapes recorded in research
   R5: `P2002` (by `cause.constraint.index`), `P2003`, `P2025`, `P2028`, the pg-pool
   timeout, `P2010` with `TransactionWriteConflict`, `DatabaseNotReachable`, and trigger
   SQLSTATEs `PO001`/`PO002` → `INTERNAL_ERROR` (logged) — FR-010, FR-011 — Verify: fails.
-- [ ] T042 [P] [US3] API security tests — `apps/api/tests/integration/security.test.ts`:
+- [ ] T042 [P] [US3] API security tests — `backend/tests/integration/security.test.ts`:
   - helmet headers on API responses
   - an `Origin` not equal to `APP_ORIGIN` → `403 CSRF_REJECTED`
   - no `Origin`, or the same origin → passes
@@ -452,23 +452,23 @@ nothing secret leaks.
   `Problem`, `FieldError`), and the `AppError` class in `packages/contracts/src/app-error.ts`
   — FR-008 — Verify: T038 passes.
 - [ ] T045 [US3] Correlation id and redacting logger —
-  `apps/api/src/http/middleware/correlation.ts` (validate `^[A-Za-z0-9._-]{8,64}$` or
+  `backend/src/http/middleware/correlation.ts` (validate `^[A-Za-z0-9._-]{8,64}$` or
   generate a UUIDv7; set the header; child logger; `ctx.requestId`), and the `redact`
-  paths plus the `oneTimeLink` channel in `apps/api/src/observability/logger.ts`;
-  pino-http wiring in `apps/api/src/http/app.ts` — FR-012, FR-013 — Verify: T040 passes.
-- [ ] T046 [US3] Error and parsing middleware — `apps/api/src/http/middleware/errors.ts`
+  paths plus the `oneTimeLink` channel in `backend/src/observability/logger.ts`;
+  pino-http wiring in `backend/src/http/app.ts` — FR-012, FR-013 — Verify: T040 passes.
+- [ ] T046 [US3] Error and parsing middleware — `backend/src/http/middleware/errors.ts`
   (problem+json renderer, not-found handler, `500` without detail),
-  `apps/api/src/http/middleware/parse-json.ts` (content-type check, 1 MB limit → `413`,
+  `backend/src/http/middleware/parse-json.ts` (content-type check, 1 MB limit → `413`,
   malformed → `MALFORMED_JSON`), and Zod → field-code mapping in
-  `apps/api/src/http/define-route.ts` — FR-008, FR-009 — Verify: T039 passes.
-- [ ] T047 [US3] Central database error mapper — extends `apps/api/src/db/errors.ts`
+  `backend/src/http/define-route.ts` — FR-008, FR-009 — Verify: T039 passes.
+- [ ] T047 [US3] Central database error mapper — extends `backend/src/db/errors.ts`
   from T018 with constraint mapping (`P2002` by `cause.constraint.index`, `P2003`,
   `P2025`) and the trigger SQLSTATEs (`PO001`, `PO002` → `INTERNAL_ERROR`, logged); wiring
   into `withTransaction` and the error middleware; and an ESLint `no-restricted-syntax`
   rule in `eslint.config.mjs` that bans `.message` reads on caught errors outside
   `db/errors.ts` — FR-010, FR-011 — Verify: T041 passes, and a scratch violation fails
   `npm run lint`.
-- [ ] T048 [US3] API security middleware — `apps/api/src/http/middleware/security.ts`
+- [ ] T048 [US3] API security middleware — `backend/src/http/middleware/security.ts`
   (helmet; origin guard → `CSRF_REJECTED`; `cors` disabled) — FR-014 — Verify: T042 passes.
 - [ ] T049 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Done` — `docs/traceability.md`
   — Verify: T038–T042 green in the `api` job.
@@ -492,7 +492,7 @@ transaction leaves no entry.
 
 ### Tests for User Story 4 (write first, run, see them fail)
 
-- [ ] T051 [P] [US4] Role and privilege snapshot test — `apps/api/tests/integration/roles.test.ts`:
+- [ ] T051 [P] [US4] Role and privilege snapshot test — `backend/tests/integration/roles.test.ts`:
   - all three roles are `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`; `po_app` and
     `po_maintenance` own nothing
   - table grants equal the expected list in [data-model.md](data-model.md), including
@@ -500,7 +500,7 @@ transaction leaves no entry.
   - `po_app` can't `ALTER TABLE`, `DISABLE TRIGGER` or `SET session_replication_role`
 
   — FR-016, SC-005 — Verify: fails.
-- [ ] T052 [P] [US4] Audit enforcement tests — `apps/api/tests/integration/audit.test.ts`:
+- [ ] T052 [P] [US4] Audit enforcement tests — `backend/tests/integration/audit.test.ts`:
   - insert into `users` without actor context → `ACTOR_CONTEXT_REQUIRED`
   - `UPDATE` or `DELETE` on `audit_entries` as `po_app` → permission denied
   - `USER` without `actor_user_id` → refused; `OPERATOR` without `osUser`/`host` →
@@ -509,14 +509,14 @@ transaction leaves no entry.
   - `request_id` and the actor fields are filled from the context
   - a rolled-back transaction leaves no entry
 
-  Also `apps/api/tests/unit/audit-write.test.ts`: a typed slice 0 event (`ADMIN_CREATED`)
+  Also `backend/tests/unit/audit-write.test.ts`: a typed slice 0 event (`ADMIN_CREATED`)
   type-checks, and an unknown event name or wrong `details` shape doesn't (`expectTypeOf`).
   Test names cite `NFR-AUD-02` — FR-017, FR-018, FR-019, SC-005 — Verify: fails.
 - [ ] T053 [US4] Traceability: NFR-AUD-02 → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Users table (minimal) — `apps/api/prisma/migrations/0002_users/migration.sql`
+- [ ] T054 [US4] Users table (minimal) — `backend/prisma/migrations/0002_users/migration.sql`
   and `schema.prisma`. Columns and checks:
   - `name` "1–100 characters (`CHECK`)"
   - `email` "stored lower-cased (`CHECK email = lower(email)`), `UNIQUE`"
@@ -529,7 +529,7 @@ transaction leaves no entry.
   Grants: `po_app` gets `SELECT, INSERT, UPDATE` (no `DELETE`) — FR-016, FR-032 base —
   Verify: the users part of T051 passes.
 - [ ] T055 [US4] Audit table, triggers and grants —
-  `apps/api/prisma/migrations/0003_audit/migration.sql`:
+  `backend/prisma/migrations/0003_audit/migration.sql`:
   - `audit_entries` columns per data-model
   - the actor `CHECK` ("`USER`: `actor_user_id`, `actor_name`, `actor_email` and
     `acting_role` are not null; `SYSTEM`: all four are null; `OPERATOR`: `actor_user_id`
@@ -541,8 +541,8 @@ transaction leaves no entry.
     `SELECT, DELETE, INSERT`
 
   — FR-017, FR-018, FR-019 — Verify: T051 and T052 pass.
-- [ ] T056 [US4] Typed audit writer — `apps/api/src/audit/events.ts` (event names and
-  `details` types for slice 0: `ADMIN_CREATED`), `apps/api/src/audit/write.ts`
+- [ ] T056 [US4] Typed audit writer — `backend/src/audit/events.ts` (event names and
+  `details` types for slice 0: `ADMIN_CREATED`), `backend/src/audit/write.ts`
   (`writeAudit(tx, event)`, only inside `withTransaction`) — FR-017, FR-019 — Verify:
   T052's `audit-write.test.ts` passes.
 - [ ] T057 [US4] Traceability: NFR-AUD-02 → `Done` — `docs/traceability.md`.
@@ -588,14 +588,14 @@ T114).
 - [ ] T062 [P] [US2] Contract tests — `packages/contracts/tests/openapi.test.ts` (the
   generated document has `getHealth` and `getReadiness`, `Problem`, and an `ErrorCode` enum
   equal to the registry; the output is deterministic) and
-  `apps/api/tests/contract/responses.test.ts` (every response from T021 and T039 validates
+  `backend/tests/contract/responses.test.ts` (every response from T021 and T039 validates
   against `packages/contracts/openapi/openapi.json`) — FR-020, FR-022 — Verify: fail (no
   generator, no committed document).
 - [ ] T063 [P] [US2] Migrations-from-empty and reconciliation test —
-  `apps/api/tests/integration/migrations.test.ts`:
+  `backend/tests/integration/migrations.test.ts`:
   - all migrations apply to an empty database in order
   - `prisma migrate diff` between `schema.prisma` and the migrations is empty
-  - `apps/api/src/db/reconciliation.sql` returns 0 rows
+  - `backend/src/db/reconciliation.sql` returns 0 rows
 
   — FR-038 — Verify: fails (no reconciliation file).
 - [ ] T064 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Tested` — `docs/traceability.md`.
@@ -618,13 +618,13 @@ T114).
   FR-020 — Verify: T062's contracts test passes, and a rerun leaves `git diff --exit-code`
   clean.
 - [ ] T069 [US2] Contract tests wired to the committed document —
-  `apps/api/tests/support/openapi-validator.ts` (AJV against `openapi.json`) — FR-022 —
+  `backend/tests/support/openapi-validator.ts` (AJV against `openapi.json`) — FR-022 —
   Verify: T062's API contract test passes.
-- [ ] T070 [US2] Generated web client — `apps/web/src/api/schema.d.ts` (openapi-typescript
-  output, committed), `apps/web/src/api/client.ts` (openapi-fetch, base `/api`, problem
+- [ ] T070 [US2] Generated web client — `frontend/src/api/schema.d.ts` (openapi-typescript
+  output, committed), `frontend/src/api/client.ts` (openapi-fetch, base `/api`, problem
   parsing), and script `contract:types`, with the drift check covering this file — FR-022
-  — Verify: `npm run contract:types && git diff --exit-code apps/web/src/api`.
-- [ ] T071 [US2] Reconciliation file — `apps/api/src/db/reconciliation.sql` (zero
+  — Verify: `npm run contract:types && git diff --exit-code frontend/src/api`.
+- [ ] T071 [US2] Reconciliation file — `backend/src/db/reconciliation.sql` (zero
   invariants yet, returns 0 rows; header comment says slice 3 adds INV-1–INV-6) — FR-038 —
   Verify: T063 passes.
 - [ ] T072 [US2] CI jobs:
@@ -660,13 +660,13 @@ T114).
 
 ### Tests for User Story 5 (write first, run, see them fail)
 
-- [ ] T075 [P] [US5] One-time token tests — `apps/api/tests/integration/tokens.test.ts`:
+- [ ] T075 [P] [US5] One-time token tests — `backend/tests/integration/tokens.test.ts`:
   - 256-bit token; only the SHA-256 hash is stored
   - `RESET` expires after 30 minutes
   - issuing a new token sets `superseded_at` on the earlier unused one of the same purpose
 
   — FR-035 — Verify: fails.
-- [ ] T076 [P] [US5] Bootstrap tests — `apps/api/tests/integration/bootstrap.test.ts`:
+- [ ] T076 [P] [US5] Bootstrap tests — `backend/tests/integration/bootstrap.test.ts`:
   - no admin → one `ACTIVE` `{ADMIN}` user with a null password hash, one `RESET` token,
     audit `ADMIN_CREATED` with `SYSTEM` and `details.source = "bootstrap"`, and exactly one
     `oneTimeLink` log line
@@ -678,14 +678,14 @@ T114).
   - the email belongs to a non-admin → non-zero exit, nobody promoted
 
   Test names cite `FR-ADM-04` — FR-032, SC-006 — Verify: fails.
-- [ ] T077 [P] [US5] CLI tests — `apps/api/tests/integration/cli-admin-create.test.ts`:
+- [ ] T077 [P] [US5] CLI tests — `backend/tests/integration/cli-admin-create.test.ts`:
   - success → user, token, printed link block, audit `ADMIN_CREATED` with `OPERATOR` plus
     `osUser` and `host`, exit 0
   - an existing email → `ERROR EMAIL_IN_USE` on stderr, exit 2, no change
   - missing or invalid flags → exit 1
   - database unreachable → exit 3
 
-  Also `apps/api/tests/integration/route-table.test.ts`: no HTTP route reaches CLI or
+  Also `backend/tests/integration/route-table.test.ts`: no HTTP route reaches CLI or
   bootstrap code, and the public app has no `/metrics` route — FR-033, FR-034 — Verify:
   fails.
 - [ ] T078 [US5] Traceability: FR-ADM-04 → `Tested`; FR-ADM-05, FR-ACC-03 (partial) →
@@ -693,7 +693,7 @@ T114).
 
 ### Implementation for User Story 5
 
-- [ ] T079 [US5] One-time tokens table — `apps/api/prisma/migrations/0004_one_time_tokens/migration.sql`.
+- [ ] T079 [US5] One-time tokens table — `backend/prisma/migrations/0004_one_time_tokens/migration.sql`.
   Columns:
   - `purpose` "`RESET` | `VERIFY_EMAIL` (`CHECK`)"
   - `token_hash` bytea `UNIQUE`
@@ -705,18 +705,18 @@ T114).
   `po_maintenance` gets `SELECT, DELETE`. Also update `roles.test.ts`'s expected list —
   FR-035 — Verify: T051 still passes with the new table.
 - [ ] T080 [US5] Token service and minimal user repository —
-  `apps/api/src/tokens/one-time.ts` (create, hash, supersede),
-  `apps/api/src/users/repository.ts` (find by email, any admin exists, create admin) —
+  `backend/src/tokens/one-time.ts` (create, hash, supersede),
+  `backend/src/users/repository.ts` (find by email, any admin exists, create admin) —
   FR-035 — Verify: T075 passes.
-- [ ] T081 [US5] Bootstrap — `apps/api/src/db/locks.ts` (`ADMIN_LOCK`, `PURGE_LOCK`
-  constants), `apps/api/src/bootstrap/run.ts` (`pg_advisory_xact_lock(ADMIN_LOCK)`,
+- [ ] T081 [US5] Bootstrap — `backend/src/db/locks.ts` (`ADMIN_LOCK`, `PURGE_LOCK`
+  constants), `backend/src/bootstrap/run.ts` (`pg_advisory_xact_lock(ADMIN_LOCK)`,
   `SYSTEM` context, create, audit, print the link block through the `oneTimeLink`
-  channel), step 3 in `apps/api/src/migrate/run.ts` as `po_app`, and `migrate`'s
+  channel), step 3 in `backend/src/migrate/run.ts` as `po_app`, and `migrate`'s
   `BOOTSTRAP_ADMIN_*` variables in `docker-compose.yml` — FR-032 — Verify: T076 passes,
   and `docker compose logs migrate` shows one link.
-- [ ] T082 [US5] Operator CLI and `admin:create` — `apps/api/src/cli/admin.ts` (extends
+- [ ] T082 [US5] Operator CLI and `admin:create` — `backend/src/cli/admin.ts` (extends
   T004's stub: `util.parseArgs`, Zod argument validation, exit codes 0/1/2/3, `OPERATOR` context with
-  `os.userInfo().username` and `os.hostname()`), `apps/api/src/cli/commands/admin-create.ts`,
+  `os.userInfo().username` and `os.hostname()`), `backend/src/cli/commands/admin-create.ts`,
   with the `admin` script unchanged (`node dist/cli/admin.js`; see
   [contracts/cli.md](contracts/cli.md))
   — FR-033, FR-034 — Verify: T077 passes, and `docker compose exec api npm run admin --
@@ -743,7 +743,7 @@ dialog behave as specified, axe is clean, and the budget passes.
 
 ### Tests for User Story 6 (write first, run, see them fail)
 
-- [ ] T085 [P] [US6] ConfirmDialog tests — `apps/web/tests/ConfirmDialog.test.tsx`:
+- [ ] T085 [P] [US6] ConfirmDialog tests — `frontend/tests/ConfirmDialog.test.tsx`:
   - `role="alertdialog"`, labelled and described
   - initial focus on the safe button
   - Escape, outside click and the safe button close it, except while pending
@@ -753,8 +753,8 @@ dialog behave as specified, axe is clean, and the budget passes.
   - focus returns to the trigger
   - `vitest-axe` reports no violations
 
-  — FR-025, FR-027, SC-007 — Verify: `npm test -w apps/web` fails.
-- [ ] T086 [P] [US6] Page state tests — `apps/web/tests/states.test.tsx`:
+  — FR-025, FR-027, SC-007 — Verify: `npm test -w frontend` fails.
+- [ ] T086 [P] [US6] Page state tests — `frontend/tests/states.test.tsx`:
   - `Loading`, `Empty` and `ErrorState`: shows the request id; Retry only for
     `SERVICE_UNAVAILABLE` and `CONCURRENCY_RETRY_EXHAUSTED`
   - `RouteErrorBoundary` contains a throwing route and keeps navigation working
@@ -762,10 +762,10 @@ dialog behave as specified, axe is clean, and the budget passes.
   - the error message map has an entry for every registry code
 
   — FR-023, FR-024 — Verify: fails.
-- [ ] T087 [P] [US6] Unsaved-changes guard tests — `apps/web/tests/useUnsavedChangesGuard.test.tsx`
+- [ ] T087 [P] [US6] Unsaved-changes guard tests — `frontend/tests/useUnsavedChangesGuard.test.tsx`
   (a memory data router: navigation while dirty opens the discard dialog, and confirm
   navigates; `beforeunload` is registered only while dirty) — FR-026 — Verify: fails.
-- [ ] T088 [P] [US6] Router and not-found tests — `apps/web/tests/router.test.tsx` (routes
+- [ ] T088 [P] [US6] Router and not-found tests — `frontend/tests/router.test.tsx` (routes
   render; an unknown path renders NotFound; the production route table has no `__demo`) —
   FR-023 — Verify: fails.
 - [ ] T089 [P] [US6] Header and bundle checks:
@@ -775,8 +775,8 @@ dialog behave as specified, axe is clean, and the budget passes.
     budget
 
   — FR-027, FR-028 — Verify: `node --test scripts/tests` fails.
-- [ ] T090 [P] [US6] End-to-end shell tests — `apps/web/e2e/shell.spec.ts` and
-  `apps/web/playwright.config.ts` (Chromium project, JSON reporter to
+- [ ] T090 [P] [US6] End-to-end shell tests — `frontend/e2e/shell.spec.ts` and
+  `frontend/playwright.config.ts` (Chromium project, JSON reporter to
   `reports/playwright.json`):
   - navigation and not-found
   - `@axe-core/playwright` on every page, with zero violations
@@ -790,22 +790,22 @@ dialog behave as specified, axe is clean, and the budget passes.
 
 ### Implementation for User Story 6
 
-- [ ] T092 [US6] Router, shell and pages — `apps/web/src/app/router.tsx`
-  (`createBrowserRouter`, lazy routes), `apps/web/src/app/Shell.tsx`,
-  `apps/web/src/app/providers.tsx` (QueryClient), `apps/web/src/pages/Home.tsx`,
-  `apps/web/src/pages/NotFound.tsx` — FR-023 — Verify: T088 passes.
-- [ ] T093 [US6] ConfirmDialog — `apps/web/src/components/ConfirmDialog.tsx` and
+- [ ] T092 [US6] Router, shell and pages — `frontend/src/app/router.tsx`
+  (`createBrowserRouter`, lazy routes), `frontend/src/app/Shell.tsx`,
+  `frontend/src/app/providers.tsx` (QueryClient), `frontend/src/pages/Home.tsx`,
+  `frontend/src/pages/NotFound.tsx` — FR-023 — Verify: T088 passes.
+- [ ] T093 [US6] ConfirmDialog — `frontend/src/components/ConfirmDialog.tsx` and
   `ConfirmDialog.module.css` (React Aria `Modal` and `Dialog`, `role="alertdialog"`,
   `autoFocus` on the safe button; see [contracts/ui-components.md](contracts/ui-components.md)),
   plus an ESLint rule in `eslint.config.mjs` that bans the `confirmLabel` literals "OK" and
   "Yes" — FR-025 — Verify: T085 passes.
 - [ ] T094 [US6] Page states, error boundary and message map —
-  `apps/web/src/components/{Loading,Empty,ErrorState,RouteErrorBoundary}.tsx`,
-  `apps/web/src/hooks/useQueryStates.ts`, `apps/web/src/errors/messages.ts` — FR-023,
+  `frontend/src/components/{Loading,Empty,ErrorState,RouteErrorBoundary}.tsx`,
+  `frontend/src/hooks/useQueryStates.ts`, `frontend/src/errors/messages.ts` — FR-023,
   FR-024 — Verify: T086 passes.
 - [ ] T095 [US6] Unsaved-changes guard and demo route —
-  `apps/web/src/hooks/useUnsavedChangesGuard.ts` (`useBlocker` + `beforeunload`),
-  `apps/web/src/pages/__demo/Demo.tsx` (every component in every state), registered only
+  `frontend/src/hooks/useUnsavedChangesGuard.ts` (`useBlocker` + `beforeunload`),
+  `frontend/src/pages/__demo/Demo.tsx` (every component in every state), registered only
   under `import.meta.env.DEV` in `router.tsx` — FR-026 — Verify: T087 and T088 pass.
 - [ ] T096 [US6] Security headers source and nginx headers — `deploy/security-headers.mjs`
   (the CSP from research R18, `X-Content-Type-Options`, `Referrer-Policy`,
@@ -845,7 +845,7 @@ logged without failing the request.
 
 ### Tests for User Story 7 (write first, run, see them fail)
 
-- [ ] T101 [P] [US7] Mail pipeline tests — `apps/api/tests/integration/mail.test.ts`, using a
+- [ ] T101 [P] [US7] Mail pipeline tests — `backend/tests/integration/mail.test.ts`, using a
   test-only route and template with `CaptureMailer`:
   - a committed transaction sends exactly one message
   - a rolled-back one sends none
@@ -859,9 +859,9 @@ logged without failing the request.
 
 ### Implementation for User Story 7
 
-- [ ] T103 [US7] Mailer — `apps/api/src/mail/mailer.ts` (interface), `apps/api/src/mail/smtp.ts`
-  (nodemailer; config validated, not connected at startup), `apps/api/src/mail/capture.ts`,
-  `apps/api/src/mail/send-after-commit.ts` (`ctx.afterCommit(() => mailer.send(...))`, with
+- [ ] T103 [US7] Mailer — `backend/src/mail/mailer.ts` (interface), `backend/src/mail/smtp.ts`
+  (nodemailer; config validated, not connected at startup), `backend/src/mail/capture.ts`,
+  `backend/src/mail/send-after-commit.ts` (`ctx.afterCommit(() => mailer.send(...))`, with
   failures logged and swallowed) — FR-029, FR-030 — Verify: T101 passes, and `smoke.sh`
   still reaches Mailpit.
 - [ ] T104 [US7] Traceability: NFR-OPS-04 → `Done` — `docs/traceability.md`.
@@ -885,7 +885,7 @@ second concurrent run is a no-op.
 
 ### Tests for User Story 8 (write first, run, see them fail)
 
-- [ ] T106 [P] [US8] Purge tests — `apps/api/tests/integration/purge.test.ts`, with an
+- [ ] T106 [P] [US8] Purge tests — `backend/tests/integration/purge.test.ts`, with an
   injected `asOf` timestamp:
   - audit entries older than 8 years are deleted, and newer ones kept
   - tokens deleted when "`COALESCE(used_at, superseded_at, expires_at) < now() - 7 days`",
@@ -901,10 +901,10 @@ second concurrent run is a no-op.
 
 ### Implementation for User Story 8
 
-- [ ] T108 [US8] Purge tasks — `apps/api/src/maintenance/purge.ts`
+- [ ] T108 [US8] Purge tasks — `backend/src/maintenance/purge.ts`
   (`pg_try_advisory_lock(PURGE_LOCK)` on a dedicated connection; tasks `audit_entries`
   (8 years) and `one_time_tokens` (7 days), registered in
-  `apps/api/src/maintenance/registry.ts`) — FR-036, FR-037 — Verify: T106 passes, and
+  `backend/src/maintenance/registry.ts`) — FR-036, FR-037 — Verify: T106 passes, and
   `docker compose logs maintenance` shows counts for both tables.
 - [ ] T109 [US8] Smoke check of the maintenance first run — `scripts/smoke.sh` asserts that
   `maintenance` logged `purge run complete` with both table names — FR-036 — Verify: the
@@ -926,9 +926,9 @@ second concurrent run is a no-op.
   - `scripts/dev-env.mjs` (`.env` with hosts rewritten to `127.0.0.1`; passes the API only
     its own variables)
   - root script `dev` (concurrently: `docker compose -f docker-compose.yml -f
-    compose.dev.yaml up -d db migrate mailpit`, `tsx watch apps/api/src/server.ts`, and Vite
+    compose.dev.yaml up -d db migrate mailpit`, `tsx watch backend/src/server.ts`, and Vite
     on port 8080)
-  - `apps/web/vite.config.ts` (proxy `/api/` to the API, `server.headers` from
+  - `frontend/vite.config.ts` (proxy `/api/` to the API, `server.headers` from
     `deploy/security-headers.mjs`, `html.cspNonce` dev only)
 
   — Verify: quickstart §5 behaves as written, and the compose file test (T024) still passes,

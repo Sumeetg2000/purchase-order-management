@@ -47,7 +47,7 @@ hand-roll the three states.
 
 ## Error message map
 
-`errorMessages: Record<ErrorCode, { message, action? }>` in `apps/web/src/errors/`.
+`errorMessages: Record<ErrorCode, { message, action? }>` in `frontend/src/errors/`.
 A test fails if any registry code has no entry, which happens automatically when a slice
 adds a code.
 

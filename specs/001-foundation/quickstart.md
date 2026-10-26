@@ -61,7 +61,7 @@ curl -si localhost:8080/api/healthz -H 'Origin: https://evil.example'   # 403 CS
 Slice 0 has no endpoint that takes a body. Malformed JSON, the wrong content type,
 unknown fields, an oversized body, an internal failure and `503` are therefore proven by
 the API integration tests, using routes registered only in the test app
-(`npm test -w apps/api -- errors`).
+(`npm test -w backend -- errors`).
 
 ## 4. Configuration refusals (Story 1)
 
@@ -80,7 +80,7 @@ npm run dev        # db, migrate and Mailpit from compose; API with reload; web 
 Expected:
 - `http://localhost:8080` serves the app with hot reload, and `/api/healthz` is proxied to
   the host-run API, on the same origin as production.
-- Editing `apps/api/src/**` restarts the API in about a second. Editing `apps/web/src/**`
+- Editing `backend/src/**` restarts the API in about a second. Editing `frontend/src/**`
   updates the page without a reload.
 - The response headers match production's CSP. The only addition is the dev-only nonce
   for the React Refresh preamble.
@@ -93,7 +93,7 @@ npm ci                         # if not already done in step 5
 npm run lint && npm run typecheck && npm run check:ids
 npm test                       # API (real PostgreSQL via Testcontainers) + web
 npm run contract:generate && git diff --exit-code packages/contracts/openapi
-npm run build -w apps/web && npm run check:bundle
+npm run build -w frontend && npm run check:bundle
 npm run e2e                    # Playwright, Chromium, against the running stack
 npm run check:traceability
 ```
@@ -103,7 +103,7 @@ reproduced as CI self-tests.
 
 ## 7. Audit guarantees (Story 4)
 
-These are covered by the API integration suite (`npm test -w apps/api -- audit`):
+These are covered by the API integration suite (`npm test -w backend -- audit`):
 - an audited change without actor context is refused
 - `UPDATE` or `DELETE` on `audit_entries` as `po_app` → permission denied
 - mismatched actor fields are refused
@@ -112,8 +112,8 @@ These are covered by the API integration suite (`npm test -w apps/api -- audit`)
 
 ## 8. Mail and purge (Stories 7, 8)
 
-- `npm test -w apps/api -- mail`: send-after-commit, nothing on rollback, failure logged.
-- `npm test -w apps/api -- purge`: only expired audit entries and tokens removed; a second
+- `npm test -w backend -- mail`: send-after-commit, nothing on rollback, failure logged.
+- `npm test -w backend -- purge`: only expired audit entries and tokens removed; a second
   concurrent run is a no-op.
 - `docker compose logs maintenance` shows the first run with per-table counts.
 

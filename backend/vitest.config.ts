@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     reporters: ['default', 'json'],
     outputFile: {
-      json: fileURLToPath(new URL('../../reports/vitest-api.json', import.meta.url)),
+      json: fileURLToPath(new URL('../reports/vitest-backend.json', import.meta.url)),
     },
     projects: [
       {

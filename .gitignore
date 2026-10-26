@@ -25,4 +25,4 @@ Thumbs.db
 .vscode/
 
 # Generated Prisma client (built by `prisma generate`)
-apps/api/src/generated/
+backend/src/generated/

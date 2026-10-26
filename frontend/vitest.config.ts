@@ -9,7 +9,7 @@ export default mergeConfig(
       include: ['tests/**/*.test.{ts,tsx}'],
       reporters: ['default', 'json'],
       outputFile: {
-        json: fileURLToPath(new URL('../../reports/vitest-web.json', import.meta.url)),
+        json: fileURLToPath(new URL('../reports/vitest-frontend.json', import.meta.url)),
       },
     },
   }),

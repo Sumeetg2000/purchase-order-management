@@ -57,12 +57,12 @@ jobs:
       - run: npm ci
       # Unit and integration tests; integration tests start PostgreSQL 17.11 through
       # Testcontainers on the runner's Docker (research R19).
-      - run: npm test -w @po/api
+      - run: npm test -w @po/backend
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: reports-api
+          name: reports-backend
           path: reports/
           if-no-files-found: error
           retention-days: 14
