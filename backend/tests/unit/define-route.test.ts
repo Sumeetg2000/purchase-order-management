@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OPERATIONS } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -77,5 +80,48 @@ describe('[NFR-API-01] routes follow the contract', () => {
       .map((o) => `${o.operationId} ${o.method} ${o.path}`)
       .sort();
     expect(served).toEqual(documented);
+  });
+});
+
+describe('[NFR-API-01] only contract operations are served', () => {
+  const secret = defineRoute({
+    method: 'get',
+    path: '/secret-admin',
+    operationId: 'notInContract',
+    summary: 'not in the contract',
+    access: 'public',
+    responses: { 200: z.object({}) },
+    handler: (_req, res) => {
+      res.json({});
+    },
+  });
+
+  it('[NFR-API-01] refuses a route whose operationId is not in the contract', () => {
+    expect(() => createApp({ ...appOptions, routes: [secret] })).toThrow(RouteRegistrationError);
+    expect(() => createApp({ ...appOptions, routes: [secret] })).toThrow(/notInContract/);
+  });
+
+  it('[NFR-API-01] serves a test-only route only through an explicit test-only registry', () => {
+    expect(() =>
+      createApp({
+        ...appOptions,
+        routes: [secret],
+        testOnlyOperations: { notInContract: secret },
+      }),
+    ).not.toThrow();
+  });
+
+  it('[NFR-API-01] a test-only registry cannot name a contract operation', () => {
+    expect(() =>
+      createApp({ ...appOptions, routes: [health], testOnlyOperations: { getHealth: health } }),
+    ).toThrow(/test-only.*getHealth/);
+  });
+
+  it('[NFR-API-01] no source file outside app.ts mentions the test-only registry', () => {
+    const srcDir = fileURLToPath(new URL('../../src/', import.meta.url));
+    const users = readdirSync(srcDir, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.ts') && !file.startsWith('generated'))
+      .filter((file) => readFileSync(join(srcDir, file), 'utf8').includes('testOnlyOperations'));
+    expect(users).toEqual([join('http', 'app.ts')]);
   });
 });
