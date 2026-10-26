@@ -12,7 +12,7 @@ const env = { ...process.env };
 delete env.NODE_TEST_CONTEXT;
 
 describe('[NFR-DEV-01] node:test JSON reporter', () => {
-  it('[NFR-DEV-01] reports every test with its describe titles and status', () => {
+  it('[NFR-DEV-01] reports every test with its describe titles and status, and a skipped suite as skipped', () => {
     const run = spawnSync(
       process.execPath,
       [
@@ -30,6 +30,7 @@ describe('[NFR-DEV-01] node:test JSON reporter', () => {
         ['[NFR-DEV-01] outer fails', 'failed'],
         ['[NFR-DEV-01] outer is skipped', 'skipped'],
         ['top level', 'passed'],
+        ['[NFR-DEV-01] skipped suite', 'skipped'],
       ],
     );
   });

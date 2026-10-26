@@ -11,3 +11,7 @@ describe('[NFR-DEV-01] outer', () => {
 });
 
 it('top level', () => {});
+
+describe.skip('[NFR-DEV-01] skipped suite', () => {
+  it('never runs', () => {});
+});
