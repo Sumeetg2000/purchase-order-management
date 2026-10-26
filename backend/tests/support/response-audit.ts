@@ -5,10 +5,10 @@ import { afterAll, expect } from 'vitest';
 import { capturedLines } from './log-capture.js';
 import { isDocumentedPath, validateResponse } from './openapi-validator.js';
 
-// Every error response the suite sees from an API app (SC-002) must be problem+json with a
+// Every error response the suite sees from an API app must be problem+json with a
 // registered code and a correlationId equal to its X-Request-Id header and present in the
 // log lines. Every error response, and every response from a documented path, must also
-// match the committed OpenAPI document (FR-022); success responses from test-only routes
+// match the committed OpenAPI document; success responses from test-only routes
 // have no documentation to match. Supertest is hooked once per test file; the metrics
 // listener (a plain http.Server, not an Express app) is not the API and is skipped.
 
