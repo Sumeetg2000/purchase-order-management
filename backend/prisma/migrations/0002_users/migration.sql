@@ -7,7 +7,9 @@ CREATE TABLE users (
     CONSTRAINT users_name_length CHECK (char_length(name) BETWEEN 1 AND 100),
   email text NOT NULL
     CONSTRAINT users_email_lower CHECK (email = lower(email)),
-  -- Sorted, so {APPROVER,BUYER} is normalised to {BUYER,APPROVER} before insert.
+  -- One canonical order per set: a dual-role user is exactly {BUYER,APPROVER}. Code must
+  -- normalise to that order before writing; an alphabetical sort ({APPROVER,BUYER}) is
+  -- refused.
   roles text[] NOT NULL DEFAULT '{}'
     CONSTRAINT users_roles_valid CHECK (
       roles IN ('{}'::text[], '{BUYER}'::text[], '{APPROVER}'::text[],
