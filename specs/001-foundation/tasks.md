@@ -481,7 +481,7 @@ nothing secret leaks.
 - [X] T049 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Done` — `docs/traceability.md`
   — Verify: T038–T042 green in the `api` job.
 
-- [ ] T050 [US3] Story checkpoint review: run `/code-review` and `/security-review` over this story's
+- [X] T050 [US3] Story checkpoint review: run `/code-review` and `/security-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
