@@ -117,6 +117,44 @@ maintenance_ran() {
   docker compose logs --no-color maintenance | grep -q 'purge run complete'
 }
 
+# The edge answers its own errors as problem+json, with the registry's title and status
+# and no correlationId (the API never saw the request).
+edge_problem() {
+  local expected_status="$1" code="$2" title="$3"
+  shift 3
+  local out status
+  out="$(mktemp)"
+  status="$(curl -s -o "$out" -D "$out.headers" -w '%{http_code}' --max-time 10 "$@")"
+  local ok=0
+  if [[ "$status" == "$expected_status" ]] &&
+    grep -qi '^content-type: application/problem+json' "$out.headers" &&
+    grep -q "\"code\":\"${code}\"" "$out" &&
+    grep -q "\"title\":\"${title}\"" "$out" &&
+    grep -q "\"status\":${expected_status}" "$out"; then
+    ok=1
+  fi
+  rm -f "$out" "$out.headers"
+  ((ok == 1))
+}
+
+oversized_post() {
+  head -c $((3 * 1024 * 1024)) /dev/zero | tr '\0' 'x' >"${TMPDIR:-/tmp}/smoke-3mb.json"
+  edge_problem 413 PAYLOAD_TOO_LARGE 'Payload too large' \
+    -X POST -H 'Content-Type: application/json' \
+    --data-binary "@${TMPDIR:-/tmp}/smoke-3mb.json" "$BASE/api/healthz"
+  local result=$?
+  rm -f "${TMPDIR:-/tmp}/smoke-3mb.json"
+  return $result
+}
+
+api_down_problem() {
+  local status
+  for status in 502 503 504; do
+    edge_problem "$status" SERVICE_UNAVAILABLE 'Service unavailable' "$BASE/api/healthz" && return 0
+  done
+  return 1
+}
+
 echo "smoke: checking the compose stack on ${BASE}"
 
 eventually "migrate exited 0" migrate_ok
@@ -132,6 +170,16 @@ eventually "no host-published port serves Prometheus content" no_published_port_
 eventually "api:9464/metrics answers inside the network" internal_metrics
 eventually "maintenance logged its first purge run" maintenance_ran
 eventually "Mailpit API answers on 127.0.0.1:8025" body_contains "http://127.0.0.1:8025/api/v1/info" '"Version"'
+# SC-001's start time is measured here, before the checks below restart the API.
+ready_at="$(date +%s)"
+eventually "a 3 MB POST gets the edge's problem+json 413" oversized_post
+
+# Last, because it stops the API: the edge's own 502/504 is problem+json too. The API is
+# started again and must become healthy before the script ends.
+docker compose stop api >/dev/null 2>&1
+eventually "with the API down the edge answers problem+json SERVICE_UNAVAILABLE" api_down_problem
+docker compose start api >/dev/null 2>&1
+eventually "api is healthy again after the restart" service_ok api
 
 started="${SMOKE_STARTED_AT:-}"
 if [[ -z "$started" ]]; then
@@ -141,7 +189,7 @@ if [[ -z "$started" ]]; then
   fi
 fi
 if [[ -n "$started" ]]; then
-  echo "smoke: stack ready $(($(date +%s) - started))s after start (SC-001 budget: 600s)"
+  echo "smoke: stack ready $((ready_at - started))s after start (SC-001 budget: 600s)"
 else
   echo "smoke: start time unknown (no db container)"
 fi
