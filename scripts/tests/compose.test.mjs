@@ -122,6 +122,21 @@ describe('[NFR-OPS-02] edge forwarding headers', () => {
   });
 });
 
+describe('[NFR-OPS-02] container privileges', () => {
+  const built = Object.entries(services).filter(([, service]) => service.build);
+
+  it('[NFR-OPS-02] covers every service built from this repository', () => {
+    assert.deepEqual(built.map(([name]) => name).sort(), ['api', 'maintenance', 'migrate', 'web']);
+  });
+
+  for (const [name, service] of built) {
+    it(`[NFR-OPS-02] ${name} cannot gain privileges and drops every capability`, () => {
+      assert.ok(service.security_opt?.includes('no-new-privileges:true'), `${name} security_opt`);
+      assert.deepEqual(service.cap_drop, ['ALL'], `${name} cap_drop`);
+    });
+  }
+});
+
 describe('[NFR-OPS-05] compose credential separation', () => {
   it('[NFR-OPS-05] no service reads a shared env_file', () => {
     for (const [name, service] of Object.entries(services)) {

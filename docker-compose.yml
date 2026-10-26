@@ -2,7 +2,8 @@
 # Each service gets only its own variables through an explicit `environment:` list, never
 # a shared env_file (contracts/config.md); the config check in each process is the
 # backstop. Only `web` publishes a port; Mailpit's UI is published on 127.0.0.1 under the
-# `local` profile.
+# `local` profile. Every service built here runs without capabilities and cannot gain
+# privileges.
 
 x-api-build: &api-build
   context: .
@@ -27,6 +28,8 @@ services:
     build: *api-build
     image: po-api:local
     command: ['node', 'dist/migrate/run.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     environment:
       APP_ENV: ${APP_ENV}
       APP_ORIGIN: ${APP_ORIGIN}
@@ -48,6 +51,8 @@ services:
     build: *api-build
     image: po-api:local
     command: ['node', 'dist/server.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     init: true
     restart: unless-stopped
     # Longer than the API's 10 s drain, so in-flight requests finish before SIGKILL.
@@ -88,6 +93,8 @@ services:
     build:
       context: .
       dockerfile: deploy/web.Dockerfile
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     restart: unless-stopped
     ports:
       - '${WEB_PORT}:8080'
@@ -104,6 +111,8 @@ services:
     build: *api-build
     image: po-api:local
     command: ['node', 'dist/maintenance/loop.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     init: true
     restart: unless-stopped
     environment:
