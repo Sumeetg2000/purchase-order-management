@@ -75,7 +75,7 @@ function expectValid(res: Response, method: string, path: string, status: number
     method,
     path,
     status: res.status,
-    headers: res.headers as Record<string, string>,
+    headers: res.headers,
     body: res.body as unknown,
   });
   expect(errors, `${method} ${path} ${String(status)}`).toEqual([]);
