@@ -555,7 +555,7 @@ transaction leaves no entry.
   T052's `audit-write.test.ts` passes.
 - [X] T057 [US4] Traceability: NFR-AUD-02 → `Done` — `docs/traceability.md`.
 
-- [ ] T058 [US4] Story checkpoint review: run `/code-review` and `/security-review` over this story's
+- [X] T058 [US4] Story checkpoint review: run `/code-review` and `/security-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
