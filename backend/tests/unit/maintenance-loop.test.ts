@@ -60,4 +60,18 @@ describe('[NFR-OPS-05] maintenance loop skeleton', () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(calls).toBe(after);
   });
+
+  it("[NFR-OPS-05] a failing task does not stop the tasks after it; the run is logged as failed with the others' counts", async () => {
+    const { logger, lines } = capture();
+    const tasks: PurgeTask[] = [
+      { name: 'first', run: () => Promise.reject(new Error('permission denied')) },
+      { name: 'second', run: () => Promise.resolve(2) },
+    ];
+    await expect(runPurgeCycle(tasks, db, logger)).resolves.toEqual({ second: 2 });
+    const failed = lines.find((l) => l['msg'] === 'purge run failed');
+    expect(failed?.['level']).toBe(50);
+    expect(failed?.['failed']).toEqual(['first']);
+    expect(failed?.['counts']).toEqual({ second: 2 });
+    expect(lines.some((l) => l['msg'] === 'purge run complete')).toBe(false);
+  });
 });

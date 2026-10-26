@@ -7,17 +7,31 @@ import { createPrismaClient, type AppPrismaClient } from '../db/client.js';
 import { createLogger } from '../observability/logger.js';
 import { purgeTasks, type PurgeTask } from './registry.js';
 
-/** Runs every task once and logs one line with the per-task counts. */
+/**
+ * Runs every task once. A failing task is logged and the rest still run; the run ends
+ * with one line holding the per-task counts: "purge run complete", or "purge run failed"
+ * naming the tasks that failed.
+ */
 export async function runPurgeCycle(
   tasks: readonly PurgeTask[],
   db: AppPrismaClient,
   logger: Logger,
 ): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
+  const failed: string[] = [];
   for (const task of tasks) {
-    counts[task.name] = await task.run(db);
+    try {
+      counts[task.name] = await task.run(db);
+    } catch (error) {
+      failed.push(task.name);
+      logger.error({ err: error, task: task.name }, 'purge task failed');
+    }
   }
-  logger.info({ counts }, 'purge run complete');
+  if (failed.length > 0) {
+    logger.error({ counts, failed }, 'purge run failed');
+  } else {
+    logger.info({ counts }, 'purge run complete');
+  }
   return counts;
 }
 
