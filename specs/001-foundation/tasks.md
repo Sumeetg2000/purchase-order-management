@@ -553,7 +553,7 @@ transaction leaves no entry.
   `details` types for slice 0: `ADMIN_CREATED`), `backend/src/audit/write.ts`
   (`writeAudit(tx, event)`, only inside `withTransaction`) — FR-017, FR-019 — Verify:
   T052's `audit-write.test.ts` passes.
-- [ ] T057 [US4] Traceability: NFR-AUD-02 → `Done` — `docs/traceability.md`.
+- [X] T057 [US4] Traceability: NFR-AUD-02 → `Done` — `docs/traceability.md`.
 
 - [ ] T058 [US4] Story checkpoint review: run `/code-review` and `/security-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
