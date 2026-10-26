@@ -1,3 +1,4 @@
+import { Server } from 'node:http';
 import { ERROR_CODES } from '@po/contracts';
 import request from 'supertest';
 import { afterAll, expect } from 'vitest';
@@ -23,10 +24,20 @@ const seen: { method: string; url: string; res: SeenResponse }[] = [];
 const proto = (request as unknown as { Test: { prototype: TestPrototype } }).Test.prototype;
 const originalEnd = proto.end;
 
+/**
+ * Whether a request targets an API app. supertest wraps an app function in
+ * http.createServer before building the request, so look through the server to its
+ * request listener: the API is an Express app; the metrics listener is a plain handler.
+ */
+function isApiApp(target: unknown): boolean {
+  const app = target instanceof Server ? target.listeners('request')[0] : target;
+  return typeof app === 'function' && typeof (app as { handle?: unknown }).handle === 'function';
+}
+
 proto.end = function (this: { app?: unknown; method?: string; url?: string }, fn?: EndCallback) {
-  const isApiApp = typeof this.app === 'function';
+  const recorded = isApiApp(this.app);
   return originalEnd.call(this, (err, res) => {
-    if (isApiApp && res) seen.push({ method: this.method ?? '', url: this.url ?? '', res });
+    if (recorded && res) seen.push({ method: this.method ?? '', url: this.url ?? '', res });
     fn?.(err, res);
   });
 };

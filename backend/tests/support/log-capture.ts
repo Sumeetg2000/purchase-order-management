@@ -10,9 +10,14 @@ export type LogLine = Record<string, unknown>;
  */
 export const TOKEN_SHAPED = /[A-Za-z0-9_-]{43,}/;
 
+// Every capture created in this test file, so the response audit can find a request's log
+// lines whichever logger the app under test was given.
+const captures: LogLine[][] = [];
+
 /** A logger with the application's options whose lines are kept in memory. */
 export function createCapture(): { logger: Logger; lines: LogLine[] } {
   const lines: LogLine[] = [];
+  captures.push(lines);
   const logger = createLogger('trace', {
     write: (chunk: string) => {
       for (const line of chunk.split('\n')) {
@@ -38,8 +43,9 @@ export function testLogger(): Logger {
   return shared.logger;
 }
 
+/** Lines from every capture in this test file, the shared one first. */
 export function capturedLines(): readonly LogLine[] {
-  return shared.lines;
+  return captures.flat();
 }
 
 afterAll(() => {
