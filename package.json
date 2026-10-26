@@ -15,9 +15,10 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:scripts",
-    "test:scripts": "node --test 'scripts/tests/*.test.mjs'",
+    "test:scripts": "node -e \"require('node:fs').mkdirSync('reports',{recursive:true})\" && node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/node-test-reporter.mjs --test-reporter-destination=reports/node-scripts.json 'scripts/tests/*.test.mjs'",
     "format": "prettier --write .",
-    "prelint": "npm run generate -w @po/backend && npm run build -w @po/contracts"
+    "prelint": "npm run generate -w @po/backend && npm run build -w @po/contracts",
+    "check:traceability": "node scripts/check-traceability.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
