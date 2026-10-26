@@ -137,18 +137,22 @@ export function mapDbError(
   { logger, constraints = CONSTRAINT_ERRORS }: MapDbErrorOptions,
 ): AppError | undefined {
   if (error instanceof DatabaseUnavailableError) {
+    logger.warn({ err: error }, 'database unavailable');
     return new AppError('SERVICE_UNAVAILABLE', { cause: error });
   }
   if (error instanceof ConcurrencyRetryExhaustedError) {
+    logger.warn({ err: error, attempts: error.attempts }, 'concurrency retries exhausted');
     return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
   }
 
   const kind = classifyDbError(error);
   if (kind === 'unavailable') {
+    logger.warn({ err: error }, 'database unavailable');
     return new AppError('SERVICE_UNAVAILABLE', { cause: error });
   }
   if (kind === 'retryable') {
     // A conflict outside withTransaction's retry loop is reported like exhausted retries.
+    logger.warn({ err: error }, 'database write conflict');
     return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
   }
 

@@ -99,6 +99,13 @@ describe('[NFR-API-02] central database error mapper', () => {
     }
   });
 
+  it('[NFR-CON-02] logs the cause when it answers SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED', () => {
+    const unavailable = map(known('P2028'));
+    expect(unavailable.lines.some((l) => l['level'] === 40 && l['err'] !== undefined)).toBe(true);
+    const conflict = map(adapterError({ kind: 'TransactionWriteConflict', originalCode: '40001' }));
+    expect(conflict.lines.some((l) => l['level'] === 40 && l['err'] !== undefined)).toBe(true);
+  });
+
   it('[NFR-CON-02] a write conflict outside the retry loop, or retries exhausted, is CONCURRENCY_RETRY_EXHAUSTED', () => {
     for (const error of [
       adapterError({ kind: 'TransactionWriteConflict', originalCode: '40001' }),
