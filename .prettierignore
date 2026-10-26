@@ -10,3 +10,5 @@ package-lock.json
 .claude/
 specs/
 docs/
+# Generated and committed; CI compares a fresh generation byte for byte.
+packages/contracts/openapi/

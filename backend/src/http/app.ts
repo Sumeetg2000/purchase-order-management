@@ -1,3 +1,4 @@
+import { OPERATIONS, type OperationContract } from '@po/contracts';
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
@@ -24,11 +25,14 @@ export interface CreateAppOptions {
   metrics?: Metrics;
 }
 
-function describeRoute(route: RouteDefinition): string {
+function describeRoute(route: Pick<OperationContract, 'method' | 'path'>): string {
   return `${route.method.toUpperCase()} ${route.path}`;
 }
 
-/** Startup check: every route declares a known access level and documented responses. */
+/**
+ * Startup check: every route declares a known access level and documented responses, and
+ * a route that names a contract operation serves it at the contract's method and path.
+ */
 export function validateRoutes(routes: readonly RouteDefinition[]): void {
   const operationIds = new Set<string>();
   const endpoints = new Set<string>();
@@ -51,6 +55,14 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
     }
     if (endpoints.has(label)) {
       throw new RouteRegistrationError(`Duplicate route ${label}`);
+    }
+    const contract = (OPERATIONS as Readonly<Record<string, OperationContract | undefined>>)[
+      route.operationId
+    ];
+    if (contract && (contract.method !== route.method || contract.path !== route.path)) {
+      throw new RouteRegistrationError(
+        `Route ${label} claims operation "${route.operationId}", which the contract defines as ${describeRoute(contract)}`,
+      );
     }
     operationIds.add(route.operationId);
     endpoints.add(label);

@@ -1,35 +1,16 @@
-import { AppError, type FieldCode, type FieldError } from '@po/contracts';
+import { AppError, type FieldCode, type FieldError, type OperationContract } from '@po/contracts';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { z } from 'zod';
 
-/**
- * Who may call a route (Principle III, deny by default). Slice 0 has only public health
- * routes; slice 1 adds the authenticated levels.
- */
-export const ACCESS_LEVELS = ['public'] as const;
-export type Access = (typeof ACCESS_LEVELS)[number];
-
-export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
-
-export interface RouteRequestSchemas {
-  params?: z.ZodType;
-  query?: z.ZodType;
-  body?: z.ZodType;
-}
+export { ACCESS_LEVELS, type Access, type HttpMethod } from '@po/contracts';
 
 /**
- * The single way to register an HTTP route. The same definition feeds the startup checks
- * and the OpenAPI document (ADR-0008), so an undeclared or undocumented route cannot
- * exist. createApp validates each request against these schemas before the handler.
+ * The single way to register an HTTP route. Production routes spread an operation from
+ * @po/contracts (OPERATIONS), the same definition the OpenAPI document is generated from
+ * (ADR-0008), so a served route can't drift from its documentation. createApp validates
+ * each request against these schemas before the handler.
  */
-export interface RouteDefinition {
-  method: HttpMethod;
-  path: string;
-  operationId: string;
-  summary: string;
-  access: Access;
-  request?: RouteRequestSchemas;
-  responses: Readonly<Record<number, z.ZodType>>;
+export interface RouteDefinition extends OperationContract {
   handler: (req: Request, res: Response, next: NextFunction) => void | Promise<void>;
 }
 

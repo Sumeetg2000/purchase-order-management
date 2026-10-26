@@ -3,7 +3,8 @@ import { apiConfig } from './config/api.js';
 import { loadConfig } from './config/load.js';
 import { createPrismaClient } from './db/client.js';
 import { createApp } from './http/app.js';
-import { healthRoutes, listMigrations } from './http/routes/health.js';
+import { listMigrations } from './http/routes/health.js';
+import { productionRoutes } from './http/routes/index.js';
 import { createShutdown, onShutdownSignals } from './http/shutdown.js';
 import { createLogger } from './observability/logger.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
@@ -37,7 +38,7 @@ async function main() {
     logger,
     appOrigin: config.APP_ORIGIN,
     metrics,
-    routes: [...healthRoutes({ prisma, expectedMigrations: await listMigrations(), logger })],
+    routes: productionRoutes({ prisma, expectedMigrations: await listMigrations(), logger }),
   });
 
   const server = createServer(app);

@@ -1,7 +1,6 @@
 import { readdir } from 'node:fs/promises';
-import { AppError } from '@po/contracts';
+import { AppError, OPERATIONS } from '@po/contracts';
 import type { Logger } from 'pino';
-import { z } from 'zod';
 import type { AppPrismaClient } from '../../db/client.js';
 import { classifyDbError } from '../../db/errors.js';
 import { defineRoute, type RouteDefinition } from '../define-route.js';
@@ -18,12 +17,6 @@ export async function listMigrations(dir: URL = MIGRATIONS_DIR): Promise<string[
     .map((entry) => entry.name)
     .sort();
 }
-
-const healthSchema = z.object({ status: z.literal('ok') });
-const readinessSchema = z.object({
-  status: z.literal('ready'),
-  checks: z.object({ database: z.literal('ok'), migrations: z.literal('ok') }),
-});
 
 interface MigrationRow {
   migration_name: string;
@@ -98,26 +91,13 @@ export function healthRoutes({
 
   return [
     defineRoute({
-      method: 'get',
-      path: '/healthz',
-      operationId: 'getHealth',
-      summary: 'Liveness. The process is up and serving.',
-      access: 'public',
-      responses: { 200: healthSchema },
+      ...OPERATIONS.getHealth,
       handler: (_req, res) => {
         res.json({ status: 'ok' });
       },
     }),
     defineRoute({
-      method: 'get',
-      path: '/readyz',
-      operationId: 'getReadiness',
-      summary: 'Readiness. The database is reachable and migrations are complete.',
-      access: 'public',
-      responses: {
-        200: readinessSchema,
-        503: z.object({ code: z.literal('SERVICE_UNAVAILABLE') }),
-      },
+      ...OPERATIONS.getReadiness,
       handler: async (_req, res) => {
         const notReady = await check();
         if (notReady) {

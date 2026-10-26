@@ -19,7 +19,8 @@
     "format": "prettier --write .",
     "prelint": "npm run generate -w @po/backend && npm run build -w @po/contracts",
     "check:traceability": "node scripts/check-traceability.mjs",
-    "check:ids": "node scripts/check-requirement-ids.mjs"
+    "check:ids": "node scripts/check-requirement-ids.mjs",
+    "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
