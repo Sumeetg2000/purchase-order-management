@@ -574,7 +574,7 @@ T114).
 
 ### Tests for User Story 2 (write first, run, see them fail)
 
-- [ ] T059 [P] [US2] ID-ban script tests — `scripts/tests/check-requirement-ids.test.mjs`
+- [X] T059 [P] [US2] ID-ban script tests — `scripts/tests/check-requirement-ids.test.mjs`
   with fixtures in `scripts/tests/fixtures/ids/`:
   - an ID in source or a comment → fail
   - the same ID in `*.test.ts` → pass
@@ -582,9 +582,9 @@ T114).
   - `docs/` and `specs/` are ignored
 
   — FR-038 — Verify: `node --test scripts/tests` fails.
-- [ ] T060 [P] [US2] Commit rule tests — `scripts/tests/commitlint-requirement-ids.test.mjs`
+- [X] T060 [P] [US2] Commit rule tests — `scripts/tests/commitlint-requirement-ids.test.mjs`
   (a subject with `NFR-OPS-01` → fail; the body → allowed) — FR-038 — Verify: fails.
-- [ ] T061 [P] [US2] Traceability script tests — `scripts/tests/check-traceability.test.mjs`
+- [X] T061 [P] [US2] Traceability script tests — `scripts/tests/check-traceability.test.mjs`
   with a fixture matrix and reports:
   - a test citing an unknown ID → fail
   - a `docs/BRIEF.md` section with no row → fail
@@ -593,20 +593,20 @@ T114).
   - `Todo` and `Spec` → ignored (ADR-0013)
 
   — FR-039 — Verify: fails.
-- [ ] T062 [P] [US2] Contract tests — `packages/contracts/tests/openapi.test.ts` (the
+- [X] T062 [P] [US2] Contract tests — `packages/contracts/tests/openapi.test.ts` (the
   generated document has `getHealth` and `getReadiness`, `Problem`, and an `ErrorCode` enum
   equal to the registry; the output is deterministic) and
   `backend/tests/contract/responses.test.ts` (every response from T021 and T039 validates
   against `packages/contracts/openapi/openapi.json`) — FR-020, FR-022 — Verify: fail (no
   generator, no committed document).
-- [ ] T063 [P] [US2] Migrations-from-empty and reconciliation test —
+- [X] T063 [P] [US2] Migrations-from-empty and reconciliation test —
   `backend/tests/integration/migrations.test.ts`:
   - all migrations apply to an empty database in order
   - `prisma migrate diff` between `schema.prisma` and the migrations is empty
   - `backend/src/db/reconciliation.sql` returns 0 rows
 
   — FR-038 — Verify: fails (no reconciliation file).
-- [ ] T064 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Tested` — `docs/traceability.md`.
+- [X] T064 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 2
 
