@@ -84,6 +84,21 @@ describe('[NFR-API-02] central database error mapper', () => {
     }
   });
 
+  it('[NFR-CON-02] a dropped, timed-out or refused connection and a shutting-down server are SERVICE_UNAVAILABLE', () => {
+    for (const cause of [
+      { kind: 'ConnectionClosed' },
+      { kind: 'SocketTimeout' },
+      { kind: 'TooManyConnections', originalCode: '53300' },
+      { kind: 'postgres', originalCode: '57P01' },
+      { kind: 'postgres', originalCode: '57P03' },
+      { kind: 'postgres', originalCode: '08006' },
+    ]) {
+      expect(map(adapterError(cause)).result?.code, JSON.stringify(cause)).toBe(
+        'SERVICE_UNAVAILABLE',
+      );
+    }
+  });
+
   it('[NFR-CON-02] a write conflict outside the retry loop, or retries exhausted, is CONCURRENCY_RETRY_EXHAUSTED', () => {
     for (const error of [
       adapterError({ kind: 'TransactionWriteConflict', originalCode: '40001' }),

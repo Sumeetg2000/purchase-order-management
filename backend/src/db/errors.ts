@@ -54,6 +54,19 @@ function adapterCause(error: Prisma.PrismaClientKnownRequestError): DriverAdapte
 
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
 
+// adapter-pg kinds for a connection that can't be made or was lost (it maps ECONNREFUSED
+// and ENOTFOUND, ECONNRESET, ETIMEDOUT and SQLSTATE 53300 to these).
+const UNAVAILABLE_KINDS = new Set([
+  'DatabaseNotReachable',
+  'ConnectionClosed',
+  'SocketTimeout',
+  'TooManyConnections',
+]);
+
+// Connection exceptions (class 08), too many connections (53300), and a server shutting
+// down or starting up (57P01-57P03) arrive with the raw SQLSTATE.
+const UNAVAILABLE_SQLSTATE = /^(08...|53300|57P0[123])$/;
+
 // Node socket error codes for a database that can't be reached. The adapter usually wraps
 // them as P2010 DatabaseNotReachable, but on some hosts (the CI runner) the raw pg
 // connect error arrives unwrapped with one of these codes (research R5).
@@ -84,7 +97,10 @@ export function classifyDbError(error: unknown): DbErrorClass {
     if (error.code === 'P2028') return 'unavailable';
     if (error.code === 'P2034') return 'retryable';
     const cause = adapterCause(error);
-    if (cause?.kind === 'DatabaseNotReachable') return 'unavailable';
+    if (cause?.kind !== undefined && UNAVAILABLE_KINDS.has(cause.kind)) return 'unavailable';
+    if (cause?.originalCode !== undefined && UNAVAILABLE_SQLSTATE.test(cause.originalCode)) {
+      return 'unavailable';
+    }
     if (
       cause?.kind === 'TransactionWriteConflict' ||
       (cause?.originalCode !== undefined && RETRYABLE_SQLSTATES.has(cause.originalCode))
@@ -128,9 +144,13 @@ export function mapDbError(
   }
 
   const kind = classifyDbError(error);
-  if (kind === 'unavailable') return new AppError('SERVICE_UNAVAILABLE', { cause: error });
-  // A conflict outside withTransaction's retry loop is reported like exhausted retries.
-  if (kind === 'retryable') return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
+  if (kind === 'unavailable') {
+    return new AppError('SERVICE_UNAVAILABLE', { cause: error });
+  }
+  if (kind === 'retryable') {
+    // A conflict outside withTransaction's retry loop is reported like exhausted retries.
+    return new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
+  }
 
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
   const cause = adapterCause(error);
