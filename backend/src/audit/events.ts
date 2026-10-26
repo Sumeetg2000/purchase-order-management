@@ -2,7 +2,7 @@
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
 // database fills them from the transaction's actor context.
 
-/** A phone number never goes into audit details (ADR-0016, NFR-PRIV-01). */
+/** A phone number never goes into audit details (ADR-0016). */
 interface NoPhone {
   phone?: never;
 }
