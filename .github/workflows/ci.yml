@@ -33,6 +33,8 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - run: npm run lint
+      - name: Requirement-ID ban
+        run: npm run check:ids
       - run: npm run format:check
       - run: npm run typecheck
       - name: Script tests (compose file)

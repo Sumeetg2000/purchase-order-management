@@ -1,0 +1,10 @@
+# Allowed requirement and task IDs outside test names (ADR-0013). Each entry is either
+# `path token` (one token in one file) or `dir/` (a whole directory). Keep it short, and
+# say why for each entry.
+
+# Spec Kit's own skills and templates use example task numbers.
+.claude/
+.specify/
+
+# Inputs for the check scripts' own tests, full of IDs on purpose.
+scripts/tests/fixtures/
