@@ -668,13 +668,13 @@ T114).
 
 ### Tests for User Story 5 (write first, run, see them fail)
 
-- [ ] T075 [P] [US5] One-time token tests — `backend/tests/integration/tokens.test.ts`:
+- [X] T075 [P] [US5] One-time token tests — `backend/tests/integration/tokens.test.ts`:
   - 256-bit token; only the SHA-256 hash is stored
   - `RESET` expires after 30 minutes
   - issuing a new token sets `superseded_at` on the earlier unused one of the same purpose
 
   — FR-035 — Verify: fails.
-- [ ] T076 [P] [US5] Bootstrap tests — `backend/tests/integration/bootstrap.test.ts`:
+- [X] T076 [P] [US5] Bootstrap tests — `backend/tests/integration/bootstrap.test.ts`:
   - no admin → one `ACTIVE` `{ADMIN}` user with a null password hash, one `RESET` token,
     audit `ADMIN_CREATED` with `SYSTEM` and `details.source = "bootstrap"`, and exactly one
     `oneTimeLink` log line
@@ -686,7 +686,7 @@ T114).
   - the email belongs to a non-admin → non-zero exit, nobody promoted
 
   Test names cite `FR-ADM-04` — FR-032, SC-006 — Verify: fails.
-- [ ] T077 [P] [US5] CLI tests — `backend/tests/integration/cli-admin-create.test.ts`:
+- [X] T077 [P] [US5] CLI tests — `backend/tests/integration/cli-admin-create.test.ts`:
   - success → user, token, printed link block, audit `ADMIN_CREATED` with `OPERATOR` plus
     `osUser` and `host`, exit 0
   - an existing email → `ERROR EMAIL_IN_USE` on stderr, exit 2, no change
@@ -696,7 +696,7 @@ T114).
   Also `backend/tests/integration/route-table.test.ts`: no HTTP route reaches CLI or
   bootstrap code, and the public app has no `/metrics` route — FR-033, FR-034 — Verify:
   fails.
-- [ ] T078 [US5] Traceability: FR-ADM-04 → `Tested`; FR-ADM-05, FR-ACC-03 (partial) →
+- [X] T078 [US5] Traceability: FR-ADM-04 → `Tested`; FR-ADM-05, FR-ACC-03 (partial) →
   `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 5
