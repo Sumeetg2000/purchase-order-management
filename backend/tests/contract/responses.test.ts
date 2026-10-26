@@ -136,6 +136,26 @@ describe('[NFR-API-01] responses match the committed OpenAPI document', () => {
     expectValid(await request(app).get('/test-busy'), 'get', '/test-busy', 503);
   });
 
+  it('[NFR-API-01] the validator rejects an error code or status the operation does not declare', () => {
+    const problem = (status: number, code: string) => ({
+      method: 'get',
+      path: '/readyz',
+      status,
+      headers: {
+        'content-type': 'application/problem+json',
+        'x-request-id': 'req-contract-02',
+      },
+      body: { type: 'about:blank', title: 'x', status, code, correlationId: 'req-contract-02' },
+    });
+    expect(validateResponse(problem(503, 'SERVICE_UNAVAILABLE'))).toEqual([]);
+    expect(validateResponse(problem(503, 'CONCURRENCY_RETRY_EXHAUSTED'))).toEqual([
+      expect.stringMatching(/CONCURRENCY_RETRY_EXHAUSTED/),
+    ]);
+    expect(validateResponse(problem(409, 'NOT_FOUND'))).toEqual([
+      expect.stringMatching(/undocumented status/),
+    ]);
+  });
+
   it('[NFR-API-01] the validator rejects a response that breaks the document', () => {
     const errors = validateResponse({
       method: 'get',
