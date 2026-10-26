@@ -28,6 +28,24 @@ CREATE TABLE users (
     CHECK ((status = 'DEACTIVATED') = (deactivated_at IS NOT NULL))
 );
 
+-- updated_at always comes from the database clock, on every update path.
+CREATE FUNCTION set_updated_at() RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END
+$$;
+
+REVOKE ALL ON FUNCTION set_updated_at() FROM PUBLIC;
+
+CREATE TRIGGER users_set_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- Users are never deleted (ADR-0016), so po_app gets no DELETE. po_maintenance gets
 -- nothing in slice 0.
 GRANT SELECT, INSERT, UPDATE ON TABLE users TO po_app;

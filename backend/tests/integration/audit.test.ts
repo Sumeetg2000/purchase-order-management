@@ -125,6 +125,24 @@ describe('[NFR-AUD-02] actor context is required for audited changes', () => {
   );
 });
 
+describe('[NFR-AUD-02] users timestamps', () => {
+  it('[NFR-AUD-02] an update sets updated_at from the database clock, whatever the statement says', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    await inTx(app, userActor, [insertUser('stamp@example.local')]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await inTx(app, userActor, [
+      `UPDATE users SET name = 'Renamed', updated_at = '2001-01-01T00:00:00Z' WHERE email = 'stamp@example.local'`,
+    ]);
+    const admin = await db.client('postgres');
+    const { rows } = await admin.query<{ created_at: Date; updated_at: Date }>(
+      `SELECT created_at, updated_at FROM users WHERE email = 'stamp@example.local'`,
+    );
+    const [row] = rows;
+    expect(row && row.updated_at.getTime()).toBeGreaterThan(row?.created_at.getTime() ?? Infinity);
+  });
+});
+
 describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
   it('[NFR-AUD-02] fills the actor fields and request id from the context, and the time from the database clock', async () => {
     const db = trackDatabase(await createTestDatabase());

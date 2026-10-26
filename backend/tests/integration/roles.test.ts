@@ -206,6 +206,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'audit_entries audit_retention_guard O',
       'audit_entries require_actor_context O',
       'users require_actor_context O',
+      'users users_set_updated_at O',
     ]);
   });
 });
