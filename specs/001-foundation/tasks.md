@@ -317,7 +317,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   `backend/src/server.ts`, and a request-timing middleware in
   `backend/src/http/middleware/metrics.ts` (see [contracts/metrics.md](contracts/metrics.md))
   — FR-040 — Verify: T023 passes.
-- [ ] T030a [US1] Root `.dockerignore` — `.dockerignore`. Both images build from the
+- [X] T030a [US1] Root `.dockerignore` — `.dockerignore`. Both images build from the
   repository root, so the build context must exclude: `.env` and `.env.*` (keeping
   `.env.example`), `.git`, `node_modules` at every level, `dist`, `build`, `coverage`,
   `reports`, `playwright-report`, `test-results`, `*.tsbuildinfo`, `docs`, `specs`,
