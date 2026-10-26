@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
-import { serializeRequest, serializeResponse } from '../observability/logger.js';
+import { serializeError, serializeRequest, serializeResponse } from '../observability/logger.js';
 import type { Metrics } from '../observability/metrics.js';
 import { ACCESS_LEVELS, validateRequest, type RouteDefinition } from './define-route.js';
 import { correlation } from './middleware/correlation.js';
@@ -75,7 +75,7 @@ export function createApp({ routes, logger, appOrigin, metrics }: CreateAppOptio
       // Bind only the correlation id to the request's child logger, as `requestId`.
       quietReqLogger: true,
       customAttributeKeys: { reqId: 'requestId' },
-      serializers: { req: serializeRequest, res: serializeResponse },
+      serializers: { err: serializeError, req: serializeRequest, res: serializeResponse },
     }),
   );
 

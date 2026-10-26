@@ -18,6 +18,19 @@ function buildApp() {
     routes: [
       defineRoute({
         method: 'get',
+        path: '/fail',
+        operationId: 'testFail',
+        summary: 'test only',
+        access: 'public',
+        responses: { 200: z.object({}) },
+        handler: () => {
+          throw Object.assign(new Error('upstream refused'), {
+            config: { headers: { authorization: 'Bearer xxxx-auth-12' } },
+          });
+        },
+      }),
+      defineRoute({
+        method: 'get',
         path: '/work',
         operationId: 'testWork',
         summary: 'test only',
@@ -111,7 +124,33 @@ describe('[NFR-PRIV-01] log redaction', () => {
   });
 });
 
-describe('[NFR-PRIV-01] redaction of deep values', () => {
+describe('[NFR-PRIV-01] redaction of errors and deep values', () => {
+  it('[NFR-PRIV-01] redacts sensitive properties carried by a logged error and its cause', () => {
+    const { logger, lines } = createCapture();
+    const inner = Object.assign(new Error('inner failure'), { token: 'xxxx-tok-10' });
+    const error = Object.assign(new Error('outer failure', { cause: inner }), {
+      headers: { authorization: 'Bearer xxxx-auth-9' },
+      meta: { phone: '+910000000001' },
+    });
+    logger.error({ err: error }, 'failed');
+
+    const text = JSON.stringify(lines);
+    for (const value of ['xxxx-auth-9', '+910000000001', 'xxxx-tok-10']) {
+      expect(text).not.toContain(value);
+    }
+    expect(text).toContain('outer failure');
+    expect(text).toContain('inner failure');
+  });
+
+  it('[NFR-PRIV-01] redacts an error logged by the request logger when a handler throws', async () => {
+    const { app, lines } = buildApp();
+    const res = await request(app).get('/fail');
+    expect(res.status).toBe(500);
+    const text = JSON.stringify(lines);
+    expect(text).toContain('upstream refused');
+    expect(text).not.toContain('xxxx-auth-12');
+  });
+
   it('[NFR-PRIV-01] never returns a sensitive value however deeply it is nested', () => {
     const { logger, lines } = createCapture();
     let nested: Record<string, unknown> = { password: 'xxxx-deep-11' };

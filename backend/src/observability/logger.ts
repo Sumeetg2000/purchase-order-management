@@ -69,6 +69,22 @@ export function serializeResponse(res: SerializedResponse) {
   return { statusCode: res.statusCode, headers: redactDeep(res.headers ?? {}) };
 }
 
+/**
+ * pino's error serializer, redacted. pino runs the log formatter before serializers, so an
+ * Error's own properties (headers, driver metadata, its cause chain) would otherwise reach
+ * the output untouched. The serialized error becomes plain data first so it can be walked.
+ */
+export function serializeError(error: unknown): unknown {
+  const serialized: unknown = pino.stdSerializers.err(error as Error);
+  let plain: unknown;
+  try {
+    plain = JSON.parse(JSON.stringify(serialized));
+  } catch {
+    plain = { type: (serialized as { type?: unknown } | null)?.type };
+  }
+  return redactDeep(plain);
+}
+
 export function createLogger(
   level: LevelWithSilent = 'info',
   destination?: DestinationStream,
@@ -78,7 +94,7 @@ export function createLogger(
     formatters: {
       log: (object: Record<string, unknown>) => redactDeep(object) as Record<string, unknown>,
     },
-    serializers: { err: pino.stdSerializers.err, req: serializeRequest, res: serializeResponse },
+    serializers: { err: serializeError, req: serializeRequest, res: serializeResponse },
   };
   return destination ? pino(options, destination) : pino(options);
 }
