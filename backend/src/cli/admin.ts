@@ -1,5 +1,5 @@
 // Operator CLI, run on the server only: `npm run admin -- <command>` (ADR-0016).
-// This stub handles --help; T082 adds the commands.
+// This stub handles --help; US5 adds the commands.
 const USAGE = `Usage: npm run admin -- <command> [flags]
 
 Commands:

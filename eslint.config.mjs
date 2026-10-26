@@ -30,7 +30,7 @@ export default defineConfig(
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
-      // Later tasks append selectors here (e.g. the database error-message rule, T047).
+      // Later tasks append selectors here (e.g. the database error-message rule, US3).
       'no-restricted-syntax': [
         'error',
         {
