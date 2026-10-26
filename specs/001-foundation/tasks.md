@@ -238,7 +238,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
 ### Tests for User Story 1 (write first, run, see them fail)
 
-- [ ] T020 [P] [US1] Config rule tests — `backend/tests/unit/config-rules.test.ts`.
+- [X] T020 [P] [US1] Config rule tests — `backend/tests/unit/config-rules.test.ts`.
   Cover every rule in [contracts/config.md](contracts/config.md):
   - production refuses `SEED_DEMO_DATA=true`, `SMTP_HOST=mailpit` and any `change-me-`
     secret
@@ -253,23 +253,23 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
   Test names cite `NFR-OPS-02` — FR-003, FR-004, FR-007 — Verify: `npm test -w backend --
   config-rules` fails.
-- [ ] T021 [P] [US1] Health and readiness tests — `backend/tests/integration/health.test.ts`:
+- [X] T021 [P] [US1] Health and readiness tests — `backend/tests/integration/health.test.ts`:
   - `/healthz` → `200 {status:"ok"}`
   - `/readyz` → `200` with `database` and `migrations` both `ok`
   - with the database stopped, `/readyz` → `503 SERVICE_UNAVAILABLE` and `/healthz` → `200`
   - with a pending migration, `/readyz` → `503`
 
   — FR-005 — Verify: fails.
-- [ ] T022 [P] [US1] Graceful shutdown test — `backend/tests/integration/shutdown.test.ts`
+- [X] T022 [P] [US1] Graceful shutdown test — `backend/tests/integration/shutdown.test.ts`
   (an in-flight slow request completes after `SIGTERM`, new connections are refused, and
   the pool is closed before exit) — FR-006 — Verify: fails.
-- [ ] T023 [P] [US1] Metrics listener test — `backend/tests/integration/metrics.test.ts`:
+- [X] T023 [P] [US1] Metrics listener test — `backend/tests/integration/metrics.test.ts`:
   - `/metrics` on `METRICS_PORT` returns Prometheus text with `po_http_requests_total`
   - the main port returns `404` for `/metrics`
   - labels use route patterns, never raw paths
 
   — FR-040 — Verify: fails.
-- [ ] T024 [P] [US1] Compose file test — `scripts/tests/compose.test.mjs`. It parses
+- [X] T024 [P] [US1] Compose file test — `scripts/tests/compose.test.mjs`. It parses
   `docker-compose.yml` and asserts:
   - only `web` publishes `ports`; Mailpit publishes `127.0.0.1:8025` only, under the
     `local` profile
@@ -281,7 +281,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
   — FR-002, FR-004, FR-031, FR-040 — Verify: `node --test scripts/tests/compose.test.mjs`
   fails (no compose file).
-- [ ] T025 [US1] Smoke script, a test that fails until the stack exists — `scripts/smoke.sh`.
+- [X] T025 [US1] Smoke script, a test that fails until the stack exists — `scripts/smoke.sh`.
   It checks:
   - `migrate` exited 0, and `db`, `api`, `web`, `maintenance` and `mailpit` are healthy or
     running
@@ -296,12 +296,12 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
   It prints the elapsed start time (SC-001) — FR-002, FR-040, SC-001 — Verify:
   `scripts/smoke.sh` fails now.
-- [ ] T026 [US1] Traceability: NFR-OPS-01, NFR-OPS-03 → `Tested` — `docs/traceability.md` —
+- [X] T026 [US1] Traceability: NFR-OPS-01, NFR-OPS-03 → `Tested` — `docs/traceability.md` —
   Verify: the status column shows `Tested`, and the test names above carry the IDs.
 
 ### Implementation for User Story 1
 
-- [ ] T027 [US1] Config schemas per process — `backend/src/config/{api.ts,cli.ts,migrate.ts,maintenance.ts,rules.ts}`.
+- [X] T027 [US1] Config schemas per process — `backend/src/config/{api.ts,cli.ts,migrate.ts,maintenance.ts,rules.ts}`.
   Implement the variables, production refusals, `change-me-` refusal, credential
   separation and the port check from contracts/config.md — FR-003, FR-004 — Verify: T020
   passes.

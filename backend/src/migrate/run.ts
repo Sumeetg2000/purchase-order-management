@@ -1,22 +1,11 @@
-import { z } from 'zod';
 import { loadConfig } from '../config/load.js';
+import { migrateConfig } from '../config/migrate.js';
 import { createLogger } from '../observability/logger.js';
 import { deployMigrations } from './deploy.js';
 import { provisionDatabase } from './provision.js';
 
-// Minimal migrate config for steps 1 and 2. T027 adds the full migrate schema
-// (production refusals, credential separation, bootstrap variables).
-const migrateConfigSchema = z.object({
-  OWNER_DATABASE_URL: z.url(),
-  POSTGRES_PASSWORD: z.string().min(16),
-  DB_OWNER_PASSWORD: z.string().min(16),
-  DB_APP_PASSWORD: z.string().min(16),
-  DB_MAINTENANCE_PASSWORD: z.string().min(16),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-});
-
 async function main() {
-  const config = loadConfig(migrateConfigSchema);
+  const config = loadConfig(migrateConfig.schema);
   if (!config) return;
   const logger = createLogger(config.LOG_LEVEL);
 

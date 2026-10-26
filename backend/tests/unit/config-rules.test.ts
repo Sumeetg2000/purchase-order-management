@@ -303,7 +303,7 @@ describe('[NFR-OPS-01] .env.example documents every variable', () => {
   const composeOnly = ['COMPOSE_PROFILES', 'WEB_PORT'];
 
   const example = readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8');
-  const assigned = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]);
+  const assigned = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1] ?? '');
   const composedLine = /^#\s*composed:\s*(.+)$/m.exec(example)?.[1] ?? '';
   const composed = composedLine
     .split(',')
