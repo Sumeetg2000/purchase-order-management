@@ -23,7 +23,8 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          include: ['tests/integration/**/*.test.ts'],
+          // Contract tests need the database too (readiness), so they run here.
+          include: ['tests/integration/**/*.test.ts', 'tests/contract/**/*.test.ts'],
           globalSetup: ['tests/support/global-setup.ts'],
           setupFiles: [...suiteChecks, 'tests/support/setup.ts'],
           testTimeout: 30_000,
