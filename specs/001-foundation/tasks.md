@@ -466,7 +466,9 @@ nothing secret leaks.
   (problem+json renderer, not-found handler, `500` without detail),
   `backend/src/http/middleware/parse-json.ts` (content-type check, 1 MB limit → `413`,
   malformed → `MALFORMED_JSON`), and Zod → field-code mapping in
-  `backend/src/http/define-route.ts` — FR-008, FR-009 — Verify: T039 passes.
+  `backend/src/http/define-route.ts` — FR-008, FR-009 — Verify: T039 passes, and after a
+  `404`, `po_http_errors_total{code="NOT_FOUND"}` has increased (contracts/metrics.md; the
+  renderer sets the problem code the metrics middleware counts).
 - [ ] T047 [US3] Central database error mapper — extends `backend/src/db/errors.ts`
   from T018 with constraint mapping (`P2002` by `cause.constraint.index`, `P2003`,
   `P2025`) and the trigger SQLSTATEs (`PO001`, `PO002` → `INTERNAL_ERROR`, logged); wiring
