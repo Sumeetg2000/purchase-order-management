@@ -1,0 +1,56 @@
+import { ERROR_CODES } from '@po/contracts';
+import request from 'supertest';
+import { afterAll, expect } from 'vitest';
+import { capturedLines } from './log-capture.js';
+
+// Every error response the suite sees from an API app (SC-002) must be problem+json with a
+// registered code and a correlationId equal to its X-Request-Id header and present in the
+// log lines. Supertest is hooked once per test file; the metrics listener (a plain
+// http.Server, not an Express app) is not the API and is skipped.
+
+interface SeenResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+}
+
+type EndCallback = (err: unknown, res?: SeenResponse) => void;
+interface TestPrototype {
+  end: (this: { app?: unknown }, fn?: EndCallback) => unknown;
+}
+
+const seen: { method: string; url: string; res: SeenResponse }[] = [];
+const proto = (request as unknown as { Test: { prototype: TestPrototype } }).Test.prototype;
+const originalEnd = proto.end;
+
+proto.end = function (this: { app?: unknown; method?: string; url?: string }, fn?: EndCallback) {
+  const isApiApp = typeof this.app === 'function';
+  return originalEnd.call(this, (err, res) => {
+    if (isApiApp && res) seen.push({ method: this.method ?? '', url: this.url ?? '', res });
+    fn?.(err, res);
+  });
+};
+
+function problems(entry: (typeof seen)[number]): string[] {
+  const { res } = entry;
+  const found: string[] = [];
+  const body = (res.body ?? {}) as Record<string, unknown>;
+  const header = res.headers['x-request-id'];
+  if (!/^application\/problem\+json/.test(res.headers['content-type'] ?? '')) {
+    found.push(`content-type ${String(res.headers['content-type'])}`);
+  }
+  if (!(ERROR_CODES as readonly unknown[]).includes(body['code'])) {
+    found.push(`unregistered code ${String(body['code'])}`);
+  }
+  if (typeof header !== 'string' || body['correlationId'] !== header) {
+    found.push(`correlationId ${String(body['correlationId'])} != X-Request-Id ${String(header)}`);
+  } else if (!capturedLines().some((line) => line['requestId'] === header)) {
+    found.push(`no log line carries request id ${header}`);
+  }
+  return found.map((p) => `${entry.method} ${entry.url} ${String(res.status)}: ${p}`);
+}
+
+afterAll(() => {
+  const failures = seen.filter((entry) => entry.res.status >= 400).flatMap(problems);
+  expect(failures, 'error responses outside the standard shape').toEqual([]);
+});
