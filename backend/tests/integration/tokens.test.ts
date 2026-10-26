@@ -142,4 +142,20 @@ describe('[FR-ACC-03] one-time tokens', () => {
     const deleted = await maintenance.query('DELETE FROM one_time_tokens');
     expect(deleted.rowCount).toBe(1);
   });
+
+  it('[FR-ACC-03] the superseding and purge indexes exist as specified', async () => {
+    const { db } = await setup();
+    const admin = await db.client('postgres');
+    const { rows } = await admin.query<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef FROM pg_indexes
+        WHERE tablename = 'one_time_tokens' AND indexname LIKE '%_idx' ORDER BY indexname`,
+    );
+    expect(rows.map((r) => [r.indexname, r.indexdef.replace(/^.* USING btree /, '')])).toEqual([
+      [
+        'one_time_tokens_open_idx',
+        '(user_id, purpose) WHERE ((used_at IS NULL) AND (superseded_at IS NULL))',
+      ],
+      ['one_time_tokens_purge_idx', '(COALESCE(used_at, superseded_at, expires_at))'],
+    ]);
+  });
 });

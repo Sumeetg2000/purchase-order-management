@@ -12,16 +12,17 @@ datasource db {
 
 // Minimal users table (migration 0002_users). Never deleted: po_app has no DELETE.
 model User {
-  id            String    @id @db.Uuid
+  id            String         @id @db.Uuid
   name          String
-  email         String    @unique(map: "users_email_key")
-  roles         String[]  @default([])
+  email         String         @unique(map: "users_email_key")
+  roles         String[]       @default([])
   status        String
-  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(6)
-  passwordHash  String?   @map("password_hash")
-  version       Int       @default(1)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  deactivatedAt DateTime?      @map("deactivated_at") @db.Timestamptz(6)
+  passwordHash  String?        @map("password_hash")
+  version       Int            @default(1)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tokens        OneTimeToken[]
 
   @@map("users")
 }
@@ -48,4 +49,23 @@ model AuditEntry {
 
   @@index([occurredAt, id])
   @@map("audit_entries")
+}
+
+// One-time tokens (migration 0005_one_time_tokens). Only the SHA-256 hash is stored, and
+// po_app can update only used_at and superseded_at. The partial index for superseding and
+// the purge's expression index live in the migration only: Prisma can't express the
+// expression index, and the partial one needs a preview feature. prisma migrate diff
+// ignores both, so tests/integration/tokens.test.ts pins their definitions.
+model OneTimeToken {
+  id           String    @id @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  purpose      String
+  tokenHash    Bytes     @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt       DateTime? @map("used_at") @db.Timestamptz(6)
+  supersededAt DateTime? @map("superseded_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("one_time_tokens")
 }
