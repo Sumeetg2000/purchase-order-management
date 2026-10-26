@@ -15,8 +15,14 @@ export default async function* jsonReporter(source) {
     levels[nesting + 1] = [];
 
     let entries;
-    if (details?.type === 'suite') {
+    if (details?.type === 'suite' && children.length > 0) {
       entries = children.map((child) => ({ ...child, fullName: `${name} ${child.fullName}` }));
+    } else if (details?.type === 'suite') {
+      // A skipped (or empty) suite reports none of its tests; keep the suite itself, so the
+      // IDs in its title stay visible to the traceability check.
+      entries = [
+        { fullName: name, title: name, status: event.type === 'test:fail' ? 'failed' : 'skipped' },
+      ];
     } else {
       const status = event.type === 'test:fail' ? 'failed' : skip || todo ? 'skipped' : 'passed';
       entries = [{ fullName: name, title: name, status }];
