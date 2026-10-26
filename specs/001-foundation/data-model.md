@@ -23,7 +23,8 @@ Conventions:
 | `version` | integer | starts at 1; incremented on profile, role and status changes (ADR-0016) |
 | `created_at`, `updated_at` | timestamptz | defaults `now()` |
 
-- Triggers: `require_actor_context` on insert, update and delete.
+- Triggers: `require_actor_context` on insert, update, delete and truncate;
+  `users_set_updated_at` keeps `updated_at` current.
 - Privileges: `po_app` gets `SELECT, INSERT, UPDATE`, never `DELETE`, because users are
   never deleted. `po_maintenance` gets nothing in slice 0. Slice 1 grants it
   `UPDATE (phone)` when the phone column is added.
@@ -118,7 +119,8 @@ migration.
 |---|---|
 | `require_actor_context()` | trigger function; refuses audited changes without context |
 | `audit_fill_actor()` | trigger function on `audit_entries`; fills and verifies the actor fields |
-| `audit_retention_guard()` | trigger function on `audit_entries`; refuses deleting an entry inside its 8-year retention |
+| `audit_retention_guard()` | trigger function on `audit_entries`; refuses deleting an entry inside its 8-year retention, and any `TRUNCATE` |
+| `set_updated_at()` | trigger function on `users`; sets `updated_at` from the database clock on every update |
 | advisory lock `ADMIN_LOCK` (constant) | bootstrap and every operator CLI command |
 | advisory lock `PURGE_LOCK` (constant) | the maintenance purge |
 

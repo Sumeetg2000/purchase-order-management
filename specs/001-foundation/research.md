@@ -107,21 +107,29 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - `app.os_user`, `app.os_host`
     - `app.request_id`
   - A trigger function `require_actor_context()` (`BEFORE INSERT OR UPDATE OR DELETE`)
-    raises `ACTOR_CONTEXT_REQUIRED` when `app.actor_type` is missing.
+    raises `ACTOR_CONTEXT_REQUIRED` when `app.actor_type` is missing. It's attached to every
+    audited table: `users` in slice 0, and more in later slices.
     - **Our trigger errors use custom SQLSTATE codes**, so `db/errors.ts` maps them by
       code, never by message: class `PO` (unused by PostgreSQL), `PO001`
       `ACTOR_CONTEXT_REQUIRED`, `PO002` `ACTOR_CONTEXT_MISMATCH`. Later slices add more,
-      for example `PO003` `DERIVED_VALUE_READ_ONLY`.
-    - **Updated at T055**: `PO004` `AUDIT_RETENTION_ACTIVE` is raised by a `BEFORE DELETE`
-      row trigger on `audit_entries` for any entry younger than 8 years, for every role
-      including the owner. A grant can't limit `po_maintenance`'s `DELETE` to expired
-      rows; the trigger does. `PO001` also covers an incomplete or inconsistent context
-      (a `USER` without its user id, name, email or acting role; an `OPERATOR` without
-      OS user or host; a `SYSTEM` context carrying actor fields). The trigger functions
-      are `SECURITY INVOKER` with `search_path = pg_catalog, pg_temp`, owned by
-      `po_owner`, with `EXECUTE` revoked from `PUBLIC` (triggers fire without it). The adapter exposes them as
-      `cause.originalCode`. It's attached to every
-    audited table: `users` in slice 0, and more in later slices.
+      for example `PO003` `DERIVED_VALUE_READ_ONLY`. The adapter exposes them as
+      `cause.originalCode`.
+    - **Updated at T055 and the US4 review**:
+      - `PO001` also covers an incomplete or inconsistent context: a `USER` without a
+        UUID user id, name, email or acting role; an `OPERATOR` without OS user or host;
+        a `SYSTEM` context carrying actor fields. `require_actor_context` also runs as a
+        statement-level `BEFORE INSERT` trigger on `audit_entries`, so the check lives in
+        one function.
+      - `PO002` also covers `osUser` or `host` in the details of a non-operator entry.
+      - `PO004` `AUDIT_RETENTION_ACTIVE`: a `BEFORE DELETE` row trigger refuses deleting
+        an entry younger than 8 years, and a `BEFORE TRUNCATE` statement trigger refuses
+        `TRUNCATE`, for every role including the owner. A grant can't limit
+        `po_maintenance`'s `DELETE` to expired rows; the trigger does.
+      - `INSERT` on `audit_entries` is granted per column, never on `id`, so no writer
+        can choose an entry's id.
+      - All trigger functions (including `set_updated_at` on `users`) are
+        `SECURITY INVOKER` with `search_path = pg_catalog, pg_temp`, owned by
+        `po_owner`, with `EXECUTE` revoked from `PUBLIC`; triggers fire without it.
   - Service code writes audit rows explicitly, in the same transaction. A `BEFORE INSERT`
     trigger on `audit_entries` fills `request_id` and the actor fields from the context, and
     refuses a row whose actor fields contradict it.
