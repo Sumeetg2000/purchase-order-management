@@ -115,7 +115,7 @@ describe('[NFR-API-02] central database error mapper', () => {
     }
   });
 
-  it.each(['PO001', 'PO002'])(
+  it.each(['PO001', 'PO002', 'PO003', 'PO004'])(
     '[NFR-API-02] trigger SQLSTATE %s is INTERNAL_ERROR, logged as a bug',
     (sqlstate) => {
       const { result, lines } = map(adapterError({ kind: 'postgres', originalCode: sqlstate }));

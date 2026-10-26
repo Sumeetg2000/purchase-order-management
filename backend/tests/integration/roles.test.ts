@@ -182,6 +182,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(functions.map((f) => f.proname)).toEqual(
       expect.arrayContaining([
         'audit_fill_actor',
+        'audit_immutable',
         'audit_retention_guard',
         'require_actor_context',
       ]),
@@ -202,6 +203,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
       'audit_entries audit_fill_actor O',
+      'audit_entries audit_immutable O',
       'audit_entries audit_no_truncate O',
       'audit_entries audit_retention_guard O',
       'audit_entries require_actor_context O',
@@ -223,6 +225,7 @@ describe('[NFR-AUD-02] the application and maintenance roles cannot bypass the d
         'ALTER TABLE audit_entries DISABLE TRIGGER ALL',
         'ALTER TABLE users DISABLE TRIGGER require_actor_context',
         'DROP TRIGGER audit_retention_guard ON audit_entries',
+        'ALTER TABLE audit_entries DISABLE TRIGGER audit_immutable',
         'ALTER TABLE audit_entries ADD COLUMN sneaky int',
         'ALTER FUNCTION require_actor_context() SECURITY DEFINER',
         `CREATE OR REPLACE FUNCTION audit_fill_actor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`,

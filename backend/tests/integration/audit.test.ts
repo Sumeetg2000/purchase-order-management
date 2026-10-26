@@ -9,6 +9,7 @@ import { trackDatabase } from '../support/setup.js';
 
 const ACTOR_CONTEXT_REQUIRED = 'PO001';
 const ACTOR_CONTEXT_MISMATCH = 'PO002';
+const AUDIT_IMMUTABLE = 'PO003';
 const AUDIT_RETENTION_ACTIVE = 'PO004';
 const INSUFFICIENT_PRIVILEGE = '42501';
 
@@ -479,12 +480,16 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
     const db = trackDatabase(await createTestDatabase());
     const app = await db.client('po_app');
     await inTx(app, userActor, [insertAudit(), insertAudit()]);
-    // Back-date one entry as the superuser, standing in for nine years of waiting.
+    // Back-date one entry as the superuser with triggers off (entries are immutable),
+    // standing in for nine years of waiting.
     const admin = await db.client('postgres');
+    await admin.query('BEGIN');
+    await admin.query('SET LOCAL session_replication_role = replica');
     await admin.query(
       `UPDATE audit_entries SET occurred_at = now() - interval '9 years'
         WHERE id = (SELECT min(id) FROM audit_entries)`,
     );
+    await admin.query('COMMIT');
 
     const maintenance = await db.client('po_maintenance');
     expect(await sqlstate(() => maintenance.query(`DELETE FROM audit_entries`))).toBe(
@@ -508,6 +513,31 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
       AUDIT_RETENTION_ACTIVE,
     );
     expect(await auditRows(db)).toHaveLength(1);
+  });
+
+  it('[NFR-AUD-02] audit entries are immutable, for the owner too', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    await inTx(app, userActor, [insertAudit()]);
+    const owner = await db.client('po_owner');
+    expect(
+      await sqlstate(() =>
+        owner.query(
+          `UPDATE audit_entries SET action = 'REWRITTEN', occurred_at = '2001-01-01T00:00:00Z'`,
+        ),
+      ),
+    ).toBe(AUDIT_IMMUTABLE);
+    expect(
+      await sqlstate(() => inTx(owner, userActor, [`UPDATE audit_entries SET details = '{}'`])),
+    ).toBe(AUDIT_IMMUTABLE);
+
+    // So a back-dated entry can't be slipped past the retention purge.
+    const maintenance = await db.client('po_maintenance');
+    const purged = await maintenance.query(
+      `DELETE FROM audit_entries WHERE occurred_at < now() - interval '8 years'`,
+    );
+    expect(purged.rowCount).toBe(0);
+    expect(await auditRows(db)).toEqual([expect.objectContaining({ action: 'ADMIN_CREATED' })]);
   });
 
   it('[NFR-AUD-02] the retention guard applies to the owner too', async () => {
