@@ -13,17 +13,19 @@ const restrictedSyntax = [
   },
 ];
 
-// Branching on error text is banned (ADR-0007): map errors by code in backend/src/db/errors.ts,
-// the only file allowed to read a caught error's message.
+// Branching on error text is banned (ADR-0007): errors are mapped by code in
+// backend/src/db/errors.ts, which (with its regression test pinning pg-pool's message) is
+// the only place allowed to read an error's message. The rule targets `.message` on
+// identifiers named like errors, wherever they come from (catch, .catch, error middleware).
+const ERROR_NAME = '/^(e|err|error|cause|reason|ex|exception)$/';
+const errorMessageRule =
+  "Do not read an error's message; map it by code in db/errors.ts (ADR-0007).";
+// The error identifier itself, or wrapped in a cast or non-null assertion.
+const errorObject = `:matches([object.name=${ERROR_NAME}], [object.expression.name=${ERROR_NAME}])`;
 const caughtErrorMessage = [
   {
-    selector: "CatchClause MemberExpression[property.name='message']",
-    message: "Do not read a caught error's message; map it by code in db/errors.ts (ADR-0007).",
-  },
-  {
-    selector:
-      "CallExpression[callee.property.name='catch'] MemberExpression[property.name='message']",
-    message: "Do not read a caught error's message; map it by code in db/errors.ts (ADR-0007).",
+    selector: `MemberExpression${errorObject}:matches([property.name='message'], [property.value='message'])`,
+    message: errorMessageRule,
   },
 ];
 
@@ -56,7 +58,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['backend/src/db/errors.ts'],
+    files: ['backend/src/db/errors.ts', 'backend/tests/integration/db-error-shapes.test.ts'],
     rules: { 'no-restricted-syntax': ['error', ...restrictedSyntax] },
   },
   {
