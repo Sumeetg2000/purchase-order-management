@@ -7,43 +7,36 @@ import type { writeAudit } from '../../src/audit/write.js';
 
 type Event = Parameters<typeof writeAudit>[1];
 
+interface AdminCreated<Source, Extra = unknown> {
+  action: 'ADMIN_CREATED';
+  entityType: 'user';
+  entityId: string;
+  details: { source: Source; name: string; email: string } & Extra;
+}
+
+type Bootstrap = AdminCreated<'bootstrap'>;
+type Cli = AdminCreated<'cli'>;
+type UnknownEvent = {
+  action: 'ORDER_TELEPORTED';
+  entityType: 'user';
+  entityId: string;
+  details: object;
+};
+type WrongSource = AdminCreated<'web'>;
+type WithPhone = AdminCreated<'cli', { phone: string }>;
+
 describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] accepts the slice 0 ADMIN_CREATED event in both of its forms', () => {
-    expectTypeOf<{
-      action: 'ADMIN_CREATED';
-      entityType: 'user';
-      entityId: string;
-      details: { source: 'bootstrap'; name: string; email: string };
-    }>().toExtend<Event>();
-    expectTypeOf<{
-      action: 'ADMIN_CREATED';
-      entityType: 'user';
-      entityId: string;
-      details: { source: 'cli'; name: string; email: string };
-    }>().toExtend<AuditEvent>();
+    expectTypeOf<Bootstrap>().toExtend<Event>();
+    expectTypeOf<Cli>().toExtend<AuditEvent>();
   });
 
   it('[NFR-AUD-02] refuses an unknown event name and a wrong details shape', () => {
     // @ts-expect-error: not an event in the catalogue
-    expectTypeOf<{
-      action: 'ORDER_TELEPORTED';
-      entityType: 'user';
-      entityId: string;
-      details: object;
-    }>().toExtend<Event>();
+    expectTypeOf<UnknownEvent>().toExtend<Event>();
     // @ts-expect-error: source must be 'cli' or 'bootstrap'
-    expectTypeOf<{
-      action: 'ADMIN_CREATED';
-      entityType: 'user';
-      entityId: string;
-      details: { source: 'web'; name: string; email: string };
-    }>().toExtend<Event>();
+    expectTypeOf<WrongSource>().toExtend<Event>();
     // @ts-expect-error: a phone number never goes into audit details (ADR-0016)
-    expectTypeOf<{
-      action: 'ADMIN_CREATED';
-      entityType: 'user';
-      entityId: string;
-      details: { source: 'cli'; name: string; email: string; phone: string };
-    }>().toExtend<Event>();
+    expectTypeOf<WithPhone>().toExtend<Event>();
   });
 });

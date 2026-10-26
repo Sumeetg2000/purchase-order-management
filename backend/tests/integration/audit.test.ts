@@ -1,5 +1,6 @@
 import type pg from 'pg';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { writeAudit } from '../../src/audit/write.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction, type ActorContext } from '../../src/db/transaction.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
@@ -229,6 +230,53 @@ describe('[NFR-AUD-02] audit entries take their actor from the context', () => {
       actor_type: 'SYSTEM',
       actor_user_id: null,
       request_id: 'req-real-0001',
+    });
+  });
+});
+
+describe('[NFR-AUD-02] typed audit writer', () => {
+  it('[NFR-AUD-02] writeAudit records a typed event inside withTransaction, the actor coming from the context', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const prisma = createPrismaClient({
+      url: db.url('po_app'),
+      poolSize: 2,
+      connectionTimeoutMs: 2_000,
+    });
+    try {
+      await withTransaction(
+        {
+          prisma,
+          actor: { type: 'OPERATOR', osUser: 'deploy', host: 'ops-1' },
+          requestId: 'cli-run-0001',
+          timeoutMs: 5_000,
+          maxWaitMs: 2_000,
+          logger: testLogger(),
+        },
+        (tx) =>
+          writeAudit(tx, {
+            action: 'ADMIN_CREATED',
+            entityType: 'user',
+            entityId: USER_ID,
+            details: { source: 'cli', name: 'Asha Rao', email: 'asha@example.local' },
+          }),
+      );
+    } finally {
+      await prisma.$disconnect();
+    }
+    const [row] = await auditRows(db);
+    expect(row).toMatchObject({
+      action: 'ADMIN_CREATED',
+      entity_type: 'user',
+      entity_id: USER_ID,
+      actor_type: 'OPERATOR',
+      request_id: 'cli-run-0001',
+    });
+    expect(row?.['details']).toEqual({
+      source: 'cli',
+      name: 'Asha Rao',
+      email: 'asha@example.local',
+      osUser: 'deploy',
+      host: 'ops-1',
     });
   });
 });

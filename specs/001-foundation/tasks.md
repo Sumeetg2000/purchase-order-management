@@ -549,7 +549,7 @@ transaction leaves no entry.
     `SELECT, DELETE, INSERT`
 
   — FR-017, FR-018, FR-019 — Verify: T051 and T052 pass.
-- [ ] T056 [US4] Typed audit writer — `backend/src/audit/events.ts` (event names and
+- [X] T056 [US4] Typed audit writer — `backend/src/audit/events.ts` (event names and
   `details` types for slice 0: `ADMIN_CREATED`), `backend/src/audit/write.ts`
   (`writeAudit(tx, event)`, only inside `withTransaction`) — FR-017, FR-019 — Verify:
   T052's `audit-write.test.ts` passes.
