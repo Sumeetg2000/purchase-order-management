@@ -35,6 +35,8 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      - name: Script tests (compose file)
+        run: npm run test:scripts
       - name: commitlint (pull request commits)
         if: github.event_name == 'pull_request'
         env:

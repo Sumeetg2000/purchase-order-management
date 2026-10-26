@@ -343,7 +343,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   for now; a failed run logs an error and continues), `backend/src/maintenance/registry.ts`
   — FR-036 (skeleton) — Verify: `node dist/maintenance/loop.js` with a valid maintenance
   URL logs one `purge run complete` line.
-- [ ] T034 [US1] Compose stack — `docker-compose.yml`:
+- [X] T034 [US1] Compose stack — `docker-compose.yml`:
   - `db` (`postgres:17.x`, `pg_isready` health check, no host port)
   - `migrate` (one-shot `node dist/migrate/run.js`; `POSTGRES_PASSWORD`, the
     `DB_*_PASSWORD`s, `OWNER_DATABASE_URL`, and `DATABASE_URL` (`po_app`) for the bootstrap
