@@ -228,6 +228,41 @@ describe('[NFR-PRIV-01] redaction parity with the config loader', () => {
   });
 });
 
+describe('[NFR-PRIV-01] objects that are not plain data', () => {
+  it('[NFR-PRIV-01] fails closed: dates become ISO strings, errors are serialized, other instances are named only', () => {
+    class ConnectionPool {
+      password = 'xxxx-pw-18';
+      host = 'db';
+    }
+    const { logger, lines } = createCapture();
+    logger.info(
+      {
+        when: new Date(0),
+        pool: new ConnectionPool(),
+        items: [new Map([['secret', 'xxxx-map-20']])],
+        nested: { failure: Object.assign(new Error('nested failure'), { token: 'xxxx-tok-19' }) },
+      },
+      'instances',
+    );
+    const line = lines.find((l) => l['msg'] === 'instances') ?? {};
+    expect(line['when']).toBe('1970-01-01T00:00:00.000Z');
+    expect(line['pool']).toBe('[Object ConnectionPool]');
+    expect(line['items']).toEqual(['[Object Map]']);
+    const text = JSON.stringify(line);
+    expect(text).toContain('nested failure');
+    for (const value of ['xxxx-pw-18', 'xxxx-tok-19', 'xxxx-map-20'])
+      expect(text).not.toContain(value);
+  });
+
+  it('[NFR-PRIV-01] still logs the request and response fields of each request', async () => {
+    const { app, lines } = buildApp();
+    await request(app).get('/work');
+    const done = lines.find((l) => l['msg'] === 'request completed') ?? {};
+    expect(done['req']).toMatchObject({ method: 'GET', url: '/work' });
+    expect(done['res']).toMatchObject({ statusCode: 200 });
+  });
+});
+
 describe('[NFR-PRIV-01] one-time link channel', () => {
   it('[NFR-PRIV-01] only the oneTimeLink path may print a token-shaped value', () => {
     const { logger, lines } = createCapture();

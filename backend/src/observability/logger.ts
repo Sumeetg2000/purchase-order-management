@@ -33,17 +33,38 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 const MAX_DEPTH = 10;
 
 /**
- * Copies plain objects and arrays, replacing sensitive values; leaves other objects alone.
- * Anything nested deeper than MAX_DEPTH is replaced too, so nothing escapes unchecked.
+ * Copies plain objects and arrays, replacing sensitive values, and fails closed on
+ * anything else: a Date becomes its ISO string, an Error is serialized (and redacted), and
+ * any other object is reduced to "[Object <ClassName>]" so its fields never reach the log.
+ * Anything nested deeper than MAX_DEPTH is replaced too.
  */
 export function redactDeep(value: unknown, depth = 0): unknown {
   if (depth > MAX_DEPTH) return REDACTED;
   if (typeof value === 'string') return maskUrlCredentials(value);
+  if (typeof value !== 'object' || value === null) return value;
   if (Array.isArray(value)) return value.map((item) => redactDeep(item, depth + 1));
-  if (!isPlainObject(value)) return value;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  if (value instanceof Error) return serializeError(value);
+  if (!isPlainObject(value)) {
+    const name: unknown = (value as { constructor?: { name?: unknown } }).constructor?.name;
+    return `[Object ${typeof name === 'string' && name !== '' ? name : 'Object'}]`;
+  }
   const out: Record<string, unknown> = {};
   for (const [key, inner] of Object.entries(value)) {
     out[key] = isSensitiveKey(key) ? REDACTED : redactDeep(inner, depth + 1);
+  }
+  return out;
+}
+
+// pino runs the log formatter before serializers. These top-level keys hold the raw
+// request, response and error, which their own serializers below redact.
+const SERIALIZED_KEYS = new Set(['req', 'res', 'err']);
+
+function redactLogObject(object: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(object)) {
+    if (SERIALIZED_KEYS.has(key)) out[key] = value;
+    else out[key] = isSensitiveKey(key) ? REDACTED : redactDeep(value, 1);
   }
   return out;
 }
@@ -133,7 +154,7 @@ export function createLogger(
       },
     },
     formatters: {
-      log: (object: Record<string, unknown>) => redactDeep(object) as Record<string, unknown>,
+      log: redactLogObject,
     },
     serializers: { err: serializeError, req: serializeRequest, res: serializeResponse },
   };
