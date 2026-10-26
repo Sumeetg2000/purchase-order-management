@@ -38,19 +38,25 @@ function resolve(node: unknown, path: string[]): { node: Json; path: string[] } 
   return { node: node as Json, path };
 }
 
-/** Of the given document paths, the one whose pattern matches a request path. */
+const templateCount = (path: string) => (path.match(/\{/g) ?? []).length;
+
+/**
+ * Of the given document paths, the one whose pattern matches a request path. As OpenAPI
+ * requires, a concrete path wins over a templated one (fewest templates first).
+ */
 export function matchDocumentedPath(
   paths: readonly string[],
   requestPath: string,
 ): string | undefined {
-  return paths.find((candidate) => {
+  const bySpecificity = [...paths].sort((a, b) => templateCount(a) - templateCount(b));
+  return bySpecificity.find((candidate) => {
     const pattern = candidate.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[^}]+\}/g, '[^/]+');
     return new RegExp(`^${pattern}$`).test(requestPath);
   });
 }
 
 function documentedPath(requestPath: string): string | undefined {
-  return matchDocumentedPath(Object.keys((document['paths'] ?? {}) as Json), requestPath);
+  return matchDocumentedPath(Object.keys(document['paths'] ?? {}), requestPath);
 }
 
 /** Whether the document has a path matching this request path. */
