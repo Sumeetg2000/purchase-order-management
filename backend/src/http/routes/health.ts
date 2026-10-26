@@ -1,4 +1,5 @@
 import { readdir } from 'node:fs/promises';
+import { AppError } from '@po/contracts';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { AppPrismaClient } from '../../db/client.js';
@@ -120,15 +121,15 @@ export function healthRoutes({
       handler: async (_req, res) => {
         const notReady = await check();
         if (notReady) {
-          sendProblem(res, {
-            status: 503,
-            code: 'SERVICE_UNAVAILABLE',
-            title: 'Service unavailable',
-            detail:
-              notReady === 'database'
-                ? 'The database is not reachable.'
-                : 'Migrations are not complete.',
-          });
+          sendProblem(
+            res,
+            new AppError('SERVICE_UNAVAILABLE', {
+              detail:
+                notReady === 'database'
+                  ? 'The database is not reachable.'
+                  : 'Migrations are not complete.',
+            }),
+          );
           return;
         }
         res.json({ status: 'ready', checks: { database: 'ok', migrations: 'ok' } });

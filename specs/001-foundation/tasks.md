@@ -462,7 +462,7 @@ nothing secret leaks.
   generate a UUIDv7; set the header; child logger; `ctx.requestId`), and the `redact`
   paths plus the `oneTimeLink` channel in `backend/src/observability/logger.ts`;
   pino-http wiring in `backend/src/http/app.ts` — FR-012, FR-013 — Verify: T040 passes.
-- [ ] T046 [US3] Error and parsing middleware — `backend/src/http/middleware/errors.ts`
+- [X] T046 [US3] Error and parsing middleware — `backend/src/http/middleware/errors.ts`
   (problem+json renderer, not-found handler, `500` without detail),
   `backend/src/http/middleware/parse-json.ts` (content-type check, 1 MB limit → `413`,
   malformed → `MALFORMED_JSON`), and Zod → field-code mapping in

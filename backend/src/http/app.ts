@@ -3,9 +3,11 @@ import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { serializeRequest, serializeResponse } from '../observability/logger.js';
 import type { Metrics } from '../observability/metrics.js';
-import { ACCESS_LEVELS, type RouteDefinition } from './define-route.js';
+import { ACCESS_LEVELS, validateRequest, type RouteDefinition } from './define-route.js';
 import { correlation } from './middleware/correlation.js';
+import { errorHandler, notFound } from './middleware/errors.js';
 import { metricsMiddleware } from './middleware/metrics.js';
+import { parseJson } from './middleware/parse-json.js';
 
 export class RouteRegistrationError extends Error {
   override readonly name = 'RouteRegistrationError';
@@ -76,9 +78,14 @@ export function createApp({ routes, logger, metrics }: CreateAppOptions): Expres
     }),
   );
 
+  app.use(parseJson());
+
   for (const route of routes) {
-    app.route(route.path)[route.method](route.handler);
+    app.route(route.path)[route.method](validateRequest(route), route.handler);
   }
+
+  app.use(notFound());
+  app.use(errorHandler());
 
   return app;
 }

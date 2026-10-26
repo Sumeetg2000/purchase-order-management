@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { AppError } from '@po/contracts';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -35,11 +36,7 @@ function testApp() {
         access: 'public',
         responses: { 503: z.object({}) },
         handler: (_req, res) => {
-          sendProblem(res, {
-            status: 503,
-            code: 'SERVICE_UNAVAILABLE',
-            title: 'Service unavailable',
-          });
+          sendProblem(res, new AppError('SERVICE_UNAVAILABLE'));
         },
       }),
     ],
@@ -97,6 +94,13 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
       'po_http_errors_total{route="/unavailable",code="SERVICE_UNAVAILABLE"} 1',
     );
     expect(text).toContain('status_class="5xx"');
+  });
+
+  it('[NFR-OPS-02] a 404 increases po_http_errors_total{code="NOT_FOUND"}', async () => {
+    const { app, metricsServer } = testApp();
+    await request(app).get('/no-such-route').expect(404);
+    const text = await scrape(metricsServer);
+    expect(text).toContain('po_http_errors_total{route="unmatched",code="NOT_FOUND"} 1');
   });
 
   it('[NFR-OPS-02] the metrics listener serves nothing but /metrics', async () => {

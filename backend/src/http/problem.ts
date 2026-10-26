@@ -1,21 +1,25 @@
+import { ERROR_REGISTRY, type AppError } from '@po/contracts';
 import type { Response } from 'express';
 import { requestIdOf } from './middleware/correlation.js';
 
-export interface ProblemInput {
-  status: number;
-  code: string;
-  title: string;
-  detail?: string;
-}
-
 /**
- * Writes an RFC 9457 problem document and records its code for the error metrics.
- * The error middleware (US3) replaces this with the registry-typed renderer.
+ * Writes an AppError as an RFC 9457 problem document (ADR-0007): title and status from
+ * the registry, the request's correlation id, and field details where the code allows
+ * them. Records the code for the error metrics.
  */
-export function sendProblem(res: Response, problem: ProblemInput): void {
-  res.locals['problemCode'] = problem.code;
+export function sendProblem(res: Response, error: AppError): void {
+  const entry = ERROR_REGISTRY[error.code];
+  res.locals['problemCode'] = error.code;
   res
-    .status(problem.status)
+    .status(entry.status)
     .type('application/problem+json')
-    .json({ type: 'about:blank', ...problem, correlationId: requestIdOf(res) });
+    .json({
+      type: 'about:blank',
+      title: entry.title,
+      status: entry.status,
+      code: error.code,
+      correlationId: requestIdOf(res),
+      ...(error.detail === undefined ? {} : { detail: error.detail }),
+      ...(entry.fieldDetails && error.details?.length ? { details: error.details } : {}),
+    });
 }
