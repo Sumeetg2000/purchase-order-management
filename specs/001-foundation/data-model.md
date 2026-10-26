@@ -80,7 +80,8 @@ Conventions:
 - The fill trigger always sets `occurred_at` from the database clock, overwriting any
   supplied value, so an entry can't be back-dated.
 - A `BEFORE DELETE` trigger, `audit_retention_guard`, refuses deleting an entry younger
-  than 8 years (`AUDIT_RETENTION_ACTIVE`, SQLSTATE `PO004`), for every role.
+  than 8 years (`AUDIT_RETENTION_ACTIVE`, SQLSTATE `PO004`), for every role. A statement
+  trigger, `audit_no_truncate`, refuses `TRUNCATE` the same way.
 - Index: `(occurred_at, id)`. Slice 1 adds the organisation-wide log's filter indexes.
 - Privileges: `po_app` gets `SELECT, INSERT`, never `UPDATE` or `DELETE`.
   `po_maintenance` gets `SELECT, DELETE` (purge after 8 years) and `INSERT` (for

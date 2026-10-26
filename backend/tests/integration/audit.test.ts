@@ -402,6 +402,17 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
     expect(await auditRows(db)).toHaveLength(1);
   });
 
+  it('[NFR-AUD-02] TRUNCATE of audit entries is refused for the owner too', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const app = await db.client('po_app');
+    await inTx(app, userActor, [insertAudit()]);
+    const owner = await db.client('po_owner');
+    expect(await sqlstate(() => owner.query('TRUNCATE audit_entries'))).toBe(
+      AUDIT_RETENTION_ACTIVE,
+    );
+    expect(await auditRows(db)).toHaveLength(1);
+  });
+
   it('[NFR-AUD-02] the retention guard applies to the owner too', async () => {
     const db = trackDatabase(await createTestDatabase());
     const app = await db.client('po_app');

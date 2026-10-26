@@ -137,13 +137,18 @@ $$;
 
 -- Audit entries are kept 8 years (ADR-0020). Deleting a younger entry is refused for
 -- every role, the owner included; this is what limits po_maintenance's DELETE to the
--- purge.
+-- purge. TRUNCATE skips row triggers, so it is refused outright by a statement trigger.
 CREATE FUNCTION audit_retention_guard() RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, pg_temp
 AS $$
 BEGIN
+  IF TG_OP = 'TRUNCATE' THEN
+    RAISE EXCEPTION 'AUDIT_RETENTION_ACTIVE' USING
+      ERRCODE = 'PO004',
+      DETAIL = 'audit entries are removed only by the purge, never by TRUNCATE';
+  END IF;
   IF OLD.occurred_at >= now() - interval '8 years' THEN
     RAISE EXCEPTION 'AUDIT_RETENTION_ACTIVE' USING
       ERRCODE = 'PO004',
@@ -172,6 +177,10 @@ CREATE TRIGGER audit_fill_actor
 CREATE TRIGGER audit_retention_guard
   BEFORE DELETE ON audit_entries
   FOR EACH ROW EXECUTE FUNCTION audit_retention_guard();
+
+CREATE TRIGGER audit_no_truncate
+  BEFORE TRUNCATE ON audit_entries
+  FOR EACH STATEMENT EXECUTE FUNCTION audit_retention_guard();
 
 -- po_app writes entries but never changes or removes them. po_maintenance purges entries
 -- past retention and, from slice 1, records USER_PHONE_PURGED. INSERT is granted on every

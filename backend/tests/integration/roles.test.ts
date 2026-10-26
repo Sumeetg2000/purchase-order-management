@@ -202,6 +202,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
       'audit_entries audit_fill_actor O',
+      'audit_entries audit_no_truncate O',
       'audit_entries audit_retention_guard O',
       'audit_entries require_actor_context O',
       'users require_actor_context O',
