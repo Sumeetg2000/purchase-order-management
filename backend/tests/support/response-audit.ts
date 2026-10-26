@@ -3,11 +3,14 @@ import { ERROR_CODES } from '@po/contracts';
 import request from 'supertest';
 import { afterAll, expect } from 'vitest';
 import { capturedLines } from './log-capture.js';
+import { isDocumentedPath, validateResponse } from './openapi-validator.js';
 
 // Every error response the suite sees from an API app (SC-002) must be problem+json with a
 // registered code and a correlationId equal to its X-Request-Id header and present in the
-// log lines. Supertest is hooked once per test file; the metrics listener (a plain
-// http.Server, not an Express app) is not the API and is skipped.
+// log lines. Every error response, and every response from a documented path, must also
+// match the committed OpenAPI document (FR-022); success responses from test-only routes
+// have no documentation to match. Supertest is hooked once per test file; the metrics
+// listener (a plain http.Server, not an Express app) is not the API and is skipped.
 
 interface SeenResponse {
   status: number;
@@ -70,7 +73,20 @@ export function auditedResponses(): { method: string; path: string; status: numb
   }));
 }
 
+function contractProblems(entry: (typeof seen)[number]): string[] {
+  const path = new URL(entry.url).pathname;
+  if (entry.res.status < 400 && !isDocumentedPath(path)) return [];
+  return validateResponse({
+    method: entry.method,
+    path,
+    status: entry.res.status,
+    headers: entry.res.headers,
+    body: entry.res.body,
+  });
+}
+
 afterAll(() => {
   const failures = seen.filter((entry) => entry.res.status >= 400).flatMap(problems);
   expect(failures, 'error responses outside the standard shape').toEqual([]);
+  expect(seen.flatMap(contractProblems), 'responses that break the OpenAPI document').toEqual([]);
 });
