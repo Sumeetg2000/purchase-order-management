@@ -1,3 +1,5 @@
-// Single source of the API contract: Zod schemas, the error registry and the
-// OpenAPI generator are added here by later tasks (ADR-0008).
-export const CONTRACTS_PACKAGE = '@po/contracts';
+// Single source of the API contract (ADR-0008): the error registry, Zod schemas and,
+// in a later task, the OpenAPI generator.
+export * from './app-error.js';
+export * from './errors.js';
+export * from './schemas/problem.js';

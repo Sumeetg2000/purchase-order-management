@@ -17,7 +17,7 @@
     "test": "npm run test --workspaces --if-present && npm run test:scripts",
     "test:scripts": "node --test 'scripts/tests/*.test.mjs'",
     "format": "prettier --write .",
-    "prelint": "npm run generate -w @po/backend"
+    "prelint": "npm run generate -w @po/backend && npm run build -w @po/contracts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

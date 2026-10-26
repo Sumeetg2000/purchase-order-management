@@ -11,7 +11,7 @@
     "test": "vitest run",
     "generate": "prisma generate",
     "migrate": "node dist/migrate/run.js",
-    "pretest": "prisma generate"
+    "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.2.1",

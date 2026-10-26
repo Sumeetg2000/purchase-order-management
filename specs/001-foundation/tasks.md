@@ -385,7 +385,7 @@ nothing secret leaks.
 
 ### Tests for User Story 3 (write first, run, see them fail)
 
-- [ ] T038 [P] [US3] Registry tests — `packages/contracts/tests/errors.test.ts`:
+- [X] T038 [P] [US3] Registry tests — `packages/contracts/tests/errors.test.ts`:
   - codes are unique and `UPPER_SNAKE_CASE`
   - the slice 0 set is exactly the one in [contracts/errors.md](contracts/errors.md):
     `VALIDATION_FAILED` 400, `CSRF_REJECTED` 403, `NOT_FOUND` 404, `PAYLOAD_TOO_LARGE`
@@ -393,7 +393,7 @@ nothing secret leaks.
   - no status is 422
 
   — FR-008 — Verify: fails.
-- [ ] T039 [P] [US3] Error response tests, using test-only routes —
+- [X] T039 [P] [US3] Error response tests, using test-only routes —
   `backend/tests/integration/errors.test.ts`:
   - malformed JSON → `400 VALIDATION_FAILED [{path:"body",code:"MALFORMED_JSON"}]`
   - a body without `application/json` → `UNSUPPORTED_MEDIA_TYPE`
@@ -407,7 +407,7 @@ nothing secret leaks.
   - throwing an unregistered code fails at compile time and at runtime
 
   — FR-008, FR-009 — Verify: fails.
-- [ ] T040 [P] [US3] Correlation and redaction tests —
+- [X] T040 [P] [US3] Correlation and redaction tests —
   `backend/tests/integration/logging.test.ts`:
   - a valid `X-Request-Id` is echoed; one that's invalid, over 64 characters or absent is
     replaced with a UUIDv7
@@ -424,7 +424,7 @@ nothing secret leaks.
     that doesn't match its `X-Request-Id` header and its log lines (SC-002)
 
   — FR-008, FR-012, FR-013, SC-002, SC-003 — Verify: fails.
-- [ ] T041 [P] [US3] Overload and database error tests —
+- [X] T041 [P] [US3] Overload and database error tests —
   `backend/tests/integration/overload.test.ts`:
   - pool of size 1 held busy, then an HTTP request whose handler queries outside a
     transaction (pg-pool's bare `timeout exceeded when trying to connect`) → `503
@@ -439,20 +439,20 @@ nothing secret leaks.
   R5: `P2002` (by `cause.constraint.index`), `P2003`, `P2025`, `P2028`, the pg-pool
   timeout, `P2010` with `TransactionWriteConflict`, `DatabaseNotReachable`, and trigger
   SQLSTATEs `PO001`/`PO002` → `INTERNAL_ERROR` (logged) — FR-010, FR-011 — Verify: fails.
-- [ ] T042 [P] [US3] API security tests — `backend/tests/integration/security.test.ts`:
+- [X] T042 [P] [US3] API security tests — `backend/tests/integration/security.test.ts`:
   - helmet headers on API responses
   - an `Origin` not equal to `APP_ORIGIN` → `403 CSRF_REJECTED`
   - no `Origin`, or the same origin → passes
   - the body limit applies
 
   — FR-014 — Verify: fails.
-- [ ] T043 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Tested`; NFR-VAL-01,
+- [X] T043 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Tested`; NFR-VAL-01,
   NFR-AUTH-01, NFR-PRIV-01 (partial) → `Tested` — `docs/traceability.md` — Verify: the
   statuses changed, and the IDs appear in T038–T042 test names.
 
 ### Implementation for User Story 3
 
-- [ ] T044 [US3] Error registry and problem schema —
+- [X] T044 [US3] Error registry and problem schema —
   `packages/contracts/src/errors.ts` (registry entries with status, title and
   `fieldDetails`; `ErrorCode` type), `packages/contracts/src/schemas/problem.ts` (Zod
   `Problem`, `FieldError`), and the `AppError` class in `packages/contracts/src/app-error.ts`
