@@ -701,7 +701,7 @@ T114).
 
 ### Implementation for User Story 5
 
-- [ ] T079 [US5] One-time tokens table — `backend/prisma/migrations/0004_one_time_tokens/migration.sql`.
+- [ ] T079 [US5] One-time tokens table — `backend/prisma/migrations/0005_one_time_tokens/migration.sql`.
   Columns:
   - `purpose` "`RESET` | `VERIFY_EMAIL` (`CHECK`)"
   - `token_hash` bytea `UNIQUE`
