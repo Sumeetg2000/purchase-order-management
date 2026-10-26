@@ -7,6 +7,22 @@ export const REDACTED = '[Redacted]';
 
 /** Keys whose values are never logged, at any depth: credentials, tokens, phone numbers. */
 const SENSITIVE_KEY = /password|passwd|token|secret|phone|cookie|authorization/i;
+// Keys that are or end in "key", as the config loader treats *_KEY: key, api_key,
+// x-api-key, SIGNING_KEY, apiKey, privateKey. Not words like "monkey" or "keyboard".
+const KEY_SUFFIX = /(?:^|[_.-])key$/i;
+const CAMEL_KEY_SUFFIX = /[a-z0-9]Key$/;
+
+export function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY.test(key) || KEY_SUFFIX.test(key) || CAMEL_KEY_SUFFIX.test(key);
+}
+
+// scheme://user:password@host: the password part, up to the @.
+const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+@/gi;
+
+/** Masks the password of every credentialed URL in a string, keeping the user and host. */
+export function maskUrlCredentials(text: string): string {
+  return text.replace(URL_CREDENTIALS, `$1${REDACTED}@`);
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null) return false;
@@ -22,11 +38,12 @@ const MAX_DEPTH = 10;
  */
 export function redactDeep(value: unknown, depth = 0): unknown {
   if (depth > MAX_DEPTH) return REDACTED;
+  if (typeof value === 'string') return maskUrlCredentials(value);
   if (Array.isArray(value)) return value.map((item) => redactDeep(item, depth + 1));
   if (!isPlainObject(value)) return value;
   const out: Record<string, unknown> = {};
   for (const [key, inner] of Object.entries(value)) {
-    out[key] = SENSITIVE_KEY.test(key) ? REDACTED : redactDeep(inner, depth + 1);
+    out[key] = isSensitiveKey(key) ? REDACTED : redactDeep(inner, depth + 1);
   }
   return out;
 }
@@ -52,7 +69,7 @@ export function redactUrl(url: string): string {
     .map((pair) => {
       const equals = pair.indexOf('=');
       const key = equals === -1 ? pair : pair.slice(0, equals);
-      return SENSITIVE_KEY.test(decodedKey(key)) ? `${key}=${REDACTED}` : pair;
+      return isSensitiveKey(decodedKey(key)) ? `${key}=${REDACTED}` : pair;
     });
   return `${url.slice(0, queryStart)}?${pairs.join('&')}`;
 }
@@ -106,6 +123,15 @@ export function createLogger(
 ): Logger {
   const options = {
     level,
+    // The message string is not part of the object the formatter sees, so mask it here.
+    hooks: {
+      logMethod(this: Logger, args: Parameters<Logger['info']>, method: Logger['info']) {
+        const masked = args.map((arg: unknown) =>
+          typeof arg === 'string' ? maskUrlCredentials(arg) : arg,
+        ) as Parameters<Logger['info']>;
+        method.apply(this, masked);
+      },
+    },
     formatters: {
       log: (object: Record<string, unknown>) => redactDeep(object) as Record<string, unknown>,
     },

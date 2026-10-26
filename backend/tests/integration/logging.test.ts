@@ -172,6 +172,55 @@ describe('[NFR-PRIV-01] redaction of errors and deep values', () => {
   });
 });
 
+describe('[NFR-PRIV-01] redaction parity with the config loader', () => {
+  it('[NFR-PRIV-01] redacts keys that are or end in "key", but not words that merely end in it', () => {
+    const { logger, lines } = createCapture();
+    logger.info(
+      {
+        apiKey: 'xxxx-k1',
+        api_key: 'xxxx-k2',
+        'x-api-key': 'xxxx-k3',
+        privateKey: 'xxxx-k4',
+        key: 'xxxx-k5',
+        nested: { SIGNING_KEY: 'xxxx-k6' },
+        monkey: 'banana-visible',
+        keyboard: 'keyboard-visible',
+      },
+      'keys',
+    );
+    const text = JSON.stringify(lines);
+    for (const value of ['xxxx-k1', 'xxxx-k2', 'xxxx-k3', 'xxxx-k4', 'xxxx-k5', 'xxxx-k6']) {
+      expect(text).not.toContain(value);
+    }
+    expect(text).toContain('banana-visible');
+    expect(text).toContain('keyboard-visible');
+  });
+
+  it('[NFR-PRIV-01] redacts an x-api-key request header', async () => {
+    const { app, lines } = buildApp();
+    await request(app).get('/work').set('X-Api-Key', 'xxxx-hdr-17');
+    expect(JSON.stringify(lines)).not.toContain('xxxx-hdr-17');
+  });
+
+  it('[NFR-PRIV-01] masks the password of a credentialed URL in any logged string, error messages included', () => {
+    const { logger, lines } = createCapture();
+    logger.error(
+      { err: new Error('connect failed for postgres://po_app:xxxx-pw-14@db:5432/po') },
+      'database down',
+    );
+    logger.info(
+      { target: 'https://svc:xxxx-pw-15@example.com/hook' },
+      'calling postgres://po_owner:xxxx-pw-16@db/po',
+    );
+    const text = JSON.stringify(lines);
+    for (const value of ['xxxx-pw-14', 'xxxx-pw-15', 'xxxx-pw-16'])
+      expect(text).not.toContain(value);
+    expect(text).toContain('postgres://po_app:[Redacted]@db:5432/po');
+    expect(text).toContain('https://svc:[Redacted]@example.com/hook');
+    expect(text).toContain('calling postgres://po_owner:[Redacted]@db/po');
+  });
+});
+
 describe('[NFR-PRIV-01] one-time link channel', () => {
   it('[NFR-PRIV-01] only the oneTimeLink path may print a token-shaped value', () => {
     const { logger, lines } = createCapture();
