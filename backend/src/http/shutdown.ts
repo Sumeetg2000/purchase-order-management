@@ -47,3 +47,40 @@ export function createShutdown({ servers, prisma, logger, drainTimeoutMs }: Shut
     return running;
   };
 }
+
+export interface SignalOptions {
+  logger: Logger;
+  target?: NodeJS.EventEmitter;
+  exit?: (code: number) => void;
+}
+
+/**
+ * Runs `shutdown` on SIGTERM or SIGINT, then exits 0 (or 1 if it fails). The listeners
+ * stay registered, so a repeated signal is logged and ignored instead of falling back to
+ * Node's default action, which would kill the process mid-drain.
+ */
+export function onShutdownSignals(
+  shutdown: () => Promise<void>,
+  { logger, target = process, exit = (code) => process.exit(code) }: SignalOptions,
+): void {
+  let running: Promise<void> | undefined;
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    target.on(signal, () => {
+      if (running) {
+        logger.info({ signal }, 'signal received; shutdown already in progress');
+        return;
+      }
+      logger.info({ signal }, 'signal received');
+      running = shutdown();
+      running.then(
+        () => {
+          exit(0);
+        },
+        (error: unknown) => {
+          logger.error({ err: error }, 'shutdown failed');
+          exit(1);
+        },
+      );
+    });
+  }
+}

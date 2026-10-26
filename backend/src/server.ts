@@ -4,7 +4,7 @@ import { loadConfig } from './config/load.js';
 import { createPrismaClient } from './db/client.js';
 import { createApp } from './http/app.js';
 import { healthRoutes, listMigrations } from './http/routes/health.js';
-import { createShutdown } from './http/shutdown.js';
+import { createShutdown, onShutdownSignals } from './http/shutdown.js';
 import { createLogger } from './observability/logger.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
 
@@ -52,18 +52,7 @@ async function main() {
     logger,
     drainTimeoutMs: DRAIN_TIMEOUT_MS,
   });
-  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-    process.once(signal, () => {
-      logger.info({ signal }, 'signal received');
-      shutdown().then(
-        () => process.exit(0),
-        (error: unknown) => {
-          logger.error({ err: error }, 'shutdown failed');
-          process.exit(1);
-        },
-      );
-    });
-  }
+  onShutdownSignals(shutdown, { logger });
 }
 
 main().catch((error: unknown) => {

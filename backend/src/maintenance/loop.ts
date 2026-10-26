@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import { loadConfig } from '../config/load.js';
 import { maintenanceConfig } from '../config/maintenance.js';
 import { createPrismaClient, type AppPrismaClient } from '../db/client.js';
+import { onShutdownSignals } from '../http/shutdown.js';
 import { createLogger } from '../observability/logger.js';
 import { purgeTasks, type PurgeTask } from './registry.js';
 
@@ -102,21 +103,14 @@ function main(): void {
   );
   const loop = startMaintenanceLoop({ tasks: purgeTasks, db, logger, intervalMs });
 
-  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-    process.once(signal, () => {
-      logger.info({ signal }, 'maintenance stopping');
-      loop
-        .stop()
-        .then(() => db.$disconnect())
-        .then(
-          () => process.exit(0),
-          (error: unknown) => {
-            logger.error({ err: error }, 'maintenance shutdown failed');
-            process.exit(1);
-          },
-        );
-    });
-  }
+  onShutdownSignals(
+    async () => {
+      logger.info('maintenance stopping');
+      await loop.stop();
+      await db.$disconnect();
+    },
+    { logger },
+  );
 }
 
 // Run only as the process entrypoint, not when imported by tests.
