@@ -35,6 +35,24 @@ export interface HealthDependencies {
   /** Every migration directory in this build; each must be applied for readiness. */
   expectedMigrations: readonly string[];
   logger?: Logger;
+  /** Readiness answers 503 if the database hasn't replied within this time. */
+  timeoutMs?: number;
+}
+
+class ReadinessTimeoutError extends Error {
+  override readonly name = 'ReadinessTimeoutError';
+}
+
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new ReadinessTimeoutError(`no reply within ${String(ms)} ms`));
+    }, ms);
+  });
+  return Promise.race([work, deadline]).finally(() => {
+    clearTimeout(timer);
+  });
 }
 
 type NotReady = 'database' | 'migrations';
@@ -43,16 +61,20 @@ export function healthRoutes({
   prisma,
   expectedMigrations,
   logger,
+  timeoutMs = 2_000,
 }: HealthDependencies): RouteDefinition[] {
   async function check(): Promise<NotReady | undefined> {
     let rows: MigrationRow[];
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      rows = await prisma.$queryRaw<MigrationRow[]>`
-        SELECT migration_name,
-               finished_at IS NOT NULL AS finished,
-               rolled_back_at IS NOT NULL AS rolled_back
-          FROM _prisma_migrations`;
+      // One query proves the database answers and reads the migration state.
+      rows = await withDeadline(
+        prisma.$queryRaw<MigrationRow[]>`
+          SELECT migration_name,
+                 finished_at IS NOT NULL AS finished,
+                 rolled_back_at IS NOT NULL AS rolled_back
+            FROM _prisma_migrations`,
+        timeoutMs,
+      );
     } catch (error) {
       logger?.warn(
         { err: error, kind: classifyDbError(error) },

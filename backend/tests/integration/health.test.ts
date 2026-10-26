@@ -95,4 +95,17 @@ describe('[NFR-OPS-02] health and readiness', () => {
     expect(names[0]).toBe('0001_baseline');
     expect([...names].sort()).toEqual(names);
   });
+
+  it('[NFR-OPS-02] answers 503 within its deadline when the database stops responding', async () => {
+    // A connection that is open but never answers, as in a network partition.
+    const hung = { $queryRaw: () => new Promise(() => undefined) } as unknown as AppPrismaClient;
+    const app = createApp({
+      routes: healthRoutes({ prisma: hung, expectedMigrations: ['0001_baseline'], timeoutMs: 200 }),
+    });
+    const begun = Date.now();
+    const res = await request(app).get('/readyz');
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(Date.now() - begun).toBeLessThan(2_000);
+  });
 });
