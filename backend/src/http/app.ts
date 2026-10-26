@@ -51,6 +51,9 @@ export function createApp({ routes, metrics }: CreateAppOptions): Express {
 
   const app = express();
   app.disable('x-powered-by');
+  // The nginx edge is the only proxy, and it replaces X-Forwarded-For with the connecting
+  // address, so req.ip trusts exactly one hop.
+  app.set('trust proxy', 1);
   if (metrics) {
     app.use(metricsMiddleware(metrics));
   }

@@ -113,6 +113,15 @@ describe('[NFR-OPS-02] compose exposure', () => {
   });
 });
 
+describe('[NFR-OPS-02] edge forwarding headers', () => {
+  const nginx = readFileSync(new URL('../../deploy/nginx/default.conf', import.meta.url), 'utf8');
+
+  it('[NFR-OPS-02] the edge replaces X-Forwarded-For with the connecting address', () => {
+    assert.match(nginx, /proxy_set_header X-Forwarded-For \$remote_addr;/);
+    assert.doesNotMatch(nginx, /\$proxy_add_x_forwarded_for/);
+  });
+});
+
 describe('[NFR-OPS-05] compose credential separation', () => {
   it('[NFR-OPS-05] no service reads a shared env_file', () => {
     for (const [name, service] of Object.entries(services)) {
