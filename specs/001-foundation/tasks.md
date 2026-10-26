@@ -337,7 +337,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
   the SPA with history fallback; `location /api/` → `http://api:3000/`;
   `location = /metrics { return 404; }`) — FR-002, FR-040 — Verify: `docker build -f
   deploy/web.Dockerfile .` succeeds.
-- [ ] T033 [US1] Maintenance loop skeleton — `backend/src/maintenance/loop.ts` (validates
+- [X] T033 [US1] Maintenance loop skeleton — `backend/src/maintenance/loop.ts` (validates
   maintenance config, runs registered purge tasks at start and every
   `PURGE_INTERVAL_HOURS`; logs `purge run complete` with per-task counts, an empty map
   for now; a failed run logs an error and continues), `backend/src/maintenance/registry.ts`
