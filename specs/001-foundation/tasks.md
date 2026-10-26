@@ -311,7 +311,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 - [X] T029 [US1] Graceful shutdown — `backend/src/server.ts`
   (`SIGTERM`/`SIGINT` → stop accepting, drain with a timeout, `$disconnect`, exit 0) —
   FR-006 — Verify: T022 passes.
-- [ ] T030 [US1] Metrics — `backend/src/observability/metrics.ts` (prom-client histogram
+- [X] T030 [US1] Metrics — `backend/src/observability/metrics.ts` (prom-client histogram
   `po_http_request_duration_seconds`, counters `po_http_requests_total` and
   `po_http_errors_total`, default metrics), a second listener on `METRICS_PORT` in
   `backend/src/server.ts`, and a request-timing middleware in

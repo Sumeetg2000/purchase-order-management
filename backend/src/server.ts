@@ -6,6 +6,7 @@ import { createApp } from './http/app.js';
 import { healthRoutes, listMigrations } from './http/routes/health.js';
 import { createShutdown } from './http/shutdown.js';
 import { createLogger } from './observability/logger.js';
+import { createMetrics, createMetricsServer } from './observability/metrics.js';
 
 // Below compose's stop_grace_period for api, so the drain finishes before SIGKILL.
 const DRAIN_TIMEOUT_MS = 10_000;
@@ -31,7 +32,9 @@ async function main() {
     connectionTimeoutMs: config.DB_TX_MAX_WAIT_MS,
   });
 
+  const metrics = createMetrics();
   const app = createApp({
+    metrics,
     routes: [...healthRoutes({ prisma, expectedMigrations: await listMigrations(), logger })],
   });
 
@@ -39,8 +42,12 @@ async function main() {
   await listen(server, config.HTTP_PORT);
   logger.info({ port: config.HTTP_PORT }, 'api listening');
 
+  const metricsServer = createMetricsServer(metrics);
+  await listen(metricsServer, config.METRICS_PORT);
+  logger.info({ port: config.METRICS_PORT }, 'metrics listening');
+
   const shutdown = createShutdown({
-    servers: [server],
+    servers: [server, metricsServer],
     prisma,
     logger,
     drainTimeoutMs: DRAIN_TIMEOUT_MS,

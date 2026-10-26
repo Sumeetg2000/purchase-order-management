@@ -1,5 +1,7 @@
 import express, { type Express } from 'express';
+import type { Metrics } from '../observability/metrics.js';
 import { ACCESS_LEVELS, type RouteDefinition } from './define-route.js';
+import { metricsMiddleware } from './middleware/metrics.js';
 
 export class RouteRegistrationError extends Error {
   override readonly name = 'RouteRegistrationError';
@@ -7,6 +9,8 @@ export class RouteRegistrationError extends Error {
 
 export interface CreateAppOptions {
   routes: readonly RouteDefinition[];
+  /** Records request metrics; they are served by the separate metrics listener. */
+  metrics?: Metrics;
 }
 
 function describeRoute(route: RouteDefinition): string {
@@ -42,11 +46,14 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
   }
 }
 
-export function createApp({ routes }: CreateAppOptions): Express {
+export function createApp({ routes, metrics }: CreateAppOptions): Express {
   validateRoutes(routes);
 
   const app = express();
   app.disable('x-powered-by');
+  if (metrics) {
+    app.use(metricsMiddleware(metrics));
+  }
 
   for (const route of routes) {
     app.route(route.path)[route.method](route.handler);

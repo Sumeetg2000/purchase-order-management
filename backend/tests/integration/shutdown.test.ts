@@ -18,7 +18,9 @@ function get(port: number, path: string) {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk: string) => (body += chunk));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+      res.on('end', () => {
+        resolve({ status: res.statusCode ?? 0, body });
+      });
     });
     req.on('error', reject);
   });
