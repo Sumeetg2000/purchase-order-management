@@ -32,10 +32,22 @@ function fromBodyParser(error: unknown): AppError | undefined {
   }
 }
 
+// Express and body-parser raise client errors (an undecodable path parameter, a body the
+// client aborted, an invalid size header) with a 4xx `status`. They are the client's
+// fault, never a 500.
+function fromClientHttpError(error: unknown): AppError | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const status: unknown = (error as { status?: unknown }).status;
+  if (typeof status !== 'number' || status < 400 || status > 499) return undefined;
+  if (status === 413) return new AppError('PAYLOAD_TOO_LARGE');
+  const path = error instanceof URIError ? 'path' : 'body';
+  return new AppError('VALIDATION_FAILED', { details: [{ path, code: 'INVALID_FORMAT' }] });
+}
+
 /** Translates anything thrown into a registered code, or INTERNAL_ERROR (logged in full). */
 export function toAppError(error: unknown, logger: Logger): AppError {
   if (error instanceof AppError) return error;
-  const parsed = fromBodyParser(error);
+  const parsed = fromBodyParser(error) ?? fromClientHttpError(error);
   if (parsed) return parsed;
   const fromDatabase = mapDbError(error, { logger });
   if (fromDatabase) return fromDatabase;

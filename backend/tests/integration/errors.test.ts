@@ -146,6 +146,18 @@ describe('[NFR-VAL-01] request validation before business logic', () => {
     expect(ok.status).toBe(200);
   });
 
+  it('[NFR-VAL-01] an undecodable path parameter is 400 INVALID_FORMAT, not a server error', async () => {
+    const { app, calls } = buildApp();
+    const res = await request(app).get('/items/%E0%A4%A');
+    const body = expectProblem(res, 400, 'VALIDATION_FAILED');
+    expect(body['details']).toEqual([{ path: 'path', code: 'INVALID_FORMAT' }]);
+    expect(calls.read).toBe(0);
+    const errorLines = capturedLines().filter(
+      (line) => line['requestId'] === body['correlationId'] && line['msg'] === 'unhandled error',
+    );
+    expect(errorLines).toEqual([]);
+  });
+
   it('[NFR-VAL-01] a valid request reaches the handler', async () => {
     const { app, calls } = buildApp();
     const res = await request(app).post('/items').send({ name: 'bolts', qty: 5 });
