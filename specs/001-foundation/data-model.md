@@ -83,6 +83,8 @@ Conventions:
 - A `BEFORE DELETE` trigger, `audit_retention_guard`, refuses deleting an entry younger
   than 8 years (`AUDIT_RETENTION_ACTIVE`, SQLSTATE `PO004`), for every role. A statement
   trigger, `audit_no_truncate`, refuses `TRUNCATE` the same way.
+- A `BEFORE UPDATE` row trigger, `audit_immutable`, always raises `AUDIT_IMMUTABLE`
+  (SQLSTATE `PO003`), so no role, the owner included, can change or back-date an entry.
 - Index: `(occurred_at, id)`. Slice 1 adds the organisation-wide log's filter indexes.
 - Privileges: `po_app` gets `SELECT, INSERT`, never `UPDATE` or `DELETE`.
   `po_maintenance` gets `SELECT, DELETE` (purge after 8 years) and `INSERT` (for
@@ -92,10 +94,12 @@ Conventions:
 ## Actor context (transaction-local settings)
 
 Not a table: set at the start of every transaction by `withTransaction` (research R6), and
-gone at commit or rollback.
+gone at commit or rollback. `require_actor_context` refuses (`PO001`) a context whose
+`app.actor_txid` isn't the current transaction's id, such as a session-level `SET`.
 
 | Setting | USER | SYSTEM | OPERATOR |
 |---|---|---|---|
+| `app.actor_txid` | `txid_current()` | `txid_current()` | `txid_current()` |
 | `app.actor_type` | `USER` | `SYSTEM` | `OPERATOR` |
 | `app.actor_user_id`, `app.actor_name`, `app.actor_email`, `app.acting_role` | set | — | — |
 | `app.os_user`, `app.os_host` | — | — | set |

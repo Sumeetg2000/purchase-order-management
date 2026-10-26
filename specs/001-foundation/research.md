@@ -112,8 +112,8 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - **Our trigger errors use custom SQLSTATE codes**, so `db/errors.ts` maps them by
       code, never by message: class `PO` (unused by PostgreSQL), `PO001`
       `ACTOR_CONTEXT_REQUIRED`, `PO002` `ACTOR_CONTEXT_MISMATCH`. Later slices add more,
-      for example `PO003` `DERIVED_VALUE_READ_ONLY`. The adapter exposes them as
-      `cause.originalCode`.
+      for example `DERIVED_VALUE_READ_ONLY` (slice 3, next free code). The adapter
+      exposes them as `cause.originalCode`.
     - **Updated at T055 and the US4 review**:
       - `PO001` also covers an incomplete or inconsistent context: a `USER` without a
         UUID user id, name, email or acting role; an `OPERATOR` without OS user or host;
@@ -127,6 +127,14 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
         `po_maintenance`'s `DELETE` to expired rows; the trigger does.
       - `INSERT` on `audit_entries` is granted per column, never on `id`, so no writer
         can choose an entry's id.
+      - Migration 0004 (after the Phase 5 verification):
+        - `withTransaction` also sets `app.actor_txid` to `txid_current()`, and
+          `require_actor_context` raises `PO001` unless it equals the current
+          transaction's id. A session-level `SET` of the actor settings, which would
+          outlive its transaction on a pooled connection, is refused.
+        - `PO003` `AUDIT_IMMUTABLE`: a `BEFORE UPDATE` row trigger, `audit_immutable`,
+          refuses every update of an audit entry, the owner's included, so an entry can't
+          be rewritten or back-dated past retention for the purge.
       - All trigger functions (including `set_updated_at` on `users`) are
         `SECURITY INVOKER` with `search_path = pg_catalog, pg_temp`, owned by
         `po_owner`, with `EXECUTE` revoked from `PUBLIC`; triggers fire without it.
