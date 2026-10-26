@@ -332,7 +332,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
     so the CLI is present without dev dependencies
   - `docker run --rm <img> npm run admin -- --help` exits 0 and prints usage
   - the built image contains no `.env` file and no `.git` directory (T030a)
-- [ ] T032 [P] [US1] Web image and edge config — `deploy/web.Dockerfile` (build
+- [X] T032 [P] [US1] Web image and edge config — `deploy/web.Dockerfile` (build
   `frontend`, then `nginx:stable-alpine`, non-root), `deploy/nginx/default.conf` (serve
   the SPA with history fallback; `location /api/` → `http://api:3000/`;
   `location = /metrics { return 404; }`) — FR-002, FR-040 — Verify: `docker build -f
