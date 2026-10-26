@@ -308,7 +308,7 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 - [X] T028 [US1] Health and readiness routes — `backend/src/http/routes/health.ts`
   (`access: 'public'`; readiness runs `SELECT 1` and checks `_prisma_migrations` has no
   pending or failed rows) — FR-005 — Verify: T021 passes.
-- [ ] T029 [US1] Graceful shutdown — `backend/src/server.ts`
+- [X] T029 [US1] Graceful shutdown — `backend/src/server.ts`
   (`SIGTERM`/`SIGINT` → stop accepting, drain with a timeout, `$disconnect`, exit 0) —
   FR-006 — Verify: T022 passes.
 - [ ] T030 [US1] Metrics — `backend/src/observability/metrics.ts` (prom-client histogram
