@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 base="${1:?usage: contract-breaking.sh <base-revision>}"
 doc=packages/contracts/openapi/openapi.json
-oasdiff_image=tufin/oasdiff:v1.33.0
+oasdiff_image=tufin/oasdiff:v1.33.0@sha256:6263a96dd2ef0726c54e21fea9b8e1607eac4841add0079324b424c1f52b819c
 
 # A base that isn't in the history (a force-push, a shallow fetch, an all-zero SHA) must
 # not pass for "nothing to compare".
