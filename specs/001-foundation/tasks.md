@@ -649,7 +649,7 @@ T114).
 - [X] T073 [US2] Traceability: NFR-DEV-01, NFR-API-01 → `Done` — `docs/traceability.md` —
   Verify: `npm run check:traceability` passes.
 
-- [ ] T074 [US2] Story checkpoint review: run `/code-review` over this story's
+- [X] T074 [US2] Story checkpoint review: run `/code-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
