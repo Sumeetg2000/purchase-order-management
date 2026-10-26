@@ -356,16 +356,16 @@ with the database stopped. Bad config is refused. `/metrics` is internal only.
 
   — FR-002, FR-004, FR-031, FR-040 — Verify: T024 passes, and `scripts/ci-env.sh && docker
   compose up -d --wait && scripts/smoke.sh` passes (T025).
-- [ ] T035 [US1] CI end-to-end job — `.github/workflows/ci.yml`: job `e2e`
+- [X] T035 [US1] CI end-to-end job — `.github/workflows/ci.yml`: job `e2e`
   (`scripts/ci-env.sh`, `docker compose up -d --build --wait`, `scripts/smoke.sh`, and
   `docker compose logs` on failure) — FR-038, SC-001 — Verify: the `e2e` job is green on the draft PR, and its log shows the start time.
-- [ ] T036 [US1] Traceability: NFR-OPS-03 → `Done`. NFR-OPS-01 stays `Tested` (partial):
+- [X] T036 [US1] Traceability: NFR-OPS-03 → `Done`. NFR-OPS-01 stays `Tested` (partial):
   slice 0 proves up → health, login lands in slice 1, and slice 6's end-to-end order flow
   completes the row — `docs/traceability.md` —
   Verify: `scripts/check-traceability.mjs` (once T065 lands) shows them satisfied by
   passing tests. Until then, check the reports by hand.
 
-- [ ] T037 [US1] Story checkpoint review: run `/code-review` and `/security-review` over this story's
+- [X] T037 [US1] Story checkpoint review: run `/code-review` and `/security-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
