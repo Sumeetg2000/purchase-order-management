@@ -42,8 +42,8 @@ CREATE TABLE audit_entries (
 
 CREATE INDEX audit_entries_occurred_at_id_idx ON audit_entries (occurred_at, id);
 
--- Statement-level guard for audited tables: refuses any change made without a complete,
--- consistent actor context. The context is transaction-local (set_config(..., true)),
+-- Statement-level guard for audited tables and for audit_entries itself: refuses any
+-- change made without a complete, consistent actor context. The context is transaction-local (set_config(..., true)),
 -- set by withTransaction.
 CREATE FUNCTION require_actor_context() RETURNS trigger
 LANGUAGE plpgsql
@@ -84,8 +84,9 @@ END
 $$;
 
 -- Fills an audit entry's actor fields, request id and time from the context, and refuses
--- explicit values that contradict it. The context checks repeat require_actor_context's
--- (a shared helper would need an EXECUTE grant to the application role).
+-- explicit values that contradict it. require_actor_context runs first (a statement-level
+-- BEFORE INSERT trigger fires before row triggers), so the context here is known to be
+-- complete and consistent.
 CREATE FUNCTION audit_fill_actor() RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -101,25 +102,6 @@ DECLARE
   ctx_os_host text := nullif(current_setting('app.os_host', true), '');
   ctx_request_id text := nullif(current_setting('app.request_id', true), '');
 BEGIN
-  IF ctx_type IS NULL THEN
-    RAISE EXCEPTION 'ACTOR_CONTEXT_REQUIRED' USING
-      ERRCODE = 'PO001', DETAIL = 'an audit entry needs an actor context';
-  END IF;
-  IF NOT (
-    (ctx_type = 'USER'
-      AND ctx_user_id IS NOT NULL AND ctx_name IS NOT NULL
-      AND ctx_email IS NOT NULL AND ctx_role IS NOT NULL
-      AND ctx_os_user IS NULL AND ctx_os_host IS NULL)
-    OR (ctx_type = 'SYSTEM'
-      AND num_nonnulls(ctx_user_id, ctx_name, ctx_email, ctx_role, ctx_os_user, ctx_os_host) = 0)
-    OR (ctx_type = 'OPERATOR'
-      AND ctx_os_user IS NOT NULL AND ctx_os_host IS NOT NULL
-      AND num_nonnulls(ctx_user_id, ctx_name, ctx_email, ctx_role) = 0)
-  ) THEN
-    RAISE EXCEPTION 'ACTOR_CONTEXT_REQUIRED' USING
-      ERRCODE = 'PO001', DETAIL = 'incomplete or inconsistent actor context for an audit entry';
-  END IF;
-
   IF (NEW.actor_type IS NOT NULL AND NEW.actor_type IS DISTINCT FROM ctx_type)
     OR (NEW.actor_user_id IS NOT NULL AND NEW.actor_user_id::text IS DISTINCT FROM ctx_user_id)
     OR (NEW.actor_name IS NOT NULL AND NEW.actor_name IS DISTINCT FROM ctx_name)
@@ -171,6 +153,10 @@ REVOKE ALL ON FUNCTION audit_retention_guard() FROM PUBLIC;
 
 CREATE TRIGGER require_actor_context
   BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON users
+  FOR EACH STATEMENT EXECUTE FUNCTION require_actor_context();
+
+CREATE TRIGGER require_actor_context
+  BEFORE INSERT ON audit_entries
   FOR EACH STATEMENT EXECUTE FUNCTION require_actor_context();
 
 CREATE TRIGGER audit_fill_actor
