@@ -14,9 +14,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
-/** Copies plain objects and arrays, replacing sensitive values; leaves other objects alone. */
+const MAX_DEPTH = 10;
+
+/**
+ * Copies plain objects and arrays, replacing sensitive values; leaves other objects alone.
+ * Anything nested deeper than MAX_DEPTH is replaced too, so nothing escapes unchecked.
+ */
 export function redactDeep(value: unknown, depth = 0): unknown {
-  if (depth > 10) return value;
+  if (depth > MAX_DEPTH) return REDACTED;
   if (Array.isArray(value)) return value.map((item) => redactDeep(item, depth + 1));
   if (!isPlainObject(value)) return value;
   const out: Record<string, unknown> = {};

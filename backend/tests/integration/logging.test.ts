@@ -111,6 +111,16 @@ describe('[NFR-PRIV-01] log redaction', () => {
   });
 });
 
+describe('[NFR-PRIV-01] redaction of deep values', () => {
+  it('[NFR-PRIV-01] never returns a sensitive value however deeply it is nested', () => {
+    const { logger, lines } = createCapture();
+    let nested: Record<string, unknown> = { password: 'xxxx-deep-11' };
+    for (let i = 0; i < 20; i += 1) nested = { level: nested };
+    logger.info({ nested }, 'deep');
+    expect(JSON.stringify(lines)).not.toContain('xxxx-deep-11');
+  });
+});
+
 describe('[NFR-PRIV-01] one-time link channel', () => {
   it('[NFR-PRIV-01] only the oneTimeLink path may print a token-shaped value', () => {
     const { logger, lines } = createCapture();
