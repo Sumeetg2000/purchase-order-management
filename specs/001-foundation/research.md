@@ -408,7 +408,9 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
   1. `static`: install, lint, Prettier check, typecheck, ID ban; commitlint on PRs.
   2. `api`: unit, integration (Testcontainers, migrations from empty, privilege test,
      reconciliation) and contract tests.
-  3. `contract`: drift check and oasdiff, with the label exception.
+  3. `contract`: drift check. The oasdiff check, with the label exception, runs as the
+     `breaking` job of its own workflow, `contract-breaking.yml`, so a label or
+     description change reruns only it (updated at the US2 review).
   4. `web`: unit, component and axe tests, build, and bundle budget.
   5. `audit`: `npm audit --audit-level=high`.
   6. `e2e`: compose up with the local profile, the smoke script (health, readiness, web
