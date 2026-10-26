@@ -50,6 +50,15 @@ function problems(entry: (typeof seen)[number]): string[] {
   return found.map((p) => `${entry.method} ${entry.url} ${String(res.status)}: ${p}`);
 }
 
+/** What the audit has recorded in this test file so far (for the audit's own test). */
+export function auditedResponses(): { method: string; path: string; status: number }[] {
+  return seen.map((entry) => ({
+    method: entry.method,
+    path: new URL(entry.url).pathname,
+    status: entry.res.status,
+  }));
+}
+
 afterAll(() => {
   const failures = seen.filter((entry) => entry.res.status >= 400).flatMap(problems);
   expect(failures, 'error responses outside the standard shape').toEqual([]);
