@@ -63,8 +63,10 @@ export interface ResponseToValidate {
 
 /**
  * Problems with a response, empty when it matches the document. A documented operation
- * uses its response for the status, or its default. Anything else (an unknown path or
- * method) must be an error answered with the shared Problem response.
+ * must answer with a status it declares (its catch-all default is for clients, not a
+ * licence to return anything), and an error body's code must be one the status lists in
+ * x-error-codes. Anything else (an unknown path or method) must be an error answered with
+ * the shared Problem response.
  */
 export function validateResponse(res: ResponseToValidate): string[] {
   const label = `${res.method.toUpperCase()} ${res.path} ${String(res.status)}`;
@@ -74,10 +76,8 @@ export function validateResponse(res: ResponseToValidate): string[] {
   let responsePath: string[];
   if (operation) {
     const responses = (operation as Json)['responses'] as Json;
-    const key = String(res.status) in responses ? String(res.status) : 'default';
-    if (!(key in responses) || (key === 'default' && res.status < 400)) {
-      return [`${label}: undocumented status`];
-    }
+    const key = String(res.status);
+    if (!(key in responses)) return [`${label}: undocumented status`];
     responsePath = ['paths', docPath ?? '', res.method.toLowerCase(), 'responses', key];
   } else if (res.status >= 400) {
     responsePath = ['components', 'responses', 'Problem'];
@@ -87,6 +87,12 @@ export function validateResponse(res: ResponseToValidate): string[] {
 
   const { node: response, path } = resolve(at(responsePath), responsePath);
   const errors: string[] = [];
+
+  const declaredCodes = response['x-error-codes'];
+  const code = (res.body as Json | null | undefined)?.['code'];
+  if (Array.isArray(declaredCodes) && !declaredCodes.includes(code)) {
+    errors.push(`${label}: code ${String(code)} is not one of ${declaredCodes.join(', ')}`);
+  }
 
   const headers = (response['headers'] ?? {}) as Json;
   for (const [name, declared] of Object.entries(headers)) {
