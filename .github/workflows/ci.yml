@@ -5,6 +5,9 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # labeled, unlabeled and edited rerun the contract job when the breaking label or the
+    # PR description changes (ADR-0008).
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
   push:
     branches: [main]
 
@@ -37,8 +40,16 @@ jobs:
         run: npm run check:ids
       - run: npm run format:check
       - run: npm run typecheck
-      - name: Script tests (compose file)
+      - name: Script tests (compose file, check scripts)
         run: npm run test:scripts
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-scripts
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
       - name: commitlint (pull request commits)
         if: github.event_name == 'pull_request'
         env:
@@ -71,6 +82,65 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  contract:
+    name: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The breaking-change check reads the base commit's document.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # The generator's own tests, and the web client generated from the document.
+      - run: npm test -w @po/contracts
+      - run: npm test -w @po/frontend
+      - name: Regenerate the OpenAPI document and the web client types
+        run: npm run contract:generate && npm run contract:types
+      - name: Drift check
+        run: |
+          drift="$(git status --porcelain -- packages/contracts/openapi frontend/src/api)"
+          if [[ -n "$drift" ]]; then
+            echo "$drift"
+            git diff -- packages/contracts/openapi frontend/src/api
+            echo "::error::Generated contract files differ from the committed ones. Run npm run contract:generate && npm run contract:types and commit the result."
+            exit 1
+          fi
+      - name: Breaking changes against the base
+        env:
+          # Read from the event payload; the job never needs a token (ADR-0020).
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          BREAKING_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'breaking') }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: scripts/contract-breaking.sh "$BASE_SHA"
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-contract
+          path: reports/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  audit:
+    name: audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Reads package-lock.json; nothing is installed.
+      - run: npm audit --audit-level=high
+
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
@@ -95,6 +165,37 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  traceability:
+    name: traceability
+    # The e2e job writes no report yet; Playwright's lands with the web slice. It is a
+    # dependency already so the check always runs on a fully green build.
+    needs: [static, api, contract, e2e]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Download test reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: reports-*
+          path: reports
+          merge-multiple: true
+      # Plain Node script: nothing to install.
+      - run: npm run check:traceability
+      - name: Upload the requirement → tests listing
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: traceability
+          path: reports/traceability.json
+          if-no-files-found: warn
+          retention-days: 30
 
   secrets:
     name: secrets
