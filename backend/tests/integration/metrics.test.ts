@@ -1,3 +1,5 @@
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -99,5 +101,43 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
     expect((await request(metricsServer).get('/')).status).toBe(404);
     expect((await request(metricsServer).get('/healthz')).status).toBe(404);
     expect((await request(metricsServer).post('/metrics')).status).toBe(405);
+  });
+
+  it('[NFR-OPS-02] counts a request the client abandons before the response', async () => {
+    const metrics = createMetrics();
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => (entered = resolve));
+    const app = createApp({
+      metrics,
+      routes: [
+        defineRoute({
+          method: 'get',
+          path: '/slow/:id',
+          operationId: 'testSlow',
+          summary: 'test only',
+          access: 'public',
+          responses: { 200: z.object({}) },
+          handler: () => {
+            entered();
+            // Never responds; the client gives up.
+          },
+        }),
+      ],
+    });
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const { port } = server.address() as AddressInfo;
+
+    const req = http.get({ host: '127.0.0.1', port, path: '/slow/1', agent: false });
+    req.on('error', () => undefined);
+    await started;
+    req.destroy();
+
+    const metricsServer = createMetricsServer(metrics);
+    await expect
+      .poll(async () => (await request(metricsServer).get('/metrics')).text)
+      .toContain('po_http_requests_total{method="GET",route="/slow/:id",status_class="4xx"} 1');
+    server.closeAllConnections();
+    server.close();
   });
 });
