@@ -1,11 +1,13 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { AuditEvent } from '../../src/audit/events.js';
 import type { writeAudit } from '../../src/audit/write.js';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 
 // Compile-time checks: `npm run typecheck` fails if an event that should be refused is
 // accepted (the @ts-expect-error lines would then be unused).
 
 type Event = Parameters<typeof writeAudit>[1];
+type Transaction = Parameters<typeof writeAudit>[0];
 
 interface AdminCreated<Source, Extra = unknown> {
   action: 'ADMIN_CREATED';
@@ -38,5 +40,10 @@ describe('[NFR-AUD-02] typed audit events', () => {
     expectTypeOf<WrongSource>().toExtend<Event>();
     // @ts-expect-error: a phone number never goes into audit details (ADR-0016)
     expectTypeOf<WithPhone>().toExtend<Event>();
+  });
+
+  it('[NFR-AUD-02] takes only a transaction from withTransaction, never a plain Prisma one', () => {
+    // @ts-expect-error: a raw prisma.$transaction client has no actor context set
+    expectTypeOf<Prisma.TransactionClient>().toExtend<Transaction>();
   });
 });

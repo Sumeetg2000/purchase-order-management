@@ -26,6 +26,14 @@ export interface TransactionOptions {
 
 export type TransactionClient = Prisma.TransactionClient;
 
+declare const actorContextSet: unique symbol;
+
+/**
+ * A transaction whose actor context has been set. Only withTransaction hands one out, so
+ * code that needs the context (writeAudit) can't be given a plain prisma.$transaction.
+ */
+export type AuditedTransaction = TransactionClient & { readonly [actorContextSet]: true };
+
 export interface TransactionHooks {
   /** Runs only after the transaction commits; failures are logged, never thrown. */
   afterCommit: (callback: () => void | Promise<void>) => void;
@@ -75,7 +83,7 @@ async function runAfterCommit(
  */
 export async function withTransaction<T>(
   options: TransactionOptions,
-  fn: (tx: TransactionClient, hooks: TransactionHooks) => Promise<T>,
+  fn: (tx: AuditedTransaction, hooks: TransactionHooks) => Promise<T>,
 ): Promise<T> {
   const retry = options.retry ?? DEFAULT_RETRY;
   const logger = options.logger ?? (defaultLogger ??= createLogger());
@@ -86,7 +94,9 @@ export async function withTransaction<T>(
       const result = await options.prisma.$transaction(
         async (tx) => {
           await setActorContext(tx, options.actor, options.requestId);
-          return fn(tx, { afterCommit: (callback) => callbacks.push(callback) });
+          return fn(tx as AuditedTransaction, {
+            afterCommit: (callback) => callbacks.push(callback),
+          });
         },
         { timeout: options.timeoutMs, maxWait: options.maxWaitMs },
       );
