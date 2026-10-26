@@ -8,6 +8,7 @@ import { correlation } from './middleware/correlation.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 import { parseJson } from './middleware/parse-json.js';
+import { originGuard, securityHeaders } from './middleware/security.js';
 
 export class RouteRegistrationError extends Error {
   override readonly name = 'RouteRegistrationError';
@@ -56,7 +57,7 @@ export function validateRoutes(routes: readonly RouteDefinition[]): void {
   }
 }
 
-export function createApp({ routes, logger, metrics }: CreateAppOptions): Express {
+export function createApp({ routes, logger, appOrigin, metrics }: CreateAppOptions): Express {
   validateRoutes(routes);
 
   const app = express();
@@ -78,6 +79,8 @@ export function createApp({ routes, logger, metrics }: CreateAppOptions): Expres
     }),
   );
 
+  app.use(securityHeaders());
+  app.use(originGuard(appOrigin));
   app.use(parseJson());
 
   for (const route of routes) {

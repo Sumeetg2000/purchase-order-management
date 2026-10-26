@@ -476,7 +476,7 @@ nothing secret leaks.
   rule in `eslint.config.mjs` that bans `.message` reads on caught errors outside
   `db/errors.ts` — FR-010, FR-011 — Verify: T041 passes, and a scratch violation fails
   `npm run lint`.
-- [ ] T048 [US3] API security middleware — `backend/src/http/middleware/security.ts`
+- [X] T048 [US3] API security middleware — `backend/src/http/middleware/security.ts`
   (helmet; origin guard → `CSRF_REJECTED`; `cors` disabled) — FR-014 — Verify: T042 passes.
 - [ ] T049 [US3] Traceability: NFR-API-02, NFR-CON-02 → `Done` — `docs/traceability.md`
   — Verify: T038–T042 green in the `api` job.
