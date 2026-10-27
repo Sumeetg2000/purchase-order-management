@@ -14,7 +14,11 @@ describe('[NFR-AUD-02] audit retention period', () => {
     const { rows } = await admin.query<{ src: string }>(
       `SELECT prosrc AS src FROM pg_proc WHERE proname = 'audit_retention_guard'`,
     );
-    const intervals = [...(rows[0]?.src ?? '').matchAll(/interval '([^']+)'/g)].map((m) => m[1]);
+    const src = rows[0]?.src ?? '';
+    const intervals = [...src.matchAll(/interval '([^']+)'/g)].map((m) => m[1]);
     expect(intervals).toEqual([`${String(AUDIT_RETENTION_YEARS)} years`]);
+    // The refusal's DETAIL names the period too, so it can't drift from the check.
+    const named = [...src.matchAll(/(\d+)-year/g)].map((m) => m[1]);
+    expect(named).toEqual([String(AUDIT_RETENTION_YEARS)]);
   });
 });
