@@ -1,7 +1,8 @@
 # Git hooks (README: Developing). npm ci and npm install install them through the root
 # prepare script, which skips the install where there is no .git (the Docker image
-# builds); lefthook's own postinstall is denied in allowScripts. Skip once, if you must,
-# with LEFTHOOK=0 git commit ...
+# builds); lefthook's own postinstall is denied in allowScripts. A test-first commit whose
+# test imports code that doesn't exist yet can't pass type-aware ESLint: commit it with
+# LEFTHOOK_EXCLUDE=eslint (gitleaks and Prettier still run). LEFTHOOK=0 skips everything.
 pre-commit:
   parallel: true
   commands:

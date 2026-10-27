@@ -42,6 +42,8 @@ npm run dev     # API reload + Vite HMR on one origin (lands later in slice 0)
 
 `npm ci` installs a [lefthook](lefthook.yml) pre-commit hook that runs gitleaks on the
 staged changes (the same pinned image as CI) and Prettier and ESLint on the staged files.
+A test-first commit, whose test imports code that doesn't exist yet, skips only ESLint:
+`LEFTHOOK_EXCLUDE=eslint git commit ...`.
 
 ## Documents
 
