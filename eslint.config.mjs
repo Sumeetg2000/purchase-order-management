@@ -36,6 +36,12 @@ const caughtErrorMessage = [
   },
 ];
 
+/** Route modules (CLAUDE.md, Layering), and what the lint rule tells one that oversteps. */
+const routeModules = {
+  target: ['backend/src/*/routes.ts', 'backend/src/*/routes/**', 'backend/src/**/*.routes.ts'],
+  message: 'Routes call services: services open the transaction, repositories run queries.',
+};
+
 export default defineConfig(
   {
     ignores: [
@@ -97,8 +103,9 @@ export default defineConfig(
     },
     rules: { 'import-x/no-cycle': 'error' },
   },
-  // Layering (CLAUDE.md): an area's routes call its services and never reach the
-  // database; only repositories run queries. scripts/tests/layering.test.mjs probes it.
+  // Layering (CLAUDE.md): an area's routes call its services; they never reach the
+  // database or open a transaction. Only services call withTransaction, and only
+  // repositories run queries. scripts/tests/layering.test.mjs probes it.
   {
     files: ['backend/src/**/*.ts'],
     rules: {
@@ -106,16 +113,15 @@ export default defineConfig(
         'error',
         {
           basePath: import.meta.dirname,
+          // The plugin takes globs or plain paths in one zone's `from`, not both.
           zones: [
             {
-              target: 'backend/src/*/routes.ts',
+              ...routeModules,
               from: ['backend/src/*/repository.ts', 'backend/src/generated/**'],
-              message: 'Routes call services; only repositories run queries.',
             },
             {
-              target: 'backend/src/*/routes.ts',
-              from: 'backend/src/db/client.ts',
-              message: 'Routes call services; only repositories run queries.',
+              ...routeModules,
+              from: ['backend/src/db/client.ts', 'backend/src/db/transaction.ts'],
             },
           ],
         },

@@ -37,13 +37,13 @@ when the slice is done.
 ## Commands (Node 24, see `.nvmrc`; `.npmrc` refuses other versions)
 - Start (production-like, the only required setup): `cp .env.example .env && docker compose up`
 - Dev loop (API reload + Vite HMR, same origin): `npm run dev`
-- Test (needs only Docker): `npm test`
-- Lint and typecheck: `npm run lint`, `npm run typecheck`
+- Test (needs only Docker), lint, typecheck: `npm test`, `npm run lint`, `npm run typecheck`
 
-## Layering (backend; lint enforces the route rule)
-`backend/src/<area>/routes.ts` → `service.ts` → `repository.ts`. Routes map inputs and
-outputs and call services, never Prisma. Services own the business rules and take the
-transaction (`AuditedTransaction`) from `withTransaction`. Only repositories run queries.
+## Layering (backend; lint enforces the route rules)
+Routes (`backend/src/<area>/routes.ts`, `routes/**`, `*.routes.ts`) → `service.ts` →
+`repository.ts`. Routes map inputs and outputs and call services; they never import Prisma,
+a repository or `db/transaction.ts`. Services open the transaction (`withTransaction`) and
+pass the `AuditedTransaction` to repositories, which are the only code that runs queries.
 
 ## Conventions
 - Conventional Commits. Requirement IDs go in test names only, never in code, comments or
