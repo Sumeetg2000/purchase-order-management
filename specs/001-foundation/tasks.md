@@ -893,7 +893,7 @@ second concurrent run is a no-op.
 
 ### Tests for User Story 8 (write first, run, see them fail)
 
-- [ ] T106 [P] [US8] Purge tests — `backend/tests/integration/purge.test.ts`, with an
+- [X] T106 [P] [US8] Purge tests — `backend/tests/integration/purge.test.ts`, with an
   injected `asOf` timestamp:
   - audit entries older than 8 years are deleted, and newer ones kept
   - tokens deleted when "`COALESCE(used_at, superseded_at, expires_at) < now() - 7 days`",
@@ -905,7 +905,7 @@ second concurrent run is a no-op.
   - the same deletes as `po_app` → permission denied
 
   Test names cite `NFR-OPS-05` — FR-036, FR-037 — Verify: fails.
-- [ ] T107 [US8] Traceability: NFR-OPS-05 (partial) → `Tested` — `docs/traceability.md`.
+- [X] T107 [US8] Traceability: NFR-OPS-05 (partial) → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 8
 
