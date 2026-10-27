@@ -28,8 +28,9 @@ interface InFlight {
 
 export function createMailDispatcher(mailer: Mailer): MailDispatcher {
   const inFlight = new Map<Promise<void>, InFlight>();
+  // Loops until nothing is in flight, so sends dispatched while it waits are included.
   const settled = async () => {
-    await Promise.all(inFlight.keys());
+    while (inFlight.size > 0) await Promise.all(inFlight.keys());
   };
   return {
     dispatch(message, logger) {
