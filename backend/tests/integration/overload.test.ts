@@ -47,7 +47,7 @@ function appFor(prisma: AppPrismaClient) {
   return createTestApp({
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
-    routes: [
+    testOnlyRoutes: [
       route('/raw', async (_req, res) => {
         await prisma.$queryRaw`SELECT 1`;
         res.json({});

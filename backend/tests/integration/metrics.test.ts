@@ -16,7 +16,7 @@ function testApp() {
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
     metrics,
-    routes: [
+    testOnlyRoutes: [
       defineRoute({
         method: 'get',
         path: '/items/:id',
@@ -118,7 +118,7 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
       logger: testLogger(),
       appOrigin: 'http://localhost:8080',
       metrics,
-      routes: [
+      testOnlyRoutes: [
         defineRoute({
           method: 'get',
           path: '/slow/:id',

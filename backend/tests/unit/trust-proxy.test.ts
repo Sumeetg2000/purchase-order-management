@@ -8,7 +8,7 @@ import { testLogger } from '../support/log-capture.js';
 const app = createTestApp({
   logger: testLogger(),
   appOrigin: 'http://localhost:8080',
-  routes: [
+  testOnlyRoutes: [
     defineRoute({
       method: 'get',
       path: '/ip',

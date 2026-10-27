@@ -12,7 +12,7 @@ function buildApp() {
   const app = createTestApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
-    routes: [
+    testOnlyRoutes: [
       defineRoute({
         method: 'get',
         path: '/thing',

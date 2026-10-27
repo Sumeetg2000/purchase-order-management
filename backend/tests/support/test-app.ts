@@ -1,16 +1,20 @@
-import { OPERATIONS } from '@po/contracts';
+import type { RouteDefinition } from '../../src/http/define-route.js';
 import { createApp, type CreateAppOptions } from '../../src/http/app.js';
 
-/**
- * createApp for tests whose routes go beyond the contract (to provoke validation, size,
- * origin and server errors). Every route not in OPERATIONS is registered as test-only;
- * contract routes are still checked against the contract. The server never uses this.
- */
-export function createTestApp(options: Omit<CreateAppOptions, 'testOnlyOperations'>) {
-  const testOnlyOperations = Object.fromEntries(
-    options.routes
-      .filter((route) => !Object.hasOwn(OPERATIONS, route.operationId))
-      .map((route) => [route.operationId, route]),
-  );
-  return createApp({ ...options, testOnlyOperations });
+export interface TestAppOptions extends Omit<CreateAppOptions, 'testOnlyOperations' | 'routes'> {
+  /** Routes that serve contract operations, checked against the contract as in production. */
+  routes?: readonly RouteDefinition[];
+  /** Routes a test adds to provoke errors the real routes can't; named here explicitly. */
+  testOnlyRoutes?: readonly RouteDefinition[];
+}
+
+/** createApp for tests that need routes beyond the contract. The server never uses this. */
+export function createTestApp({ routes = [], testOnlyRoutes = [], ...options }: TestAppOptions) {
+  return createApp({
+    ...options,
+    routes: [...routes, ...testOnlyRoutes],
+    testOnlyOperations: Object.fromEntries(
+      testOnlyRoutes.map((route) => [route.operationId, route]),
+    ),
+  });
 }

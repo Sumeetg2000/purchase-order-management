@@ -15,7 +15,7 @@ function buildApp() {
   const app = createTestApp({
     logger: capture.logger,
     appOrigin: 'http://localhost:8080',
-    routes: [
+    testOnlyRoutes: [
       defineRoute({
         method: 'get',
         path: '/fail',

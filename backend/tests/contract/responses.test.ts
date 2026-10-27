@@ -29,8 +29,8 @@ async function appFor(url: string) {
   return createTestApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
-    routes: [
-      ...healthRoutes({ prisma, expectedMigrations: await listMigrations() }),
+    routes: healthRoutes({ prisma, expectedMigrations: await listMigrations() }),
+    testOnlyRoutes: [
       defineRoute({
         method: 'post',
         path: '/test-items',
