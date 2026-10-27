@@ -20,7 +20,7 @@ export default defineConfig({
       exclude: ['src/generated/**'],
       reporter: ['text-summary', 'json-summary', 'lcov'],
       reportsDirectory: fileURLToPath(new URL('../reports/coverage/backend', import.meta.url)),
-      thresholds: { lines: 80 },
+      thresholds: { lines: 95 },
     },
     projects: [
       {
