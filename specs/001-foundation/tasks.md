@@ -853,7 +853,7 @@ logged without failing the request.
 
 ### Tests for User Story 7 (write first, run, see them fail)
 
-- [ ] T101 [P] [US7] Mail pipeline tests — `backend/tests/integration/mail.test.ts`, using a
+- [X] T101 [P] [US7] Mail pipeline tests — `backend/tests/integration/mail.test.ts`, using a
   test-only route and template with `CaptureMailer`:
   - a committed transaction sends exactly one message
   - a rolled-back one sends none
@@ -863,7 +863,7 @@ logged without failing the request.
     settings' shape is validated at startup; spec edge case)
 
   Test names cite `NFR-OPS-04` — FR-029, FR-030 — Verify: fails.
-- [ ] T102 [US7] Traceability: NFR-OPS-04 → `Tested` — `docs/traceability.md`.
+- [X] T102 [US7] Traceability: NFR-OPS-04 → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 7
 
