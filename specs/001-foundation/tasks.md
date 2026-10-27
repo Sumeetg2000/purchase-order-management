@@ -970,6 +970,20 @@ second concurrent run is a no-op.
   [quickstart.md](quickstart.md) from a clean clone; record outputs, the clean-start time
   (target < 10 min) and the CI wall time (target < 15 min); fix the quickstart or the code
   for any mismatch — Verify: every step matches its expected result.
+- [ ] T118 Coverage reporting (added at the US6 review): Vitest's v8 coverage for the
+  backend unit and integration projects, written to `reports/coverage/` and uploaded by the
+  `api` job, which fails below an 80% line floor (`coverage.thresholds.lines`). The
+  frontend and contracts report coverage too, without a floor yet. — Verify: the `api` job
+  fails when the floor is raised above the measured value on a throwaway commit (reverted),
+  and passes at 80%.
+- [ ] T119 Layering rules before slice 1 (added at the US6 review): a CLAUDE.md section on
+  routes → services → repositories — the folder layout (`backend/src/<area>/routes.ts`,
+  `service.ts`, `repository.ts`), routes never touch Prisma (they call services and map
+  inputs and outputs), services own the business rules and take the transaction
+  (`AuditedTransaction`) from `withTransaction`, repositories are the only code that runs
+  queries. Add an `import-x/no-restricted-paths` rule so a route module importing the
+  Prisma client or a repository fails lint. — Verify: the rule fails on a probe route that
+  imports a repository, and passes on the repo.
 - [ ] T116 Mark the draft PR **ready for review**, with full CI green.
   - Every `ci.yml` job (`static`, `api`, `contract`, `web`, `audit`, `e2e`, `traceability`,
     `secrets`) passes on the PR's last commit.
