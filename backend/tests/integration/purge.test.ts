@@ -16,6 +16,7 @@ import { createCapture } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
+const INSUFFICIENT_PRIVILEGE = '42501';
 // A fixed point just behind the database clock: the audit retention guard compares with
 // now(), so the purge's asOf must never be ahead of it.
 const AS_OF = new Date(Date.now() - 60_000);
@@ -58,20 +59,21 @@ async function remaining(db: TestDatabase, sql: string): Promise<string[]> {
   return rows.map((row) => row.label).sort();
 }
 
-const USER_ID = randomUUID();
-const seedUser = `INSERT INTO users (id, name, email, roles, status)
-  VALUES ('${USER_ID}', 'Purge User', 'purge@example.local', '{}', 'ACTIVE')`;
-
+/** A token and its own user: a user may hold only one open token per purpose. */
 function token(
   label: string,
   times: { createdAt: Date; expiresAt: Date; usedAt?: Date; supersededAt?: Date },
-) {
+): string[] {
   const optional = (date?: Date) => (date ? at(date) : 'NULL');
-  return `INSERT INTO one_time_tokens
-      (id, user_id, purpose, token_hash, created_at, expires_at, used_at, superseded_at)
-    VALUES ('${label}', '${USER_ID}', 'RESET', '\\x${randomBytes(32).toString('hex')}',
-      ${at(times.createdAt)}, ${at(times.expiresAt)}, ${optional(times.usedAt)},
-      ${optional(times.supersededAt)})`;
+  return [
+    `INSERT INTO users (id, name, email, roles, status)
+      VALUES ('${label}', 'Purge User', '${label}@example.local', '{}', 'ACTIVE')`,
+    `INSERT INTO one_time_tokens
+        (id, user_id, purpose, token_hash, created_at, expires_at, used_at, superseded_at)
+      VALUES ('${label}', '${label}', 'RESET', '\\x${randomBytes(32).toString('hex')}',
+        ${at(times.createdAt)}, ${at(times.expiresAt)}, ${optional(times.usedAt)},
+        ${optional(times.supersededAt)})`,
+  ];
 }
 
 const daysBefore = (days: number) => new Date(AS_OF.getTime() - days * DAY_MS);
@@ -123,25 +125,24 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       open: randomUUID(),
     };
     await seed(db, [
-      seedUser,
-      token(ids.expiredLongAgo, { createdAt: daysBefore(9), expiresAt: daysBefore(8) }),
-      token(ids.usedLongAgo, {
+      ...token(ids.expiredLongAgo, { createdAt: daysBefore(9), expiresAt: daysBefore(8) }),
+      ...token(ids.usedLongAgo, {
         createdAt: daysBefore(9),
         expiresAt: daysBefore(-1),
         usedAt: daysBefore(8),
       }),
-      token(ids.supersededLongAgo, {
+      ...token(ids.supersededLongAgo, {
         createdAt: daysBefore(9),
         expiresAt: daysBefore(-1),
         supersededAt: daysBefore(8),
       }),
-      token(ids.expiredRecently, { createdAt: daysBefore(7), expiresAt: daysBefore(6) }),
-      token(ids.usedRecently, {
+      ...token(ids.expiredRecently, { createdAt: daysBefore(7), expiresAt: daysBefore(6) }),
+      ...token(ids.usedRecently, {
         createdAt: daysBefore(11),
         expiresAt: daysBefore(10),
         usedAt: daysBefore(6),
       }),
-      token(ids.open, { createdAt: daysBefore(0), expiresAt: daysBefore(-1) }),
+      ...token(ids.open, { createdAt: daysBefore(0), expiresAt: daysBefore(-1) }),
     ]);
     const { logger } = createCapture();
     const outcome = await runPurge({
@@ -238,12 +239,13 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
   it('[NFR-OPS-05] the same deletes as po_app are refused', async () => {
     const db = trackDatabase(await createTestDatabase());
     const old = new Date(yearsBefore(AUDIT_RETENTION_YEARS, AS_OF).getTime() - DAY_MS);
-    await seed(db, [seedUser, auditEntry(old, 'OLD')]);
+    await seed(db, [auditEntry(old, 'OLD')]);
     const app = client(db, 'po_app');
     for (const task of purgeTasks) {
-      await expect(task.run({ db: app, asOf: AS_OF, batchSize: 1_000 })).rejects.toThrow(
-        /permission denied/,
-      );
+      // By SQLSTATE, not message text (ADR-0007): 42501 insufficient_privilege.
+      await expect(task.run({ db: app, asOf: AS_OF, batchSize: 1_000 })).rejects.toMatchObject({
+        meta: { driverAdapterError: { cause: { originalCode: INSUFFICIENT_PRIVILEGE } } },
+      });
     }
     expect(await remaining(db, 'SELECT action AS label FROM audit_entries')).toEqual(['OLD']);
   });
