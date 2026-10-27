@@ -1,9 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../src/app/providers';
+import { lazyPage } from '../src/app/lazyPage';
 import { buildRoutes } from '../src/app/router';
+import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
+import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
 
 function paths(routes: readonly RouteObject[]): string[] {
@@ -47,5 +50,26 @@ describe('[NFR-FE-01] routing', () => {
       false,
     );
     expect(paths(buildRoutes({ includeDemo: true })).some((p) => p.includes('__demo'))).toBe(true);
+  });
+
+  it('[NFR-FE-01] a page whose code can no longer be loaded (after a deploy) offers a reload', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/',
+          errorElement: <RouteErrorBoundary />,
+          lazy: lazyPage(() =>
+            Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+          ),
+        },
+      ],
+      { initialEntries: ['/'] },
+    );
+    render(<RouterProvider router={router} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('A newer version of the app is available');
+    expect(alert).not.toHaveTextContent(errorMessages.INTERNAL_ERROR.message);
+    expect(within(alert).getByRole('button', { name: 'Reload' })).toBeInTheDocument();
   });
 });
