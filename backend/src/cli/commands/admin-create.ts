@@ -1,6 +1,5 @@
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
-import { lockAdmins } from '../../db/locks.js';
 import type { AuditedTransaction } from '../../db/transaction.js';
 import { createAdmin } from '../../users/create-admin.js';
 import { CliError, EXIT } from '../errors.js';
@@ -60,7 +59,6 @@ export async function adminCreate(
   args: AdminCreateArgs,
   appOrigin: string,
 ): Promise<string[]> {
-  await lockAdmins(tx);
   const { email, link } = await createAdmin(tx, { ...args, source: 'cli', appOrigin });
   return [
     `Admin created: ${email}`,

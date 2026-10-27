@@ -1,11 +1,12 @@
 import { writeAudit } from '../audit/write.js';
 import { violatedConstraint } from '../db/errors.js';
+import { lockAdmins } from '../db/locks.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { issueToken } from '../tokens/one-time.js';
 import { createAdminUser, findUserByEmail } from './repository.js';
 
-// Creating an administrator, shared by the bootstrap (SYSTEM) and admin:create (OPERATOR).
-// Callers hold ADMIN_LOCK and own the transaction (ADR-0016, contracts/cli.md).
+// Creating an administrator, shared by the bootstrap (SYSTEM) and admin:create (OPERATOR),
+// inside the caller's transaction (ADR-0016, contracts/cli.md).
 
 /** The message never names the email: callers' error logs don't redact PII. */
 export class EmailInUseError extends Error {
@@ -28,13 +29,15 @@ export function setPasswordLink(appOrigin: string, token: string): string {
 
 /**
  * Creates an ACTIVE administrator with no password, a RESET token, and the ADMIN_CREATED
- * audit entry. An email that belongs to anyone already is EmailInUseError: a user is never
+ * audit entry, under ADMIN_LOCK (taken here; taking it again in the same transaction is
+ * harmless). An email that belongs to anyone already is EmailInUseError: a user is never
  * promoted.
  */
 export async function createAdmin(
   tx: AuditedTransaction,
   admin: { email: string; name: string; source: 'bootstrap' | 'cli'; appOrigin: string },
 ): Promise<CreatedAdmin> {
+  await lockAdmins(tx);
   const email = admin.email.toLowerCase();
   if (await findUserByEmail(tx, email)) {
     throw new EmailInUseError('the email already belongs to a user');
