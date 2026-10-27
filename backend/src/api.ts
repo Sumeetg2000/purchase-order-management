@@ -75,7 +75,10 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     logger.info({ port: metricsPort }, 'metrics listening');
     return { port, metricsPort, close };
   } catch (error) {
-    await close();
+    // The start error is the one to report; a cleanup failure is only logged.
+    await close().catch((cleanupError: unknown) => {
+      logger.error({ err: cleanupError }, 'cleanup after a failed start failed');
+    });
     throw error;
   }
 }
