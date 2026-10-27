@@ -383,8 +383,10 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     const stuck = createHttpServer(() => undefined);
     await new Promise<void>((resolve) => stuck.listen(0, '127.0.0.1', resolve));
     const { port } = stuck.address() as AddressInfo;
+    // Shutdown starts only once the stuck request has reached the server.
+    const arrived = new Promise((resolve) => stuck.once('request', resolve));
     httpGet({ host: '127.0.0.1', port, path: '/', agent: false }).on('error', () => undefined);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await arrived;
     mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
     await createShutdown({
       servers: [stuck],
@@ -394,6 +396,10 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       mail,
       mailReserveMs: 1_000,
     })();
+    // The premise: the stuck request really did hold the request drain to its end.
+    expect(capture.lines.map((line) => line['msg'])).toContain(
+      'shutdown: drain timed out; open connections were closed',
+    );
     expect(sent).toEqual(['verify_email']);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
