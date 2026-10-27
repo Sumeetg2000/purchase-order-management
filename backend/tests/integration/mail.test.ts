@@ -211,6 +211,25 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     },
   );
 
+  it('[NFR-OPS-04] a mailer that throws instead of rejecting is still a mail_send_failed security log line', async () => {
+    const capture = createCapture();
+    const mail = createMailDispatcher({
+      send: () => {
+        throw new Error('template failed to render');
+      },
+    });
+    expect(() => {
+      mail.dispatch(
+        { template: greeting, to: RECIPIENT, variables: { name: 'A' } },
+        capture.logger,
+      );
+    }).not.toThrow();
+    await mail.settled();
+    expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
+      expect.objectContaining({ event: 'mail_send_failed', template: 'verify_email' }),
+    ]);
+  });
+
   it('[NFR-OPS-04] the response does not wait for the mail server', async () => {
     const gate: { open?: () => void } = {};
     const opened = new Promise<undefined>((resolve) => {
