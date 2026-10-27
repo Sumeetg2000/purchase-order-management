@@ -16,6 +16,7 @@ import { createSmtpMailer } from '../../src/mail/smtp.js';
 import { defineTemplate, InvalidRecipientError, renderMail } from '../../src/mail/template.js';
 import { createTestDatabase } from '../support/db.js';
 import { createCapture } from '../support/log-capture.js';
+import { createLogger } from '../../src/observability/logger.js';
 import { trackDatabase } from '../support/setup.js';
 import { createTestApp } from '../support/test-app.js';
 import { z } from 'zod';
@@ -229,6 +230,25 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
       expect.objectContaining({ event: 'mail_send_failed', template: 'verify_email' }),
     ]);
+  });
+
+  it('[NFR-OPS-04] a logger that throws while recording a failure cannot make settling reject', async () => {
+    const broken = createLogger('trace', {
+      write: () => {
+        throw new Error('log stream closed');
+      },
+    });
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const mail = createMailDispatcher({ send: () => Promise.reject(new Error('refused')) });
+      mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, broken);
+      await expect(mail.settle(1_000)).resolves.toBeUndefined();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
   });
 
   it('[NFR-OPS-04] the response does not wait for the mail server', async () => {
