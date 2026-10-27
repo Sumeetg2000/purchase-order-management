@@ -991,6 +991,13 @@ second concurrent run is a no-op.
   2026-11-01. Check npm audit and the advisories again, and move to the newest release that
   is at least two weeks old and free of known advisories. — Verify: `npm audit` is clean,
   the mail tests pass, and the commit records the outcome.
+- [ ] T121 Shutdown waits for in-flight handlers, not a timer (added at the US7 review):
+  when the drain cuts a request off, shutdown now waits out the 2 s mail reserve in case
+  that handler still commits and dispatches mail. Track in-flight handler work instead
+  (registered in `defineRoute` or `withTransaction`), wait for it up to the deadline, then
+  settle the mail, and drop the `untilTimeout` wait from the dispatcher. Do it with slice
+  1's first mail-sending route. — Verify: a cut-off handler that commits after the reserve
+  still has its mail sent or logged, and one that dispatches nothing doesn't hold shutdown.
 - [ ] T116 Mark the draft PR **ready for review**, with full CI green.
   - Every `ci.yml` job (`static`, `api`, `contract`, `web`, `audit`, `e2e`, `traceability`,
     `secrets`) passes on the PR's last commit.
