@@ -1,4 +1,5 @@
-import { createServer } from 'node:net';
+import { createServer as createHttpServer, get as httpGet } from 'node:http';
+import { createServer, type AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startApi, type RunningApi } from '../../src/api.js';
@@ -353,6 +354,27 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     first.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'B' } }, capture.logger);
     await settling;
     expect(sent).toHaveLength(2);
+  });
+
+  it('[NFR-OPS-04] mail still gets time to finish when a stuck request used the whole drain', async () => {
+    const sent: string[] = [];
+    const capture = createCapture();
+    const mail = createMailDispatcher(delayedMailer(500, sent));
+    const stuck = createHttpServer(() => undefined);
+    await new Promise<void>((resolve) => stuck.listen(0, '127.0.0.1', resolve));
+    const { port } = stuck.address() as AddressInfo;
+    httpGet({ host: '127.0.0.1', port, path: '/', agent: false }).on('error', () => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
+    await createShutdown({
+      servers: [stuck],
+      prisma: { $disconnect: () => Promise.resolve() },
+      logger: capture.logger,
+      drainTimeoutMs: 200,
+      mail,
+    })();
+    expect(sent).toEqual(['verify_email']);
+    expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
 
   it('[NFR-OPS-04] a send still running at the drain deadline is abandoned and logged as mail_send_failed', async () => {
