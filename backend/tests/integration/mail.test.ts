@@ -191,6 +191,24 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     expect(JSON.stringify(events)).not.toContain(RECIPIENT);
   });
 
+  it.each([undefined, null, 'refused'])(
+    '[NFR-OPS-04] a send rejected with %s is still a mail_send_failed security log line',
+    async (reason) => {
+      const capture = createCapture();
+      // A mailer is foreign code: it can reject with anything, not only an Error.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      const mail = createMailDispatcher({ send: () => Promise.reject(reason) });
+      mail.dispatch(
+        { template: greeting, to: RECIPIENT, variables: { name: 'A' } },
+        capture.logger,
+      );
+      await mail.settled();
+      expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
+        expect.objectContaining({ event: 'mail_send_failed', template: 'test_greeting' }),
+      ]);
+    },
+  );
+
   it('[NFR-OPS-04] the response does not wait for the mail server', async () => {
     const gate: { open?: () => void } = {};
     const opened = new Promise<undefined>((resolve) => {
