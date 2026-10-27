@@ -42,14 +42,13 @@ export const apiConfig = defineProcessConfig({
       });
     }
     // Credentials come as a pair: half of one would start the API and fail every mail.
-    const pair = [
-      ['SMTP_USER', 'SMTP_PASSWORD'],
-      ['SMTP_PASSWORD', 'SMTP_USER'],
-    ] as const;
-    for (const [given, missing] of pair) {
-      if (config[given] !== undefined && config[missing] === undefined) {
-        ctx.addIssue({ code: 'custom', path: [missing], message: `is required with ${given}` });
-      }
+    const hasUser = config.SMTP_USER !== undefined;
+    if (hasUser !== (config.SMTP_PASSWORD !== undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [hasUser ? 'SMTP_PASSWORD' : 'SMTP_USER'],
+        message: 'SMTP_USER and SMTP_PASSWORD are set together or not at all',
+      });
     }
     if (config.APP_ENV === 'production' && config.SMTP_HOST === 'mailpit') {
       ctx.addIssue({
