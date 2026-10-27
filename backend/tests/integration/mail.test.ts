@@ -360,7 +360,8 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(() =>
       createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 500 }),
     ).not.toThrow();
-    // The production pair, as startApi uses it.
+    // The production constants: startApi passes DRAIN_TIMEOUT_MS and the default reserve,
+    // and the startup test below shows startApi accepts them.
     expect(() => createShutdown({ ...options, drainTimeoutMs: DRAIN_TIMEOUT_MS })).not.toThrow();
   });
 
@@ -456,6 +457,10 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       mailFrom: stuck,
       mailReserveMs: 1_000,
     })();
+    // The premise: the drain cut the request off, and its mail came after that.
+    expect(capture.lines.map((line) => line['msg'])).toContain(
+      'shutdown: drain timed out; open connections were closed',
+    );
     expect(sent).toEqual(['verify_email']);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
