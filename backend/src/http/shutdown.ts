@@ -66,8 +66,10 @@ export function createShutdown({
   mailFrom,
   mailReserveMs = MAIL_RESERVE_MS,
 }: ShutdownOptions) {
-  if (mail && mailReserveMs >= drainTimeoutMs) {
-    throw new RangeError('the mail reserve must be shorter than the drain deadline');
+  const reserveFits =
+    Number.isFinite(mailReserveMs) && mailReserveMs > 0 && mailReserveMs < drainTimeoutMs;
+  if (mail && !reserveFits) {
+    throw new RangeError('the mail reserve must be a positive time shorter than the deadline');
   }
   let running: Promise<void> | undefined;
 
