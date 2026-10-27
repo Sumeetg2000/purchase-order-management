@@ -834,7 +834,7 @@ dialog behave as specified, axe is clean, and the budget passes.
   completes the row. NFR-FE-04/06/07/09 also stay `Tested` until their later parts —
   `docs/traceability.md`.
 
-- [ ] T100 [US6] Story checkpoint review: run `/code-review` over this story's
+- [X] T100 [US6] Story checkpoint review: run `/code-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
