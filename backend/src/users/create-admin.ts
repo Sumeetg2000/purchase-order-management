@@ -20,10 +20,15 @@ export interface CreatedAdmin {
   link: string;
 }
 
-/** The set-password page slice 1 builds; the token is base64url, so it needs no escaping. */
+/**
+ * The set-password page slice 1 builds, with the token in the fragment: browsers never send
+ * a fragment to the server, so the token can't reach an access log or a Referer header. The
+ * page reads location.hash and POSTs the token in the request body (ADR-0017). The token is
+ * base64url, so it needs no escaping.
+ */
 export function setPasswordLink(appOrigin: string, token: string): string {
   const url = new URL('/reset-password', appOrigin);
-  url.searchParams.set('token', token);
+  url.hash = `token=${token}`;
   return url.toString();
 }
 
