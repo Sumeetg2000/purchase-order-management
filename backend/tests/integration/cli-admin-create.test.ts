@@ -151,6 +151,14 @@ describe('[FR-ADM-05] admin:create', () => {
     expect(await query(db, 'SELECT 1 FROM users')).toHaveLength(0);
   });
 
+  it('[FR-ADM-05] a usage error never echoes what was typed', async () => {
+    const result = await cli(['--email', 'ceo@corp.example', 'admin:create'], {});
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/^ERROR USAGE: /);
+    expect(result.stderr).not.toContain('ceo@corp.example');
+    expect(result.stderr).not.toContain('--email');
+  });
+
   it('[FR-ADM-05] --help prints the commands and exits 0', async () => {
     const result = await cli(['--help'], {});
     expect(result.code).toBe(0);
