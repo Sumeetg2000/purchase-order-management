@@ -33,7 +33,7 @@ Error messages never echo argument values. Every failure leaves the database unc
   ```
   Admin created: <email>
   One-time set-password link (valid 30 minutes, shown once):
-  <APP_ORIGIN>/reset-password?token=<token>
+  <APP_ORIGIN>/reset-password#token=<token>
   ```
 - An email that already belongs to any user → `EMAIL_IN_USE`, exit 2, and nothing changes.
   A user is never promoted.
@@ -55,5 +55,7 @@ The third step of the `migrate` service:
 - If the variables are missing, or the email belongs to a non-admin user, it exits
   non-zero. `migrate` then fails, so `api` and `maintenance` never start.
 
-The link points at the reset page that slice 1 builds. Until then it can't be used. Once it
+The token is in the URL fragment, which browsers never send to the server, so it can't
+reach an access log or a `Referer` header; the page reads it from `location.hash` and posts
+it in the body (ADR-0017). The link points at the reset page that slice 1 builds. Until then it can't be used. Once it
 expires, the admin uses forgot-password.

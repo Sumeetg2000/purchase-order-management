@@ -3,7 +3,8 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (restricted signup, email
   verification, password policy and reset, lockout, session management, mail; signup
   with no role; 30-day absolute session lifetime; 90-day purge of session and
-  security-log data)
+  security-log data) · amended 2026-10-27 (one-time tokens travel in the URL fragment,
+  never the query; the edge masks token queries in its access log)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -95,9 +96,18 @@ answer to an in-app access request (ADR-0016).
 - Issuing a new token invalidates the user's earlier unused tokens with the same purpose.
 - An invalid, expired, used or superseded token → `400 INVALID_TOKEN`. All four look the
   same.
-- Links point at the frontend (`APP_ORIGIN/verify-email?token=…`,
-  `/reset-password?token=…`). The token is in the URL only. It is never logged, and the
-  page posts it once.
+- Links point at the frontend with the token in the **fragment**:
+  `APP_ORIGIN/verify-email#token=…` and `APP_ORIGIN/reset-password#token=…`. This covers
+  every link: the bootstrap and `admin:create` set-password links, and from slice 1 the
+  verification, forgot-password and admin-triggered reset emails.
+  - Browsers never send a fragment, so the token can't reach the edge's access log, any
+    proxy, or a `Referer` header.
+  - The page reads `location.hash`, removes it from the address bar
+    (`history.replaceState`), and POSTs the token once in the request body. The API never
+    accepts a token in a query string.
+  - Backstop: the edge's access log masks any query whose key ends in `token` as
+    `?[redacted]`, in the request line and in the `Referer`, so a legacy `?token=` link
+    never logs the value (`deploy/nginx/default.conf`; checked by `scripts/smoke.sh`).
 
 ### Anti-enumeration and timing
 - Login, signup, resend-verification and forgot-password give the same response whether or

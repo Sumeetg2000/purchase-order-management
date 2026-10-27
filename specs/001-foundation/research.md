@@ -265,7 +265,8 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     `actor_type = SYSTEM`.
     - If no admin exists, it creates the user and a `RESET` token, and writes the audit
       entry `ADMIN_CREATED` (`details.source = "bootstrap"`).
-    - It prints the link `APP_ORIGIN/reset-password?token=…` once.
+    - It prints the link `APP_ORIGIN/reset-password#token=…` once. The token is in the
+      fragment so it never reaches a server log (ADR-0017, amended at the US5 review).
   - The CLI is `backend/src/cli/admin.ts`, run as `npm run admin -- <command>`.
     - It parses commands with Node's `util.parseArgs` and validates arguments with Zod.
     - Each command runs in one transaction under the same lock, with actor context
