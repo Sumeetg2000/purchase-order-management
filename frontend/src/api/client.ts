@@ -8,8 +8,31 @@ import type { paths } from './schema';
 
 export const API_BASE_URL = '/api';
 
+let lastRequestId: string | undefined;
+
+/** The X-Request-Id of the last API response, for error screens with no problem document. */
+export function getLastRequestId(): string | undefined {
+  return lastRequestId;
+}
+
 export function createApiClient(options: ClientOptions = {}) {
-  return createClient<paths>({ baseUrl: API_BASE_URL, ...options });
+  const client = createClient<paths>({ baseUrl: API_BASE_URL, ...options });
+  client.use({
+    onResponse({ response }) {
+      lastRequestId = response.headers.get('x-request-id') ?? lastRequestId;
+      return undefined;
+    },
+  });
+  return client;
+}
+
+/** An API error carried as an exception, for queries and route errors. */
+export class ProblemError extends Error {
+  override readonly name = 'ProblemError';
+
+  constructor(readonly problem: Problem) {
+    super(problem.title);
+  }
 }
 
 export const api = createApiClient();
