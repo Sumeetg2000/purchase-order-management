@@ -97,6 +97,31 @@ describe('[FR-ADM-05] admin:create', () => {
     expect(await query(db, 'SELECT 1 FROM audit_entries')).toHaveLength(1);
   });
 
+  it('[FR-ADM-05] an email taken concurrently by a writer outside the admin lock is still EMAIL_IN_USE, exit 2', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    // A signup-like insert that doesn't take ADMIN_LOCK, uncommitted while the CLI runs:
+    // the CLI's lookup can't see it, and its insert waits on the unique index.
+    const writer = await db.client('po_owner');
+    await writer.query('BEGIN');
+    await writer.query(`SELECT set_config('app.actor_txid', txid_current()::text, true),
+                               set_config('app.actor_type', 'SYSTEM', true)`);
+    await writer.query(
+      `INSERT INTO users (id, name, email, roles, status)
+       VALUES (gen_random_uuid(), 'Signed Up', 'second@example.local', '{}', 'ACTIVE')`,
+    );
+    const pending = cli(create, envFor(db.url('po_app')));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await writer.query('COMMIT');
+
+    const result = await pending;
+    expect(result.stderr).toMatch(/^ERROR EMAIL_IN_USE: /);
+    expect(result.code).toBe(2);
+    expect(await query(db, 'SELECT name, roles FROM users')).toEqual([
+      { name: 'Signed Up', roles: [] },
+    ]);
+    expect(await query(db, 'SELECT 1 FROM one_time_tokens')).toHaveLength(0);
+  });
+
   it.each([
     ['no command', [], 'USAGE'],
     ['an unknown command', ['admin:explode'], 'USAGE'],
