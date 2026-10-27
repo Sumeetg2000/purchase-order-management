@@ -113,6 +113,29 @@ internal_metrics() {
   docker compose exec -T web wget -qO- http://api:9464/metrics | grep -q 'po_http_requests_total'
 }
 
+# Sends one message through the API image's own mailer with the api container's validated
+# config, then finds it in Mailpit: the API reaches the SMTP server it's configured with.
+MAIL_SUBJECT="smoke check $(date +%s)-$$"
+api_mail_reaches_mailpit() {
+  docker compose exec -T api node --input-type=module -e '
+    import { apiConfig } from "./dist/config/api.js";
+    import { loadConfig } from "./dist/config/load.js";
+    import { createSmtpMailer } from "./dist/mail/smtp.js";
+    import { defineTemplate } from "./dist/mail/template.js";
+    const config = loadConfig(apiConfig.schema);
+    if (!config) process.exit(1);
+    const subject = process.argv[1];
+    const template = defineTemplate({
+      name: "smoke",
+      subject: () => subject,
+      text: () => "smoke",
+      html: () => "<p>smoke</p>",
+    });
+    await createSmtpMailer(config).send({ template, to: "smoke@example.local", variables: {} });
+  ' "$MAIL_SUBJECT" &&
+    curl -fsS --max-time 5 http://127.0.0.1:8025/api/v1/messages | grep -qF "$MAIL_SUBJECT"
+}
+
 maintenance_ran() {
   docker compose logs --no-color maintenance | grep -q 'purge run complete'
 }
@@ -190,6 +213,7 @@ eventually "maintenance logged its first purge run" maintenance_ran
 eventually "Mailpit API answers on 127.0.0.1:8025" body_contains "http://127.0.0.1:8025/api/v1/info" '"Version"'
 # SC-001's start time is measured here, before the checks below restart the API.
 ready_at="$(date +%s)"
+eventually "the api's mail reaches Mailpit over SMTP" api_mail_reaches_mailpit
 eventually "a 3 MB POST gets the edge's problem+json 413" oversized_post
 eventually "a token in a URL or Referer never reaches the web access log" token_not_logged
 
