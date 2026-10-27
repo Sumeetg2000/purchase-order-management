@@ -1,3 +1,5 @@
+// First: configures Zod before @po/contracts builds its schemas (see zod-config.ts).
+import './zod-config';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';
