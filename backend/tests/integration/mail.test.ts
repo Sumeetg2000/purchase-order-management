@@ -397,6 +397,20 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
 
+  it('[NFR-OPS-04] mail dispatched after shutdown settled is not sent but logged as mail_send_abandoned', async () => {
+    const capture = createCapture();
+    const send = vi.fn(() => Promise.resolve());
+    const mail = createMailDispatcher({ send });
+    await mail.settle(100);
+    // A request cut off by the drain can commit after the mail wait has ended.
+    mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
+    await mail.settled();
+    expect(send).not.toHaveBeenCalled();
+    expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
+      expect.objectContaining({ event: 'mail_send_abandoned', template: 'verify_email' }),
+    ]);
+  });
+
   it('[NFR-OPS-04] a send still running when shutdown stops waiting is logged as mail_send_abandoned, since it may still be delivered', async () => {
     const capture = createCapture();
     const mail = createMailDispatcher(delayedMailer(5_000, []));
