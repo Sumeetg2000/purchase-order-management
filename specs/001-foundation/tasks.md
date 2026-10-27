@@ -948,7 +948,7 @@ second concurrent run is a no-op.
   parts: config, production refusals, credential separation, headers, metrics, gitleaks).
   Confirm every slice 0 row is `Done` (fully delivered) or `Tested` (partial, with the
   remaining slice noted in the spec) — Verify: `npm run check:traceability` passes.
-- [ ] T114 CI self-test record, for SC-004 — `specs/001-foundation/ci-selftest.md`. CI runs
+- [X] T114 CI self-test record, for SC-004 — `specs/001-foundation/ci-selftest.md`. CI runs
   only on PRs to `main`, so for each check: open a throwaway **draft PR** from a
   `selftest/<check>` branch with one deliberate break, record the job that failed and the
   run link, then **close the PR and delete the branch immediately**. The checks to break:
@@ -965,7 +965,10 @@ second concurrent run is a no-op.
 
   — SC-004 — Verify: every row shows only the intended job failing, and
   `gh pr list --state open --search "head:selftest/"` returns nothing.
-- [ ] T115 Quickstart run-through, for SC-001 and SC-008 —
+  Recorded 2026-10-27. Open: the breaking-change row ran locally only, because `main` has no
+  OpenAPI document to compare against until slice 0 merges; repeat it in CI on the first
+  PR after the merge.
+- [X] T115 Quickstart run-through, for SC-001 and SC-008 —
   `specs/001-foundation/quickstart-results.md`. Run every step of
   [quickstart.md](quickstart.md) from a clean clone; record outputs, the clean-start time
   (target < 10 min) and the CI wall time (target < 15 min); fix the quickstart or the code

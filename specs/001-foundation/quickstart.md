@@ -40,7 +40,7 @@ docker compose start db
 ```bash
 docker compose logs migrate | grep -A2 "One-time set-password link"   # exactly one link
 docker compose up -d --force-recreate migrate && docker compose logs migrate | grep -c "set-password link"
-# still 1 in the new run's output: nothing is created or printed again
+# 0: the new run's output has no link, because nothing is created or printed again
 docker compose exec api npm run admin -- admin:create --email second@example.local --name "Second Admin"
 # prints a link, exit 0
 docker compose exec api npm run admin -- admin:create --email second@example.local --name "Again"
@@ -65,9 +65,12 @@ the API integration tests, using routes registered only in the test app
 
 ## 4. Configuration refusals (Story 1)
 
+`--no-deps` keeps the api run from starting migrate first, which would refuse the
+production settings before the API is reached.
+
 ```bash
 APP_ENV=production SEED_DEMO_DATA=true docker compose run --rm migrate   # exits 1, names SEED_DEMO_DATA
-APP_ENV=production docker compose run --rm api                           # exits 1, names SMTP_HOST (mailpit)
+APP_ENV=production docker compose run --rm --no-deps api                 # exits 1, names SMTP_HOST (mailpit)
 ```
 
 ## 5. Developer inner loop (optional, research R25)
