@@ -14,11 +14,12 @@ export interface MailDispatcher {
   /** Resolves once nothing is in flight, including sends dispatched while it waits. */
   settled: () => Promise<void>;
   /**
-   * For shutdown: waits up to `timeoutMs` for the sends in flight, then gives up on the
-   * rest, logging each as mail_send_abandoned: it may still be delivered, so not failed.
-   * Mail dispatched after that isn't sent, and is logged as mail_send_abandoned too.
+   * For shutdown: waits up to `timeoutMs` for the sends in flight (the whole time with
+   * `untilTimeout`, for requests the drain cut off that may still dispatch), then gives
+   * up on the rest, logging each as mail_send_abandoned: it may still be delivered, so not
+   * failed. Mail dispatched after that isn't sent, and is logged as mail_send_abandoned.
    */
-  settle: (timeoutMs: number) => Promise<void>;
+  settle: (timeoutMs: number, options?: { untilTimeout?: boolean }) => Promise<void>;
 }
 
 interface InFlight {
@@ -74,17 +75,16 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
       void sending.finally(() => inFlight.delete(sending));
     },
     settled,
-    async settle(timeoutMs) {
+    async settle(timeoutMs, { untilTimeout = false } = {}) {
       let timer: NodeJS.Timeout | undefined;
-      const timedOut = new Promise<true>((resolve) => {
-        timer = setTimeout(() => {
-          resolve(true);
-        }, timeoutMs);
+      const timedOut = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs);
       });
-      const expired = await Promise.race([settled().then(() => false), timedOut]);
+      await (untilTimeout ? timedOut : Promise.race([settled(), timedOut]));
       clearTimeout(timer);
+      // In the same synchronous step as the close, so no dispatch can slip between them:
+      // everything still in flight now is abandoned, and anything later is refused.
       closed = true;
-      if (!expired) return;
       for (const entry of inFlight.values()) {
         entry.abandoned = true;
         record(entry.logger, 'mail_send_abandoned', { template: entry.template });

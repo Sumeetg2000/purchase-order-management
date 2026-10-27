@@ -70,7 +70,11 @@ export function createShutdown({
       if (drained.includes(false)) {
         logger.warn({ requestsMs }, 'shutdown: drain timed out; open connections were closed');
       }
-      await mail?.settle(Math.max(0, deadline - Date.now()));
+      // A request the drain cut off can still commit and dispatch mail: wait out the rest
+      // of the deadline for it rather than returning as soon as nothing is in flight.
+      await mail?.settle(Math.max(0, deadline - Date.now()), {
+        untilTimeout: drained.includes(false),
+      });
       await prisma.$disconnect();
       logger.info('shutdown: complete');
     })();
