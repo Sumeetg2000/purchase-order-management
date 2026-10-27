@@ -97,6 +97,31 @@ export default defineConfig(
     },
     rules: { 'import-x/no-cycle': 'error' },
   },
+  // Layering (CLAUDE.md): an area's routes call its services and never reach the
+  // database; only repositories run queries. scripts/tests/layering.test.mjs probes it.
+  {
+    files: ['backend/src/**/*.ts'],
+    rules: {
+      'import-x/no-restricted-paths': [
+        'error',
+        {
+          basePath: import.meta.dirname,
+          zones: [
+            {
+              target: 'backend/src/*/routes.ts',
+              from: ['backend/src/*/repository.ts', 'backend/src/generated/**'],
+              message: 'Routes call services; only repositories run queries.',
+            },
+            {
+              target: 'backend/src/*/routes.ts',
+              from: 'backend/src/db/client.ts',
+              message: 'Routes call services; only repositories run queries.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ['backend/**/*.ts', 'packages/**/*.ts', 'scripts/**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },

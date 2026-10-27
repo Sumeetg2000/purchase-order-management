@@ -40,12 +40,16 @@ when the slice is done.
 - Test (needs only Docker): `npm test`
 - Lint and typecheck: `npm run lint`, `npm run typecheck`
 
+## Layering (backend; lint enforces the route rule)
+`backend/src/<area>/routes.ts` → `service.ts` → `repository.ts`. Routes map inputs and
+outputs and call services, never Prisma. Services own the business rules and take the
+transaction (`AuditedTransaction`) from `withTransaction`. Only repositories run queries.
+
 ## Conventions
 - Conventional Commits. Requirement IDs go in test names only, never in code, comments or
   commit subjects (ADR-0013).
-- In a commit message body, wrap a "Failing run:" or "Verified:" line under 100
-  characters: a paragraph starting with "Word:" is parsed as a footer, and commitlint
-  refuses footer lines over 100. The commit-msg hook checks it.
+- In a commit body, keep a "Failing run:" or "Verified:" line under 100 characters: a
+  "Word:" paragraph is a footer, and commitlint (commit-msg hook) refuses longer ones.
 - A new decision or a changed number is recorded as an ADR update, not an edit to the
   constitution (see its Governance section).
 - A value used in more than one place, or one that carries business meaning (a lifetime,

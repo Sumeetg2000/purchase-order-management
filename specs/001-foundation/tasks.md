@@ -976,7 +976,7 @@ second concurrent run is a no-op.
   frontend and contracts report coverage too, without a floor yet. — Verify: the `api` job
   fails when the floor is raised above the measured value on a throwaway commit (reverted),
   and passes at 80%.
-- [ ] T119 Layering rules before slice 1 (added at the US6 review): a CLAUDE.md section on
+- [X] T119 Layering rules before slice 1 (added at the US6 review): a CLAUDE.md section on
   routes → services → repositories — the folder layout (`backend/src/<area>/routes.ts`,
   `service.ts`, `repository.ts`), routes never touch Prisma (they call services and map
   inputs and outputs), services own the business rules and take the transaction
