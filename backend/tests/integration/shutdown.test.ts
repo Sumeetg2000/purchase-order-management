@@ -1,8 +1,10 @@
 import http from 'node:http';
+import net from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { startApi } from '../../src/api.js';
 import { createPrismaClient } from '../../src/db/client.js';
 import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
@@ -130,5 +132,68 @@ describe('[NFR-OPS-02] graceful shutdown', () => {
     expect(shutdown()).toBe(first);
     await first;
     expect(server.listening).toBe(false);
+  });
+});
+
+describe('[NFR-OPS-02] a failed start', () => {
+  async function listening(port: number) {
+    const server = net.createServer();
+    await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
+    return server;
+  }
+  async function freePort() {
+    const server = await listening(0);
+    const { port } = server.address() as AddressInfo;
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+    return port;
+  }
+  function accepts(port: number) {
+    return new Promise<boolean>((resolve) => {
+      const socket = net.connect(port, '127.0.0.1');
+      socket.once('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.once('error', () => {
+        resolve(false);
+      });
+    });
+  }
+
+  it('[NFR-OPS-02] closes the API listener when the metrics port is taken', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const taken = await listening(0);
+    const httpPort = await freePort();
+    try {
+      await expect(
+        startApi(
+          {
+            APP_ENV: 'local',
+            APP_ORIGIN: 'http://localhost:8080',
+            DATABASE_URL: db.url('po_app'),
+            DB_POOL_SIZE: 2,
+            DB_TX_TIMEOUT_MS: 5_000,
+            DB_TX_MAX_WAIT_MS: 2_000,
+            HTTP_PORT: httpPort,
+            METRICS_PORT: (taken.address() as AddressInfo).port,
+            LOG_LEVEL: 'error',
+            SMTP_HOST: 'mailpit',
+            SMTP_PORT: 1025,
+            SMTP_SECURE: false,
+            SMTP_USER: undefined,
+            SMTP_PASSWORD: undefined,
+            MAIL_FROM: 'noreply@example.local',
+          },
+          silent,
+        ),
+      ).rejects.toThrow();
+      expect(await accepts(httpPort)).toBe(false);
+    } finally {
+      taken.close();
+    }
   });
 });
