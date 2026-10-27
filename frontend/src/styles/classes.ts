@@ -1,7 +1,7 @@
 /**
  * The named classes of a CSS module, typed as strings. A name the stylesheet doesn't
- * define throws when the module loads, so a typo fails the first test that renders it
- * instead of silently dropping a style.
+ * define throws when the module loads. The component tests process CSS modules for real
+ * (vitest.config.ts), so a typo fails there instead of in the production build.
  */
 export function classes<const K extends string>(
   module: CSSModuleClasses,

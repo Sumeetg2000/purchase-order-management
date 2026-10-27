@@ -24,6 +24,9 @@ export default mergeConfig(
             include: ['tests/**/*.test.tsx'],
             environment: 'jsdom',
             setupFiles: ['tests/support/setup.ts'],
+            // Real CSS modules, not Vitest's stand-in that answers any class name, so a
+            // misspelt class fails here (styles/classes.ts).
+            css: { include: [/\.module\.css$/] },
           },
         },
       ],
