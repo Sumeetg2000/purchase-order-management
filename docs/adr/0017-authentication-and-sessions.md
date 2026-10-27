@@ -211,8 +211,10 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
   - admin-initiated reset (same link, different wording)
 - **Emails are sent after the transaction commits, never inside it**. A rolled-back
   command sends nothing.
-  - There's no outbox (ADR-0019). If sending fails, the failure is logged and the user
-    retries with resend-verification or forgot-password.
+  - There's no outbox (ADR-0019). If sending fails, the failure is logged
+    (`mail_send_failed`) and the user retries with resend-verification or
+    forgot-password. Mail shutdown gives up on is logged as `mail_send_abandoned`
+    (ADR-0020).
 - **Mailpit** runs in docker compose under the `local` profile (SMTP on the internal
   network, web UI on `localhost:8025`). `.env.example` sets `COMPOSE_PROFILES=local`, so
   `docker compose up` still needs only `.env`.

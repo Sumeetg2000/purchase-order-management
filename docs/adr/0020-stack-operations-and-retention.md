@@ -3,7 +3,8 @@
 - **Status:** Accepted · 2026-10-20 (moved here from the constitution, plus the retention
   rules and the `maintenance` compose service) · amended 2026-10-23 (internal-only metrics
   port; public-repository CI rules and secret scanning; credential separation; runtime
-  libraries from the slice 0 plan)
+  libraries from the slice 0 plan) · amended 2026-10-27 (shutdown waits for mail within
+  the drain deadline)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -52,7 +53,12 @@
   SMTP settings, `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_NAME` and the rate-limit store.
 - Config is validated by schema at startup, and the process exits non-zero if it's
   invalid.
-- Graceful shutdown drains in-flight requests and closes the pool.
+- Graceful shutdown drains in-flight requests, then mail still sending, and closes the
+  pool, all within one 10 s deadline (`DRAIN_TIMEOUT_MS`). The last 2 s
+  (`MAIL_RESERVE_MS`) are kept for mail, so a stuck request can't use them up. A send
+  still running at the deadline, or dispatched after it, is logged as the security event
+  `mail_send_abandoned` (its outcome is unknown), never dropped silently. The `api`
+  service's `stop_grace_period` (15 s) is pinned by a test to outlast the deadline.
 
 ### Security baseline
 - Helmet security headers, CORS denied by default (same origin, ADR-0017), and request
