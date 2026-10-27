@@ -12,6 +12,14 @@ export default mergeConfig(
       outputFile: {
         json: fileURLToPath(new URL('../reports/vitest-frontend.json', import.meta.url)),
       },
+      // Reported, without a floor yet.
+      coverage: {
+        enabled: true,
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        reporter: ['text-summary', 'json-summary', 'lcov'],
+        reportsDirectory: fileURLToPath(new URL('../reports/coverage/frontend', import.meta.url)),
+      },
       projects: [
         {
           extends: true,

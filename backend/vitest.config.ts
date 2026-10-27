@@ -12,6 +12,16 @@ export default defineConfig({
     outputFile: {
       json: fileURLToPath(new URL('../reports/vitest-backend.json', import.meta.url)),
     },
+    // Both projects together; the run fails below the line floor.
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/generated/**'],
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+      reportsDirectory: fileURLToPath(new URL('../reports/coverage/backend', import.meta.url)),
+      thresholds: { lines: 80 },
+    },
     projects: [
       {
         test: {

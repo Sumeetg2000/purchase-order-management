@@ -970,7 +970,7 @@ second concurrent run is a no-op.
   [quickstart.md](quickstart.md) from a clean clone; record outputs, the clean-start time
   (target < 10 min) and the CI wall time (target < 15 min); fix the quickstart or the code
   for any mismatch — Verify: every step matches its expected result.
-- [ ] T118 Coverage reporting (added at the US6 review): Vitest's v8 coverage for the
+- [X] T118 Coverage reporting (added at the US6 review): Vitest's v8 coverage for the
   backend unit and integration projects, written to `reports/coverage/` and uploaded by the
   `api` job, which fails below an 80% line floor (`coverage.thresholds.lines`). The
   frontend and contracts report coverage too, without a floor yet. — Verify: the `api` job
