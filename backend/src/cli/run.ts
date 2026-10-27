@@ -51,7 +51,8 @@ function parseCommand(argv: readonly string[]) {
 
 /** Runs one CLI invocation and returns its exit code. */
 export async function runCli(argv: readonly string[], deps: CliDeps): Promise<number> {
-  if (argv.length === 1 && argv[0] === '--help') {
+  // --help anywhere shows the usage and runs nothing.
+  if (argv.includes('--help')) {
     deps.stdout(USAGE);
     return EXIT.OK;
   }
