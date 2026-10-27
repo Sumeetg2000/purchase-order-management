@@ -1,5 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { getLastRequestId, ProblemError } from '../api/client';
 import { Empty, type EmptyProps } from '../components/Empty';
 import { ErrorState } from '../components/ErrorState';
@@ -12,7 +12,8 @@ export interface QueryStateOptions<T> {
   empty?: EmptyProps;
 }
 
-export type QueryStates<T> = { view: ReactNode; data: undefined } | { view: null; data: T };
+/** `view` is an element (always truthy) exactly when there is no data, so `if (view)` narrows. */
+export type QueryStates<T> = { view: ReactElement; data: undefined } | { view: null; data: T };
 
 /**
  * The loading, error and empty states for a TanStack Query result, so pages don't hand-roll
