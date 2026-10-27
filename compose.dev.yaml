@@ -1,0 +1,9 @@
+# Developer inner loop only (research R25): `npm run dev` adds this file so the host-run
+# API reaches the database and Mailpit's SMTP. Loopback only; docker-compose.yml is unchanged.
+services:
+  db:
+    ports:
+      - '127.0.0.1:5432:5432'
+  mailpit:
+    ports:
+      - '127.0.0.1:1025:1025'

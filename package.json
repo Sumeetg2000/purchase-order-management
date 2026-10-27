@@ -11,6 +11,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "dev": "npm run generate -w @po/backend && npm run build -w @po/contracts && node scripts/dev-env.mjs services && concurrently --kill-others --names api,web \"node scripts/dev-env.mjs api tsx watch --clear-screen=false backend/src/server.ts\" \"npm run dev -w @po/frontend\"",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -32,6 +33,7 @@
     "@commitlint/lint": "21.2.4",
     "@commitlint/load": "21.2.4",
     "@eslint/js": "10.0.1",
+    "concurrently": "10.0.6",
     "eslint": "10.13.0",
     "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import-x": "4.17.1",

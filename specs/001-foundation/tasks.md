@@ -929,7 +929,7 @@ second concurrent run is a no-op.
 
 ## Phase 11: Polish and cross-cutting
 
-- [ ] T111 Developer inner loop (research R25):
+- [X] T111 Developer inner loop (research R25):
   - `compose.dev.yaml` (db on `127.0.0.1:5432`, Mailpit SMTP on `127.0.0.1:1025`)
   - `scripts/dev-env.mjs` (`.env` with hosts rewritten to `127.0.0.1`; passes the API only
     its own variables)

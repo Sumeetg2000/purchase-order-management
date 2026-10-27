@@ -82,8 +82,9 @@ Expected:
   the host-run API, on the same origin as production.
 - Editing `backend/src/**` restarts the API in about a second. Editing `frontend/src/**`
   updates the page without a reload.
-- The response headers match production's CSP. The only addition is the dev-only nonce
-  for the React Refresh preamble.
+- The response headers match production's CSP. The only addition is a dev-only nonce on
+  `script-src` and `style-src`, for the React Refresh preamble and the styles Vite injects.
+- Ctrl-C stops the API and Vite; db and Mailpit keep running.
 - `npm test` needs only Docker: it starts its own PostgreSQL via Testcontainers.
 
 ## 6. Automated checks (Story 2)

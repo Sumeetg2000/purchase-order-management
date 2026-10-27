@@ -6,17 +6,30 @@
 // CSS files (React Aria and React set styles through the CSSOM, which the CSP allows).
 // HSTS is added where TLS terminates; this edge serves plain HTTP.
 
-export const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self' data:",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-].join('; ');
+/** The policy, with any extra sources for scripts and styles (the dev server's nonce). */
+function contentSecurityPolicy(extra = []) {
+  return [
+    "default-src 'self'",
+    ["script-src 'self'", ...extra].join(' '),
+    ["style-src 'self'", ...extra].join(' '),
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+  ].join('; ');
+}
+
+export const CONTENT_SECURITY_POLICY = contentSecurityPolicy();
+
+/**
+ * The Vite dev server's policy (research R25): production's plus a nonce on scripts and
+ * styles, for the inline React Refresh preamble and the styles Vite injects in dev.
+ */
+export function devContentSecurityPolicy(nonce) {
+  return contentSecurityPolicy([`'nonce-${nonce}'`]);
+}
 
 /** Header name → value. */
 export const SECURITY_HEADERS = {

@@ -477,8 +477,11 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     - Vite's `server.headers` uses that module, and a test asserts nginx's config carries
       the identical values.
     - The one difference is a dev-only nonce for the inline React Refresh preamble
-      (Vite `html.cspNonce`). It's added to `script-src` only in the dev server, and
-      production and Playwright run the exact production policy.
+      (Vite `html.cspNonce`). It's added to `script-src` and `style-src` in the dev server
+      only (in dev, Vite injects CSS as `<style>` elements), and production and Playwright
+      run the exact production policy.
+  - migrate runs in the foreground after db and Mailpit are healthy: `up --wait` counts a
+    running one-shot as healthy, so the API could start before the migrations finish.
   - `concurrently` runs both processes, and Ctrl-C stops both and leaves the compose
     services running.
   - **Tests locally need only Docker**: `npm test` starts its own PostgreSQL 17 through
