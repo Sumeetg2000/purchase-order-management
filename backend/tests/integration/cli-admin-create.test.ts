@@ -159,11 +159,15 @@ describe('[FR-ADM-05] admin:create', () => {
     expect(result.stderr).not.toContain('--email');
   });
 
-  it('[FR-ADM-05] --help prints the commands and exits 0', async () => {
-    const result = await cli(['--help'], {});
-    expect(result.code).toBe(0);
-    expect(result.stdout).toContain('admin:create --email <email> --name <name>');
-  });
+  it.each([[['--help']], [['admin:create', '--help']], [[...create, '--help']]])(
+    '[FR-ADM-05] %j prints the commands and exits 0 without running anything',
+    async (argv) => {
+      const result = await cli(argv, {});
+      expect(result.code).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toContain('admin:create --email <email> --name <name>');
+    },
+  );
 
   it('[FR-ADM-05] an unreachable database is exit 3 with ERROR UNAVAILABLE', async () => {
     const result = await cli(create, envFor('postgresql://po_app:unused@127.0.0.1:9/none'));
