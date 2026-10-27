@@ -19,6 +19,8 @@ COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
 RUN npm run build -w @po/contracts
 COPY frontend frontend
+# vite.config.ts imports the security headers for its dev server.
+COPY deploy/security-headers.mjs deploy/security-headers.d.mts deploy/
 # The manifest is for the bundle budget check; it isn't served.
 RUN npm run build -w @po/frontend && rm -rf frontend/dist/.vite
 
