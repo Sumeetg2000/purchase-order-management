@@ -12,10 +12,20 @@ function EditPage() {
   return (
     <>
       <h1>Edit vendor</h1>
-      <button type="button" onClick={() => setDirty(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setDirty(true);
+        }}
+      >
         Change name
       </button>
-      <button type="button" onClick={() => setDirty(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setDirty(false);
+        }}
+      >
         Save
       </button>
       <Link to="/elsewhere">Elsewhere</Link>
