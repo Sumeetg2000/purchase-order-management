@@ -8,6 +8,12 @@ import type { MailDispatcher } from '../mail/dispatcher.js';
  */
 export const DRAIN_TIMEOUT_MS = 10_000;
 
+/**
+ * The least time mail still sending gets after the request drain, even when a stuck
+ * request used the whole drain. Compose's stop_grace_period covers both (a test pins it).
+ */
+export const MIN_MAIL_SETTLE_MS = 2_000;
+
 export interface ShutdownOptions {
   /** Every listener of the process (API and metrics). */
   servers: readonly Server[];
@@ -53,7 +59,7 @@ export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }
       if (drained.includes(false)) {
         logger.warn({ drainTimeoutMs }, 'shutdown: drain timed out; open connections were closed');
       }
-      await mail?.settle(Math.max(0, deadline - Date.now()));
+      await mail?.settle(Math.max(MIN_MAIL_SETTLE_MS, deadline - Date.now()));
       await prisma.$disconnect();
       logger.info('shutdown: complete');
     })();
