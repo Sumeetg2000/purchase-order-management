@@ -23,7 +23,8 @@
     "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs",
     "contract:types": "npm run contract:types -w @po/frontend",
     "e2e": "npm run e2e -w @po/frontend",
-    "check:bundle": "node scripts/check-bundle-budget.mjs"
+    "check:bundle": "node scripts/check-bundle-budget.mjs",
+    "prepare": "node -e \"if (require('node:fs').existsSync('.git')) require('node:child_process').execFileSync('npx', ['--no-install', 'lefthook', 'install'], { stdio: 'inherit' })\""
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
@@ -37,6 +38,7 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
+    "lefthook": "2.2.1",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
@@ -49,7 +51,8 @@
     "cpu-features": false,
     "ssh2": false,
     "protobufjs": false,
-    "unrs-resolver": false
+    "unrs-resolver": false,
+    "lefthook": false
   },
   "overrides": {
     "openapi-typescript": {

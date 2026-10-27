@@ -1,0 +1,19 @@
+# Git hooks (README: Developing). npm ci and npm install install them through the root
+# prepare script, which skips the install where there is no .git (the Docker image
+# builds); lefthook's own postinstall is denied in allowScripts. Skip once, if you must,
+# with LEFTHOOK=0 git commit ...
+pre-commit:
+  parallel: true
+  commands:
+    # The same gitleaks image as CI, pinned by digest (scripts/tests/image-pins.test.mjs).
+    gitleaks:
+      run: >-
+        docker run --rm -v "$PWD:/repo" -w /repo
+        ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        protect --staged --redact --source /repo --config /repo/.gitleaks.toml
+    prettier:
+      glob: '*.{ts,tsx,js,mjs,cjs,json,yml,yaml,css}'
+      run: npx prettier --check {staged_files}
+    eslint:
+      glob: '*.{ts,tsx,js,mjs,cjs}'
+      run: npx eslint --no-warn-ignored {staged_files}
