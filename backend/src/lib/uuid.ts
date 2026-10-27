@@ -1,3 +1,4 @@
+// FR-PO-01 self-test
 import { randomBytes } from 'node:crypto';
 
 /** A UUIDv7 (RFC 9562): 48-bit Unix milliseconds, then random bits, so ids sort by time. */
