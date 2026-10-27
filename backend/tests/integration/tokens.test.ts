@@ -2,7 +2,12 @@ import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction, type AuditedTransaction } from '../../src/db/transaction.js';
-import { issueToken, hashToken, type TokenPurpose } from '../../src/tokens/one-time.js';
+import {
+  hashToken,
+  issueToken,
+  RESET_TOKEN_LIFETIME_MINUTES,
+  type TokenPurpose,
+} from '../../src/tokens/one-time.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
@@ -89,12 +94,18 @@ describe('[FR-ACC-03] one-time tokens', () => {
     expect(tokens.size).toBe(5);
   });
 
-  it('[FR-ACC-03] a RESET token expires 30 minutes after it is created, by the database clock', async () => {
+  it('[FR-ACC-03] a RESET token lives 30 minutes (FR-035)', () => {
+    expect(RESET_TOKEN_LIFETIME_MINUTES).toBe(30);
+  });
+
+  it('[FR-ACC-03] a RESET token expires its lifetime after it is created, by the database clock', async () => {
     const { db, issue } = await setup();
     const { expiresAt } = await issue('RESET');
     const [row] = await tokenRows(db);
     expect(row?.purpose).toBe('RESET');
-    expect((row?.expires_at.getTime() ?? 0) - (row?.created_at.getTime() ?? 0)).toBe(30 * 60_000);
+    expect((row?.expires_at.getTime() ?? 0) - (row?.created_at.getTime() ?? 0)).toBe(
+      RESET_TOKEN_LIFETIME_MINUTES * 60_000,
+    );
     expect(expiresAt.getTime()).toBe(row?.expires_at.getTime());
   });
 

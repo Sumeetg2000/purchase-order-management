@@ -3,6 +3,7 @@ import { inspect } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BootstrapError, runBootstrap, type BootstrapOptions } from '../../src/bootstrap/run.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
+import { RESET_TOKEN_LIFETIME_MINUTES } from '../../src/tokens/one-time.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { createCapture } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
@@ -79,6 +80,9 @@ describe('[FR-ADM-04] admin bootstrap', () => {
     ]);
 
     expect(links()).toHaveLength(1);
+    expect(String(links()[0]?.['msg'])).toContain(
+      `valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes`,
+    );
     const link = String(links()[0]?.['link']);
     const match = /^http:\/\/localhost:8080\/reset-password#token=([A-Za-z0-9_-]{43})$/.exec(link);
     expect(match, link).not.toBeNull();

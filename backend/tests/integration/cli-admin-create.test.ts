@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { runCli } from '../../src/cli/run.js';
+import { RESET_TOKEN_LIFETIME_MINUTES } from '../../src/tokens/one-time.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { trackDatabase } from '../support/setup.js';
 
@@ -44,7 +45,7 @@ describe('[FR-ADM-05] admin:create', () => {
     const lines = result.stdout.split('\n');
     expect(lines.slice(0, 2)).toEqual([
       'Admin created: second@example.local',
-      'One-time set-password link (valid 30 minutes, shown once):',
+      `One-time set-password link (valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes, shown once):`,
     ]);
     const match = /^http:\/\/localhost:8080\/reset-password#token=([A-Za-z0-9_-]{43})$/.exec(
       lines[2] ?? '',
@@ -166,6 +167,7 @@ describe('[FR-ADM-05] admin:create', () => {
       expect(result.code).toBe(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).toContain('admin:create --email <email> --name <name>');
+      expect(result.stdout).toContain(`valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes`);
     },
   );
 
