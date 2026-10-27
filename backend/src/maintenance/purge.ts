@@ -52,7 +52,8 @@ async function deleteInBatches(
 }
 
 // The audit_retention_guard trigger refuses any younger entry whatever this says, so asOf
-// can't be used to delete inside the retention period.
+// can't be used to delete inside the retention period. The order matches
+// audit_entries_occurred_at_id_idx (migration 0003), so each batch is an index range scan.
 export const auditEntriesTask: PurgeTask = {
   name: 'audit_entries',
   run: ({ db, asOf, batchSize, signal }) =>
@@ -62,7 +63,7 @@ export const auditEntriesTask: PurgeTask = {
         DELETE FROM audit_entries WHERE id IN (
           SELECT id FROM audit_entries
           WHERE occurred_at < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(years => ${AUDIT_RETENTION_YEARS})
-          ORDER BY id
+          ORDER BY occurred_at, id
           LIMIT ${batchSize})`,
     ),
 };
