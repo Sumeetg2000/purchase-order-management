@@ -15,7 +15,7 @@ export interface MailDispatcher {
   settled: () => Promise<void>;
   /**
    * For shutdown: waits up to `timeoutMs` for the sends in flight, then gives up on the
-   * rest, logging each as mail_send_failed with errorName ShutdownTimeout.
+   * rest, logging each as mail_send_abandoned: it may still be delivered, so not failed.
    */
   settle: (timeoutMs: number) => Promise<void>;
 }
@@ -67,10 +67,7 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
       if (!expired) return;
       for (const entry of inFlight.values()) {
         entry.abandoned = true;
-        logSecurityEvent(entry.logger, 'mail_send_failed', {
-          template: entry.template,
-          errorName: 'ShutdownTimeout',
-        });
+        logSecurityEvent(entry.logger, 'mail_send_abandoned', { template: entry.template });
       }
       inFlight.clear();
     },
