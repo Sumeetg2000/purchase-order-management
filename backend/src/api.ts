@@ -7,6 +7,7 @@ import { createApp } from './http/app.js';
 import { listMigrations } from './http/routes/health.js';
 import { productionRoutes } from './http/routes/index.js';
 import { createShutdown } from './http/shutdown.js';
+import { createMailDispatcher } from './mail/dispatcher.js';
 import { createSmtpMailer } from './mail/smtp.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
 
@@ -51,7 +52,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
       prisma,
       expectedMigrations: await listMigrations(),
       logger,
-      mailer: createSmtpMailer(config),
+      mail: createMailDispatcher(createSmtpMailer(config)),
     }),
   });
 

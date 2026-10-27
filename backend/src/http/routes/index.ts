@@ -1,9 +1,9 @@
-import type { Mailer } from '../../mail/mailer.js';
+import type { MailDispatcher } from '../../mail/dispatcher.js';
 import type { RouteDefinition } from '../define-route.js';
 import { healthRoutes, type HealthDependencies } from './health.js';
 
-/** What the routes need. The mailer is unused until slice 1's account routes. */
-export type RouteDependencies = HealthDependencies & { mailer: Mailer };
+/** What the routes need. Mail is unused until slice 1's account routes. */
+export type RouteDependencies = HealthDependencies & { mail: MailDispatcher };
 
 /**
  * Every route the API serves. A test checks this is exactly the contract's operations

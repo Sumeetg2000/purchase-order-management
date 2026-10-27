@@ -192,25 +192,31 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
   });
 
   it('[NFR-OPS-04] the response does not wait for the mail server', async () => {
-    let release = () => undefined as void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
+    const gate: { open?: () => void } = {};
+    const opened = new Promise<undefined>((resolve) => {
+      gate.open = () => {
+        resolve(undefined);
+      };
     });
     const stalled = new CaptureMailer();
     const slow: Mailer = {
       send: async (message) => {
-        await gate;
+        await opened;
         await stalled.send(message);
       },
     };
     const { send, mail } = await setup(slow);
     const outcome = await Promise.race([
       send(false).then((res) => res.status),
-      new Promise<string>((resolve) => setTimeout(() => resolve('still waiting on mail'), 2_000)),
+      new Promise<string>((resolve) => {
+        setTimeout(() => {
+          resolve('still waiting on mail');
+        }, 2_000);
+      }),
     ]);
     expect(outcome).toBe(200);
     expect(stalled.sent).toEqual([]);
-    release();
+    gate.open?.();
     await mail.settled();
     expect(stalled.sent).toHaveLength(1);
   });
