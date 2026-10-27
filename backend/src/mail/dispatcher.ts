@@ -16,6 +16,7 @@ export interface MailDispatcher {
   /**
    * For shutdown: waits up to `timeoutMs` for the sends in flight, then gives up on the
    * rest, logging each as mail_send_abandoned: it may still be delivered, so not failed.
+   * Mail dispatched after that isn't sent, and is logged as mail_send_abandoned too.
    */
   settle: (timeoutMs: number) => Promise<void>;
 }
@@ -40,12 +41,18 @@ function record(logger: Logger, event: SecurityEvent, fields: Record<string, unk
 
 export function createMailDispatcher(mailer: Mailer): MailDispatcher {
   const inFlight = new Map<Promise<void>, InFlight>();
+  // Set once shutdown has stopped waiting: the process is about to exit.
+  let closed = false;
   // Loops until nothing is in flight, so sends dispatched while it waits are included.
   const settled = async () => {
     while (inFlight.size > 0) await Promise.all(inFlight.keys());
   };
   return {
     dispatch(message, logger) {
+      if (closed) {
+        record(logger, 'mail_send_abandoned', { template: message.template.name });
+        return;
+      }
       const entry: InFlight = { template: message.template.name, logger, abandoned: false };
       // Called inside a promise, so a mailer that throws instead of rejecting is caught too.
       const sending = Promise.resolve()
@@ -76,6 +83,7 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
       });
       const expired = await Promise.race([settled().then(() => false), timedOut]);
       clearTimeout(timer);
+      closed = true;
       if (!expired) return;
       for (const entry of inFlight.values()) {
         entry.abandoned = true;
