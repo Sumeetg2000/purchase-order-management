@@ -343,16 +343,20 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     };
   }
 
-  it('[NFR-OPS-04] a mail reserve as long as the whole deadline is refused, so requests always get time', () => {
+  it('[NFR-OPS-04] a mail reserve that is not a positive time shorter than the deadline is refused', () => {
     const options = {
       servers: [],
       prisma: { $disconnect: () => Promise.resolve() },
       logger: createCapture().logger,
       mail: createMailDispatcher(new CaptureMailer()),
     };
-    expect(() =>
-      createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 2_000 }),
-    ).toThrow(RangeError);
+    // As long as the deadline leaves requests no time; zero leaves mail none; a negative
+    // or non-finite one breaks the deadline itself.
+    for (const mailReserveMs of [2_000, 0, -6_000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs })).toThrow(
+        RangeError,
+      );
+    }
     expect(() =>
       createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 500 }),
     ).not.toThrow();
