@@ -8,6 +8,7 @@ import {
   auditEntriesTask,
   oneTimeTokensTask,
   runPurge,
+  type PurgeTask,
   TOKEN_RETENTION_DAYS,
 } from '../../src/maintenance/purge.js';
 import { purgeTasks } from '../../src/maintenance/registry.js';
@@ -296,6 +297,36 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       asOf: AS_OF,
     });
     expect(outcome).toMatchObject({ status: 'complete' });
+  });
+
+  it('[NFR-OPS-05] a run whose lock connection drops stops before deleting more', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const old = new Date(yearsBefore(AUDIT_RETENTION_YEARS, AS_OF).getTime() - DAY_MS);
+    await seed(db, [auditEntry(old, 'OLD')]);
+    const admin = await db.client('postgres');
+    // Ends the run's lock session (as a network drop would), then lets the run go on.
+    const dropLock: PurgeTask = {
+      name: 'one_time_tokens',
+      run: async () => {
+        await admin.query(
+          `SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity
+            WHERE application_name = 'po_purge_lock' AND datname = $1`,
+          [db.name],
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return 0;
+      },
+    };
+    const { logger } = createCapture();
+    const outcome = await runPurge({
+      tasks: [dropLock, auditEntriesTask],
+      db: client(db, 'po_maintenance'),
+      lockUrl: db.url('po_maintenance'),
+      logger,
+      asOf: AS_OF,
+    });
+    expect(outcome).toMatchObject({ status: 'failed' });
+    expect(await remaining(db, 'SELECT action AS label FROM audit_entries')).toEqual(['OLD']);
   });
 
   it('[NFR-OPS-05] the same deletes as po_app are refused', async () => {
