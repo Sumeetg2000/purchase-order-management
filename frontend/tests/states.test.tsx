@@ -4,7 +4,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Link, Outlet, RouterProvider } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { createApiClient, ProblemError } from '../src/api/client';
+import { createApiClient, dataOrThrow, NetworkError, ProblemError } from '../src/api/client';
+import { createQueryClient } from '../src/app/providers';
 import { Empty } from '../src/components/Empty';
 import { ErrorState } from '../src/components/ErrorState';
 import { Loading } from '../src/components/Loading';
@@ -122,14 +123,14 @@ describe('[NFR-FE-01] RouteErrorBoundary', () => {
     expect(await screen.findByRole('heading', { name: 'Other page' })).toBeInTheDocument();
   });
 
-  it('[NFR-FE-01] for an error that is not a problem, shows the last request id the client saw', async () => {
+  it('[NFR-FE-01] a plain error shows no request id, never one from an unrelated earlier request', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const client = createApiClient({
       baseUrl: 'http://localhost/api',
       fetch: () =>
         Promise.resolve(
           new Response('{"status":"ok"}', {
-            headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-last-0001' },
+            headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-earlier-0001' },
           }),
         ),
     });
@@ -144,7 +145,8 @@ describe('[NFR-FE-01] RouteErrorBoundary', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       errorMessages.INTERNAL_ERROR.message,
     );
-    expect(screen.getByText('req-last-0001')).toBeInTheDocument();
+    expect(screen.queryByText('req-earlier-0001')).toBeNull();
+    expect(screen.queryByText(/Request ID/)).toBeNull();
   });
 });
 
@@ -182,6 +184,74 @@ describe('[NFR-FE-04] useQueryStates', () => {
   it('[NFR-FE-04] shows the empty state when there is nothing', async () => {
     renderWith(() => Promise.resolve([]));
     expect(await screen.findByRole('heading', { name: 'No orders yet' })).toBeInTheDocument();
+  });
+
+  it('[NFR-FE-01] an error screen shows its own request id while another request is in flight', async () => {
+    // Two overlapping requests: the failing one (a proxy page, not a problem document)
+    // finishes first; the successful one finishes afterwards.
+    let finishOk = () => undefined as unknown;
+    const client = createApiClient({
+      baseUrl: 'http://localhost/api',
+      fetch: (request: Request) =>
+        request.url.endsWith('/readyz')
+          ? Promise.resolve(
+              new Response('<html>bad gateway</html>', {
+                status: 502,
+                headers: { 'Content-Type': 'text/html', 'X-Request-Id': 'req-fail-0001' },
+              }),
+            )
+          : new Promise<Response>((resolve) => {
+              finishOk = () => {
+                resolve(
+                  new Response('{"status":"ok"}', {
+                    headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-ok-0001' },
+                  }),
+                );
+              };
+            }),
+    });
+    renderWith(async () => {
+      const healthy = client.GET('/healthz');
+      const failed = await client.GET('/readyz');
+      finishOk();
+      await healthy;
+      // The error is reported only after the later request has finished.
+      dataOrThrow(failed);
+      return [];
+    });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('req-fail-0001')).toBeInTheDocument();
+    expect(screen.queryByText('req-ok-0001')).toBeNull();
+  });
+
+  it('[NFR-FE-04] a network failure is a temporary failure, with Retry', async () => {
+    const client = createApiClient({
+      baseUrl: 'http://localhost/api',
+      fetch: () => Promise.reject(new TypeError('Failed to fetch')),
+    });
+    let calls = 0;
+    renderWith(async () => {
+      calls += 1;
+      if (calls === 1) await client.GET('/healthz');
+      return ['PO-4'];
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      errorMessages.SERVICE_UNAVAILABLE.message,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('PO-4')).toBeInTheDocument();
+  });
+
+  it('[NFR-FE-04] the app retries network and temporary failures automatically, and nothing else', () => {
+    const retry = createQueryClient().getDefaultOptions().queries?.retry as (
+      failures: number,
+      error: unknown,
+    ) => boolean;
+    expect(retry(0, new NetworkError({ cause: new TypeError('Failed to fetch') }))).toBe(true);
+    expect(retry(0, problem('SERVICE_UNAVAILABLE'))).toBe(true);
+    expect(retry(0, problem('NOT_FOUND'))).toBe(false);
+    expect(retry(0, new Error('bug'))).toBe(false);
+    expect(retry(5, problem('SERVICE_UNAVAILABLE'))).toBe(false);
   });
 
   it('[NFR-FE-04] shows the error with a working Retry for a temporary failure', async () => {
