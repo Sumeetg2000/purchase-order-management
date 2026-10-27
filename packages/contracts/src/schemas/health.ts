@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** GET /healthz: the process is up. */
-export const healthSchema = z.strictObject({ status: z.literal('ok') });
+export const healthSchema = z.strictObject({ status: z.literal('ok') }).describe('Liveness');
 
 /** GET /readyz: the database answers and every shipped migration is applied. */
 export const readinessSchema = z
