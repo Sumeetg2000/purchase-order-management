@@ -71,7 +71,10 @@ export function createShutdown({
       const requestsMs = mail ? Math.max(0, drainTimeoutMs - mailReserveMs) : drainTimeoutMs;
       const drained = await Promise.all(servers.map((s) => closeServer(s, requestsMs)));
       if (drained.includes(false)) {
-        logger.warn({ requestsMs }, 'shutdown: drain timed out; open connections were closed');
+        logger.warn(
+          { drainTimeoutMs, requestsMs },
+          'shutdown: drain timed out; open connections were closed',
+        );
       }
       // A request the drain cut off can still commit and dispatch mail: wait out the rest
       // of the deadline for it rather than returning as soon as nothing is in flight.
