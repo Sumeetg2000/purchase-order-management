@@ -111,11 +111,11 @@ describe('[FR-ACC-03] one-time tokens', () => {
 
   it('[FR-ACC-03] two overlapping issues for the same user and purpose leave exactly one valid token', async () => {
     const { db, userId, run } = await setup();
-    let release = () => undefined as void;
+    let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    let markIssued = () => undefined as void;
+    let markIssued: () => void = () => undefined;
     const issuedA = new Promise<void>((resolve) => {
       markIssued = resolve;
     });
@@ -176,10 +176,15 @@ describe('[FR-ACC-03] one-time tokens', () => {
       `SELECT indexname, indexdef FROM pg_indexes
         WHERE tablename = 'one_time_tokens' AND indexname LIKE '%_idx' ORDER BY indexname`,
     );
-    expect(rows.map((r) => [r.indexname, r.indexdef.replace(/^.* USING btree /, '')])).toEqual([
+    expect(
+      rows.map((r) => [
+        r.indexname,
+        r.indexdef.replace(/^CREATE (UNIQUE )?INDEX \S+ ON \S+ USING btree /, '$1'),
+      ]),
+    ).toEqual([
       [
         'one_time_tokens_open_idx',
-        '(user_id, purpose) WHERE ((used_at IS NULL) AND (superseded_at IS NULL))',
+        'UNIQUE (user_id, purpose) WHERE ((used_at IS NULL) AND (superseded_at IS NULL))',
       ],
       ['one_time_tokens_purge_idx', '(COALESCE(used_at, superseded_at, expires_at))'],
     ]);

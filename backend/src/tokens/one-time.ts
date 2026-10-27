@@ -26,7 +26,9 @@ export interface IssuedToken {
 
 /**
  * Issues a token for a user and purpose, superseding that user's earlier unused token of
- * the same purpose, so only the newest link works.
+ * the same purpose, so only the newest link works. Overlapping issues for one user queue
+ * on the user's row, so the later one sees and supersedes the earlier; a unique partial
+ * index backs the rule up.
  */
 export async function issueToken(
   tx: AuditedTransaction,
@@ -34,6 +36,7 @@ export async function issueToken(
   purpose: TokenPurpose,
 ): Promise<IssuedToken> {
   const token = randomBytes(32).toString('base64url');
+  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
   await tx.$executeRaw`
     UPDATE one_time_tokens SET superseded_at = now()
      WHERE user_id = ${userId}::uuid AND purpose = ${purpose}
