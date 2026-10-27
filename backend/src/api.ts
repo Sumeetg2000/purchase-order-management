@@ -34,6 +34,8 @@ export interface RunningApi {
  * the mail server: an unreachable SMTP host fails sends, not startup.
  */
 export async function startApi(config: ApiConfig, logger: Logger): Promise<RunningApi> {
+  // Before the client exists, so a failure here leaves nothing to close.
+  const expectedMigrations = await listMigrations();
   const prisma = createPrismaClient({
     url: config.DATABASE_URL,
     poolSize: config.DB_POOL_SIZE,
@@ -48,7 +50,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     metrics,
     routes: productionRoutes({
       prisma,
-      expectedMigrations: await listMigrations(),
+      expectedMigrations,
       logger,
       mail,
     }),
