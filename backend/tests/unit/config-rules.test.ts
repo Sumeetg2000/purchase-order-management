@@ -281,6 +281,17 @@ describe('[NFR-OPS-02] config rules: values', () => {
     expectRefused(apiConfig, { ...apiEnv, METRICS_PORT: '3000' }, 'METRICS_PORT');
   });
 
+  it('[NFR-OPS-02] requires SMTP_USER and SMTP_PASSWORD together, or neither', () => {
+    expectRefused(apiConfig, { ...apiEnv, SMTP_USER: 'mailer' }, 'SMTP_PASSWORD');
+    expectRefused(apiConfig, { ...apiEnv, SMTP_PASSWORD: 'not-a-real-password' }, 'SMTP_USER');
+    const { result } = run(apiConfig, {
+      ...apiEnv,
+      SMTP_USER: 'mailer',
+      SMTP_PASSWORD: 'not-a-real-password',
+    });
+    expect(result).toMatchObject({ SMTP_USER: 'mailer' });
+  });
+
   it('[NFR-OPS-02] requires the role passwords to be at least 16 characters and all different', () => {
     expectRefused(
       migrateConfig,
