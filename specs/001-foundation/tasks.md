@@ -867,12 +867,12 @@ logged without failing the request.
 
 ### Implementation for User Story 7
 
-- [ ] T103 [US7] Mailer — `backend/src/mail/mailer.ts` (interface), `backend/src/mail/smtp.ts`
+- [X] T103 [US7] Mailer — `backend/src/mail/mailer.ts` (interface), `backend/src/mail/smtp.ts`
   (nodemailer; config validated, not connected at startup), `backend/src/mail/capture.ts`,
   `backend/src/mail/send-after-commit.ts` (`ctx.afterCommit(() => mailer.send(...))`, with
   failures logged and swallowed) — FR-029, FR-030 — Verify: T101 passes, and `smoke.sh`
   still reaches Mailpit.
-- [ ] T104 [US7] Traceability: NFR-OPS-04 → `Done` — `docs/traceability.md`.
+- [X] T104 [US7] Traceability: NFR-OPS-04 → `Done` — `docs/traceability.md`.
 
 - [ ] T105 [US7] Story checkpoint review: run `/code-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
