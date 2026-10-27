@@ -1,4 +1,5 @@
 import { writeAudit } from '../audit/write.js';
+import { violatedConstraint } from '../db/errors.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { issueToken } from '../tokens/one-time.js';
 import { createAdminUser, findUserByEmail } from './repository.js';
@@ -37,7 +38,17 @@ export async function createAdmin(
   if (await findUserByEmail(tx, email)) {
     throw new EmailInUseError(`${email} already belongs to a user`);
   }
-  const user = await createAdminUser(tx, { email, name: admin.name });
+  let user;
+  try {
+    user = await createAdminUser(tx, { email, name: admin.name });
+  } catch (error) {
+    // A writer that doesn't take ADMIN_LOCK (signup, from slice 1) took the email after the
+    // lookup above.
+    if (violatedConstraint(error) === 'users_email_key') {
+      throw new EmailInUseError(`${email} already belongs to a user`, { cause: error });
+    }
+    throw error;
+  }
   const { token } = await issueToken(tx, user.id, 'RESET');
   await writeAudit(tx, {
     action: 'ADMIN_CREATED',

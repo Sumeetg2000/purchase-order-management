@@ -52,6 +52,16 @@ function adapterCause(error: Prisma.PrismaClientKnownRequestError): DriverAdapte
   return meta?.driverAdapterError?.cause;
 }
 
+/**
+ * The constraint a unique (P2002) or foreign-key (P2003) violation names, or undefined for
+ * any other error. For code that turns one specific constraint into a domain error.
+ */
+export function violatedConstraint(error: unknown): string | undefined {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
+  if (error.code !== 'P2002' && error.code !== 'P2003') return undefined;
+  return adapterCause(error)?.constraint?.index;
+}
+
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
 
 // adapter-pg kinds for a connection that can't be made or was lost (it maps ECONNREFUSED
