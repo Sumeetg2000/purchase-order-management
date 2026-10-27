@@ -1,3 +1,4 @@
+import { emailAddressSchema } from '@po/contracts';
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import type { AuditedTransaction } from '../../db/transaction.js';
@@ -11,7 +12,7 @@ import { CliError, EXIT } from '../errors.js';
 export const USAGE_LINE = 'admin:create --email <email> --name <name>';
 
 const argsSchema = z.strictObject({
-  email: z.email().transform((value) => value.toLowerCase()),
+  email: emailAddressSchema.transform((value) => value.toLowerCase()),
   name: z.string().trim().min(1).max(100),
 });
 

@@ -1,3 +1,4 @@
+import { emailAddressSchema } from '@po/contracts';
 import { z } from 'zod';
 import {
   appEnv,
@@ -29,7 +30,7 @@ export const apiConfig = defineProcessConfig({
     SMTP_SECURE: envBoolean,
     SMTP_USER: optional(z.string()),
     SMTP_PASSWORD: optional(z.string()),
-    MAIL_FROM: z.email(),
+    MAIL_FROM: emailAddressSchema,
   },
   forbidden: (key) => key === 'MAINTENANCE_DATABASE_URL' || isPrivilegedDatabaseKey(key),
   refine: (config, ctx) => {
