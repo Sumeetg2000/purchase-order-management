@@ -1,6 +1,6 @@
 import { createServer } from 'node:net';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startApi, type RunningApi } from '../../src/api.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction } from '../../src/db/transaction.js';
@@ -10,7 +10,7 @@ import { CaptureMailer } from '../../src/mail/capture.js';
 import type { Mailer } from '../../src/mail/mailer.js';
 import { sendAfterCommit } from '../../src/mail/send-after-commit.js';
 import { createSmtpMailer } from '../../src/mail/smtp.js';
-import { defineTemplate } from '../../src/mail/template.js';
+import { defineTemplate, InvalidRecipientError, renderMail } from '../../src/mail/template.js';
 import { createTestDatabase } from '../support/db.js';
 import { createCapture } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
@@ -147,6 +147,36 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     await expect(
       mailer.send({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }),
     ).rejects.toThrow();
+  });
+});
+
+describe('[NFR-OPS-04] recipients are plain addresses only', () => {
+  // Defence in depth against address-parser bugs in mail libraries (nodemailer's
+  // GHSA-8c8m-p3m8-cjg8, GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h): a recipient must pass
+  // the contracts' strict email schema before any mailer sees it.
+  it.each([
+    'a@x.com;b@y.com',
+    '"x>"@a.com',
+    'Asha <a@x.com>',
+    'a@x.com (comment)',
+    'a@x.com, b@y.com',
+  ])('[NFR-OPS-04] %s is refused before the mailer is called', (to) => {
+    const send = vi.fn(() => Promise.resolve());
+    const scheduled: (() => unknown)[] = [];
+    const hooks = { afterCommit: (callback: () => unknown) => scheduled.push(callback) };
+    const message = { template: greeting, to, variables: { name: 'A' } };
+    expect(() => {
+      sendAfterCommit(hooks, { mailer: { send }, logger: createCapture().logger, message });
+    }).toThrow(InvalidRecipientError);
+    expect(scheduled).toEqual([]);
+    expect(send).not.toHaveBeenCalled();
+    expect(() => renderMail(message)).toThrow(InvalidRecipientError);
+  });
+
+  it('[NFR-OPS-04] a plain address is accepted', () => {
+    expect(
+      renderMail({ template: greeting, to: 'asha.rao@example.co.in', variables: { name: 'A' } }).to,
+    ).toBe('asha.rao@example.co.in');
   });
 });
 
