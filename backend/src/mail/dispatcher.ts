@@ -13,29 +13,62 @@ export interface MailDispatcher {
   dispatch: <V extends MailVariables>(message: MailMessage<V>, logger: Logger) => void;
   /** Resolves once every send started so far has finished or failed. */
   settled: () => Promise<void>;
+  /**
+   * For shutdown: waits up to `timeoutMs` for the sends in flight, then gives up on the
+   * rest, logging each as mail_send_failed with errorName ShutdownTimeout.
+   */
+  settle: (timeoutMs: number) => Promise<void>;
+}
+
+interface InFlight {
+  template: string;
+  logger: Logger;
+  abandoned: boolean;
 }
 
 export function createMailDispatcher(mailer: Mailer): MailDispatcher {
-  const inFlight = new Set<Promise<void>>();
+  const inFlight = new Map<Promise<void>, InFlight>();
+  const settled = async () => {
+    await Promise.all(inFlight.keys());
+  };
   return {
     dispatch(message, logger) {
+      const entry: InFlight = { template: message.template.name, logger, abandoned: false };
       const sending = mailer.send(message).catch((error: unknown) => {
+        if (entry.abandoned) return;
         // Only what identifies the failure: an SMTP error's text can name the recipient.
         // A mailer can reject with anything, null included.
         const failure: { name?: unknown; code?: unknown; responseCode?: unknown } =
           typeof error === 'object' && error !== null ? error : {};
         logSecurityEvent(logger, 'mail_send_failed', {
-          template: message.template.name,
+          template: entry.template,
           errorName: failure.name,
           errorCode: failure.code,
           responseCode: failure.responseCode,
         });
       });
-      inFlight.add(sending);
+      inFlight.set(sending, entry);
       void sending.finally(() => inFlight.delete(sending));
     },
-    async settled() {
-      await Promise.all(inFlight);
+    settled,
+    async settle(timeoutMs) {
+      let timer: NodeJS.Timeout | undefined;
+      const timedOut = new Promise<true>((resolve) => {
+        timer = setTimeout(() => {
+          resolve(true);
+        }, timeoutMs);
+      });
+      const expired = await Promise.race([settled().then(() => false), timedOut]);
+      clearTimeout(timer);
+      if (!expired) return;
+      for (const entry of inFlight.values()) {
+        entry.abandoned = true;
+        logSecurityEvent(entry.logger, 'mail_send_failed', {
+          template: entry.template,
+          errorName: 'ShutdownTimeout',
+        });
+      }
+      inFlight.clear();
     },
   };
 }

@@ -28,7 +28,7 @@ export interface RunningApi {
   /** The API's port (the configured one, or the one assigned for port 0). */
   port: number;
   metricsPort: number;
-  /** Drains in-flight requests and closes the pool; the same as on SIGTERM. */
+  /** Drains in-flight requests and mail, and closes the pool; the same as on SIGTERM. */
   close: () => Promise<void>;
 }
 
@@ -43,6 +43,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     connectionTimeoutMs: config.DB_TX_MAX_WAIT_MS,
   });
 
+  const mail = createMailDispatcher(createSmtpMailer(config));
   const metrics = createMetrics();
   const app = createApp({
     logger,
@@ -52,7 +53,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
       prisma,
       expectedMigrations: await listMigrations(),
       logger,
-      mail: createMailDispatcher(createSmtpMailer(config)),
+      mail,
     }),
   });
 
@@ -69,6 +70,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     prisma,
     logger,
     drainTimeoutMs: DRAIN_TIMEOUT_MS,
+    mail,
   });
   return { port, metricsPort, close };
 }

@@ -1,13 +1,18 @@
 import type { Server } from 'node:http';
 import type { Logger } from 'pino';
+import type { MailDispatcher } from '../mail/dispatcher.js';
 
 export interface ShutdownOptions {
   /** Every listener of the process (API and metrics). */
   servers: readonly Server[];
   prisma: { $disconnect: () => Promise<void> };
   logger: Logger;
-  /** How long in-flight requests may run before their connections are cut. */
+  /**
+   * How long in-flight requests, and then mail still sending after its response, may run
+   * before they are cut off. One deadline covers both.
+   */
   drainTimeoutMs: number;
+  mail?: Pick<MailDispatcher, 'settle'>;
 }
 
 function closeServer(server: Server, drainTimeoutMs: number): Promise<boolean> {
@@ -28,19 +33,21 @@ function closeServer(server: Server, drainTimeoutMs: number): Promise<boolean> {
 
 /**
  * Returns the shutdown routine for SIGTERM and SIGINT: stop accepting, drain in-flight
- * requests up to the timeout, then close the database pool. Calling it again returns the
+ * requests and then mail still sending, up to the timeout, then close the database pool. Calling it again returns the
  * same promise, so a second signal can't close the pool under a draining request.
  */
-export function createShutdown({ servers, prisma, logger, drainTimeoutMs }: ShutdownOptions) {
+export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }: ShutdownOptions) {
   let running: Promise<void> | undefined;
 
   return function shutdown(): Promise<void> {
     running ??= (async () => {
       logger.info('shutdown: draining');
+      const deadline = Date.now() + drainTimeoutMs;
       const drained = await Promise.all(servers.map((s) => closeServer(s, drainTimeoutMs)));
       if (drained.includes(false)) {
         logger.warn({ drainTimeoutMs }, 'shutdown: drain timed out; open connections were closed');
       }
+      await mail?.settle(Math.max(0, deadline - Date.now()));
       await prisma.$disconnect();
       logger.info('shutdown: complete');
     })();
