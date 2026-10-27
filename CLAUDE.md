@@ -57,3 +57,7 @@ Details of each gate: see the constitution's "Development Workflow and Quality G
   commit subjects (ADR-0013).
 - A new decision or a changed number is recorded as an ADR update, not an edit to the
   constitution (see its Governance section).
+- A value used in more than one place, or one that carries business meaning (a lifetime,
+  a retention period, a role, a timeout), is a named constant, defined once and imported.
+  When the same value must also live in SQL, nginx or compose, a test pins that copy to
+  the constant.
