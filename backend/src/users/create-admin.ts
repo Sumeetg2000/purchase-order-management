@@ -7,6 +7,7 @@ import { createAdminUser, findUserByEmail } from './repository.js';
 // Creating an administrator, shared by the bootstrap (SYSTEM) and admin:create (OPERATOR).
 // Callers hold ADMIN_LOCK and own the transaction (ADR-0016, contracts/cli.md).
 
+/** The message never names the email: callers' error logs don't redact PII. */
 export class EmailInUseError extends Error {
   override readonly name = 'EmailInUseError';
   readonly code = 'EMAIL_IN_USE';
@@ -36,7 +37,7 @@ export async function createAdmin(
 ): Promise<CreatedAdmin> {
   const email = admin.email.toLowerCase();
   if (await findUserByEmail(tx, email)) {
-    throw new EmailInUseError(`${email} already belongs to a user`);
+    throw new EmailInUseError('the email already belongs to a user');
   }
   let user;
   try {
@@ -45,7 +46,7 @@ export async function createAdmin(
     // A writer that doesn't take ADMIN_LOCK (signup, from slice 1) took the email after the
     // lookup above.
     if (violatedConstraint(error) === 'users_email_key') {
-      throw new EmailInUseError(`${email} already belongs to a user`, { cause: error });
+      throw new EmailInUseError('the email already belongs to a user', { cause: error });
     }
     throw error;
   }
