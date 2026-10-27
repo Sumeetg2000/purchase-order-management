@@ -941,7 +941,7 @@ second concurrent run is a no-op.
 
   — Verify: quickstart §5 behaves as written, and the compose file test (T024) still passes,
   because the production compose is unchanged.
-- [ ] T112 [P] CLAUDE.md commands match reality — `CLAUDE.md` (`npm run dev`, `npm test`,
+- [X] T112 [P] CLAUDE.md commands match reality — `CLAUDE.md` (`npm run dev`, `npm test`,
   `npm run lint`, `npm run typecheck`; fix anything that differs; stay under 60 lines) —
   Verify: each listed command runs successfully.
 - [ ] T113 [P] Traceability final pass — `docs/traceability.md`. NFR-OPS-02 → `Done` (all
