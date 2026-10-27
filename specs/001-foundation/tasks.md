@@ -984,6 +984,13 @@ second concurrent run is a no-op.
   queries. Add an `import-x/no-restricted-paths` rule so a route module importing the
   Prisma client or a repository fails lint. — Verify: the rule fails on a probe route that
   imports a repository, and passes on the repo.
+- [ ] T120 Re-check nodemailer on or after 2026-11-01 (added at US7): it is pinned to 10.1.7,
+  an exception to the two-week minimum age because GHSA-8c8m-p3m8-cjg8,
+  GHSA-m943-m63m-w62w and GHSA-85x2-q946-cp5h affect every version below 10.1.4 and every
+  fixed version was under 14 days old. 10.1.7 (released 2026-10-18) turns 14 days on
+  2026-11-01. Check npm audit and the advisories again, and move to the newest release that
+  is at least two weeks old and free of known advisories. — Verify: `npm audit` is clean,
+  the mail tests pass, and the commit records the outcome.
 - [ ] T116 Mark the draft PR **ready for review**, with full CI green.
   - Every `ci.yml` job (`static`, `api`, `contract`, `web`, `audit`, `e2e`, `traceability`,
     `secrets`) passes on the PR's last commit.
