@@ -236,6 +236,31 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     ]);
   });
 
+  it('[NFR-OPS-05] without asOf the cutoff is the database clock, so a fast host clock cannot hit the retention guard', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    // 30 minutes inside the 8 years by the database clock.
+    await seed(db, [
+      `INSERT INTO audit_entries (occurred_at, actor_type, action, entity_type, entity_id)
+        VALUES (now() - make_interval(years => ${String(AUDIT_RETENTION_YEARS)}) + interval '30 minutes',
+          'SYSTEM', 'BOUNDARY', 'user', '${randomUUID()}')`,
+    ]);
+    const prisma = client(db, 'po_maintenance');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 60 * 60 * 1_000);
+    try {
+      const { logger } = createCapture();
+      const outcome = await runPurge({
+        tasks: [auditEntriesTask],
+        db: prisma,
+        lockUrl: db.url('po_maintenance'),
+        logger,
+      });
+      expect(outcome).toEqual({ status: 'complete', counts: { audit_entries: 0 } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('[NFR-OPS-05] a second run while the lock is held logs "already running" and deletes nothing', async () => {
     const db = trackDatabase(await createTestDatabase());
     const old = new Date(yearsBefore(AUDIT_RETENTION_YEARS, AS_OF).getTime() - DAY_MS);
