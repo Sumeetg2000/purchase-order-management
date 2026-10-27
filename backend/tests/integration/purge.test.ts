@@ -329,6 +329,21 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     expect(await remaining(db, 'SELECT action AS label FROM audit_entries')).toEqual(['OLD']);
   });
 
+  it('[NFR-OPS-05] refuses a batch size that is not a positive integer', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    for (const batchSize of [0, -1, 1.5, Number.NaN]) {
+      await expect(
+        runPurge({
+          tasks: purgeTasks,
+          db: client(db, 'po_maintenance'),
+          lockUrl: db.url('po_maintenance'),
+          logger: createCapture().logger,
+          batchSize,
+        }),
+      ).rejects.toThrow(RangeError);
+    }
+  });
+
   it('[NFR-OPS-05] the same deletes as po_app are refused', async () => {
     const db = trackDatabase(await createTestDatabase());
     const old = new Date(yearsBefore(AUDIT_RETENTION_YEARS, AS_OF).getTime() - DAY_MS);
