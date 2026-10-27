@@ -24,6 +24,8 @@ export interface PurgeContext {
    */
   asOf: Date | undefined;
   batchSize: number;
+  /** Aborted when the run loses PURGE_LOCK: no further batch may start. */
+  signal: AbortSignal;
 }
 
 /** One retention rule. `run` deletes what is past its limit and returns the row count. */
@@ -32,13 +34,17 @@ export interface PurgeTask {
   run: (context: PurgeContext) => Promise<number>;
 }
 
-/** Repeats a batch delete until one deletes fewer rows than a full batch. */
+/**
+ * Repeats a batch delete until one deletes fewer rows than a full batch. Each batch first
+ * checks the run still holds its lock.
+ */
 async function deleteInBatches(
-  batchSize: number,
+  { batchSize, signal }: Pick<PurgeContext, 'batchSize' | 'signal'>,
   deleteBatch: () => Promise<number>,
 ): Promise<number> {
   let total = 0;
   for (;;) {
+    signal.throwIfAborted();
     const deleted = await deleteBatch();
     total += deleted;
     if (deleted < batchSize) return total;
@@ -49,9 +55,9 @@ async function deleteInBatches(
 // can't be used to delete inside the retention period.
 export const auditEntriesTask: PurgeTask = {
   name: 'audit_entries',
-  run: ({ db, asOf, batchSize }) =>
+  run: ({ db, asOf, batchSize, signal }) =>
     deleteInBatches(
-      batchSize,
+      { batchSize, signal },
       () => db.$executeRaw`
         DELETE FROM audit_entries WHERE id IN (
           SELECT id FROM audit_entries
@@ -65,9 +71,9 @@ export const auditEntriesTask: PurgeTask = {
 // index serves the purge.
 export const oneTimeTokensTask: PurgeTask = {
   name: 'one_time_tokens',
-  run: ({ db, asOf, batchSize }) =>
+  run: ({ db, asOf, batchSize, signal }) =>
     deleteInBatches(
-      batchSize,
+      { batchSize, signal },
       () => db.$executeRaw`
         DELETE FROM one_time_tokens WHERE id IN (
           SELECT id FROM one_time_tokens
@@ -148,8 +154,15 @@ export async function runPurge({
     application_name: 'po_purge_lock',
     connectionTimeoutMillis: ONE_SHOT.connectionTimeoutMs,
   });
+  // Losing the lock connection releases PURGE_LOCK, so the run must stop: another run may
+  // now take the lock.
+  const lockLost = new AbortController();
   lock.on('error', (error) => {
     logger.error({ err: error }, 'purge lock connection failed');
+    lockLost.abort();
+  });
+  lock.on('end', () => {
+    lockLost.abort();
   });
   await lock.connect();
   try {
@@ -161,7 +174,11 @@ export async function runPurge({
       logger.info('purge already running');
       return { status: 'already_running' };
     }
-    const { counts, failed } = await runPurgeCycle(tasks, { db, asOf, batchSize }, logger);
+    const { counts, failed } = await runPurgeCycle(
+      tasks,
+      { db, asOf, batchSize, signal: lockLost.signal },
+      logger,
+    );
     return { status: failed.length > 0 ? 'failed' : 'complete', counts };
   } finally {
     // Ending the session releases the lock; an explicit unlock isn't needed.

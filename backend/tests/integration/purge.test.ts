@@ -336,7 +336,9 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     const app = client(db, 'po_app');
     for (const task of purgeTasks) {
       // By SQLSTATE, not message text (ADR-0007): 42501 insufficient_privilege.
-      await expect(task.run({ db: app, asOf: AS_OF, batchSize: 1_000 })).rejects.toMatchObject({
+      await expect(
+        task.run({ db: app, asOf: AS_OF, batchSize: 1_000, signal: new AbortController().signal }),
+      ).rejects.toMatchObject({
         meta: { driverAdapterError: { cause: { originalCode: INSUFFICIENT_PRIVILEGE } } },
       });
     }
