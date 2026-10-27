@@ -197,3 +197,18 @@ describe('[NFR-OPS-02] a failed start', () => {
     }
   });
 });
+
+describe('[NFR-OPS-02] shutdown settings', () => {
+  it('[NFR-OPS-02] refuses a drain deadline that is not a positive finite time', () => {
+    for (const drainTimeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        createShutdown({
+          servers: [],
+          prisma: { $disconnect: () => Promise.resolve() },
+          logger: silent,
+          drainTimeoutMs,
+        }),
+      ).toThrow(RangeError);
+    }
+  });
+});
