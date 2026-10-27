@@ -412,6 +412,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       logger: capture.logger,
       drainTimeoutMs: 1_200,
       mail,
+      mailFrom: stuck,
       mailReserveMs: 1_000,
     })();
     // The premise: the stuck request really did hold the request drain to its end.
@@ -448,6 +449,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       logger: capture.logger,
       drainTimeoutMs: 1_200,
       mail,
+      mailFrom: stuck,
       mailReserveMs: 1_000,
     })();
     expect(sent).toEqual(['verify_email']);

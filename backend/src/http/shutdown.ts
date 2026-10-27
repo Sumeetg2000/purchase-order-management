@@ -25,6 +25,12 @@ export interface ShutdownOptions {
    */
   drainTimeoutMs: number;
   mail?: Pick<MailDispatcher, 'settle'>;
+  /**
+   * The listener whose handlers dispatch mail (the API, not metrics). Only a request cut
+   * off there can still dispatch, so only its drain timing out makes shutdown wait out the
+   * mail reserve.
+   */
+  mailFrom?: Server;
   /** With mail, the end of the deadline kept for it (default MAIL_RESERVE_MS). */
   mailReserveMs?: number;
 }
@@ -57,6 +63,7 @@ export function createShutdown({
   logger,
   drainTimeoutMs,
   mail,
+  mailFrom,
   mailReserveMs = MAIL_RESERVE_MS,
 }: ShutdownOptions) {
   if (mail && mailReserveMs >= drainTimeoutMs) {
@@ -70,7 +77,8 @@ export function createShutdown({
       const deadline = Date.now() + drainTimeoutMs;
       const requestsMs = mail ? Math.max(0, drainTimeoutMs - mailReserveMs) : drainTimeoutMs;
       const drained = await Promise.all(servers.map((s) => closeServer(s, requestsMs)));
-      if (drained.includes(false)) {
+      const cutOff = servers.filter((_, i) => drained[i] === false);
+      if (cutOff.length > 0) {
         logger.warn(
           { drainTimeoutMs, requestsMs },
           'shutdown: drain timed out; open connections were closed',
@@ -79,7 +87,7 @@ export function createShutdown({
       // A request the drain cut off can still commit and dispatch mail: wait out the rest
       // of the deadline for it rather than returning as soon as nothing is in flight.
       await mail?.settle(Math.max(0, deadline - Date.now()), {
-        untilTimeout: drained.includes(false),
+        untilTimeout: mailFrom !== undefined && cutOff.includes(mailFrom),
       });
       await prisma.$disconnect();
       logger.info('shutdown: complete');
