@@ -22,11 +22,25 @@ function runHook(message) {
   return spawnSync(command, { cwd: ROOT, shell: true, encoding: 'utf8' });
 }
 
-const LONG_FOOTER = `test: add failing tests
+// The message that broke CI, verbatim (commit 29ff6d4 before its reword): commitlint parses
+// the "Failing run:" paragraph as a footer, and one line is over 100 characters.
+const LONG_FOOTER = `test: add failing security header and bundle budget tests
 
-Some body text.
+security-headers: deploy/security-headers.mjs holds research R18's CSP
+exactly, plus X-Content-Type-Options nosniff and Referrer-Policy
+no-referrer; nginx's / and /assets/ locations send exactly those, with
+always, and /api/ adds none (the API sends its own).
+
+bundle budget: the budget is ADR-0012's (200 KB initial, 150 KB per lazy
+chunk); a Vite manifest written at run time is measured as the entry
+plus its static imports, and each lazy chunk plus imports the entry
+doesn't already load; it passes under the budget and fails, naming
+what, when the initial JS or one lazy chunk is over.
 
 Failing run: node --test scripts/tests/security-headers.test.mjs scripts/tests/check-bundle-budget.test.mjs
+  ERR_MODULE_NOT_FOUND: deploy/security-headers.mjs, scripts/check-bundle-budget.mjs
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 `;
 
 describe('[NFR-DEV-01] commit-msg hook', () => {

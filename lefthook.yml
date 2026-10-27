@@ -18,3 +18,9 @@ pre-commit:
     eslint:
       glob: '*.{ts,tsx,js,mjs,cjs}'
       run: npx eslint --no-warn-ignored {staged_files}
+
+# The message itself, before the commit exists: the same commitlint rules as CI.
+commit-msg:
+  commands:
+    commitlint:
+      run: npx commitlint --edit {1}
