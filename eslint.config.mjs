@@ -1,6 +1,9 @@
 // @ts-check
 import js from '@eslint/js';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import { defineConfig } from 'eslint/config';
+import importX from 'eslint-plugin-import-x';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -76,6 +79,22 @@ export default defineConfig(
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
     languageOptions: { globals: globals.browser },
+  },
+  // Accessibility of the JSX itself (ADR-0018), alongside axe on the rendered pages.
+  { files: ['frontend/**/*.tsx'], ...jsxA11y.flatConfigs.recommended },
+  // No import cycles anywhere in TypeScript: they break module load order (Zod's jitless
+  // setting depends on it) and blur layer boundaries.
+  {
+    files: ['**/*.{ts,tsx}'],
+    plugins: { 'import-x': importX },
+    settings: {
+      // Without a parser for the files it follows, import-x can't read their imports and
+      // silently finds no cycle.
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx', '.mts', '.cts'] },
+      'import-x/extensions': ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs'],
+      'import-x/resolver-next': [createTypeScriptImportResolver({ alwaysTryTypes: true })],
+    },
+    rules: { 'import-x/no-cycle': 'error' },
   },
   {
     files: ['backend/**/*.ts', 'packages/**/*.ts', 'scripts/**/*.{js,mjs}'],

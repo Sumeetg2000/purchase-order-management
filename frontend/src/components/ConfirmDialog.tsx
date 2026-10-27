@@ -132,7 +132,15 @@ export function ConfirmDialog({
                 {action.label}
               </Button>
             ))}
-            <Button autoFocus className={controls.button} onPress={onClose} isDisabled={pending}>
+            <Button
+              // ADR-0018: focus starts on the safe button. This is focus management inside
+              // a dialog the user just opened, not a page taking focus on load.
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus
+              className={controls.button}
+              onPress={onClose}
+              isDisabled={pending}
+            >
               {cancelLabel}
             </Button>
             <Button
