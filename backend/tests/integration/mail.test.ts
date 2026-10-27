@@ -7,6 +7,7 @@ import { withTransaction } from '../../src/db/transaction.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { requestIdOf } from '../../src/http/middleware/correlation.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
+import { createMailDispatcher } from '../../src/mail/dispatcher.js';
 import type { Mailer } from '../../src/mail/mailer.js';
 import { sendAfterCommit } from '../../src/mail/send-after-commit.js';
 import { createSmtpMailer } from '../../src/mail/smtp.js';
@@ -96,6 +97,7 @@ async function plainTextSmtpServer(): Promise<{ port: number; commands: string[]
 }
 
 async function setup(mailer: Mailer) {
+  const mail = createMailDispatcher(mailer);
   const db = trackDatabase(await createTestDatabase());
   const prisma: AppPrismaClient = createPrismaClient({
     url: db.url('po_app'),
@@ -125,7 +127,7 @@ async function setup(mailer: Mailer) {
         },
         (_tx, hooks) => {
           sendAfterCommit(hooks, {
-            mailer,
+            mail,
             logger: req.log,
             message: { template: greeting, to: RECIPIENT, variables: { name: 'Asha <b>' } },
           });
@@ -143,14 +145,15 @@ async function setup(mailer: Mailer) {
   });
   const send = (rollback: boolean) =>
     request(app).post('/test-mail').set('Origin', 'http://localhost:8080').send({ rollback });
-  return { send, capture };
+  return { send, capture, mail };
 }
 
 describe('[NFR-OPS-04] mail is sent only after commit', () => {
   it('[NFR-OPS-04] a committed transaction sends exactly one message, with variables escaped in the HTML', async () => {
     const mailer = new CaptureMailer();
-    const { send } = await setup(mailer);
+    const { send, mail } = await setup(mailer);
     expect((await send(false)).status).toBe(200);
+    await mail.settled();
     expect(mailer.sent).toEqual([
       {
         template: 'test_greeting',
@@ -164,16 +167,18 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
 
   it('[NFR-OPS-04] a rolled-back transaction sends nothing', async () => {
     const mailer = new CaptureMailer();
-    const { send } = await setup(mailer);
+    const { send, mail } = await setup(mailer);
     expect((await send(true)).status).toBe(500);
+    await mail.settled();
     expect(mailer.sent).toEqual([]);
   });
 
   it('[NFR-OPS-04] a send failure is a mail_send_failed security log line, and the request still succeeds', async () => {
     const failing: Mailer = { send: () => Promise.reject(new Error('SMTP refused the message')) };
-    const { send, capture } = await setup(failing);
+    const { send, capture, mail } = await setup(failing);
     const res = await send(false);
     expect(res.status).toBe(200);
+    await mail.settled();
     const events = capture.lines.filter((line) => line['security'] === true);
     expect(events).toEqual([
       expect.objectContaining({
@@ -184,6 +189,30 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     ]);
     // The recipient's address is personal data and stays out of the log.
     expect(JSON.stringify(events)).not.toContain(RECIPIENT);
+  });
+
+  it('[NFR-OPS-04] the response does not wait for the mail server', async () => {
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stalled = new CaptureMailer();
+    const slow: Mailer = {
+      send: async (message) => {
+        await gate;
+        await stalled.send(message);
+      },
+    };
+    const { send, mail } = await setup(slow);
+    const outcome = await Promise.race([
+      send(false).then((res) => res.status),
+      new Promise<string>((resolve) => setTimeout(() => resolve('still waiting on mail'), 2_000)),
+    ]);
+    expect(outcome).toBe(200);
+    expect(stalled.sent).toEqual([]);
+    release();
+    await mail.settled();
+    expect(stalled.sent).toHaveLength(1);
   });
 
   it('[NFR-OPS-04] the SMTP mailer does not connect until it sends, and an unreachable server fails the send', async () => {
@@ -251,7 +280,11 @@ describe('[NFR-OPS-04] recipients are plain addresses only', () => {
     const hooks = { afterCommit: (callback: () => unknown) => scheduled.push(callback) };
     const message = { template: greeting, to, variables: { name: 'A' } };
     expect(() => {
-      sendAfterCommit(hooks, { mailer: { send }, logger: createCapture().logger, message });
+      sendAfterCommit(hooks, {
+        mail: createMailDispatcher({ send }),
+        logger: createCapture().logger,
+        message,
+      });
     }).toThrow(InvalidRecipientError);
     expect(scheduled).toEqual([]);
     expect(send).not.toHaveBeenCalled();
