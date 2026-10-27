@@ -32,8 +32,9 @@ export function createSmtpMailer(settings: SmtpSettings): Mailer {
     port: settings.SMTP_PORT,
     secure: settings.SMTP_SECURE,
     requireTLS: settings.APP_ENV === 'production',
-    ...(settings.SMTP_USER
-      ? { auth: { user: settings.SMTP_USER, pass: settings.SMTP_PASSWORD ?? '' } }
+    // Config guarantees the user and password come together.
+    ...(settings.SMTP_USER !== undefined && settings.SMTP_PASSWORD !== undefined
+      ? { auth: { user: settings.SMTP_USER, pass: settings.SMTP_PASSWORD } }
       : {}),
     connectionTimeout: SMTP_TIMEOUT_MS,
     greetingTimeout: SMTP_TIMEOUT_MS,
