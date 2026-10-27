@@ -58,13 +58,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
   });
 
   const server = createServer(app);
-  const port = await listen(server, config.HTTP_PORT);
-  logger.info({ port }, 'api listening');
-
   const metricsServer = createMetricsServer(metrics);
-  const metricsPort = await listen(metricsServer, config.METRICS_PORT);
-  logger.info({ port: metricsPort }, 'metrics listening');
-
   const close = createShutdown({
     servers: [server, metricsServer],
     prisma,
@@ -72,5 +66,17 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     drainTimeoutMs: DRAIN_TIMEOUT_MS,
     mail,
   });
-  return { port, metricsPort, close };
+
+  // If either listener fails to start, close whatever did start before rejecting: the
+  // caller gets no handle to close it with.
+  try {
+    const port = await listen(server, config.HTTP_PORT);
+    logger.info({ port }, 'api listening');
+    const metricsPort = await listen(metricsServer, config.METRICS_PORT);
+    logger.info({ port: metricsPort }, 'metrics listening');
+    return { port, metricsPort, close };
+  } catch (error) {
+    await close();
+    throw error;
+  }
 }
