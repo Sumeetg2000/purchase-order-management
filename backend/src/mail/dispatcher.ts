@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import { logSecurityEvent } from '../observability/security-log.js';
+import { logSecurityEvent, type SecurityEvent } from '../observability/security-log.js';
 import type { Mailer } from './mailer.js';
 import type { MailMessage, MailTemplateName, MailVariables } from './template.js';
 
@@ -26,6 +26,18 @@ interface InFlight {
   abandoned: boolean;
 }
 
+/**
+ * Logs a mail security event without ever throwing: a send's promise must not reject, or
+ * settling (and so shutdown) would fail and the rejection would go unhandled.
+ */
+function record(logger: Logger, event: SecurityEvent, fields: Record<string, unknown>): void {
+  try {
+    logSecurityEvent(logger, event, fields);
+  } catch {
+    // The log itself is failing; there is nowhere left to report this.
+  }
+}
+
 export function createMailDispatcher(mailer: Mailer): MailDispatcher {
   const inFlight = new Map<Promise<void>, InFlight>();
   // Loops until nothing is in flight, so sends dispatched while it waits are included.
@@ -44,7 +56,7 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
           // A mailer can reject with anything, null included.
           const failure: { name?: unknown; code?: unknown; responseCode?: unknown } =
             typeof error === 'object' && error !== null ? error : {};
-          logSecurityEvent(logger, 'mail_send_failed', {
+          record(logger, 'mail_send_failed', {
             template: entry.template,
             errorName: failure.name,
             errorCode: failure.code,
@@ -67,7 +79,7 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
       if (!expired) return;
       for (const entry of inFlight.values()) {
         entry.abandoned = true;
-        logSecurityEvent(entry.logger, 'mail_send_abandoned', { template: entry.template });
+        record(entry.logger, 'mail_send_abandoned', { template: entry.template });
       }
       inFlight.clear();
     },
