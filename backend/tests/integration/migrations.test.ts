@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { listMigrations } from '../../src/http/routes/health.js';
+import { listMigrations } from '../../src/health/service.js';
 import { deployMigrations } from '../../src/migrate/deploy.js';
 import { provisionDatabase } from '../../src/migrate/provision.js';
 import { createTestDatabase } from '../support/db.js';

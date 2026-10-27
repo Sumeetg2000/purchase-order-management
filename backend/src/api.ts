@@ -4,7 +4,7 @@ import type { Logger } from 'pino';
 import type { ApiConfig } from './config/api.js';
 import { createPrismaClient } from './db/client.js';
 import { createApp } from './http/app.js';
-import { listMigrations } from './http/routes/health.js';
+import { listMigrations } from './health/service.js';
 import { productionRoutes } from './http/routes/index.js';
 import { createShutdown, DRAIN_TIMEOUT_MS } from './http/shutdown.js';
 import { createMailDispatcher } from './mail/dispatcher.js';

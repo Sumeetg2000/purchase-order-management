@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
-import { healthRoutes, listMigrations } from '../../src/http/routes/health.js';
+import { healthRoutes } from '../../src/health/routes.js';
+import { createReadinessService, listMigrations } from '../../src/health/service.js';
 import { createTestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { validateResponse } from '../support/openapi-validator.js';
@@ -29,7 +30,9 @@ async function appFor(url: string) {
   return createTestApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
-    routes: healthRoutes({ prisma, expectedMigrations: await listMigrations() }),
+    routes: healthRoutes(
+      createReadinessService({ prisma, expectedMigrations: await listMigrations() }),
+    ),
     testOnlyRoutes: [
       defineRoute({
         method: 'post',

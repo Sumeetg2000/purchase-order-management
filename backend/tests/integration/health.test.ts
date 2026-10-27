@@ -3,7 +3,8 @@ import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { createApp } from '../../src/http/app.js';
-import { healthRoutes, listMigrations } from '../../src/http/routes/health.js';
+import { healthRoutes } from '../../src/health/routes.js';
+import { createReadinessService, listMigrations } from '../../src/health/service.js';
 import { createTestDatabase } from '../support/db.js';
 import { trackDatabase } from '../support/setup.js';
 import { testLogger } from '../support/log-capture.js';
@@ -38,10 +39,12 @@ async function appFor(url: string, expectedMigrations?: readonly string[]) {
   return createApp({
     logger: testLogger(),
     appOrigin: 'http://localhost:8080',
-    routes: healthRoutes({
-      prisma: prismaFor(url),
-      expectedMigrations: expectedMigrations ?? (await listMigrations()),
-    }),
+    routes: healthRoutes(
+      createReadinessService({
+        prisma: prismaFor(url),
+        expectedMigrations: expectedMigrations ?? (await listMigrations()),
+      }),
+    ),
   });
 }
 
@@ -105,7 +108,13 @@ describe('[NFR-OPS-02] health and readiness', () => {
     const app = createApp({
       logger: testLogger(),
       appOrigin: 'http://localhost:8080',
-      routes: healthRoutes({ prisma: hung, expectedMigrations: ['0001_baseline'], timeoutMs: 200 }),
+      routes: healthRoutes(
+        createReadinessService({
+          prisma: hung,
+          expectedMigrations: ['0001_baseline'],
+          timeoutMs: 200,
+        }),
+      ),
     });
     const begun = Date.now();
     const res = await request(app).get('/readyz');
