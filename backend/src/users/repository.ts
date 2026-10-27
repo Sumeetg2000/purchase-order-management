@@ -1,3 +1,4 @@
+import { ROLE, USER_STATUS } from '@po/contracts';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 
@@ -25,7 +26,7 @@ export function findUserByEmail(
 /** Whether any user holds the ADMIN role, whatever their status. Stops at the first. */
 export async function adminExists(tx: AuditedTransaction): Promise<boolean> {
   const admin = await tx.user.findFirst({
-    where: { roles: { has: 'ADMIN' } },
+    where: { roles: { has: ROLE.ADMIN } },
     select: { id: true },
   });
   return admin !== null;
@@ -41,8 +42,8 @@ export function createAdminUser(
       id: uuidv7(),
       email: admin.email,
       name: admin.name,
-      roles: ['ADMIN'],
-      status: 'ACTIVE',
+      roles: [ROLE.ADMIN],
+      status: USER_STATUS.ACTIVE,
     },
     select: SUMMARY,
   });

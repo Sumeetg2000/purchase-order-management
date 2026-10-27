@@ -6,3 +6,4 @@ export * from './operations.js';
 export * from './request-id.js';
 export * from './schemas/health.js';
 export * from './schemas/problem.js';
+export * from './users.js';
