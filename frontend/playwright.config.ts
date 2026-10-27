@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests against the running compose stack (research R19). Chromium on every
-// pull request; E2E_BROWSERS=chromium,firefox,webkit on main and nightly (FR-041).
+// pull request; E2E_BROWSERS=chromium,firefox,webkit on main and nightly (research R22).
 const ENGINES = {
   chromium: devices['Desktop Chrome'],
   firefox: devices['Desktop Firefox'],

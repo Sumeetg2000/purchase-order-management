@@ -181,7 +181,7 @@ jobs:
         run: docker compose up -d --build --wait --wait-timeout 300
       - name: Smoke test
         run: scripts/smoke.sh
-      # Playwright against the running stack (FR-041): Chromium on pull requests; Chromium,
+      # Playwright against the running stack: Chromium on pull requests; Chromium,
       # Firefox and WebKit on pushes to main (and nightly, nightly.yml).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

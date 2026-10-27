@@ -9,7 +9,7 @@ import { uuidv7 } from '../lib/uuid.js';
 
 export type TokenPurpose = 'RESET' | 'VERIFY_EMAIL';
 
-/** How long a set-password (RESET) token stays valid (FR-035, ADR-0017). */
+/** How long a set-password (RESET) token stays valid (ADR-0017). */
 export const RESET_TOKEN_LIFETIME_MINUTES = 30;
 
 /** How long an email verification token stays valid (ADR-0017). */

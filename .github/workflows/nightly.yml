@@ -1,8 +1,9 @@
 name: Nightly
 
 # The end-to-end suite on Chromium, Firefox and WebKit against a fresh compose stack
-# (FR-041). A failure here is treated like a failed check on main. Same public-repository
-# rules as ci.yml: no pull_request_target, no secrets, read-only token (ADR-0020).
+# (browser support, research R22). A failure here is treated like a failed check on main.
+# Same public-repository rules as ci.yml: no pull_request_target, no secrets, read-only
+# token (ADR-0020).
 on:
   schedule:
     - cron: '30 1 * * *'
