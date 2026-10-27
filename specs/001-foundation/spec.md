@@ -408,7 +408,7 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 - **FR-013**: Logs MUST be structured, and MUST redact cookies, authorization headers,
   passwords, tokens and phone numbers. The only exception is the one-time set-password
   link printed by the bootstrap and by the create-admin command. *(NFR-OPS-02,
-  NFR-PRIV-01 part)*
+  NFR-PRIV-01 part; phone numbers arrive with user profiles in slice 1)*
 - **FR-014**: Security headers and a request body size limit MUST apply to every
   response. Cross-origin requests to the API MUST be refused. *(NFR-OPS-02, NFR-OPS-03)*
 - **FR-015**: Every route MUST declare who may call it. A route without a declaration
@@ -447,7 +447,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   `VERSION_CONFLICT` prompt lands in slice 3)*
 - **FR-024**: Every page pattern MUST provide loading, empty and error states. Temporary
   failures (`503`) offer a retry, and errors are mapped by code to user messages.
-  *(NFR-FE-01, NFR-FE-04 part)*
+  *(NFR-FE-01, NFR-FE-04 part; paging, URL state, search and Idempotency-Key land with the
+  first list and create screens, in slices 1 and 2)*
 - **FR-025**: The web app MUST provide one shared confirmation dialog that meets ADR-0018:
   named action, stated consequence, safe-button focus, Escape and outside-click close,
   disabled while pending, an optional required reason, and errors shown inside.
@@ -458,14 +459,16 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   (WCAG 2.1 AA). The app MUST be served with a strict content security policy and render
   no raw HTML. *(NFR-FE-05)*
 - **FR-028**: The production build MUST stay within the bundle budget in ADR-0012, and
-  the automated checks MUST fail when it doesn't. *(NFR-FE-06 part)*
+  the automated checks MUST fail when it doesn't. *(NFR-FE-06 part; the 500-line editor
+  targets land in slice 3)*
 - **FR-041**: The web app MUST support the latest 2 versions of Chrome, Edge, Firefox and
   Safari, and the build MUST target them.
   - End-to-end tests run on Chromium for every pull request.
   - They run on Chromium, Firefox and WebKit nightly and on every push to `main`. A
     nightly failure is treated like a failed check on `main`.
 
-  *(NFR-FE-07, NFR-FE-05)*
+  *(NFR-FE-07 part, NFR-FE-05; each end-to-end flow lands with its slice, login in slice 1
+  through partial receipt in slice 6)*
 
 **Mail**
 - **FR-029**: The system MUST send mail through one interface, with mail settings

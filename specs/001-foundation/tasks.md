@@ -944,7 +944,7 @@ second concurrent run is a no-op.
 - [X] T112 [P] CLAUDE.md commands match reality — `CLAUDE.md` (`npm run dev`, `npm test`,
   `npm run lint`, `npm run typecheck`; fix anything that differs; stay under 60 lines) —
   Verify: each listed command runs successfully.
-- [ ] T113 [P] Traceability final pass — `docs/traceability.md`. NFR-OPS-02 → `Done` (all
+- [X] T113 [P] Traceability final pass — `docs/traceability.md`. NFR-OPS-02 → `Done` (all
   parts: config, production refusals, credential separation, headers, metrics, gitleaks).
   Confirm every slice 0 row is `Done` (fully delivered) or `Tested` (partial, with the
   remaining slice noted in the spec) — Verify: `npm run check:traceability` passes.
