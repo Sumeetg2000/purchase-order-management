@@ -94,9 +94,8 @@ jobs:
       - run: npm ci
       # The breaking-change check is contract-breaking.yml, which also reruns on label and
       # description changes without rerunning this whole workflow.
-      # The generator's own tests, and the web client generated from the document.
+      # The generator's own tests. The web client's tests run in the web job.
       - run: npm test -w @po/contracts
-      - run: npm test -w @po/frontend
       - name: Regenerate the OpenAPI document and the web client types
         run: npm run contract:generate && npm run contract:types
       - name: Drift check
@@ -114,6 +113,39 @@ jobs:
         with:
           name: reports-contract
           path: reports/*.json
+          if-no-files-found: error
+          retention-days: 14
+
+  web:
+    name: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Unit, component and axe tests.
+      - run: npm test -w @po/frontend
+      - run: npm run build -w @po/frontend
+      - name: Bundle budget
+        run: npm run check:bundle
+      - name: No development-only demo code in the build
+        run: |
+          if grep -rlE '__demo|Component demo' frontend/dist; then
+            echo "::error::The production build contains the development-only demo route."
+            exit 1
+          fi
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-web
+          path: reports/
           if-no-files-found: error
           retention-days: 14
 
@@ -160,7 +192,7 @@ jobs:
     name: traceability
     # The e2e job writes no report yet; Playwright's lands with the web slice. It is a
     # dependency already so the check always runs on a fully green build.
-    needs: [static, api, contract, e2e]
+    needs: [static, api, contract, web, e2e]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

@@ -13,5 +13,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: buildTarget,
+    // .vite/manifest.json, which the bundle budget check reads; the web image deletes it.
+    manifest: true,
   },
 });

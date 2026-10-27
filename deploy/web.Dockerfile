@@ -19,7 +19,8 @@ COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
 RUN npm run build -w @po/contracts
 COPY frontend frontend
-RUN npm run build -w @po/frontend
+# The manifest is for the bundle budget check; it isn't served.
+RUN npm run build -w @po/frontend && rm -rf frontend/dist/.vite
 
 # --- runtime: nginx as its unprivileged user ----------------------------------------
 FROM nginx:1.30.6-alpine
