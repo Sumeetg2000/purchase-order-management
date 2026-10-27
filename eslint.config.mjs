@@ -11,6 +11,10 @@ const restrictedSyntax = [
     selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
     message: 'Raw HTML rendering is banned (ADR-0018).',
   },
+  {
+    selector: "JSXAttribute[name.name='confirmLabel'] Literal[value=/^\\s*(ok|yes)\\s*$/i]",
+    message: 'A confirm button names its action ("Cancel order"), never "OK" or "Yes" (ADR-0018).',
+  },
 ];
 
 // Branching on error text is banned (ADR-0007): errors are mapped by code in

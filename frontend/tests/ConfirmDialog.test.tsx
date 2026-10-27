@@ -12,7 +12,12 @@ function Harness(overrides: Overrides) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
         Cancel order…
       </button>
       {open && (
@@ -21,7 +26,9 @@ function Harness(overrides: Overrides) {
           confirmLabel="Cancel order"
           tone="danger"
           onConfirm={() => Promise.resolve()}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+          }}
           {...overrides}
         >
           The supplier will be told the order is cancelled. This can&apos;t be undone.
@@ -40,9 +47,9 @@ async function openDialog(overrides: Overrides = {}) {
 }
 
 const deferred = () => {
-  let resolve = () => undefined as unknown;
+  let resolve: () => void = () => undefined;
   const promise = new Promise<void>((r) => {
-    resolve = r as () => unknown;
+    resolve = r;
   });
   return { promise, resolve };
 };
@@ -65,7 +72,10 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
     const { user } = await openDialog();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Cancel order…' })).toHaveFocus();
+    // React Aria restores focus on the next animation frame, as it does in a browser.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cancel order…' })).toHaveFocus();
+    });
 
     await user.click(screen.getByRole('button', { name: 'Cancel order…' }));
     await screen.findByRole('alertdialog');
@@ -77,7 +87,9 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel order…' }));
     await user.click(await screen.findByRole('button', { name: 'Go back' }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Cancel order…' })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Cancel order…' })).toHaveFocus();
+    });
   });
 
   it('[NFR-FE-09] while pending, confirm is disabled and nothing closes it', async () => {
