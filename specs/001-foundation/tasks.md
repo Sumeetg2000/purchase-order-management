@@ -874,7 +874,7 @@ logged without failing the request.
   still reaches Mailpit.
 - [X] T104 [US7] Traceability: NFR-OPS-04 → `Done` — `docs/traceability.md`.
 
-- [ ] T105 [US7] Story checkpoint review: run `/code-review` over this story's
+- [X] T105 [US7] Story checkpoint review: run `/code-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
