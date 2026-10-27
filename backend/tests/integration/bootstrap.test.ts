@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { inspect } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BootstrapError, runBootstrap, type BootstrapOptions } from '../../src/bootstrap/run.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
@@ -143,11 +144,9 @@ describe('[FR-ADM-04] admin bootstrap', () => {
     await expect(failure).rejects.toBeInstanceOf(BootstrapError);
     await expect(failure).rejects.toMatchObject({ code: 'EMAIL_IN_USE' });
     // migrate logs the error with its causes; none of them may carry the email.
-    const error = await failure.catch((e: unknown) => e);
-    const messages: string[] = [];
-    for (let e: unknown = error; e instanceof Error; e = e.cause) messages.push(e.message);
-    expect(messages.length).toBeGreaterThan(1);
-    expect(messages.join(' ')).not.toContain(ADMIN.email);
+    const shown = inspect(await failure.catch((e: unknown) => e), { depth: 5 });
+    expect(shown).toContain('EmailInUseError');
+    expect(shown).not.toContain(ADMIN.email);
     expect(await admins(db)).toEqual([]);
     expect(await query(db, `SELECT roles FROM users`)).toEqual([{ roles: ['BUYER'] }]);
     expect(await query(db, 'SELECT 1 FROM one_time_tokens')).toHaveLength(0);
