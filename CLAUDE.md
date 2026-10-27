@@ -60,4 +60,5 @@ Details of each gate: see the constitution's "Development Workflow and Quality G
 - A value used in more than one place, or one that carries business meaning (a lifetime,
   a retention period, a role, a timeout), is a named constant, defined once and imported.
   When the same value must also live in SQL, nginx or compose, a test pins that copy to
-  the constant.
+  the constant. Codes are string-literal union types derived from one const list (like
+  `ErrorCode` from the registry), never plain `string`.
