@@ -149,6 +149,9 @@ export async function runPurge({
   asOf,
   batchSize = PURGE_BATCH_SIZE,
 }: PurgeOptions): Promise<PurgeOutcome> {
+  if (!Number.isInteger(batchSize) || batchSize < 1) {
+    throw new RangeError('the purge batch size must be a positive integer');
+  }
   const lock = new pg.Client({
     connectionString: lockUrl,
     application_name: 'po_purge_lock',
