@@ -8,6 +8,7 @@ import type { AppPrismaClient } from '../../src/db/client.js';
 import { createApp, RouteRegistrationError } from '../../src/http/app.js';
 import { defineRoute, type RouteDefinition } from '../../src/http/define-route.js';
 import { productionRoutes } from '../../src/http/routes/index.js';
+import { CaptureMailer } from '../../src/mail/capture.js';
 import { testLogger } from '../support/log-capture.js';
 
 const health = defineRoute({
@@ -74,6 +75,7 @@ describe('[NFR-API-01] routes follow the contract', () => {
     const routes = productionRoutes({
       prisma: {} as AppPrismaClient,
       expectedMigrations: [],
+      mailer: new CaptureMailer(),
     });
     const served = routes.map((r) => `${r.operationId} ${r.method} ${r.path}`).sort();
     const documented = Object.values(OPERATIONS)

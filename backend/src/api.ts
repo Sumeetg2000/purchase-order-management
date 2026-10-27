@@ -1,0 +1,73 @@
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type { Logger } from 'pino';
+import type { ApiConfig } from './config/api.js';
+import { createPrismaClient } from './db/client.js';
+import { createApp } from './http/app.js';
+import { listMigrations } from './http/routes/health.js';
+import { productionRoutes } from './http/routes/index.js';
+import { createShutdown } from './http/shutdown.js';
+import { createSmtpMailer } from './mail/smtp.js';
+import { createMetrics, createMetricsServer } from './observability/metrics.js';
+
+// Below compose's stop_grace_period for api, so the drain finishes before SIGKILL.
+const DRAIN_TIMEOUT_MS = 10_000;
+
+function listen(server: Server, port: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, () => {
+      server.off('error', reject);
+      resolve((server.address() as AddressInfo).port);
+    });
+  });
+}
+
+export interface RunningApi {
+  /** The API's port (the configured one, or the one assigned for port 0). */
+  port: number;
+  metricsPort: number;
+  /** Drains in-flight requests and closes the pool; the same as on SIGTERM. */
+  close: () => Promise<void>;
+}
+
+/**
+ * Starts the API and its metrics listener from a validated config. Nothing here contacts
+ * the mail server: an unreachable SMTP host fails sends, not startup.
+ */
+export async function startApi(config: ApiConfig, logger: Logger): Promise<RunningApi> {
+  const prisma = createPrismaClient({
+    url: config.DATABASE_URL,
+    poolSize: config.DB_POOL_SIZE,
+    connectionTimeoutMs: config.DB_TX_MAX_WAIT_MS,
+  });
+
+  const metrics = createMetrics();
+  const app = createApp({
+    logger,
+    appOrigin: config.APP_ORIGIN,
+    metrics,
+    routes: productionRoutes({
+      prisma,
+      expectedMigrations: await listMigrations(),
+      logger,
+      mailer: createSmtpMailer(config),
+    }),
+  });
+
+  const server = createServer(app);
+  const port = await listen(server, config.HTTP_PORT);
+  logger.info({ port }, 'api listening');
+
+  const metricsServer = createMetricsServer(metrics);
+  const metricsPort = await listen(metricsServer, config.METRICS_PORT);
+  logger.info({ port: metricsPort }, 'metrics listening');
+
+  const close = createShutdown({
+    servers: [server, metricsServer],
+    prisma,
+    logger,
+    drainTimeoutMs: DRAIN_TIMEOUT_MS,
+  });
+  return { port, metricsPort, close };
+}

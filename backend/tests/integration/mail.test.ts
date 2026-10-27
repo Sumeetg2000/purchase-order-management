@@ -5,6 +5,7 @@ import { startApi, type RunningApi } from '../../src/api.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction } from '../../src/db/transaction.js';
 import { defineRoute } from '../../src/http/define-route.js';
+import { requestIdOf } from '../../src/http/middleware/correlation.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import type { Mailer } from '../../src/mail/mailer.js';
 import { sendAfterCommit } from '../../src/mail/send-after-commit.js';
@@ -34,7 +35,11 @@ async function closedPort(): Promise<number> {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await new Promise<void>((resolve) => {
+    server.close(() => {
+      resolve();
+    });
+  });
   if (address === null || typeof address === 'string') throw new Error('no port');
   return address.port;
 }
@@ -62,7 +67,7 @@ async function setup(mailer: Mailer) {
         {
           prisma,
           actor: { type: 'SYSTEM' },
-          requestId: String(req.id),
+          requestId: requestIdOf(res),
           timeoutMs: 5_000,
           maxWaitMs: 2_000,
           logger: req.log,
@@ -158,7 +163,7 @@ describe('[NFR-OPS-04] startup with an unreachable mail server', () => {
         DB_TX_MAX_WAIT_MS: 2_000,
         HTTP_PORT: 0,
         METRICS_PORT: 0,
-        LOG_LEVEL: 'silent',
+        LOG_LEVEL: 'error',
         SMTP_HOST: '127.0.0.1',
         SMTP_PORT: await closedPort(),
         SMTP_SECURE: false,

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { AppPrismaClient } from '../../src/db/client.js';
 import { createApp } from '../../src/http/app.js';
 import { productionRoutes } from '../../src/http/routes/index.js';
+import { CaptureMailer } from '../../src/mail/capture.js';
 import { testLogger } from '../support/log-capture.js';
 
 const SRC = fileURLToPath(new URL('../../src/', import.meta.url));
@@ -40,7 +41,11 @@ describe('[FR-ADM-05] operator code is unreachable over HTTP', () => {
     const app = createApp({
       logger: testLogger(),
       appOrigin: 'http://localhost:8080',
-      routes: productionRoutes({ prisma: {} as AppPrismaClient, expectedMigrations: [] }),
+      routes: productionRoutes({
+        prisma: {} as AppPrismaClient,
+        expectedMigrations: [],
+        mailer: new CaptureMailer(),
+      }),
     });
     const res = await request(app).get('/metrics');
     expect(res.status).toBe(404);
