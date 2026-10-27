@@ -8,25 +8,35 @@ import type { paths } from './schema';
 
 export const API_BASE_URL = '/api';
 
-let lastRequestId: string | undefined;
+/** The API couldn't be reached: offline, a dropped connection, DNS. There is no response. */
+export class NetworkError extends Error {
+  override readonly name = 'NetworkError';
 
-/** The X-Request-Id of the last API response, for error screens with no problem document. */
-export function getLastRequestId(): string | undefined {
-  return lastRequestId;
+  constructor(options?: { cause?: unknown }) {
+    super('The API could not be reached', options);
+  }
 }
 
 export function createApiClient(options: ClientOptions = {}) {
-  const client = createClient<paths>({ baseUrl: API_BASE_URL, ...options });
-  client.use({
-    onResponse({ response }) {
-      lastRequestId = response.headers.get('x-request-id') ?? lastRequestId;
-      return undefined;
+  const send = options.fetch ?? ((request: Request) => globalThis.fetch(request));
+  return createClient<paths>({
+    baseUrl: API_BASE_URL,
+    ...options,
+    fetch: async (request: Request) => {
+      try {
+        return await send(request);
+      } catch (cause) {
+        throw new NetworkError({ cause });
+      }
     },
   });
-  return client;
 }
 
-/** An API error carried as an exception, for queries and route errors. */
+/**
+ * An API error carried as an exception, for queries and route errors. Its problem carries
+ * the failing request's own id (correlationId), so an error screen never shows another
+ * request's.
+ */
 export class ProblemError extends Error {
   override readonly name = 'ProblemError';
 
@@ -35,12 +45,23 @@ export class ProblemError extends Error {
   }
 }
 
+/** An openapi-fetch result's data, or a ProblemError built from its error response. */
+export function dataOrThrow<T>(
+  result:
+    | { data: T; error?: never; response: Response }
+    | { data?: never; error: unknown; response: Response },
+): T {
+  if (result.error !== undefined) {
+    throw new ProblemError(parseProblem(result.response, result.error));
+  }
+  return result.data as T;
+}
+
 export const api = createApiClient();
 
 /**
  * The problem document of an error response. A body that isn't one (an unexpected proxy
- * page, say) becomes INTERNAL_ERROR, keeping the response's request id so an error screen
- * can still show it.
+ * page, say) becomes INTERNAL_ERROR with that response's own X-Request-Id.
  */
 export function parseProblem(response: Response, body: unknown): Problem {
   const contentType = response.headers.get('content-type') ?? '';

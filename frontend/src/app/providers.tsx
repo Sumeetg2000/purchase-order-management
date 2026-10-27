@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { ProblemError } from '../api/client';
 import { isRetryable } from '../errors/messages';
+import { problemFrom } from '../errors/problem';
 
-/** Retries are automatic only for temporary failures; anything else is shown at once. */
+/**
+ * Retries are automatic only for temporary failures (an unreachable API, 503-class codes);
+ * anything else is shown at once.
+ */
 const MAX_AUTOMATIC_RETRIES = 2;
 
 export function createQueryClient(): QueryClient {
@@ -11,9 +14,7 @@ export function createQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         retry: (failures, error) =>
-          failures < MAX_AUTOMATIC_RETRIES &&
-          error instanceof ProblemError &&
-          isRetryable(error.problem.code),
+          failures < MAX_AUTOMATIC_RETRIES && isRetryable(problemFrom(error).code),
       },
     },
   });

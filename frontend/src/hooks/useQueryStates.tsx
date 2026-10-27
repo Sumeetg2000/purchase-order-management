@@ -1,9 +1,9 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { getLastRequestId, ProblemError } from '../api/client';
 import { Empty, type EmptyProps } from '../components/Empty';
 import { ErrorState } from '../components/ErrorState';
 import { Loading } from '../components/Loading';
+import { problemFrom } from '../errors/problem';
 
 export interface QueryStateOptions<T> {
   loadingLabel: string;
@@ -25,10 +25,7 @@ export function useQueryStates<T>(
 ): QueryStates<T> {
   if (query.isPending) return { view: <Loading label={loadingLabel} />, data: undefined };
   if (query.isError) {
-    const problem =
-      query.error instanceof ProblemError
-        ? query.error.problem
-        : { code: 'INTERNAL_ERROR', correlationId: getLastRequestId() };
+    const problem = problemFrom(query.error);
     const retry = () => {
       void query.refetch();
     };

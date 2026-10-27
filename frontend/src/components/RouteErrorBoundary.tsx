@@ -1,17 +1,17 @@
 import { isRouteErrorResponse, useRouteError } from 'react-router';
-import { getLastRequestId, ProblemError } from '../api/client';
 import type { ProblemLike } from '../errors/messages';
+import { problemFrom } from '../errors/problem';
 import { ErrorState } from './ErrorState';
 
 /**
  * A route's errorElement: contains a failure to that route, so the shell and its
- * navigation keep working, and shows the request id to quote.
+ * navigation keep working, and shows the failing request's id to quote, if there was one.
  */
 export function RouteErrorBoundary() {
   const error = useRouteError();
-  let problem: ProblemLike;
-  if (error instanceof ProblemError) problem = error.problem;
-  else if (isRouteErrorResponse(error) && error.status === 404) problem = { code: 'NOT_FOUND' };
-  else problem = { code: 'INTERNAL_ERROR', correlationId: getLastRequestId() };
+  const problem: ProblemLike =
+    isRouteErrorResponse(error) && error.status === 404
+      ? { code: 'NOT_FOUND' }
+      : problemFrom(error);
   return <ErrorState problem={problem} />;
 }

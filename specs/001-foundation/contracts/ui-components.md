@@ -33,7 +33,7 @@ Behaviour:
 | `<Loading label>` | an accessible busy indicator (`aria-busy`, `role="status"`) |
 | `<Empty title description action?>` | what's missing and, optionally, the next step |
 | `<ErrorState problem onRetry?>` | the mapped message for `problem.code`, the `correlationId` as "Request ID", and **Retry** only for `503`-class codes |
-| `<RouteErrorBoundary>` | catches render errors in one route, shows `ErrorState` with the last request id, and keeps the shell (navigation) working |
+| `<RouteErrorBoundary>` | catches render errors in one route, shows `ErrorState` with the failing request's own id (none for an error no request caused), and keeps the shell (navigation) working |
 
 `useQueryStates(query)` renders the right state for a TanStack Query result, so pages don't
 hand-roll the three states.
