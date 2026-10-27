@@ -7,7 +7,7 @@ import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js
 import { withTransaction } from '../../src/db/transaction.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { requestIdOf } from '../../src/http/middleware/correlation.js';
-import { createShutdown } from '../../src/http/shutdown.js';
+import { createShutdown, DRAIN_TIMEOUT_MS } from '../../src/http/shutdown.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
 import type { Mailer } from '../../src/mail/mailer.js';
@@ -343,6 +343,23 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     };
   }
 
+  it('[NFR-OPS-04] a mail reserve as long as the whole deadline is refused, so requests always get time', () => {
+    const options = {
+      servers: [],
+      prisma: { $disconnect: () => Promise.resolve() },
+      logger: createCapture().logger,
+      mail: createMailDispatcher(new CaptureMailer()),
+    };
+    expect(() =>
+      createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 2_000 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 500 }),
+    ).not.toThrow();
+    // The production pair, as startApi uses it.
+    expect(() => createShutdown({ ...options, drainTimeoutMs: DRAIN_TIMEOUT_MS })).not.toThrow();
+  });
+
   it('[NFR-OPS-04] shutdown waits for a send in flight before closing the pool', async () => {
     const order: string[] = [];
     const capture = createCapture();
@@ -359,6 +376,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       logger: capture.logger,
       drainTimeoutMs: 2_000,
       mail,
+      mailReserveMs: 1_000,
     })();
     expect(order).toEqual(['verify_email', 'pool closed']);
   });
@@ -461,6 +479,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       logger: capture.logger,
       drainTimeoutMs: 300,
       mail,
+      mailReserveMs: 200,
     })();
     // The whole deadline, mail reserve included, is the 300 ms given.
     expect(Date.now() - started).toBeLessThan(1_000);
