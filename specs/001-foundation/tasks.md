@@ -918,7 +918,7 @@ second concurrent run is a no-op.
   `maintenance` logged `purge run complete` with both table names — FR-036 — Verify: the
   `e2e` job is green.
 
-- [ ] T110 [US8] Story checkpoint review: run `/code-review` over this story's
+- [X] T110 [US8] Story checkpoint review: run `/code-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.
