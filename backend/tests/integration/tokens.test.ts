@@ -51,7 +51,7 @@ async function setup() {
     return row?.id ?? '';
   });
   const issue = (purpose: TokenPurpose = 'RESET') => run((tx) => issueToken(tx, userId, purpose));
-  return { db, userId, issue };
+  return { db, userId, issue, run };
 }
 
 async function tokenRows(db: TestDatabase): Promise<TokenRow[]> {
@@ -107,6 +107,32 @@ describe('[FR-ACC-03] one-time tokens', () => {
     expect(firstReset?.superseded_at).toBeInstanceOf(Date);
     expect(verify?.superseded_at).toBeNull();
     expect(secondReset?.superseded_at).toBeNull();
+  });
+
+  it('[FR-ACC-03] two overlapping issues for the same user and purpose leave exactly one valid token', async () => {
+    const { db, userId, run } = await setup();
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markIssued = () => undefined as void;
+    const issuedA = new Promise<void>((resolve) => {
+      markIssued = resolve;
+    });
+    // A issues and holds its transaction open; B issues meanwhile; then A commits.
+    const a = run(async (tx) => {
+      await issueToken(tx, userId, 'RESET');
+      markIssued();
+      await gate;
+    });
+    await issuedA;
+    const b = run((tx) => issueToken(tx, userId, 'RESET'));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    release();
+    await Promise.all([a, b]);
+
+    const open = (await tokenRows(db)).filter((t) => !t.used_at && !t.superseded_at);
+    expect(open).toHaveLength(1);
   });
 
   it('[FR-ACC-03] a used token is not superseded later', async () => {
