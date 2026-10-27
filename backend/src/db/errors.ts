@@ -65,7 +65,9 @@ const UNAVAILABLE_KINDS = new Set([
 
 // Connection exceptions (class 08), too many connections (53300), and a server shutting
 // down or starting up (57P01-57P03) arrive with the raw SQLSTATE.
-const UNAVAILABLE_SQLSTATE = /^(08...|53300|57P0[123])$/;
+// A lock that couldn't be taken within lock_timeout (55P03) is the same for the caller: the
+// database can't serve the request now.
+const UNAVAILABLE_SQLSTATE = /^(08...|53300|55P03|57P0[123])$/;
 
 // Node socket error codes for a database that can't be reached. The adapter usually wraps
 // them as P2010 DatabaseNotReachable, but on some hosts (the CI runner) the raw pg
