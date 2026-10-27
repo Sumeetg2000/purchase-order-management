@@ -2,6 +2,12 @@ import type { Server } from 'node:http';
 import type { Logger } from 'pino';
 import type { MailDispatcher } from '../mail/dispatcher.js';
 
+/**
+ * How long the API's shutdown may drain requests and mail. Below compose's
+ * stop_grace_period for api (a test pins it), so the drain finishes before SIGKILL.
+ */
+export const DRAIN_TIMEOUT_MS = 10_000;
+
 export interface ShutdownOptions {
   /** Every listener of the process (API and metrics). */
   servers: readonly Server[];

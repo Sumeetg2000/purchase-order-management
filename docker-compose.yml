@@ -55,7 +55,8 @@ services:
     cap_drop: [ALL]
     init: true
     restart: unless-stopped
-    # Longer than the API's 10 s drain, so in-flight requests finish before SIGKILL.
+    # Longer than the API's 10 s drain (DRAIN_TIMEOUT_MS, pinned by compose-pins.test.ts),
+    # so in-flight requests and mail finish before SIGKILL.
     stop_grace_period: 15s
     # Metrics are reachable inside the compose network only, never from the host.
     expose:

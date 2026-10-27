@@ -6,13 +6,10 @@ import { createPrismaClient } from './db/client.js';
 import { createApp } from './http/app.js';
 import { listMigrations } from './http/routes/health.js';
 import { productionRoutes } from './http/routes/index.js';
-import { createShutdown } from './http/shutdown.js';
+import { createShutdown, DRAIN_TIMEOUT_MS } from './http/shutdown.js';
 import { createMailDispatcher } from './mail/dispatcher.js';
 import { createSmtpMailer } from './mail/smtp.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
-
-// Below compose's stop_grace_period for api, so the drain finishes before SIGKILL.
-const DRAIN_TIMEOUT_MS = 10_000;
 
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
