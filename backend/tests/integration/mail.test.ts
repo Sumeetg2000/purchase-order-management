@@ -19,9 +19,10 @@ import { trackDatabase } from '../support/setup.js';
 import { createTestApp } from '../support/test-app.js';
 import { z } from 'zod';
 
-// Slice 0 has no real templates (research R14): a test-only one proves the pipeline.
+// Slice 0 has no real templates (research R14): a test-only one, borrowing a slice 1
+// template's name, proves the pipeline.
 const greeting = defineTemplate<{ name: string }>({
-  name: 'test_greeting',
+  name: 'verify_email',
   subject: () => 'Hello',
   text: ({ name }) => `Hello ${name}`,
   html: ({ name }) => `<p>Hello ${name}</p>`,
@@ -157,7 +158,7 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     await mail.settled();
     expect(mailer.sent).toEqual([
       {
-        template: 'test_greeting',
+        template: 'verify_email',
         to: RECIPIENT,
         subject: 'Hello',
         text: 'Hello Asha <b>',
@@ -184,7 +185,7 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     expect(events).toEqual([
       expect.objectContaining({
         event: 'mail_send_failed',
-        template: 'test_greeting',
+        template: 'verify_email',
         requestId: res.headers['x-request-id'],
       }),
     ]);
@@ -205,7 +206,7 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
       );
       await mail.settled();
       expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
-        expect.objectContaining({ event: 'mail_send_failed', template: 'test_greeting' }),
+        expect.objectContaining({ event: 'mail_send_failed', template: 'verify_email' }),
       ]);
     },
   );
@@ -319,7 +320,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       drainTimeoutMs: 2_000,
       mail,
     })();
-    expect(order).toEqual(['test_greeting', 'pool closed']);
+    expect(order).toEqual(['verify_email', 'pool closed']);
   });
 
   it('[NFR-OPS-04] a send still running at the drain deadline is abandoned and logged as mail_send_failed', async () => {
@@ -338,7 +339,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
       expect.objectContaining({
         event: 'mail_send_failed',
-        template: 'test_greeting',
+        template: 'verify_email',
         errorName: 'ShutdownTimeout',
       }),
     ]);

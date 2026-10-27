@@ -126,7 +126,7 @@ api_mail_reaches_mailpit() {
     if (!config) process.exit(1);
     const subject = process.argv[1];
     const template = defineTemplate({
-      name: "smoke",
+      name: "verify_email",
       subject: () => subject,
       text: () => "smoke",
       html: () => "<p>smoke</p>",

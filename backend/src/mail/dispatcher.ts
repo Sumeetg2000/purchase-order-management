@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { Mailer } from './mailer.js';
-import type { MailMessage, MailVariables } from './template.js';
+import type { MailMessage, MailTemplateName, MailVariables } from './template.js';
 
 export interface MailDispatcher {
   /**
@@ -21,7 +21,7 @@ export interface MailDispatcher {
 }
 
 interface InFlight {
-  template: string;
+  template: MailTemplateName;
   logger: Logger;
   abandoned: boolean;
 }

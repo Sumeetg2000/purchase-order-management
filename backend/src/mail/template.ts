@@ -6,9 +6,18 @@ import { emailAddressSchema } from '@po/contracts';
 
 export type MailVariables = Record<string, string>;
 
+/** Every template (ADR-0017); slice 1 defines them. A name is logged, so it is a code. */
+export const MAIL_TEMPLATES = [
+  'verify_email',
+  'account_exists',
+  'reset_password',
+  'admin_reset',
+] as const;
+export type MailTemplateName = (typeof MAIL_TEMPLATES)[number];
+
 export interface MailTemplate<V extends MailVariables> {
   /** Identifies the template in logs; never the recipient. */
-  name: string;
+  name: MailTemplateName;
   subject: (variables: V) => string;
   text: (variables: V) => string;
   /** Receives the variables HTML-escaped. */
@@ -27,7 +36,7 @@ export interface MailMessage<V extends MailVariables> {
 
 /** A message ready to hand to a transport. */
 export interface RenderedMail {
-  template: string;
+  template: MailTemplateName;
   to: string;
   subject: string;
   text: string;
