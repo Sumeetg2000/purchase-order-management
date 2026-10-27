@@ -914,7 +914,7 @@ second concurrent run is a no-op.
   (8 years) and `one_time_tokens` (7 days), registered in
   `backend/src/maintenance/registry.ts`) — FR-036, FR-037 — Verify: T106 passes, and
   `docker compose logs maintenance` shows counts for both tables.
-- [ ] T109 [US8] Smoke check of the maintenance first run — `scripts/smoke.sh` asserts that
+- [X] T109 [US8] Smoke check of the maintenance first run — `scripts/smoke.sh` asserts that
   `maintenance` logged `purge run complete` with both table names — FR-036 — Verify: the
   `e2e` job is green.
 

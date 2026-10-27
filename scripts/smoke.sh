@@ -136,8 +136,10 @@ api_mail_reaches_mailpit() {
     curl -fsS --max-time 5 http://127.0.0.1:8025/api/v1/messages | grep -qF "$MAIL_SUBJECT"
 }
 
+# The first run's "purge run complete" line names every table the purge covers.
 maintenance_ran() {
-  docker compose logs --no-color maintenance | grep -q 'purge run complete'
+  docker compose logs --no-color maintenance | grep 'purge run complete' |
+    grep '"table":"audit_entries"' | grep -q '"table":"one_time_tokens"'
 }
 
 # The edge answers its own errors as problem+json, with the registry's title and status
@@ -209,7 +211,7 @@ eventually "GET / serves the app's HTML" serves_html
 eventually "GET /metrics through web is 404" status_is "$BASE/metrics" 404
 eventually "no host-published port serves Prometheus content" no_published_port_serves_metrics
 eventually "api:9464/metrics answers inside the network" internal_metrics
-eventually "maintenance logged its first purge run" maintenance_ran
+eventually "maintenance logged its first purge run with both tables" maintenance_ran
 eventually "Mailpit API answers on 127.0.0.1:8025" body_contains "http://127.0.0.1:8025/api/v1/info" '"Version"'
 # SC-001's start time is measured here, before the checks below restart the API.
 ready_at="$(date +%s)"
