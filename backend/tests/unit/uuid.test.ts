@@ -17,3 +17,5 @@ describe('[NFR-OPS-02] UUIDv7', () => {
     );
   });
 });
+
+export const typeBreak: number = 'not a number';
