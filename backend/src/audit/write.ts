@@ -5,9 +5,10 @@ export class ForbiddenAuditDetailError extends Error {
   override readonly name = 'ForbiddenAuditDetailError';
 }
 
-// A phone number never goes into the audit trail (ADR-0016), which keeps entries 8 years
-// and can't delete them early. The types rule out a `phone` key; this run-time check
-// catches any phone-like key at any depth before anything is written.
+// A phone number never goes into the audit trail (ADR-0016), which keeps entries for
+// AUDIT_RETENTION_YEARS (audit/retention.ts) and can't delete them early. The types rule
+// out a `phone` key; this run-time check catches any phone-like key at any depth before
+// anything is written.
 const PHONE_KEY = /phone|mobile/i;
 
 function phoneKeyPath(value: unknown, path: string): string | undefined {

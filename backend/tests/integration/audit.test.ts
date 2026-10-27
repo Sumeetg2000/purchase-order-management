@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { AUDIT_RETENTION_YEARS } from '../../src/audit/retention.js';
 import { writeAudit } from '../../src/audit/write.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction, type ActorContext } from '../../src/db/transaction.js';
@@ -486,7 +487,7 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
     await admin.query('BEGIN');
     await admin.query('SET LOCAL session_replication_role = replica');
     await admin.query(
-      `UPDATE audit_entries SET occurred_at = now() - interval '9 years'
+      `UPDATE audit_entries SET occurred_at = now() - make_interval(years => ${String(AUDIT_RETENTION_YEARS + 1)})
         WHERE id = (SELECT min(id) FROM audit_entries)`,
     );
     await admin.query('COMMIT');
@@ -498,7 +499,7 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
     expect(await auditRows(db)).toHaveLength(2);
 
     const purged = await maintenance.query(
-      `DELETE FROM audit_entries WHERE occurred_at < now() - interval '8 years'`,
+      `DELETE FROM audit_entries WHERE occurred_at < now() - make_interval(years => ${String(AUDIT_RETENTION_YEARS)})`,
     );
     expect(purged.rowCount).toBe(1);
     expect(await auditRows(db)).toHaveLength(1);
@@ -534,7 +535,7 @@ describe('[NFR-AUD-02] audit entries are append-only within retention', () => {
     // So a back-dated entry can't be slipped past the retention purge.
     const maintenance = await db.client('po_maintenance');
     const purged = await maintenance.query(
-      `DELETE FROM audit_entries WHERE occurred_at < now() - interval '8 years'`,
+      `DELETE FROM audit_entries WHERE occurred_at < now() - make_interval(years => ${String(AUDIT_RETENTION_YEARS)})`,
     );
     expect(purged.rowCount).toBe(0);
     expect(await auditRows(db)).toEqual([expect.objectContaining({ action: 'ADMIN_CREATED' })]);
