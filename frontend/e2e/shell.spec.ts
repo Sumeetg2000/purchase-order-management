@@ -56,11 +56,16 @@ test.describe('[NFR-FE-05] accessibility and content security', () => {
   test('[NFR-FE-05] the HTML has no inline script and runs with no CSP violation', async ({
     page,
   }) => {
-    const violations: string[] = [];
-    page.on('console', (message) => {
-      if (/Content Security Policy|Content-Security-Policy/i.test(message.text())) {
-        violations.push(message.text());
-      }
+    // Every violation fires securitypolicyviolation, even one the page's code catches (a
+    // library probing eval, say), in every engine; console messages vary by engine.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { cspViolations: string[] }).cspViolations = seen;
+      document.addEventListener('securitypolicyviolation', (event) => {
+        seen.push(
+          `${event.violatedDirective} blocked ${event.blockedURI} (${event.sourceFile}:${String(event.lineNumber)})`,
+        );
+      });
     });
     const response = await page.goto('/');
     const body = (await response?.text()) ?? '';
@@ -68,6 +73,11 @@ test.describe('[NFR-FE-05] accessibility and content security', () => {
     expect(scripts.length).toBeGreaterThan(0);
     expect(scripts.filter((tag) => !/\bsrc=/.test(tag))).toEqual([]);
     await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
+    await page.goto('/no/such/page');
+    await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+    const violations = await page.evaluate(
+      () => (window as unknown as { cspViolations: string[] }).cspViolations,
+    );
     expect(violations).toEqual([]);
   });
 });
