@@ -39,12 +39,13 @@ export interface CliDeps {
 function parseCommand(argv: readonly string[]) {
   const [command, ...rest] = argv;
   if (command === 'admin:create') return { args: parseAdminCreateArgs(rest) };
+  // The typed value is not echoed: with arguments out of order it can be an email or name.
   throw new CliError(
     'USAGE',
     EXIT.USAGE,
     command === undefined
       ? 'no command given. Run with --help.'
-      : `unknown command "${command}". Run with --help.`,
+      : 'unknown command. Run with --help.',
   );
 }
 
