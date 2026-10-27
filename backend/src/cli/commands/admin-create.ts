@@ -1,6 +1,7 @@
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import type { AuditedTransaction } from '../../db/transaction.js';
+import { RESET_TOKEN_LIFETIME_MINUTES } from '../../tokens/one-time.js';
 import { createAdmin } from '../../users/create-admin.js';
 import { CliError, EXIT } from '../errors.js';
 
@@ -62,7 +63,7 @@ export async function adminCreate(
   const { email, link } = await createAdmin(tx, { ...args, source: 'cli', appOrigin });
   return [
     `Admin created: ${email}`,
-    'One-time set-password link (valid 30 minutes, shown once):',
+    `One-time set-password link (valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes, shown once):`,
     link,
   ];
 }

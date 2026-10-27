@@ -4,6 +4,7 @@ import { lockAdmins } from '../db/locks.js';
 import { withTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { logOneTimeLink } from '../observability/logger.js';
+import { RESET_TOKEN_LIFETIME_MINUTES } from '../tokens/one-time.js';
 import { createAdmin, EmailInUseError } from '../users/create-admin.js';
 import { adminExists } from '../users/repository.js';
 
@@ -72,7 +73,7 @@ export async function runBootstrap(options: BootstrapOptions): Promise<'created'
         logOneTimeLink(
           logger,
           link,
-          'First administrator created. One-time set-password link (valid 30 minutes, shown once)',
+          `First administrator created. One-time set-password link (valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes, shown once)`,
         );
       });
       return 'created';

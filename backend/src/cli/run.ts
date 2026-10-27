@@ -5,6 +5,7 @@ import { classifyDbError, DatabaseUnavailableError } from '../db/errors.js';
 import { withTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { createLogger } from '../observability/logger.js';
+import { RESET_TOKEN_LIFETIME_MINUTES } from '../tokens/one-time.js';
 import { EmailInUseError } from '../users/create-admin.js';
 import { adminCreate, parseAdminCreateArgs, USAGE_LINE } from './commands/admin-create.js';
 import { CliError, EXIT } from './errors.js';
@@ -18,7 +19,7 @@ const USAGE = `Usage: npm run admin -- <command> [flags]
 Commands:
   ${USAGE_LINE}
       Create an active administrator with no password and print a one-time
-      set-password link (valid 30 minutes, shown once).
+      set-password link (valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes, shown once).
 
 Options:
   --help    Show this message
