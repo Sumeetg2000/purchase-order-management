@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { DRAIN_TIMEOUT_MS, MIN_MAIL_SETTLE_MS } from '../../src/http/shutdown.js';
+import { DRAIN_TIMEOUT_MS } from '../../src/http/shutdown.js';
 
 // Copies of backend constants that compose must also hold (CLAUDE.md constants rule).
 const compose = parse(
@@ -19,11 +19,9 @@ function durationMs(value: string): number {
 }
 
 describe('[NFR-OPS-02] compose values pinned to the API constants', () => {
-  it('[NFR-OPS-02] the api stop grace period outlasts the request drain and the mail settle', () => {
+  it('[NFR-OPS-02] the api stop grace period outlasts the shutdown deadline', () => {
     const grace = compose.services['api']?.stop_grace_period;
     expect(grace).toBeDefined();
-    expect(durationMs(grace ?? '')).toBeGreaterThanOrEqual(
-      DRAIN_TIMEOUT_MS + MIN_MAIL_SETTLE_MS + EXIT_MARGIN_MS,
-    );
+    expect(durationMs(grace ?? '')).toBeGreaterThanOrEqual(DRAIN_TIMEOUT_MS + EXIT_MARGIN_MS);
   });
 });

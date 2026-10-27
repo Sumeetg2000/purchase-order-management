@@ -390,8 +390,9 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       servers: [stuck],
       prisma: { $disconnect: () => Promise.resolve() },
       logger: capture.logger,
-      drainTimeoutMs: 200,
+      drainTimeoutMs: 1_200,
       mail,
+      mailReserveMs: 1_000,
     })();
     expect(sent).toEqual(['verify_email']);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
@@ -423,7 +424,8 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       drainTimeoutMs: 300,
       mail,
     })();
-    expect(Date.now() - started).toBeLessThan(4_000);
+    // The whole deadline, mail reserve included, is the 300 ms given.
+    expect(Date.now() - started).toBeLessThan(1_000);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
       expect.objectContaining({
         event: 'mail_send_abandoned',
