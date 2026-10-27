@@ -44,6 +44,57 @@ async function closedPort(): Promise<number> {
   return address.port;
 }
 
+/**
+ * A plain-text SMTP server that never offers STARTTLS but does offer AUTH, recording
+ * every command it receives: what a man in the middle stripping STARTTLS looks like.
+ */
+async function plainTextSmtpServer(): Promise<{ port: number; commands: string[] }> {
+  const commands: string[] = [];
+  const server = createServer((socket) => {
+    let inData = false;
+    let buffered = '';
+    socket.write('220 plain.test ESMTP\r\n');
+    socket.on('data', (chunk: Buffer) => {
+      buffered += chunk.toString('latin1');
+      let end = buffered.indexOf('\r\n');
+      while (end !== -1) {
+        const line = buffered.slice(0, end);
+        buffered = buffered.slice(end + 2);
+        end = buffered.indexOf('\r\n');
+        if (inData) {
+          if (line === '.') {
+            inData = false;
+            socket.write('250 queued\r\n');
+          }
+          continue;
+        }
+        commands.push(line);
+        const verb = line.split(' ')[0]?.toUpperCase();
+        if (verb === 'EHLO') socket.write('250-plain.test\r\n250 AUTH PLAIN LOGIN\r\n');
+        else if (verb === 'DATA') {
+          inData = true;
+          socket.write('354 go ahead\r\n');
+        } else if (verb === 'QUIT') socket.end('221 bye\r\n');
+        else if (verb === 'AUTH') socket.write('235 accepted\r\n');
+        else socket.write('250 ok\r\n');
+      }
+    });
+    socket.on('error', () => undefined);
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  cleanups.push(
+    () =>
+      new Promise<void>((resolve) => {
+        server.close(() => {
+          resolve();
+        });
+      }),
+  );
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('no port');
+  return { port: address.port, commands };
+}
+
 async function setup(mailer: Mailer) {
   const db = trackDatabase(await createTestDatabase());
   const prisma: AppPrismaClient = createPrismaClient({
@@ -137,6 +188,7 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
 
   it('[NFR-OPS-04] the SMTP mailer does not connect until it sends, and an unreachable server fails the send', async () => {
     const mailer = createSmtpMailer({
+      APP_ENV: 'test',
       SMTP_HOST: '127.0.0.1',
       SMTP_PORT: await closedPort(),
       SMTP_SECURE: false,
@@ -147,6 +199,39 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     await expect(
       mailer.send({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }),
     ).rejects.toThrow();
+  });
+
+  it('[NFR-OPS-04] in production, a server without TLS gets neither the credentials nor the message', async () => {
+    const smtp = await plainTextSmtpServer();
+    const mailer = createSmtpMailer({
+      APP_ENV: 'production',
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: smtp.port,
+      SMTP_SECURE: false,
+      SMTP_USER: 'mailer',
+      SMTP_PASSWORD: 'not-a-real-password',
+      MAIL_FROM: 'noreply@example.local',
+    });
+    await expect(
+      mailer.send({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }),
+    ).rejects.toThrow();
+    expect(smtp.commands.some((c) => /^EHLO /i.test(c))).toBe(true);
+    expect(smtp.commands.filter((c) => /^(AUTH|MAIL|RCPT|DATA)\b/i.test(c))).toEqual([]);
+  });
+
+  it('[NFR-OPS-04] outside production, plain-text SMTP (the local Mailpit) still delivers', async () => {
+    const smtp = await plainTextSmtpServer();
+    const mailer = createSmtpMailer({
+      APP_ENV: 'local',
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: smtp.port,
+      SMTP_SECURE: false,
+      SMTP_USER: undefined,
+      SMTP_PASSWORD: undefined,
+      MAIL_FROM: 'noreply@example.local',
+    });
+    await mailer.send({ template: greeting, to: RECIPIENT, variables: { name: 'A' } });
+    expect(smtp.commands).toContain('DATA');
   });
 });
 
