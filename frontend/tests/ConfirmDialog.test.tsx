@@ -1,8 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { ProblemError } from '../src/api/client';
 import { ConfirmDialog, type ConfirmDialogProps } from '../src/components/ConfirmDialog';
+import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
 
 type Overrides = Partial<ConfirmDialogProps>;
@@ -140,6 +142,52 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
     expect(dialog).toHaveTextContent('req-dialog-0001');
     await userEvent.setup().click(screen.getByRole('button', { name: 'Reload order' }));
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('[NFR-FE-09] a rejected onConfirm stays inside: the dialog stays open and shows the error', async () => {
+    const onClose = vi.fn();
+    const { user } = await openDialog({
+      onConfirm: () => Promise.reject(new Error('boom')),
+      onClose,
+    });
+    await user.click(screen.getByRole('button', { name: 'Cancel order' }));
+    const dialog = screen.getByRole('alertdialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      errorMessages.INTERNAL_ERROR.message,
+    );
+    expect(screen.getByRole('button', { name: 'Cancel order' })).toBeEnabled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('[NFR-FE-09] a rejected onConfirm with an API problem shows that problem and its request id', async () => {
+    const { user } = await openDialog({
+      onConfirm: () =>
+        Promise.reject(
+          new ProblemError({
+            type: 'about:blank',
+            title: 'Service unavailable',
+            status: 503,
+            code: 'SERVICE_UNAVAILABLE',
+            correlationId: 'req-dialog-0003',
+          }),
+        ),
+    });
+    await user.click(screen.getByRole('button', { name: 'Cancel order' }));
+    const alert = await within(screen.getByRole('alertdialog')).findByRole('alert');
+    expect(alert).toHaveTextContent(errorMessages.SERVICE_UNAVAILABLE.message);
+    expect(alert).toHaveTextContent('req-dialog-0003');
+  });
+
+  it('[NFR-FE-09] error actions are disabled while the confirm is pending', async () => {
+    const pending = deferred();
+    const { user } = await openDialog({
+      onConfirm: () => pending.promise,
+      error: { code: 'SERVICE_UNAVAILABLE' },
+      errorActions: [{ label: 'Reload order', onPress: vi.fn() }],
+    });
+    await user.click(screen.getByRole('button', { name: 'Cancel order' }));
+    expect(screen.getByRole('button', { name: 'Reload order' })).toBeDisabled();
+    pending.resolve();
   });
 
   it('[NFR-FE-05] has no axe violations, plain or with a reason and an error', async () => {
