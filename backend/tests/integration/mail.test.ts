@@ -454,6 +454,35 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
 
+  it('[NFR-OPS-04] a stuck connection on a listener that sends no mail does not hold shutdown for the reserve', async () => {
+    const capture = createCapture();
+    const mail = createMailDispatcher(new CaptureMailer());
+    const api = createHttpServer(() => undefined);
+    const metrics = createHttpServer(() => undefined);
+    for (const server of [api, metrics]) {
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    }
+    const { port } = metrics.address() as AddressInfo;
+    const arrived = new Promise((resolve) => metrics.once('request', resolve));
+    httpGet({ host: '127.0.0.1', port, path: '/metrics', agent: false }).on(
+      'error',
+      () => undefined,
+    );
+    await arrived;
+    const started = performance.now();
+    await createShutdown({
+      servers: [api, metrics],
+      prisma: { $disconnect: () => Promise.resolve() },
+      logger: capture.logger,
+      drainTimeoutMs: 1_200,
+      mail,
+      mailFrom: api,
+      mailReserveMs: 1_000,
+    })();
+    // The metrics drain times out at 200 ms; nothing there can dispatch mail.
+    expect(performance.now() - started).toBeLessThan(700);
+  });
+
   it('[NFR-OPS-04] mail dispatched after shutdown settled is not sent but logged as mail_send_abandoned', async () => {
     const capture = createCapture();
     const send = vi.fn(() => Promise.resolve());
