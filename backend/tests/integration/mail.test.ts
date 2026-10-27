@@ -377,7 +377,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
 
-  it('[NFR-OPS-04] a send still running when shutdown stops waiting is abandoned and logged as mail_send_failed', async () => {
+  it('[NFR-OPS-04] a send still running when shutdown stops waiting is logged as mail_send_abandoned, since it may still be delivered', async () => {
     const capture = createCapture();
     const mail = createMailDispatcher(delayedMailer(5_000, []));
     mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
@@ -392,9 +392,8 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(Date.now() - started).toBeLessThan(4_000);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
       expect.objectContaining({
-        event: 'mail_send_failed',
+        event: 'mail_send_abandoned',
         template: 'verify_email',
-        errorName: 'ShutdownTimeout',
       }),
     ]);
   });
