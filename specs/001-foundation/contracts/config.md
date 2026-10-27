@@ -22,7 +22,7 @@ invalid one exits `1`, naming the key and the reason, never the value.
 | `HTTP_PORT` | api | integer | `3000` |
 | `METRICS_PORT` | api | integer, different from `HTTP_PORT`; exposed inside compose only | `9464` |
 | `LOG_LEVEL` | all | `fatal` … `trace` | `info` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | api | host required, port integer, secure boolean, user and password optional, from an email address. With `APP_ENV=production`, host `mailpit` is refused | `mailpit`, `1025`, `false`, empty, empty, `no-reply@example.local` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | api | host required, port integer, secure boolean, user and password optional, from an email address. With `APP_ENV=production`, host `mailpit` is refused, and sending requires TLS (implicit, or STARTTLS when `SMTP_SECURE=false`) | `mailpit`, `1025`, `false`, empty, empty, `no-reply@example.local` |
 | `SEED_DEMO_DATA` | migrate | boolean; refused when `true` with `APP_ENV=production`. No seed exists in slice 0, but the flag and its rule do | `true` |
 | `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` | migrate (bootstrap) | required **only** when no admin exists; email lower-cased; name 1–100 characters | `admin@example.local`, `Local Admin` |
 | `PURGE_INTERVAL_HOURS` | maintenance | positive integer | `24` |

@@ -4,7 +4,8 @@
   verification, password policy and reset, lockout, session management, mail; signup
   with no role; 30-day absolute session lifetime; 90-day purge of session and
   security-log data) · amended 2026-10-27 (one-time tokens travel in the URL fragment,
-  never the query; the edge masks token queries in its access log)
+  never the query; the edge masks token queries in its access log; production SMTP
+  requires TLS)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -219,6 +220,11 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
     relay.
   - With `APP_ENV=production`, config validation refuses an SMTP host of `mailpit`, so real
     users' emails can never be swallowed by the test inbox.
+  - With `APP_ENV=production`, SMTP always runs over TLS: implicit with
+    `SMTP_SECURE=true`, otherwise STARTTLS is required. A server that doesn't offer
+    STARTTLS (or a man in the middle that strips it) gets neither the credentials nor the
+    message, and the send fails as `mail_send_failed`. Mailpit speaks plain text, so
+    outside production this isn't required.
 - Tests use an in-memory capture adapter. Playwright reads mail through Mailpit's API.
 
 ### Deployment
