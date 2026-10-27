@@ -10,6 +10,7 @@ import {
   TextField,
 } from 'react-aria-components';
 import type { ProblemLike } from '../errors/messages';
+import { problemFrom } from '../errors/problem';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
 import css from './ConfirmDialog.module.css';
@@ -34,7 +35,10 @@ export interface ConfirmDialogProps {
   onConfirm: (reason?: string) => Promise<void>;
   /** Escape, an outside click and the safe button call it, except while pending. */
   onClose: () => void;
-  /** Shown inside the dialog with its mapped message and next step. */
+  /**
+   * Shown inside the dialog with its mapped message and next step. A rejected onConfirm is
+   * shown the same way when the caller passes no error.
+   */
   error?: ProblemLike | undefined;
   /** Extra actions for the error, such as reloading after a version conflict. */
   errorActions?: readonly { label: string; onPress: () => void }[];
@@ -60,10 +64,13 @@ export function ConfirmDialog({
   const bodyId = useId();
   const [reasonText, setReasonText] = useState('');
   const [pending, setPending] = useState(false);
+  // A rejected onConfirm, shown inside the dialog until the next attempt.
+  const [failure, setFailure] = useState<ProblemLike | undefined>();
   // The state update lands after the event, so a ref stops a second press of a double
   // click from calling onConfirm again.
   const pendingRef = useRef(false);
 
+  const shownError = error ?? failure;
   const trimmed = reasonText.trim();
   const reasonValid =
     !reason || (trimmed.length >= reason.minLength && trimmed.length <= reason.maxLength);
@@ -72,8 +79,12 @@ export function ConfirmDialog({
     if (pendingRef.current || !reasonValid) return;
     pendingRef.current = true;
     setPending(true);
+    setFailure(undefined);
     try {
       await onConfirm(reason ? trimmed : undefined);
+    } catch (error) {
+      // Never an unhandled rejection: the dialog stays open and says what happened.
+      setFailure(problemFrom(error));
     } finally {
       pendingRef.current = false;
       setPending(false);
@@ -109,10 +120,15 @@ export function ConfirmDialog({
               <TextArea rows={3} />
             </TextField>
           )}
-          {error && <ErrorState problem={error} />}
+          {shownError && <ErrorState problem={shownError} />}
           <div className={styles.actions}>
             {errorActions.map((action) => (
-              <Button key={action.label} className={controls.button} onPress={action.onPress}>
+              <Button
+                key={action.label}
+                className={controls.button}
+                onPress={action.onPress}
+                isDisabled={pending}
+              >
                 {action.label}
               </Button>
             ))}
