@@ -207,6 +207,35 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     ]);
   });
 
+  it('[NFR-OPS-05] the cutoff is the same instant whatever the database time zone', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const admin = await db.client('postgres');
+    await admin.query(
+      `ALTER DATABASE ${admin.escapeIdentifier(db.name)} SET TimeZone = 'America/New_York'`,
+    );
+    const ids = { justInside: randomUUID(), wellPast: randomUUID() };
+    await seed(db, [
+      // Two hours inside the 7 days: kept, though a cutoff read as New York wall-clock
+      // time would land 4 to 5 hours later and take it.
+      ...token(ids.justInside, {
+        createdAt: daysBefore(8),
+        expiresAt: new Date(AS_OF.getTime() - TOKEN_RETENTION_DAYS * DAY_MS + 2 * 60 * 60 * 1_000),
+      }),
+      ...token(ids.wellPast, { createdAt: daysBefore(9), expiresAt: daysBefore(8) }),
+    ]);
+    const { logger } = createCapture();
+    await runPurge({
+      tasks: [oneTimeTokensTask],
+      db: client(db, 'po_maintenance'),
+      lockUrl: db.url('po_maintenance'),
+      logger,
+      asOf: AS_OF,
+    });
+    expect(await remaining(db, 'SELECT id::text AS label FROM one_time_tokens')).toEqual([
+      ids.justInside,
+    ]);
+  });
+
   it('[NFR-OPS-05] a second run while the lock is held logs "already running" and deletes nothing', async () => {
     const db = trackDatabase(await createTestDatabase());
     const old = new Date(yearsBefore(AUDIT_RETENTION_YEARS, AS_OF).getTime() - DAY_MS);
