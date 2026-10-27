@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import { loadConfig } from '../config/load.js';
 import { maintenanceConfig } from '../config/maintenance.js';
 import { createPrismaClient, type AppPrismaClient } from '../db/client.js';
+import { ONE_SHOT } from '../db/one-shot.js';
 import { onShutdownSignals } from '../http/shutdown.js';
 import { createLogger } from '../observability/logger.js';
 import { purgeTasks, type PurgeTask } from './registry.js';
@@ -94,7 +95,7 @@ function main(): void {
   const db = createPrismaClient({
     url: config.MAINTENANCE_DATABASE_URL,
     poolSize: 2,
-    connectionTimeoutMs: 5_000,
+    connectionTimeoutMs: ONE_SHOT.connectionTimeoutMs,
   });
   const intervalMs = config.PURGE_INTERVAL_HOURS * 60 * 60 * 1_000;
   logger.info(

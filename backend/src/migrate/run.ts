@@ -2,6 +2,7 @@ import { runBootstrap } from '../bootstrap/run.js';
 import { loadConfig } from '../config/load.js';
 import { migrateConfig } from '../config/migrate.js';
 import { createPrismaClient } from '../db/client.js';
+import { ONE_SHOT } from '../db/one-shot.js';
 import { createLogger } from '../observability/logger.js';
 import { deployMigrations } from './deploy.js';
 import { provisionDatabase } from './provision.js';
@@ -36,7 +37,7 @@ async function main() {
   const prisma = createPrismaClient({
     url: config.DATABASE_URL,
     poolSize: 1,
-    connectionTimeoutMs: 5_000,
+    connectionTimeoutMs: ONE_SHOT.connectionTimeoutMs,
   });
   try {
     const result = await runBootstrap({

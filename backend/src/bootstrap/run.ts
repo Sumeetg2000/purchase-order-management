@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { AppPrismaClient } from '../db/client.js';
 import { lockAdmins } from '../db/locks.js';
+import { ONE_SHOT } from '../db/one-shot.js';
 import { withTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { logOneTimeLink } from '../observability/logger.js';
@@ -42,8 +43,8 @@ export async function runBootstrap(options: BootstrapOptions): Promise<'created'
       prisma,
       actor: { type: 'SYSTEM' },
       requestId: uuidv7(),
-      timeoutMs: options.timeoutMs ?? 10_000,
-      maxWaitMs: options.maxWaitMs ?? 5_000,
+      timeoutMs: options.timeoutMs ?? ONE_SHOT.transactionTimeoutMs,
+      maxWaitMs: options.maxWaitMs ?? ONE_SHOT.transactionMaxWaitMs,
       logger,
     },
     async (tx, hooks) => {

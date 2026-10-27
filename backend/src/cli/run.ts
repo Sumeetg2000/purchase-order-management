@@ -2,6 +2,7 @@ import { cliConfig } from '../config/cli.js';
 import { loadConfig } from '../config/load.js';
 import { createPrismaClient } from '../db/client.js';
 import { classifyDbError, DatabaseUnavailableError } from '../db/errors.js';
+import { ONE_SHOT } from '../db/one-shot.js';
 import { withTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { createLogger } from '../observability/logger.js';
@@ -72,7 +73,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
     const prisma = createPrismaClient({
       url: config.DATABASE_URL,
       poolSize: 1,
-      connectionTimeoutMs: 5_000,
+      connectionTimeoutMs: ONE_SHOT.connectionTimeoutMs,
     });
     try {
       const lines = await withTransaction(
@@ -80,8 +81,8 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
           prisma,
           actor: { type: 'OPERATOR', osUser: deps.osUser, host: deps.host },
           requestId: uuidv7(),
-          timeoutMs: 10_000,
-          maxWaitMs: 5_000,
+          timeoutMs: ONE_SHOT.transactionTimeoutMs,
+          maxWaitMs: ONE_SHOT.transactionMaxWaitMs,
           logger: createLogger(config.LOG_LEVEL, { write: deps.stderr }),
         },
         (tx) => adminCreate(tx, args, config.APP_ORIGIN),
