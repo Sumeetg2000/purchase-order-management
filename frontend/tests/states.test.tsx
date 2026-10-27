@@ -150,6 +150,72 @@ describe('[NFR-FE-01] RouteErrorBoundary', () => {
   });
 });
 
+describe('[NFR-FE-04] useQueryStates edge cases', () => {
+  function Picker({ enabled }: { enabled: boolean }) {
+    const query = useQuery({
+      queryKey: ['vendor-orders'],
+      queryFn: () => Promise.resolve(['PO-9']),
+      enabled,
+    });
+    const { view, data } = useQueryStates(query, {
+      loadingLabel: 'Loading orders',
+      idle: <p>Choose a vendor to see its orders.</p>,
+    });
+    if (view) return view;
+    return <p>{data.join(', ')}</p>;
+  }
+
+  it('[NFR-FE-04] a query that is not enabled yet shows its idle content, not a spinner', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Picker enabled={false} />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByText('Choose a vendor to see its orders.')).toBeInTheDocument();
+  });
+
+  it('[NFR-FE-04] a failed background refresh keeps the loaded data and adds a notice with Retry', async () => {
+    let calls = 0;
+    function Orders() {
+      const query = useQuery({
+        queryKey: ['orders-refresh'],
+        retry: false,
+        queryFn: () => {
+          calls += 1;
+          return calls === 2
+            ? Promise.reject(problem('SERVICE_UNAVAILABLE', 'req-refresh-0001'))
+            : Promise.resolve([`PO-${String(calls)}`]);
+        },
+      });
+      const { view, data, notice } = useQueryStates(query, { loadingLabel: 'Loading orders' });
+      if (view) return view;
+      return (
+        <>
+          {notice}
+          <p>{data.join(', ')}</p>
+          <button type="button" onClick={() => void query.refetch()}>
+            Refresh
+          </button>
+        </>
+      );
+    }
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Orders />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    expect(await screen.findByText('PO-1')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('req-refresh-0001');
+    expect(screen.getByText('PO-1')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('PO-3')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
 describe('[NFR-FE-04] useQueryStates', () => {
   function Orders({ fetcher }: { fetcher: () => Promise<string[]> }) {
     const query = useQuery({ queryKey: ['orders'], queryFn: fetcher, retry: false });
