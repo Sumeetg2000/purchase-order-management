@@ -331,6 +331,8 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
 });
 
 describe('[NFR-OPS-04] mail still sending at shutdown', () => {
+  // A listener that never listened: closing it is instant, and it stands in for the API.
+  const idle = createHttpServer();
   function delayedMailer(ms: number, sent: string[]): Mailer {
     return {
       send: (message) =>
@@ -344,25 +346,37 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
   }
 
   it('[NFR-OPS-04] a mail reserve that is not a positive time shorter than the deadline is refused', () => {
+    const idle = createHttpServer();
+    const dispatcher = createMailDispatcher(new CaptureMailer());
     const options = {
-      servers: [],
+      servers: [idle],
       prisma: { $disconnect: () => Promise.resolve() },
       logger: createCapture().logger,
-      mail: createMailDispatcher(new CaptureMailer()),
     };
+    const withReserve = (reserveMs?: number) =>
+      reserveMs === undefined ? { dispatcher, from: idle } : { dispatcher, from: idle, reserveMs };
     // As long as the deadline leaves requests no time; zero leaves mail none; a negative
     // or non-finite one breaks the deadline itself.
     for (const mailReserveMs of [2_000, 0, -6_000, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(() => createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs })).toThrow(
-        RangeError,
-      );
+      const mail = withReserve(mailReserveMs);
+      expect(() => createShutdown({ ...options, drainTimeoutMs: 2_000, mail })).toThrow(RangeError);
     }
     expect(() =>
-      createShutdown({ ...options, drainTimeoutMs: 2_000, mailReserveMs: 500 }),
+      createShutdown({ ...options, drainTimeoutMs: 2_000, mail: withReserve(500) }),
     ).not.toThrow();
     // The production constants: startApi passes DRAIN_TIMEOUT_MS and the default reserve,
     // and the startup test below shows startApi accepts them.
-    expect(() => createShutdown({ ...options, drainTimeoutMs: DRAIN_TIMEOUT_MS })).not.toThrow();
+    expect(() =>
+      createShutdown({ ...options, drainTimeoutMs: DRAIN_TIMEOUT_MS, mail: withReserve() }),
+    ).not.toThrow();
+    // The mail listener must be one shutdown closes, or its cut-off would go unseen.
+    expect(() =>
+      createShutdown({
+        ...options,
+        drainTimeoutMs: 2_000,
+        mail: { dispatcher, from: createHttpServer(), reserveMs: 500 },
+      }),
+    ).toThrow(RangeError);
   });
 
   it('[NFR-OPS-04] shutdown waits for a send in flight before closing the pool', async () => {
@@ -371,7 +385,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     const mail = createMailDispatcher(delayedMailer(200, order));
     mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
     await createShutdown({
-      servers: [],
+      servers: [idle],
       prisma: {
         $disconnect: () => {
           order.push('pool closed');
@@ -380,8 +394,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       },
       logger: capture.logger,
       drainTimeoutMs: 2_000,
-      mail,
-      mailReserveMs: 1_000,
+      mail: { dispatcher: mail, from: idle, reserveMs: 1_000 },
     })();
     expect(order).toEqual(['verify_email', 'pool closed']);
   });
@@ -416,9 +429,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       prisma: { $disconnect: () => Promise.resolve() },
       logger: capture.logger,
       drainTimeoutMs: 1_200,
-      mail,
-      mailFrom: stuck,
-      mailReserveMs: 1_000,
+      mail: { dispatcher: mail, from: stuck, reserveMs: 1_000 },
     })();
     // The premise: the stuck request really did hold the request drain to its end.
     expect(capture.lines.map((line) => line['msg'])).toContain(
@@ -453,9 +464,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       prisma: { $disconnect: () => Promise.resolve() },
       logger: capture.logger,
       drainTimeoutMs: 1_200,
-      mail,
-      mailFrom: stuck,
-      mailReserveMs: 1_000,
+      mail: { dispatcher: mail, from: stuck, reserveMs: 1_000 },
     })();
     // The premise: the drain cut the request off, and its mail came after that.
     expect(capture.lines.map((line) => line['msg'])).toContain(
@@ -486,9 +495,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       prisma: { $disconnect: () => Promise.resolve() },
       logger: capture.logger,
       drainTimeoutMs: 1_200,
-      mail,
-      mailFrom: api,
-      mailReserveMs: 1_000,
+      mail: { dispatcher: mail, from: api, reserveMs: 1_000 },
     })();
     // The metrics drain times out at 200 ms; nothing there can dispatch mail.
     expect(performance.now() - started).toBeLessThan(700);
@@ -514,12 +521,11 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
     const started = Date.now();
     await createShutdown({
-      servers: [],
+      servers: [idle],
       prisma: { $disconnect: () => Promise.resolve() },
       logger: capture.logger,
       drainTimeoutMs: 300,
-      mail,
-      mailReserveMs: 200,
+      mail: { dispatcher: mail, from: idle, reserveMs: 200 },
     })();
     // The whole deadline, mail reserve included, is the 300 ms given.
     expect(Date.now() - started).toBeLessThan(1_000);

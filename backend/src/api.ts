@@ -63,8 +63,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
     prisma,
     logger,
     drainTimeoutMs: DRAIN_TIMEOUT_MS,
-    mail,
-    mailFrom: server,
+    mail: { dispatcher: mail, from: server },
   });
 
   // If either listener fails to start, close whatever did start before rejecting: the
