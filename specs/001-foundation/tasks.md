@@ -732,7 +732,7 @@ T114).
 - [X] T083 [US5] Traceability: FR-ADM-04 → `Done` — `docs/traceability.md` (FR-ADM-05 and
   FR-ACC-03 stay `Tested` until slices 1 and 4).
 
-- [ ] T084 [US5] Story checkpoint review: run `/code-review` and `/security-review` over this story's
+- [X] T084 [US5] Story checkpoint review: run `/code-review` and `/security-review` over this story's
   commits, fix every finding (each fix in its own commit, with a test where the
   finding is a bug), and push. This is the checkpoint commit — Verify: no open
   findings remain, and every CI job on the draft PR is green on this commit.

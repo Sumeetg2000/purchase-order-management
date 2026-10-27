@@ -43,8 +43,10 @@ Conventions:
 | `superseded_at` | timestamptz null | set on earlier unused tokens of the same user and purpose when a new one is issued |
 | `created_at` | timestamptz | default `now()` |
 
-- Index: `(user_id, purpose) WHERE used_at IS NULL AND superseded_at IS NULL`, for
-  superseding.
+- Index: `UNIQUE (user_id, purpose) WHERE used_at IS NULL AND superseded_at IS NULL`, for
+  superseding; unique since migration 0006, so at most one token per user and purpose is
+  open. `issueToken` locks the user's row first, so overlapping issues queue rather than
+  collide.
 - Index: `(COALESCE(used_at, superseded_at, expires_at))`, for the purge. It's the same
   expression as the purge rule, so the purge can use it.
 - Privileges: `po_app` gets `SELECT, INSERT`, and `UPDATE` on `used_at` and
