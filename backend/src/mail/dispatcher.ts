@@ -34,19 +34,22 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
   return {
     dispatch(message, logger) {
       const entry: InFlight = { template: message.template.name, logger, abandoned: false };
-      const sending = mailer.send(message).catch((error: unknown) => {
-        if (entry.abandoned) return;
-        // Only what identifies the failure: an SMTP error's text can name the recipient.
-        // A mailer can reject with anything, null included.
-        const failure: { name?: unknown; code?: unknown; responseCode?: unknown } =
-          typeof error === 'object' && error !== null ? error : {};
-        logSecurityEvent(logger, 'mail_send_failed', {
-          template: entry.template,
-          errorName: failure.name,
-          errorCode: failure.code,
-          responseCode: failure.responseCode,
+      // Called inside a promise, so a mailer that throws instead of rejecting is caught too.
+      const sending = Promise.resolve()
+        .then(() => mailer.send(message))
+        .catch((error: unknown) => {
+          if (entry.abandoned) return;
+          // Only what identifies the failure: an SMTP error's text can name the recipient.
+          // A mailer can reject with anything, null included.
+          const failure: { name?: unknown; code?: unknown; responseCode?: unknown } =
+            typeof error === 'object' && error !== null ? error : {};
+          logSecurityEvent(logger, 'mail_send_failed', {
+            template: entry.template,
+            errorName: failure.name,
+            errorCode: failure.code,
+            responseCode: failure.responseCode,
+          });
         });
-      });
       inFlight.set(sending, entry);
       void sending.finally(() => inFlight.delete(sending));
     },
