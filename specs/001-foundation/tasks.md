@@ -798,38 +798,38 @@ dialog behave as specified, axe is clean, and the budget passes.
 
 ### Implementation for User Story 6
 
-- [ ] T092 [US6] Router, shell and pages — `frontend/src/app/router.tsx`
+- [X] T092 [US6] Router, shell and pages — `frontend/src/app/router.tsx`
   (`createBrowserRouter`, lazy routes), `frontend/src/app/Shell.tsx`,
   `frontend/src/app/providers.tsx` (QueryClient), `frontend/src/pages/Home.tsx`,
   `frontend/src/pages/NotFound.tsx` — FR-023 — Verify: T088 passes.
-- [ ] T093 [US6] ConfirmDialog — `frontend/src/components/ConfirmDialog.tsx` and
+- [X] T093 [US6] ConfirmDialog — `frontend/src/components/ConfirmDialog.tsx` and
   `ConfirmDialog.module.css` (React Aria `Modal` and `Dialog`, `role="alertdialog"`,
   `autoFocus` on the safe button; see [contracts/ui-components.md](contracts/ui-components.md)),
   plus an ESLint rule in `eslint.config.mjs` that bans the `confirmLabel` literals "OK" and
   "Yes" — FR-025 — Verify: T085 passes.
-- [ ] T094 [US6] Page states, error boundary and message map —
+- [X] T094 [US6] Page states, error boundary and message map —
   `frontend/src/components/{Loading,Empty,ErrorState,RouteErrorBoundary}.tsx`,
   `frontend/src/hooks/useQueryStates.ts`, `frontend/src/errors/messages.ts` — FR-023,
   FR-024 — Verify: T086 passes.
-- [ ] T095 [US6] Unsaved-changes guard and demo route —
+- [X] T095 [US6] Unsaved-changes guard and demo route —
   `frontend/src/hooks/useUnsavedChangesGuard.ts` (`useBlocker` + `beforeunload`),
   `frontend/src/pages/__demo/Demo.tsx` (every component in every state), registered only
   under `import.meta.env.DEV` in `router.tsx` — FR-026 — Verify: T087 and T088 pass.
-- [ ] T096 [US6] Security headers source and nginx headers — `deploy/security-headers.mjs`
+- [X] T096 [US6] Security headers source and nginx headers — `deploy/security-headers.mjs`
   (the CSP from research R18, `X-Content-Type-Options`, `Referrer-Policy`,
   `frame-ancestors`), headers added to `deploy/nginx/default.conf` — FR-027 — Verify:
   T089's header test passes, and T090's CSP check passes against the rebuilt stack.
-- [ ] T097 [US6] Bundle budget and the CI web job — `scripts/check-bundle-budget.mjs`
+- [X] T097 [US6] Bundle budget and the CI web job — `scripts/check-bundle-budget.mjs`
   (Vite manifest; entry plus static imports ≤ 200 KB gzip, each lazy chunk ≤ 150 KB), root
   script `check:bundle`, and a `web` job in `.github/workflows/ci.yml` (unit, component and
   axe tests, build, budget; uploads reports). `traceability` now `needs` `web` too — FR-028,
   FR-038 — Verify: T089's budget test passes, and `web` is green on the draft PR.
-- [ ] T098 [US6] Playwright in CI and nightly — the `e2e` job runs `npm run e2e` after the
+- [X] T098 [US6] Playwright in CI and nightly — the `e2e` job runs `npm run e2e` after the
   smoke test (Chromium on PRs; Chromium, Firefox and WebKit on push to `main`), and
   `.github/workflows/nightly.yml` (schedule plus manual trigger, all three engines, same
   public-repo rules) — FR-041, FR-038 — Verify: T090 passes in CI, and a manual nightly run
   is green.
-- [ ] T099 [US6] Traceability: NFR-FE-05 → `Done`. NFR-FE-01 stays `Tested` (partial):
+- [X] T099 [US6] Traceability: NFR-FE-05 → `Done`. NFR-FE-01 stays `Tested` (partial):
   its `VERSION_CONFLICT` reload prompt lands with order versions in slice 3, which
   completes the row. NFR-FE-04/06/07/09 also stay `Tested` until their later parts —
   `docs/traceability.md`.

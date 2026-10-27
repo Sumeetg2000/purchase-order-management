@@ -10,6 +10,7 @@ contracts (props and behaviour), not implementations.
 | `title` | string | names the action and the object, e.g. "Cancel order PO-2026-27-000123?" |
 | `children` | node | the consequence in plain words, plus key facts |
 | `confirmLabel` | string | the action, e.g. "Cancel order". Never "OK" or "Yes" (a lint rule checks literals) |
+| `cancelLabel` | string, default "Go back" | the safe button, e.g. "Keep editing" for the unsaved-changes guard |
 | `tone` | `'default' \| 'danger'` | danger styling for destructive actions |
 | `reason` | `{ label, minLength, maxLength } \| undefined` | when set, a reason field is shown and confirm stays disabled until it's valid |
 | `onConfirm` | `(reason?: string) => Promise<void>` | while pending, confirm is disabled and shows progress |

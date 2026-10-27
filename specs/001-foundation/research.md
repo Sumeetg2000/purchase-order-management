@@ -359,6 +359,15 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     `cors: false`. A request whose `Origin` isn't `APP_ORIGIN` → `403 CSRF_REJECTED`.
     Slice 1 adds the CSRF token check to the same middleware, with the same code.
 - **Rationale**: ADR-0018 and ADR-0020. Vite's production build emits no inline scripts.
+- **Updated at US6**:
+  - The source is `deploy/security-headers.mjs`. nginx repeats the headers in each location
+    that serves the app (an `add_header` in a location replaces the server's), and `/api/`
+    adds none: the API sends its own. A script test and the end-to-end tests pin both.
+  - Zod 4 probes `new Function` to decide whether to JIT its object parsers, and the CSP
+    reports that even though Zod catches it. The web app sets Zod's `jitless` option before
+    any schema is built (`frontend/src/zod-config.ts`); the API keeps the JIT. The
+    end-to-end check records `securitypolicyviolation` events, which catches this in every
+    engine.
 - **Alternatives**: nonces (unneeded with no inline code).
 
 ## R19. Testing stack
@@ -367,7 +376,8 @@ in `package-lock.json` and in image tags (`node:24.x-alpine`, `postgres:17.x`).
     provisioning once per run. Each test gets a fresh database cloned from a migrated
     template (`CREATE DATABASE … TEMPLATE`).
   - Web: Vitest, Testing Library, jsdom, `vitest-axe`, and MSW handlers generated from the
-    OpenAPI document.
+    OpenAPI document. (Updated at US6: `vitest-axe` has had no release since 2022, so the
+    component tests call `axe-core` directly through `frontend/tests/support/axe.ts`.)
   - End to end: Playwright with `@axe-core/playwright` against the compose stack. Chromium
     on every pull request; Chromium, Firefox and WebKit nightly and on `main`
     (Clarification 3).
