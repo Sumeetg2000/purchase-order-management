@@ -63,6 +63,9 @@ function closeServer(server: Server, drainTimeoutMs: number): Promise<boolean> {
  * a draining request.
  */
 export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }: ShutdownOptions) {
+  if (!Number.isFinite(drainTimeoutMs) || drainTimeoutMs <= 0) {
+    throw new RangeError('the drain deadline must be a positive finite time');
+  }
   const mailReserveMs = mail?.reserveMs ?? MAIL_RESERVE_MS;
   const reserveFits =
     Number.isFinite(mailReserveMs) && mailReserveMs > 0 && mailReserveMs < drainTimeoutMs;
