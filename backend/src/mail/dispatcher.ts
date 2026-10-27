@@ -21,7 +21,9 @@ export function createMailDispatcher(mailer: Mailer): MailDispatcher {
     dispatch(message, logger) {
       const sending = mailer.send(message).catch((error: unknown) => {
         // Only what identifies the failure: an SMTP error's text can name the recipient.
-        const failure = error as { name?: unknown; code?: unknown; responseCode?: unknown };
+        // A mailer can reject with anything, null included.
+        const failure: { name?: unknown; code?: unknown; responseCode?: unknown } =
+          typeof error === 'object' && error !== null ? error : {};
         logSecurityEvent(logger, 'mail_send_failed', {
           template: message.template.name,
           errorName: failure.name,
