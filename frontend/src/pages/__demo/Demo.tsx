@@ -44,7 +44,7 @@ const DIALOGS: Record<string, DialogDemo> = {
 export function Demo() {
   const [dialog, setDialog] = useState<string | undefined>();
   const [dirty, setDirty] = useState(false);
-  const guard = useUnsavedChangesGuard(dirty);
+  const { dialog: guardDialog } = useUnsavedChangesGuard(dirty);
   const open = dialog === undefined ? undefined : DIALOGS[dialog];
 
   return (
@@ -105,7 +105,7 @@ export function Demo() {
         />{' '}
         This page has unsaved changes
       </label>
-      {guard}
+      {guardDialog}
     </>
   );
 }
