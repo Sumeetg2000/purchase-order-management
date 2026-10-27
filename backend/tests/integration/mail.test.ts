@@ -6,6 +6,7 @@ import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js
 import { withTransaction } from '../../src/db/transaction.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { requestIdOf } from '../../src/http/middleware/correlation.js';
+import { createShutdown } from '../../src/http/shutdown.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
 import type { Mailer } from '../../src/mail/mailer.js';
@@ -285,6 +286,62 @@ describe('[NFR-OPS-04] mail is sent only after commit', () => {
     });
     await mailer.send({ template: greeting, to: RECIPIENT, variables: { name: 'A' } });
     expect(smtp.commands).toContain('DATA');
+  });
+});
+
+describe('[NFR-OPS-04] mail still sending at shutdown', () => {
+  function delayedMailer(ms: number, sent: string[]): Mailer {
+    return {
+      send: (message) =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            sent.push(message.template.name);
+            resolve();
+          }, ms);
+        }),
+    };
+  }
+
+  it('[NFR-OPS-04] shutdown waits for a send in flight before closing the pool', async () => {
+    const order: string[] = [];
+    const capture = createCapture();
+    const mail = createMailDispatcher(delayedMailer(200, order));
+    mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
+    await createShutdown({
+      servers: [],
+      prisma: {
+        $disconnect: () => {
+          order.push('pool closed');
+          return Promise.resolve();
+        },
+      },
+      logger: capture.logger,
+      drainTimeoutMs: 2_000,
+      mail,
+    })();
+    expect(order).toEqual(['test_greeting', 'pool closed']);
+  });
+
+  it('[NFR-OPS-04] a send still running at the drain deadline is abandoned and logged as mail_send_failed', async () => {
+    const capture = createCapture();
+    const mail = createMailDispatcher(delayedMailer(5_000, []));
+    mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
+    const started = Date.now();
+    await createShutdown({
+      servers: [],
+      prisma: { $disconnect: () => Promise.resolve() },
+      logger: capture.logger,
+      drainTimeoutMs: 300,
+      mail,
+    })();
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
+      expect.objectContaining({
+        event: 'mail_send_failed',
+        template: 'test_greeting',
+        errorName: 'ShutdownTimeout',
+      }),
+    ]);
   });
 });
 
