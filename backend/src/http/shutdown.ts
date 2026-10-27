@@ -76,7 +76,8 @@ export function createShutdown({
   return function shutdown(): Promise<void> {
     running ??= (async () => {
       logger.info('shutdown: draining');
-      const deadline = Date.now() + drainTimeoutMs;
+      // A monotonic clock: a wall-clock step (NTP) can't stretch or shrink the deadline.
+      const deadline = performance.now() + drainTimeoutMs;
       const requestsMs = mail ? Math.max(0, drainTimeoutMs - mailReserveMs) : drainTimeoutMs;
       const drained = await Promise.all(servers.map((s) => closeServer(s, requestsMs)));
       const cutOff = servers.filter((_, i) => drained[i] === false);
@@ -88,7 +89,7 @@ export function createShutdown({
       }
       // A request the drain cut off can still commit and dispatch mail: wait out the rest
       // of the deadline for it rather than returning as soon as nothing is in flight.
-      await mail?.settle(Math.max(0, deadline - Date.now()), {
+      await mail?.settle(Math.max(0, deadline - performance.now()), {
         untilTimeout: mailFrom !== undefined && cutOff.includes(mailFrom),
       });
       await prisma.$disconnect();
