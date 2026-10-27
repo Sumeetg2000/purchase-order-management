@@ -45,8 +45,9 @@ function closeServer(server: Server, drainTimeoutMs: number): Promise<boolean> {
 
 /**
  * Returns the shutdown routine for SIGTERM and SIGINT: stop accepting, drain in-flight
- * requests and then mail still sending, up to the timeout, then close the database pool. Calling it again returns the
- * same promise, so a second signal can't close the pool under a draining request.
+ * requests and then mail still sending, up to the timeout, then close the database pool.
+ * Calling it again returns the same promise, so a second signal can't close the pool under
+ * a draining request.
  */
 export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }: ShutdownOptions) {
   let running: Promise<void> | undefined;
