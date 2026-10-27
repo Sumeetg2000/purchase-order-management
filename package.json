@@ -21,7 +21,8 @@
     "check:traceability": "node scripts/check-traceability.mjs",
     "check:ids": "node scripts/check-requirement-ids.mjs",
     "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs",
-    "contract:types": "npm run contract:types -w @po/frontend"
+    "contract:types": "npm run contract:types -w @po/frontend",
+    "e2e": "npm run e2e -w @po/frontend"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
@@ -48,6 +49,7 @@
   "overrides": {
     "openapi-typescript": {
       "typescript": "6.0.3"
-    }
+    },
+    "playwright-core": "1.64.0"
   }
 }
