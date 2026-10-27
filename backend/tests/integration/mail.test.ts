@@ -404,6 +404,38 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
   });
 
+  it('[NFR-OPS-04] mail from a request the drain cut off is still sent within the reserve', async () => {
+    const sent: string[] = [];
+    const capture = createCapture();
+    const mail = createMailDispatcher(delayedMailer(100, sent));
+    // The handler outlives its cut connection: it commits and dispatches 100 ms later.
+    const stuck = createHttpServer((req) => {
+      req.socket.once('close', () => {
+        setTimeout(() => {
+          mail.dispatch(
+            { template: greeting, to: RECIPIENT, variables: { name: 'A' } },
+            capture.logger,
+          );
+        }, 100);
+      });
+    });
+    await new Promise<void>((resolve) => stuck.listen(0, '127.0.0.1', resolve));
+    const { port } = stuck.address() as AddressInfo;
+    const arrived = new Promise((resolve) => stuck.once('request', resolve));
+    httpGet({ host: '127.0.0.1', port, path: '/', agent: false }).on('error', () => undefined);
+    await arrived;
+    await createShutdown({
+      servers: [stuck],
+      prisma: { $disconnect: () => Promise.resolve() },
+      logger: capture.logger,
+      drainTimeoutMs: 1_200,
+      mail,
+      mailReserveMs: 1_000,
+    })();
+    expect(sent).toEqual(['verify_email']);
+    expect(capture.lines.filter((line) => line['security'] === true)).toEqual([]);
+  });
+
   it('[NFR-OPS-04] mail dispatched after shutdown settled is not sent but logged as mail_send_abandoned', async () => {
     const capture = createCapture();
     const send = vi.fn(() => Promise.resolve());
