@@ -196,7 +196,15 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       ['audit_entries', 0],
       ['one_time_tokens', 0],
     ]);
-    expect(lines.filter((line) => line['msg'] === 'purge run complete')).toHaveLength(1);
+    // Table names are values, not keys: a key like one_time_tokens matches the logger's
+    // redaction of anything named like a token, and the count would read [Redacted].
+    const complete = lines.filter((line) => line['msg'] === 'purge run complete');
+    expect(complete.map((line) => line['tables'])).toEqual([
+      [
+        { table: 'audit_entries', deleted: 0 },
+        { table: 'one_time_tokens', deleted: 0 },
+      ],
+    ]);
   });
 
   it('[NFR-OPS-05] a second run while the lock is held logs "already running" and deletes nothing', async () => {

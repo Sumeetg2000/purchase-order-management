@@ -1,13 +1,19 @@
 import type { AuditedTransaction } from './transaction.js';
 import { ONE_SHOT } from './one-shot.js';
 
-// Transaction-scoped advisory lock keys (research R13, R15). Each names one thing only
-// one process may do at a time; the lock is released at commit or rollback.
+// Advisory lock keys (research R13, R15). Each names one thing only one process may do at
+// a time.
 
-/** Creating or changing administrators: the bootstrap and the admin:* commands. */
+/**
+ * Creating or changing administrators: the bootstrap and the admin:* commands. Held for the
+ * transaction, and released at commit or rollback.
+ */
 export const ADMIN_LOCK = 7_310_001n;
 
-/** The maintenance purge run. */
+/**
+ * The maintenance purge run. Held at session level on a dedicated connection for the
+ * whole run (maintenance/purge.ts), since its deletes commit batch by batch.
+ */
 export const PURGE_LOCK = 7_310_002n;
 
 /**

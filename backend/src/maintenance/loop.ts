@@ -3,47 +3,20 @@ import { fileURLToPath } from 'node:url';
 import type { Logger } from 'pino';
 import { loadConfig } from '../config/load.js';
 import { maintenanceConfig } from '../config/maintenance.js';
-import { createPrismaClient, type AppPrismaClient } from '../db/client.js';
+import { createPrismaClient } from '../db/client.js';
 import { ONE_SHOT } from '../db/one-shot.js';
 import { onShutdownSignals } from '../http/shutdown.js';
 import { createLogger } from '../observability/logger.js';
-import { purgeTasks, type PurgeTask } from './registry.js';
-
-/**
- * Runs every task once. A failing task is logged and the rest still run; the run ends
- * with one line holding the per-task counts: "purge run complete", or "purge run failed"
- * naming the tasks that failed.
- */
-export async function runPurgeCycle(
-  tasks: readonly PurgeTask[],
-  db: AppPrismaClient,
-  logger: Logger,
-): Promise<Record<string, number>> {
-  const counts: Record<string, number> = {};
-  const failed: string[] = [];
-  for (const task of tasks) {
-    try {
-      counts[task.name] = await task.run(db);
-    } catch (error) {
-      failed.push(task.name);
-      logger.error({ err: error, task: task.name }, 'purge task failed');
-    }
-  }
-  if (failed.length > 0) {
-    logger.error({ counts, failed }, 'purge run failed');
-  } else {
-    logger.info({ counts }, 'purge run complete');
-  }
-  return counts;
-}
+import { runPurge } from './purge.js';
+import { purgeTasks } from './registry.js';
 
 // setTimeout clamps delays above 2^31-1 ms (about 24.8 days) to 1 ms, so longer waits
 // are chained.
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
 export interface MaintenanceLoopOptions {
-  tasks: readonly PurgeTask[];
-  db: AppPrismaClient;
+  /** One purge run; it logs its own outcome. */
+  run: () => Promise<unknown>;
   logger: Logger;
   intervalMs: number;
 }
@@ -52,13 +25,13 @@ export interface MaintenanceLoopOptions {
  * Runs the purge at start and then every interval, measured from the end of the previous
  * run so runs never overlap. A failed run is logged and the loop carries on.
  */
-export function startMaintenanceLoop({ tasks, db, logger, intervalMs }: MaintenanceLoopOptions) {
+export function startMaintenanceLoop({ run, logger, intervalMs }: MaintenanceLoopOptions) {
   let timer: NodeJS.Timeout | undefined;
   let stopped = false;
   let current: Promise<void> = Promise.resolve();
 
   const tick = () => {
-    current = runPurgeCycle(tasks, db, logger).then(
+    current = run().then(
       () => undefined,
       (error: unknown) => {
         logger.error({ err: error }, 'purge run failed');
@@ -102,7 +75,12 @@ function main(): void {
     { intervalHours: config.PURGE_INTERVAL_HOURS, tasks: purgeTasks.length },
     'maintenance started',
   );
-  const loop = startMaintenanceLoop({ tasks: purgeTasks, db, logger, intervalMs });
+  const loop = startMaintenanceLoop({
+    run: () =>
+      runPurge({ tasks: purgeTasks, db, lockUrl: config.MAINTENANCE_DATABASE_URL, logger }),
+    logger,
+    intervalMs,
+  });
 
   onShutdownSignals(
     async () => {

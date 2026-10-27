@@ -1,7 +1,7 @@
 import { pino } from 'pino';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { runPurgeCycle, startMaintenanceLoop } from '../../src/maintenance/loop.js';
-import { purgeTasks, type PurgeTask } from '../../src/maintenance/registry.js';
+import { startMaintenanceLoop } from '../../src/maintenance/loop.js';
+import { runPurgeCycle, type PurgeTask } from '../../src/maintenance/purge.js';
 
 function capture() {
   const lines: Record<string, unknown>[] = [];
@@ -15,26 +15,28 @@ function capture() {
 const db = {} as never;
 
 describe('[NFR-OPS-05] maintenance loop skeleton', () => {
-  it('[NFR-OPS-05] has no purge tasks registered in slice 0 yet', () => {
-    expect(purgeTasks).toEqual([]);
-  });
-
   it('[NFR-OPS-05] logs one "purge run complete" line with per-task counts', async () => {
     const { logger, lines } = capture();
     const tasks: PurgeTask[] = [
-      { name: 'a', run: () => Promise.resolve(3) },
-      { name: 'b', run: () => Promise.resolve(0) },
+      { name: 'audit_entries', run: () => Promise.resolve(3) },
+      { name: 'one_time_tokens', run: () => Promise.resolve(0) },
     ];
-    await expect(runPurgeCycle(tasks, db, logger)).resolves.toEqual({ a: 3, b: 0 });
+    await expect(runPurgeCycle(tasks, db, logger)).resolves.toEqual({
+      counts: { audit_entries: 3, one_time_tokens: 0 },
+      failed: [],
+    });
     const done = lines.filter((l) => l['msg'] === 'purge run complete');
     expect(done).toHaveLength(1);
-    expect(done[0]?.['counts']).toEqual({ a: 3, b: 0 });
+    expect(done[0]?.['tables']).toEqual([
+      { table: 'audit_entries', deleted: 3 },
+      { table: 'one_time_tokens', deleted: 0 },
+    ]);
   });
 
-  it('[NFR-OPS-05] logs an empty count map when nothing is registered', async () => {
+  it('[NFR-OPS-05] logs an empty table list when nothing is registered', async () => {
     const { logger, lines } = capture();
     await runPurgeCycle([], db, logger);
-    expect(lines.find((l) => l['msg'] === 'purge run complete')?.['counts']).toEqual({});
+    expect(lines.find((l) => l['msg'] === 'purge run complete')?.['tables']).toEqual([]);
   });
 
   it('[NFR-OPS-05] runs at start and again each interval; a failed run is logged and the loop continues', async () => {
@@ -42,14 +44,18 @@ describe('[NFR-OPS-05] maintenance loop skeleton', () => {
     let calls = 0;
     const tasks: PurgeTask[] = [
       {
-        name: 'flaky',
+        name: 'audit_entries',
         run: () => {
           calls += 1;
           return calls === 1 ? Promise.reject(new Error('boom')) : Promise.resolve(1);
         },
       },
     ];
-    const loop = startMaintenanceLoop({ tasks, db, logger, intervalMs: 20 });
+    const loop = startMaintenanceLoop({
+      run: () => runPurgeCycle(tasks, db, logger),
+      logger,
+      intervalMs: 20,
+    });
     await expect.poll(() => calls, { timeout: 2_000 }).toBeGreaterThanOrEqual(2);
     await loop.stop();
 
@@ -64,14 +70,17 @@ describe('[NFR-OPS-05] maintenance loop skeleton', () => {
   it("[NFR-OPS-05] a failing task does not stop the tasks after it; the run is logged as failed with the others' counts", async () => {
     const { logger, lines } = capture();
     const tasks: PurgeTask[] = [
-      { name: 'first', run: () => Promise.reject(new Error('permission denied')) },
-      { name: 'second', run: () => Promise.resolve(2) },
+      { name: 'audit_entries', run: () => Promise.reject(new Error('permission denied')) },
+      { name: 'one_time_tokens', run: () => Promise.resolve(2) },
     ];
-    await expect(runPurgeCycle(tasks, db, logger)).resolves.toEqual({ second: 2 });
+    await expect(runPurgeCycle(tasks, db, logger)).resolves.toEqual({
+      counts: { one_time_tokens: 2 },
+      failed: ['audit_entries'],
+    });
     const failed = lines.find((l) => l['msg'] === 'purge run failed');
     expect(failed?.['level']).toBe(50);
-    expect(failed?.['failed']).toEqual(['first']);
-    expect(failed?.['counts']).toEqual({ second: 2 });
+    expect(failed?.['failed']).toEqual(['audit_entries']);
+    expect(failed?.['tables']).toEqual([{ table: 'one_time_tokens', deleted: 2 }]);
     expect(lines.some((l) => l['msg'] === 'purge run complete')).toBe(false);
   });
 
@@ -84,10 +93,16 @@ describe('[NFR-OPS-05] maintenance loop skeleton', () => {
       vi.useFakeTimers();
       const { logger } = capture();
       let calls = 0;
-      const tasks: PurgeTask[] = [{ name: 't', run: () => Promise.resolve((calls += 1)) }];
+      const tasks: PurgeTask[] = [
+        { name: 'audit_entries', run: () => Promise.resolve((calls += 1)) },
+      ];
       const thirtyDays = 30 * 24 * 60 * 60 * 1_000;
 
-      const loop = startMaintenanceLoop({ tasks, db, logger, intervalMs: thirtyDays });
+      const loop = startMaintenanceLoop({
+        run: () => runPurgeCycle(tasks, db, logger),
+        logger,
+        intervalMs: thirtyDays,
+      });
       await vi.advanceTimersByTimeAsync(10);
       expect(calls).toBe(1);
 

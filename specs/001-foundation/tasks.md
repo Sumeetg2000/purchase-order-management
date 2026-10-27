@@ -909,7 +909,7 @@ second concurrent run is a no-op.
 
 ### Implementation for User Story 8
 
-- [ ] T108 [US8] Purge tasks — `backend/src/maintenance/purge.ts`
+- [X] T108 [US8] Purge tasks — `backend/src/maintenance/purge.ts`
   (`pg_try_advisory_lock(PURGE_LOCK)` on a dedicated connection; tasks `audit_entries`
   (8 years) and `one_time_tokens` (7 days), registered in
   `backend/src/maintenance/registry.ts`) — FR-036, FR-037 — Verify: T106 passes, and
