@@ -751,7 +751,7 @@ dialog behave as specified, axe is clean, and the budget passes.
 
 ### Tests for User Story 6 (write first, run, see them fail)
 
-- [ ] T085 [P] [US6] ConfirmDialog tests — `frontend/tests/ConfirmDialog.test.tsx`:
+- [X] T085 [P] [US6] ConfirmDialog tests — `frontend/tests/ConfirmDialog.test.tsx`:
   - `role="alertdialog"`, labelled and described
   - initial focus on the safe button
   - Escape, outside click and the safe button close it, except while pending
@@ -762,7 +762,7 @@ dialog behave as specified, axe is clean, and the budget passes.
   - `vitest-axe` reports no violations
 
   — FR-025, FR-027, SC-007 — Verify: `npm test -w frontend` fails.
-- [ ] T086 [P] [US6] Page state tests — `frontend/tests/states.test.tsx`:
+- [X] T086 [P] [US6] Page state tests — `frontend/tests/states.test.tsx`:
   - `Loading`, `Empty` and `ErrorState`: shows the request id; Retry only for
     `SERVICE_UNAVAILABLE` and `CONCURRENCY_RETRY_EXHAUSTED`
   - `RouteErrorBoundary` contains a throwing route and keeps navigation working
@@ -770,20 +770,20 @@ dialog behave as specified, axe is clean, and the budget passes.
   - the error message map has an entry for every registry code
 
   — FR-023, FR-024 — Verify: fails.
-- [ ] T087 [P] [US6] Unsaved-changes guard tests — `frontend/tests/useUnsavedChangesGuard.test.tsx`
+- [X] T087 [P] [US6] Unsaved-changes guard tests — `frontend/tests/useUnsavedChangesGuard.test.tsx`
   (a memory data router: navigation while dirty opens the discard dialog, and confirm
   navigates; `beforeunload` is registered only while dirty) — FR-026 — Verify: fails.
-- [ ] T088 [P] [US6] Router and not-found tests — `frontend/tests/router.test.tsx` (routes
+- [X] T088 [P] [US6] Router and not-found tests — `frontend/tests/router.test.tsx` (routes
   render; an unknown path renders NotFound; the production route table has no `__demo`) —
   FR-023 — Verify: fails.
-- [ ] T089 [P] [US6] Header and bundle checks:
+- [X] T089 [P] [US6] Header and bundle checks:
   - `scripts/tests/security-headers.test.mjs`: the CSP and headers in
     `deploy/nginx/default.conf` equal those in `deploy/security-headers.mjs`
   - `scripts/tests/check-bundle-budget.test.mjs`: a fixture manifest over and under the
     budget
 
   — FR-027, FR-028 — Verify: `node --test scripts/tests` fails.
-- [ ] T090 [P] [US6] End-to-end shell tests — `frontend/e2e/shell.spec.ts` and
+- [X] T090 [P] [US6] End-to-end shell tests — `frontend/e2e/shell.spec.ts` and
   `frontend/playwright.config.ts` (Chromium project, JSON reporter to
   `reports/playwright.json`):
   - navigation and not-found
@@ -793,7 +793,7 @@ dialog behave as specified, axe is clean, and the budget passes.
 
   Test names cite `NFR-FE-07` and `NFR-FE-05` — FR-027, FR-041, SC-007 — Verify:
   `npm run e2e` fails against the running stack.
-- [ ] T091 [US6] Traceability: NFR-FE-01, NFR-FE-05 → `Tested`; NFR-FE-04, NFR-FE-06,
+- [X] T091 [US6] Traceability: NFR-FE-01, NFR-FE-05 → `Tested`; NFR-FE-04, NFR-FE-06,
   NFR-FE-07, NFR-FE-09 (partial) → `Tested` — `docs/traceability.md`.
 
 ### Implementation for User Story 6
