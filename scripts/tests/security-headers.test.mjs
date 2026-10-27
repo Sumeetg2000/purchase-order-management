@@ -3,7 +3,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { CONTENT_SECURITY_POLICY, SECURITY_HEADERS } from '../../deploy/security-headers.mjs';
+import {
+  CONTENT_SECURITY_POLICY,
+  SECURITY_HEADERS,
+  devContentSecurityPolicy,
+} from '../../deploy/security-headers.mjs';
 
 const conf = readFileSync(new URL('../../deploy/nginx/default.conf', import.meta.url), 'utf8')
   .split('\n')
@@ -61,5 +65,15 @@ describe('[NFR-FE-05] web app security headers', () => {
 
   it('[NFR-FE-05] the API location adds none of them (the API sends its own)', () => {
     assert.deepEqual(headers(locationBody('/api/')), {});
+  });
+
+  it('[NFR-FE-05] the dev server policy adds only a nonce to script-src and style-src', () => {
+    assert.equal(
+      devContentSecurityPolicy('abc'),
+      CONTENT_SECURITY_POLICY.replace("script-src 'self'", "script-src 'self' 'nonce-abc'").replace(
+        "style-src 'self'",
+        "style-src 'self' 'nonce-abc'",
+      ),
+    );
   });
 });
