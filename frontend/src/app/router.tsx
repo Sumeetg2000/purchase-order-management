@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
+import { lazyPage } from './lazyPage';
 import { Shell } from './Shell';
 
 // Pages load lazily, one chunk each (ADR-0012's per-route budget).
@@ -10,18 +11,18 @@ const demoRoutes: RouteObject[] = import.meta.env.DEV
   ? [
       {
         path: '__demo',
-        lazy: () => import('../pages/__demo/Demo').then((m) => ({ Component: m.Demo })),
+        lazy: lazyPage(() => import('../pages/__demo/Demo').then((m) => m.Demo)),
       },
     ]
   : [];
 
 export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObject[] {
   const pages: RouteObject[] = [
-    { index: true, lazy: () => import('../pages/Home').then((m) => ({ Component: m.Home })) },
+    { index: true, lazy: lazyPage(() => import('../pages/Home').then((m) => m.Home)) },
     ...(includeDemo ? demoRoutes : []),
     {
       path: '*',
-      lazy: () => import('../pages/NotFound').then((m) => ({ Component: m.NotFound })),
+      lazy: lazyPage(() => import('../pages/NotFound').then((m) => m.NotFound)),
     },
   ];
   return [
