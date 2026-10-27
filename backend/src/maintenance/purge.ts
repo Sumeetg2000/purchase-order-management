@@ -18,10 +18,11 @@ export type PurgeTable = (typeof PURGE_TABLES)[number];
 export interface PurgeContext {
   db: AppPrismaClient;
   /**
-   * The run's reference time: limits are measured back from it. Sent as ISO 8601 with its
+   * The run's reference time: limits are measured back from it. Unset, it is the
+   * database's now(), the clock the audit retention guard uses. Sent as ISO 8601 with its
    * Z offset: the adapter sends a Date as offset-less text, read in the session TimeZone.
    */
-  asOf: Date;
+  asOf: Date | undefined;
   batchSize: number;
 }
 
@@ -54,7 +55,7 @@ export const auditEntriesTask: PurgeTask = {
       () => db.$executeRaw`
         DELETE FROM audit_entries WHERE id IN (
           SELECT id FROM audit_entries
-          WHERE occurred_at < ${asOf.toISOString()}::timestamptz - make_interval(years => ${AUDIT_RETENTION_YEARS})
+          WHERE occurred_at < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(years => ${AUDIT_RETENTION_YEARS})
           ORDER BY id
           LIMIT ${batchSize})`,
     ),
@@ -71,7 +72,7 @@ export const oneTimeTokensTask: PurgeTask = {
         DELETE FROM one_time_tokens WHERE id IN (
           SELECT id FROM one_time_tokens
           WHERE COALESCE(used_at, superseded_at, expires_at)
-            < ${asOf.toISOString()}::timestamptz - make_interval(days => ${TOKEN_RETENTION_DAYS})
+            < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(days => ${TOKEN_RETENTION_DAYS})
           LIMIT ${batchSize})`,
     ),
 };
@@ -139,7 +140,7 @@ export async function runPurge({
   db,
   lockUrl,
   logger,
-  asOf = new Date(),
+  asOf,
   batchSize = PURGE_BATCH_SIZE,
 }: PurgeOptions): Promise<PurgeOutcome> {
   const lock = new pg.Client({
