@@ -498,6 +498,12 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       mail: { dispatcher: mail, from: api, reserveMs: 1_000 },
     })();
     // The metrics drain times out at 200 ms; nothing there can dispatch mail.
+    expect(capture.lines).toContainEqual(
+      expect.objectContaining({
+        msg: 'shutdown: drain timed out; open connections were closed',
+        waitsForMail: false,
+      }),
+    );
     expect(performance.now() - started).toBeLessThan(700);
   });
 
@@ -519,7 +525,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     const capture = createCapture();
     const mail = createMailDispatcher(delayedMailer(5_000, []));
     mail.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
-    const started = Date.now();
+    const started = performance.now();
     await createShutdown({
       servers: [idle],
       prisma: { $disconnect: () => Promise.resolve() },
@@ -528,7 +534,7 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
       mail: { dispatcher: mail, from: idle, reserveMs: 200 },
     })();
     // The whole deadline, mail reserve included, is the 300 ms given.
-    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(performance.now() - started).toBeLessThan(1_000);
     expect(capture.lines.filter((line) => line['security'] === true)).toEqual([
       expect.objectContaining({
         event: 'mail_send_abandoned',

@@ -86,8 +86,14 @@ export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }
       const drained = await Promise.all(servers.map((s) => closeServer(s, requestsMs)));
       const cutOff = servers.filter((_, i) => drained[i] === false);
       if (cutOff.length > 0) {
+        // waitsForMail says whether this cut-off makes shutdown wait out the mail reserve.
         logger.warn(
-          { drainTimeoutMs, requestsMs },
+          {
+            drainTimeoutMs,
+            requestsMs,
+            listeners: cutOff.length,
+            waitsForMail: mail !== undefined && cutOff.includes(mail.from),
+          },
           'shutdown: drain timed out; open connections were closed',
         );
       }
