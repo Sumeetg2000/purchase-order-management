@@ -287,7 +287,7 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     const { rows } = await killed.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
     killed.on('error', () => undefined);
     const admin = await db.client('postgres');
-    await admin.query('SELECT pg_terminate_backend($1)', [rows[0]?.pid]);
+    await admin.query('SELECT pg_terminate_backend($1, 5000)', [rows[0]?.pid]);
     const { logger } = createCapture();
     const outcome = await runPurge({
       tasks: purgeTasks,
