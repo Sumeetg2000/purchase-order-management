@@ -50,7 +50,7 @@ writeFileSync(join(DIST, 'assets/tiny.js'), 'export const t = 1;\n');
 writeFileSync(join(DIST, 'assets/entry.css'), 'body { margin: 0; }\n');
 
 describe('[NFR-FE-06] bundle budget', () => {
-  it('[NFR-FE-06] the budget is ADR-0012s: 200 KB initial, 150 KB per lazy chunk', () => {
+  it('[FR-ZZZ-99] the budget is ADR-0012s: 200 KB initial, 150 KB per lazy chunk', () => {
     assert.deepEqual(BUNDLE_BUDGET_KB, { initial: 200, lazyChunk: 150 });
   });
 
