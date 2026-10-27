@@ -49,8 +49,9 @@ export default defineConfig(
       'backend/src/generated/**',
       // Generated from the committed OpenAPI document by openapi-typescript.
       'frontend/src/api/schema.d.ts',
-      // Declarations only, for the e2e tests' import of security-headers.mjs.
+      // Declarations only, for TypeScript imports of these .mjs modules.
       'deploy/security-headers.d.mts',
+      'scripts/dev-env.d.mts',
       // Inputs for the check scripts' tests, not code.
       'scripts/tests/fixtures/**',
     ],
