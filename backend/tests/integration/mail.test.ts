@@ -342,6 +342,19 @@ describe('[NFR-OPS-04] mail still sending at shutdown', () => {
     expect(order).toEqual(['verify_email', 'pool closed']);
   });
 
+  it('[NFR-OPS-04] settling also waits for a send dispatched while it waits', async () => {
+    const sent: string[] = [];
+    const capture = createCapture();
+    const first = createMailDispatcher(delayedMailer(300, sent));
+    first.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'A' } }, capture.logger);
+    const settling = first.settle(2_000);
+    // A request cut off by the drain can still commit and dispatch its mail.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    first.dispatch({ template: greeting, to: RECIPIENT, variables: { name: 'B' } }, capture.logger);
+    await settling;
+    expect(sent).toHaveLength(2);
+  });
+
   it('[NFR-OPS-04] a send still running at the drain deadline is abandoned and logged as mail_send_failed', async () => {
     const capture = createCapture();
     const mail = createMailDispatcher(delayedMailer(5_000, []));
