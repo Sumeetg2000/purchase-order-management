@@ -55,10 +55,14 @@
   invalid.
 - Graceful shutdown drains in-flight requests, then mail still sending, and closes the
   pool, all within one 10 s deadline (`DRAIN_TIMEOUT_MS`). The last 2 s
-  (`MAIL_RESERVE_MS`) are kept for mail, so a stuck request can't use them up. A send
-  still running at the deadline, or dispatched after it, is logged as the security event
-  `mail_send_abandoned` (its outcome is unknown), never dropped silently. The `api`
-  service's `stop_grace_period` (15 s) is pinned by a test to outlast the deadline.
+  (`MAIL_RESERVE_MS`) are kept for mail, so requests get 8 s: a fixed bound beats handing
+  unused mail time back to a slow request. If the drain cut a request off, shutdown waits
+  out the reserve, since that request can still commit and dispatch mail.
+  - Mail still sending when the deadline ends, or dispatched after shutdown stopped
+    waiting for mail, is logged as the security event `mail_send_abandoned` (its outcome
+    is unknown), never dropped silently.
+  - The `api` service's `stop_grace_period` (15 s) is pinned by a test to outlast the
+    deadline, and a reserve as long as the deadline is refused at startup.
 
 ### Security baseline
 - Helmet security headers, CORS denied by default (same origin, ADR-0017), and request
