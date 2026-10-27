@@ -1,0 +1,28 @@
+{
+  "numTotalTests": 3,
+  "testResults": [
+    {
+      "name": "/repo/backend/tests/vendors.test.ts",
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "[FR-VEN-01] vendor create",
+          "title": "[FR-VEN-01] vendor create",
+          "status": "passed"
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "[FR-PO-01] orders refuse an empty line set",
+          "title": "[FR-PO-01] orders refuse an empty line set",
+          "status": "failed"
+        },
+        {
+          "ancestorTitles": ["[NFR-OPS-01] ops"],
+          "fullName": "[NFR-OPS-01] ops starts",
+          "title": "starts",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

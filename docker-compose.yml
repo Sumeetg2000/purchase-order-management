@@ -1,0 +1,137 @@
+# Production-like local stack: `cp .env.example .env && docker compose up`.
+# Each service gets only its own variables through an explicit `environment:` list, never
+# a shared env_file (contracts/config.md); the config check in each process is the
+# backstop. Only `web` publishes a port; Mailpit's UI is published on 127.0.0.1 under the
+# `local` profile. Every service built here runs without capabilities and cannot gain
+# privileges.
+
+x-api-build: &api-build
+  context: .
+  dockerfile: deploy/api.Dockerfile
+
+services:
+  db:
+    image: postgres:17.11
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot: role provisioning, then migrations (the bootstrap is added in US5).
+  migrate:
+    build: *api-build
+    image: po-api:local
+    command: ['node', 'dist/migrate/run.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_ORIGIN: ${APP_ORIGIN}
+      LOG_LEVEL: ${LOG_LEVEL}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      DB_MAINTENANCE_PASSWORD: ${DB_MAINTENANCE_PASSWORD}
+      OWNER_DATABASE_URL: postgres://po_owner:${DB_OWNER_PASSWORD}@db:5432/po
+      DATABASE_URL: postgres://po_app:${DB_APP_PASSWORD}@db:5432/po
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: *api-build
+    image: po-api:local
+    command: ['node', 'dist/server.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    init: true
+    restart: unless-stopped
+    # Longer than the API's 10 s shutdown deadline (pinned by compose-pins.test.ts),
+    # so in-flight requests and mail finish before SIGKILL.
+    stop_grace_period: 15s
+    # Metrics are reachable inside the compose network only, never from the host.
+    expose:
+      - '9464'
+    environment:
+      APP_ENV: ${APP_ENV}
+      APP_ORIGIN: ${APP_ORIGIN}
+      LOG_LEVEL: ${LOG_LEVEL}
+      DATABASE_URL: postgres://po_app:${DB_APP_PASSWORD}@db:5432/po
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
+      DB_TX_TIMEOUT_MS: ${DB_TX_TIMEOUT_MS}
+      DB_TX_MAX_WAIT_MS: ${DB_TX_MAX_WAIT_MS}
+      # Container ports, fixed because the edge proxies to api:3000 and 9464 is exposed.
+      # The .env values apply only to processes run on the host.
+      HTTP_PORT: '3000'
+      METRICS_PORT: '9464'
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/healthz >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  # The React app and the same-origin edge: proxies /api/ to api, 404 for /metrics.
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    restart: unless-stopped
+    ports:
+      - '${WEB_PORT}:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/ >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  maintenance:
+    build: *api-build
+    image: po-api:local
+    command: ['node', 'dist/maintenance/loop.js']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    init: true
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      MAINTENANCE_DATABASE_URL: postgres://po_maintenance:${DB_MAINTENANCE_PASSWORD}@db:5432/po
+      PURGE_INTERVAL_HOURS: ${PURGE_INTERVAL_HOURS}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Test mail inbox, local profile only. SMTP (1025) stays inside the network.
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    profiles: ['local']
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  db-data:

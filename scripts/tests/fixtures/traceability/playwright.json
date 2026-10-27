@@ -1,0 +1,21 @@
+{
+  "config": {},
+  "suites": [
+    {
+      "title": "vendors.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "[FR-VEN-01] vendor screens",
+          "specs": [
+            {
+              "title": "a buyer adds a vendor",
+              "ok": true,
+              "tests": [{ "status": "expected", "results": [{ "status": "passed" }] }]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

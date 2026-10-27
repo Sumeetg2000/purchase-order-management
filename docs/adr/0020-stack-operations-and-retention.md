@@ -1,7 +1,10 @@
 # ADR-0020: Technology stack, operations, security baseline and data retention
 
 - **Status:** Accepted · 2026-10-20 (moved here from the constitution, plus the retention
-  rules and the `maintenance` compose service)
+  rules and the `maintenance` compose service) · amended 2026-10-23 (internal-only metrics
+  port; public-repository CI rules and secret scanning; credential separation; runtime
+  libraries from the slice 0 plan) · amended 2026-10-27 (shutdown waits for mail within
+  the drain deadline)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -15,6 +18,17 @@
 - **Tests**: Vitest + Supertest + Testcontainers, fast-check, Testing Library, MSW,
   Playwright and axe.
 - **Tooling**: k6 or autocannon, and oasdiff.
+- **Runtime libraries** (beyond those above; ADR-0018 records the frontend ones):
+  - `pino-http`: request logging for pino, binding the correlation id to every line of a
+    request (ADR-0020 observability).
+  - `prom-client`: the standard Prometheus client for Node, for the internal `/metrics`
+    endpoint. It needs no metrics server.
+  - `nodemailer`: a provider-neutral SMTP client behind the `Mailer` interface (ADR-0017
+    mail), so any relay works, Mailpit included.
+  - `openapi-fetch`: a thin fetch client typed from the generated OpenAPI types
+    (ADR-0008). It adds almost nothing to the bundle and generates no code beyond types.
+  - `@prisma/adapter-pg` with `pg`: Prisma 7 connects only through a driver adapter, and
+    this is the official one for PostgreSQL.
 - **Runtime**: nginx (same-origin edge), docker compose, an SMTP relay (Mailpit in
   compose, ADR-0017), and the `maintenance` service (below).
 - One API service, one PostgreSQL database, one React app, the nginx edge and the
@@ -39,7 +53,16 @@
   SMTP settings, `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_NAME` and the rate-limit store.
 - Config is validated by schema at startup, and the process exits non-zero if it's
   invalid.
-- Graceful shutdown drains in-flight requests and closes the pool.
+- Graceful shutdown drains in-flight requests, then mail still sending, and closes the
+  pool, all within one 10 s deadline (`DRAIN_TIMEOUT_MS`). The last 2 s
+  (`MAIL_RESERVE_MS`) are kept for mail, so requests get 8 s: a fixed bound beats handing
+  unused mail time back to a slow request. If the drain cut a request off, shutdown waits
+  out the reserve, since that request can still commit and dispatch mail.
+  - Mail still sending when the deadline ends, or dispatched after shutdown stopped
+    waiting for mail, is logged as the security event `mail_send_abandoned` (its outcome
+    is unknown), never dropped silently.
+  - The `api` service's `stop_grace_period` (15 s) is pinned by a test to outlast the
+    deadline, and a reserve as long as the deadline is refused at startup.
 
 ### Security baseline
 - Helmet security headers, CORS denied by default (same origin, ADR-0017), and request
@@ -47,6 +70,17 @@
 - Parameterized SQL only.
 - No secrets in the repository or images. Containers run as non-root.
 - Dependency scanning with no unresolved high or critical findings.
+- **Install scripts**: npm runs them only for packages on the root `allowScripts` list,
+  each pinned to an exact version. Upgrading such a package requires approving its script
+  again.
+- **Public repository**:
+  - CI runs on `pull_request` and `push` only, never `pull_request_target`, with read-only
+    permissions.
+  - Secrets come only from GitHub Actions secrets, and no check needs one, so pull requests
+    from forks pass using generated throwaway values.
+  - `.env.example` holds placeholders only.
+  - gitleaks scans every pull request's diff and the full history on `main`, as a required
+    check.
 - Least-privilege database roles (ADR-0003):
   - owner (migrations)
   - app (runtime)
@@ -57,8 +91,13 @@
   returned as a response header and stored in audit entries.
 - No secrets, tokens or phone numbers are logged. The only exceptions are the bootstrap and
   `admin:create` set-password links (ADR-0016).
-- `/healthz` checks liveness and `/readyz` checks the database. Latency and error metrics
-  are exposed.
+- `/healthz` checks liveness and `/readyz` checks the database.
+- **Metrics**: request latency and error rates are exposed in Prometheus format at
+  `/metrics`, on a separate internal-only API port.
+  - Docker compose declares that port with `expose` only, so it's reachable inside the
+    compose network and never published to the host with `ports`.
+  - nginx never routes `/metrics`, and returns `404` for it.
+  - No metrics server is bundled. A deployment that wants one scrapes the internal port.
 - Security events go to a separate `security` log stream (ADR-0017).
 
 ### Data safety
@@ -109,6 +148,8 @@ runtime service needs an ADR, and this section is it.
 - Invalid config exits non-zero. With `APP_ENV=production`, `SEED_DEMO_DATA=true` or an
   SMTP host of `mailpit` → exits non-zero.
 - Readiness fails when the database is down.
+- `/metrics` through nginx → 404. No host-published port serves it. The internal port
+  serves it inside the compose network.
 - Security headers are present. A cross-origin request is denied.
 - The purge (called directly) removes only expired rows of each kind, and runs only as the
   maintenance role. The app role's `DELETE` on audit is denied.

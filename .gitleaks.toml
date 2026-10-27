@@ -1,0 +1,6 @@
+# gitleaks configuration (ADR-0020). Default rules only. Nothing that looks like a
+# real secret is allowlisted; .env.example holds change-me-… placeholders.
+title = "purchase-order-management"
+
+[extend]
+useDefault = true
