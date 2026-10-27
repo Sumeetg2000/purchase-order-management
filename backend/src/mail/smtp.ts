@@ -20,7 +20,7 @@ const SMTP_TIMEOUT_MS = 10_000;
 /**
  * Sends through SMTP with nodemailer. Nothing connects until the first send: the settings
  * are validated at startup, and an unreachable server fails sends, not the API (spec edge
- * case). Each failure reaches sendAfterCommit, which logs it.
+ * case). A failure rejects send; the MailDispatcher logs it, a direct caller must.
  *
  * In production the connection must be TLS: implicit with SMTP_SECURE, otherwise STARTTLS
  * is required, so a server (or a man in the middle) that doesn't offer it gets neither the

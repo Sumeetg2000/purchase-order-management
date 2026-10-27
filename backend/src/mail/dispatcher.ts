@@ -11,7 +11,7 @@ export interface MailDispatcher {
    * password). There's no outbox (ADR-0019).
    */
   dispatch: <V extends MailVariables>(message: MailMessage<V>, logger: Logger) => void;
-  /** Resolves once every send started so far has finished or failed. */
+  /** Resolves once nothing is in flight, including sends dispatched while it waits. */
   settled: () => Promise<void>;
   /**
    * For shutdown: waits up to `timeoutMs` for the sends in flight, then gives up on the
