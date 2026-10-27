@@ -1,4 +1,4 @@
-import { AppError } from '@po/contracts';
+import { AppError, type ErrorCode } from '@po/contracts';
 import type { Logger } from 'pino';
 import { Prisma } from '../generated/prisma/client.js';
 
@@ -8,7 +8,7 @@ import { Prisma } from '../generated/prisma/client.js';
 
 export class DatabaseUnavailableError extends Error {
   override readonly name = 'DatabaseUnavailableError';
-  readonly code = 'SERVICE_UNAVAILABLE';
+  readonly code: ErrorCode = 'SERVICE_UNAVAILABLE';
 
   constructor(options?: { cause?: unknown }) {
     super('The database is unavailable or overloaded', options);
@@ -17,7 +17,7 @@ export class DatabaseUnavailableError extends Error {
 
 export class ConcurrencyRetryExhaustedError extends Error {
   override readonly name = 'ConcurrencyRetryExhaustedError';
-  readonly code = 'CONCURRENCY_RETRY_EXHAUSTED';
+  readonly code: ErrorCode = 'CONCURRENCY_RETRY_EXHAUSTED';
 
   constructor(
     readonly attempts: number,

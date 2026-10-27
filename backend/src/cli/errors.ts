@@ -1,3 +1,5 @@
+import type { CliErrorCode } from '../lib/operator-codes.js';
+
 // Exit codes and stable error codes of the operator CLI (contracts/cli.md, ADR-0016).
 
 export const EXIT = {
@@ -15,7 +17,7 @@ export class CliError extends Error {
   override readonly name = 'CliError';
 
   constructor(
-    readonly code: string,
+    readonly code: CliErrorCode,
     readonly exitCode: number,
     message: string,
   ) {

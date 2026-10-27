@@ -3,6 +3,7 @@ import type { AppPrismaClient } from '../db/client.js';
 import { lockAdmins } from '../db/locks.js';
 import { ONE_SHOT } from '../db/one-shot.js';
 import { withTransaction } from '../db/transaction.js';
+import type { CliErrorCode } from '../lib/operator-codes.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { logOneTimeLink } from '../observability/logger.js';
 import { RESET_TOKEN_LIFETIME_MINUTES } from '../tokens/one-time.js';
@@ -17,7 +18,7 @@ export class BootstrapError extends Error {
   override readonly name = 'BootstrapError';
 
   constructor(
-    readonly code: 'BOOTSTRAP_SETTINGS_MISSING' | 'EMAIL_IN_USE',
+    readonly code: Extract<CliErrorCode, 'BOOTSTRAP_SETTINGS_MISSING' | 'EMAIL_IN_USE'>,
     message: string,
     options?: { cause?: unknown },
   ) {

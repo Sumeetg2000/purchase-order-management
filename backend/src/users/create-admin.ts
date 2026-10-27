@@ -1,6 +1,7 @@
 import { writeAudit } from '../audit/write.js';
 import { violatedConstraint } from '../db/errors.js';
 import { lockAdmins } from '../db/locks.js';
+import type { CliErrorCode } from '../lib/operator-codes.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { issueToken } from '../tokens/one-time.js';
 import { createAdminUser, findUserByEmail } from './repository.js';
@@ -11,7 +12,7 @@ import { createAdminUser, findUserByEmail } from './repository.js';
 /** The message never names the email: callers' error logs don't redact PII. */
 export class EmailInUseError extends Error {
   override readonly name = 'EmailInUseError';
-  readonly code = 'EMAIL_IN_USE';
+  readonly code: CliErrorCode = 'EMAIL_IN_USE';
 }
 
 export interface CreatedAdmin {

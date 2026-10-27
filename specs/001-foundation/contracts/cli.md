@@ -15,7 +15,7 @@ route reaches it (a route-table test). Rules come from ADR-0016.
 | Exit code | Meaning |
 |---|---|
 | `0` | success, or a no-op (a message says what was already true) |
-| `1` | usage, validation or configuration error (`USAGE`, `INVALID_ARGUMENT`, `INVALID_CONFIGURATION`) |
+| `1` | usage, validation or configuration error (`USAGE`, `INVALID_ARGUMENT`, `INVALID_CONFIGURATION`, and the bootstrap's `BOOTSTRAP_SETTINGS_MISSING`) |
 | `2` | a rule refused the command (`EMAIL_IN_USE`, and later `LAST_ADMIN`, `NOT_AN_ADMIN`) |
 | `3` | infrastructure failure (database unreachable or lock timeout) (`UNAVAILABLE`), or an unexpected failure (`INTERNAL_ERROR`) |
 
@@ -52,8 +52,8 @@ The third step of the `migrate` service:
 - If none exists, it creates the admin from the `BOOTSTRAP_ADMIN_*` variables, with actor
   `SYSTEM` and the audit entry `ADMIN_CREATED` (`details.source = "bootstrap"`), and prints
   the same link block once.
-- If the variables are missing, or the email belongs to a non-admin user, it exits
-  non-zero. `migrate` then fails, so `api` and `maintenance` never start.
+- If the variables are missing (`BOOTSTRAP_SETTINGS_MISSING`), or the email belongs to a
+  non-admin user (`EMAIL_IN_USE`), it exits non-zero. `migrate` then fails, so `api` and `maintenance` never start.
 
 The token is in the URL fragment, which browsers never send to the server, so it can't
 reach an access log or a `Referer` header; the page reads it from `location.hash` and posts
