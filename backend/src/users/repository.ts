@@ -22,9 +22,13 @@ export function findUserByEmail(
   return tx.user.findUnique({ where: { email }, select: SUMMARY });
 }
 
-/** Whether any user holds the ADMIN role, whatever their status. */
+/** Whether any user holds the ADMIN role, whatever their status. Stops at the first. */
 export async function adminExists(tx: AuditedTransaction): Promise<boolean> {
-  return (await tx.user.count({ where: { roles: { has: 'ADMIN' } } })) > 0;
+  const admin = await tx.user.findFirst({
+    where: { roles: { has: 'ADMIN' } },
+    select: { id: true },
+  });
+  return admin !== null;
 }
 
 /** Creates an ACTIVE administrator with no password; they set one through a RESET link. */
