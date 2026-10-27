@@ -155,6 +155,24 @@ api_down_problem() {
   return 1
 }
 
+# A one-time token in a URL must never reach the edge's access log, even from a legacy
+# ?token= link (links carry it in the fragment, which browsers never send). The request
+# must still be logged, with the query masked, so the check isn't vacuous.
+token_not_logged() {
+  local token
+  token="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
+  curl -s -o /dev/null --max-time 5 "$BASE/reset-password?token=${token}"
+  curl -s -o /dev/null --max-time 5 -H "Referer: $BASE/reset-password?next=%2F&token=${token}" "$BASE/"
+  sleep 1
+  local logs
+  logs="$(docker compose logs --no-color web)"
+  if grep -q -- "$token" <<<"$logs"; then
+    echo "the token appears in the web access log" >&2
+    return 1
+  fi
+  grep -q 'GET /reset-password?\[redacted\]' <<<"$logs"
+}
+
 echo "smoke: checking the compose stack on ${BASE}"
 
 eventually "migrate exited 0" migrate_ok
@@ -173,6 +191,7 @@ eventually "Mailpit API answers on 127.0.0.1:8025" body_contains "http://127.0.0
 # SC-001's start time is measured here, before the checks below restart the API.
 ready_at="$(date +%s)"
 eventually "a 3 MB POST gets the edge's problem+json 413" oversized_post
+eventually "a token in a URL or Referer never reaches the web access log" token_not_logged
 
 # Last, because it stops the API: the edge's own 502/504 is problem+json too. The API is
 # started again and must become healthy before the script ends.

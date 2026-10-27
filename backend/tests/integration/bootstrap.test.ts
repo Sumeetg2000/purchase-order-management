@@ -80,7 +80,7 @@ describe('[FR-ADM-04] admin bootstrap', () => {
 
     expect(links()).toHaveLength(1);
     const link = String(links()[0]?.['link']);
-    const match = /^http:\/\/localhost:8080\/reset-password\?token=([A-Za-z0-9_-]{43})$/.exec(link);
+    const match = /^http:\/\/localhost:8080\/reset-password#token=([A-Za-z0-9_-]{43})$/.exec(link);
     expect(match, link).not.toBeNull();
     const hash = createHash('sha256')
       .update(match?.[1] ?? '')

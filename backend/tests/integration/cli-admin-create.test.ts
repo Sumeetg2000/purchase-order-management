@@ -46,7 +46,7 @@ describe('[FR-ADM-05] admin:create', () => {
       'Admin created: second@example.local',
       'One-time set-password link (valid 30 minutes, shown once):',
     ]);
-    const match = /^http:\/\/localhost:8080\/reset-password\?token=([A-Za-z0-9_-]{43})$/.exec(
+    const match = /^http:\/\/localhost:8080\/reset-password#token=([A-Za-z0-9_-]{43})$/.exec(
       lines[2] ?? '',
     );
     expect(match, lines[2]).not.toBeNull();
