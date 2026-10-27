@@ -1,6 +1,6 @@
 /* Colours meet WCAG 2.1 AA contrast (4.5:1 for text) on the light surface. */
 :root {
-  --color-text: #1b1f24;
+  --color-text: #c8c8c8;
   --color-muted: #4b5563;
   --color-surface: #ffffff;
   --color-page: #f6f7f9;
