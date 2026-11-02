@@ -19,7 +19,7 @@
 | [0015](0015-outstanding-report.md) | Outstanding orders report | Accepted |
 | [0016](0016-users-and-audit-trail.md) | Users, user management and audit trail | Accepted (Admin user management: signed off 2026-10-20) |
 | [0017](0017-authentication-and-sessions.md) | Authentication, accounts, sessions and CSRF | Accepted |
-| [0018](0018-production-frontend.md) | Production-grade frontend | Accepted (component library: slice-0 plan) |
+| [0018](0018-production-frontend.md) | Production-grade frontend | Accepted |
 | [0019](0019-considered-and-deferred-features.md) | Features considered, deferred or not adopted | Accepted |
 | [0020](0020-stack-operations-and-retention.md) | Stack, operations, security baseline, retention | Accepted |
 

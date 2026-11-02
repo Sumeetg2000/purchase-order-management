@@ -1,0 +1,43 @@
+{
+  "name": "@po/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "prisma generate && tsc -b tsconfig.build.json",
+    "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "admin": "node dist/cli/admin.js",
+    "test": "vitest run",
+    "generate": "prisma generate",
+    "migrate": "node dist/migrate/run.js",
+    "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.2.1",
+    "@types/express": "5.0.6",
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "@vitest/coverage-v8": "5.0.5",
+    "ajv": "8.20.0",
+    "supertest": "7.3.1",
+    "testcontainers": "12.2.1",
+    "tsx": "4.23.15",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "@po/contracts": "0.0.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "express": "5.3.0",
+    "helmet": "8.3.0",
+    "nodemailer": "10.1.7",
+    "pg": "8.23.1",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "prisma": "7.10.1",
+    "prom-client": "15.1.3",
+    "zod": "4.6.7"
+  }
+}

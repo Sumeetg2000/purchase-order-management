@@ -3,7 +3,12 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (restricted signup, email
   verification, password policy and reset, lockout, session management, mail; signup
   with no role; 30-day absolute session lifetime; 90-day purge of session and
-  security-log data)
+  security-log data) · amended 2026-10-27 (one-time tokens travel in the URL fragment,
+  never the query; the edge masks token queries in its access log; production SMTP
+  requires TLS) · amended 2026-11-02 (POC: clear, specific error messages over
+  anti-enumeration, **owner decision**: one code per login failure, `EMAIL_IN_USE` and
+  `ACCOUNT_NOT_FOUND` instead of silent `202`s, no dummy hash or timing padding,
+  `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -40,22 +45,24 @@ answer to an in-app access request (ADR-0016).
   user out for no reason.
 - The JWT is signed with a key from the environment (HS256, ≥ 256-bit, `kid` header for
   rotation). It carries only the user id and the session id.
+- An access token that is well formed and correctly signed but past its expiry →
+  `401 ACCESS_TOKEN_EXPIRED`. No access token, or a malformed or wrongly signed one →
+  `401 UNAUTHENTICATED`. The web app refreshes only on `ACCESS_TOKEN_EXPIRED` (ADR-0018).
 - **Every request loads `status` and `roles` from the database** (indexed by user id), so
-  changes take effect immediately. A user who is no longer `ACTIVE` → `401`. A missing role
-  → `403`.
+  changes take effect immediately. A user who is no longer `ACTIVE` →
+  `401 ACCOUNT_DEACTIVATED`. A missing role → `403`.
 
 ### Signup and verification
 - `POST /api/auth/signup { name, email, password }`, with a strict schema. A body with
   `roles`, `status` or any other field → `400`.
   - The email's domain must be in `SIGNUP_ALLOWED_DOMAINS` (validated config,
     comma-separated, case-insensitive, at least one entry). Otherwise →
-    `400 SIGNUP_DOMAIN_NOT_ALLOWED`. This reveals nothing about which accounts exist.
+    `400 SIGNUP_DOMAIN_NOT_ALLOWED`.
   - The password must meet the policy below.
-  - **Always `202`.**
-    - A new email gets an `UNVERIFIED` user with role set `{}` (no role) and a
-      verification email.
-    - An already registered email gets the same `202` and a "you already have an account"
-      email, with a link to reset the password.
+  - A new email → `202`: an `UNVERIFIED` user with role set `{}` (no role) and a
+    verification email.
+  - An email that already has an account, in any status → `409 EMAIL_IN_USE`, and nothing
+    is created or sent. The message points to login and forgot-password.
   - **Self-signup never grants any role.** BUYER and APPROVER come from an Admin
     (ADR-0016). ADMIN comes from the bootstrap script or the operator CLI.
 - After verification and login, a no-role user sees the "Access pending" screen
@@ -63,12 +70,15 @@ answer to an in-app access request (ADR-0016).
   request → `403 NO_ROLE_ASSIGNED`.
 - `POST /api/auth/verify-email { token }` → the user becomes `ACTIVE`. It doesn't log the
   user in.
-- `POST /api/auth/resend-verification { email }` → always `202`. An email is sent only when
-  an `UNVERIFIED` user has that address.
+- `POST /api/auth/resend-verification { email }`:
+  - an `UNVERIFIED` user → `202`, and a new verification email is sent
+  - no account → `404 ACCOUNT_NOT_FOUND`
+  - an `ACTIVE` account → `409 ACCOUNT_ALREADY_VERIFIED`
+  - a `DEACTIVATED` account → `401 ACCOUNT_DEACTIVATED`
 - **Squatting**: someone may sign up first with a colleague's address. That account stays
-  `UNVERIFIED` and can't log in. When the real owner signs up, they get the "already have
-  an account" email, and completing the reset sets their own password and verifies the
-  account.
+  `UNVERIFIED` and can't log in. When the real owner signs up, they get
+  `409 EMAIL_IN_USE`, whose message points to forgot-password. Completing the reset sets
+  their own password and verifies the account.
 
 ### Passwords
 - **Policy**: 12–128 characters, and not on a bundled common-password list (checked
@@ -79,8 +89,10 @@ answer to an in-app access request (ADR-0016).
   - A wrong current password → `400 VALIDATION_FAILED` with field code
     `INCORRECT_PASSWORD`. It is rate-limited like login and counts toward the lockout.
   - On success, every **other** session of the user is revoked and the current one is kept.
-- `POST /api/auth/forgot-password { email }`: always `202`. A reset email is sent only to
-  an `UNVERIFIED` or `ACTIVE` user with that address.
+- `POST /api/auth/forgot-password { email }`:
+  - an `UNVERIFIED` or `ACTIVE` user → `202`, and a reset email is sent
+  - no account → `404 ACCOUNT_NOT_FOUND`
+  - a `DEACTIVATED` account → `401 ACCOUNT_DEACTIVATED`
 - `POST /api/auth/reset-password { token, newPassword }`:
   - sets the password
   - revokes **all** of the user's sessions
@@ -95,27 +107,55 @@ answer to an in-app access request (ADR-0016).
 - Issuing a new token invalidates the user's earlier unused tokens with the same purpose.
 - An invalid, expired, used or superseded token → `400 INVALID_TOKEN`. All four look the
   same.
-- Links point at the frontend (`APP_ORIGIN/verify-email?token=…`,
-  `/reset-password?token=…`). The token is in the URL only. It is never logged, and the
-  page posts it once.
+- Links point at the frontend with the token in the **fragment**:
+  `APP_ORIGIN/verify-email#token=…` and `APP_ORIGIN/reset-password#token=…`. This covers
+  every link: the bootstrap and `admin:create` set-password links, and from slice 1 the
+  verification, forgot-password and admin-triggered reset emails.
+  - Browsers never send a fragment, so the token can't reach the edge's access log, any
+    proxy, or a `Referer` header.
+  - The page reads `location.hash`, removes it from the address bar
+    (`history.replaceState`), and POSTs the token once in the request body. The API never
+    accepts a token in a query string.
+  - Backstop: the edge's access log masks any query whose key ends in `token` as
+    `?[redacted]`, in the request line and in the `Referer`, so a legacy `?token=` link
+    never logs the value (`deploy/nginx/default.conf`; checked by `scripts/smoke.sh`).
 
-### Anti-enumeration and timing
-- Login, signup, resend-verification and forgot-password give the same response whether or
-  not the account exists. An unknown email at login runs a dummy argon2id hash. So does an
-  account with no password hash yet: an admin created by bootstrap or `admin:create` before
-  the set-password link is used.
-- Signup, resend and forgot-password **equalise response time**: mail is dispatched after
-  the response, and each handler pads to a fixed minimum duration of 400 ms, so the work
-  done for an existing account doesn't show in timing.
+### Specific failures over anti-enumeration (amended 2026-11-02)
+- POC: clear, specific error messages over anti-enumeration (owner decision). Login,
+  signup, resend-verification and forgot-password each say exactly what went wrong,
+  including whether the email has an account.
+- There is no dummy hash and no response-time padding. Mail is still dispatched after the
+  transaction commits.
+- Accepted consequences:
+  - Anyone can find out whether an email has an account, through any of these endpoints.
+  - Combined with the lockout, anyone can find an account and lock it for 15 minutes.
+  - The per-IP and per-account rate limits, the lockout and the security log are the
+    remaining defences against guessing.
+  - Reverting this means restoring the 2026-10-27 text of this section and of
+    "Login, lockout and rate limits".
 
 ### Login, lockout and rate limits
-- `401 INVALID_CREDENTIALS` is the single response for an unknown email, a wrong password,
-  an `UNVERIFIED` or `DEACTIVATED` account, and a locked account.
+- **Login checks, in this order.** The first that fails decides the response:
+
+  | # | Check | Response | Message |
+  |---|---|---|---|
+  | 1 | No account has the email | `404 ACCOUNT_NOT_FOUND` | "No account found with this email." |
+  | 2 | The account is locked | `423 ACCOUNT_LOCKED`, `Retry-After` | "Too many failed attempts. Try again in N minutes." |
+  | 3 | No password set yet (bootstrap or `admin:create`, link unused) | `401 PASSWORD_NOT_SET` | "No password is set for this account. Use your set-password link, or reset your password." |
+  | 4 | Wrong password | `401 INCORRECT_PASSWORD` | "Incorrect password." |
+  | 5 | `UNVERIFIED` | `401 ACCOUNT_NOT_VERIFIED` | "Verify your email before logging in." The page offers resend. |
+  | 6 | `DEACTIVATED` | `401 ACCOUNT_DEACTIVATED` | "This account has been deactivated. Contact an admin." |
+
+  - A locked account's password isn't checked.
+  - The status is checked after the password.
+  - The web app computes N from `Retry-After`, rounded up to whole minutes.
 - **Per-account lockout**: 5 consecutive failed logins → locked for 15 minutes.
+  - Only check 4 (a wrong password) counts as a failure. The attempt that reaches 5
+    returns `423 ACCOUNT_LOCKED` instead of `INCORRECT_PASSWORD`.
   - The counter and `lockedUntil` live on the user row (PostgreSQL), so they hold across
     instances.
   - A successful login resets the counter. A completed reset clears the lock.
-  - Accepted trade-off: anyone who knows an email can lock that account for 15 minutes.
+  - Accepted trade-off: anyone can find an account (above) and lock it for 15 minutes.
     Per-IP rate limits slow this down, and the owner can always use forgot-password.
 - **Rate limits**:
   - login: ≤ 30 per minute per IP (offices share one IP) and ≤ 10 per minute per
@@ -123,9 +163,8 @@ answer to an in-app access request (ADR-0016).
   - signup: ≤ 5 per hour per IP and ≤ 3 per hour per email
   - resend-verification and forgot-password: ≤ 10 per hour per IP and ≤ 3 per hour per
     email
-  - Over the limit → `429 RATE_LIMITED` with `Retry-After`. A per-email limit on a `202`
-    endpoint still returns `202` and silently sends nothing, so it can't be used to
-    discover accounts.
+  - Over any limit, per IP or per email → `429 RATE_LIMITED` with `Retry-After`, and
+    nothing is sent.
 
 ### Sessions and refresh rotation
 - Table `sessions` (one row per refresh family): id, user, created at, last used at (set
@@ -195,13 +234,14 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
   invalid config means the process exits.
 - Templates (text and HTML):
   - verify email
-  - already have an account
   - reset password
   - admin-initiated reset (same link, different wording)
 - **Emails are sent after the transaction commits, never inside it**. A rolled-back
   command sends nothing.
-  - There's no outbox (ADR-0019). If sending fails, the failure is logged and the user
-    retries with resend-verification or forgot-password.
+  - There's no outbox (ADR-0019). If sending fails, the failure is logged
+    (`mail_send_failed`) and the user retries with resend-verification or
+    forgot-password. Mail shutdown gives up on is logged as `mail_send_abandoned`
+    (ADR-0020).
 - **Mailpit** runs in docker compose under the `local` profile (SMTP on the internal
   network, web UI on `localhost:8025`). `.env.example` sets `COMPOSE_PROFILES=local`, so
   `docker compose up` still needs only `.env`.
@@ -209,6 +249,11 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
     relay.
   - With `APP_ENV=production`, config validation refuses an SMTP host of `mailpit`, so real
     users' emails can never be swallowed by the test inbox.
+  - With `APP_ENV=production`, SMTP always runs over TLS: implicit with
+    `SMTP_SECURE=true`, otherwise STARTTLS is required. A server that doesn't offer
+    STARTTLS (or a man in the middle that strips it) gets neither the credentials nor the
+    message, and the send fails as `mail_send_failed`. Mailpit speaks plain text, so
+    outside production this isn't required.
 - Tests use an in-memory capture adapter. Playwright reads mail through Mailpit's API.
 
 ### Deployment
@@ -227,8 +272,8 @@ These events are written as structured `security` log entries, separate from the
 audit:
 - signup
 - email verification
-- login success and failure (including the reason internally: unknown email, wrong
-  password, unverified, deactivated, locked)
+- login success and failure, with the reason: unknown email, locked, no password set,
+  wrong password, unverified, deactivated
 - lockout
 - logout and logout-all
 - refresh-reuse detection
@@ -267,16 +312,23 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
 - Checking the session on every request: makes revocation immediate, at the cost of a
   second lookup. Not adopted, because deactivation and role changes are already immediate.
 - Long-lived access tokens: delay deactivation. Rejected.
+- **Anti-enumeration** (the decision until 2026-11-02): one `401 INVALID_CREDENTIALS` for
+  every login failure, `202` from signup, resend and forgot-password whatever the account,
+  a dummy argon2id hash for unknown emails, and a 400 ms minimum response time. It hid
+  which emails have accounts, at the cost of vague messages. Replaced for this POC by
+  specific codes (owner decision).
 
 ## Tests
 - Signup and verification:
   - a disallowed domain → 400 `SIGNUP_DOMAIN_NOT_ALLOWED`; domain matching is
     case-insensitive
-  - a duplicate signup gives the same 202 (body, headers, timing within tolerance) and sends
-    the "already have an account" email
-  - an unverified user can't log in (401 `INVALID_CREDENTIALS`)
+  - a duplicate signup → 409 `EMAIL_IN_USE`, for each status; no user is created and
+    nothing is sent
+  - an unverified user with the right password → 401 `ACCOUNT_NOT_VERIFIED`
   - verify → `ACTIVE`
-  - resend-verification returns 202 for unknown and active emails, and sends nothing
+  - resend-verification: an unknown email → 404 `ACCOUNT_NOT_FOUND`; an active account →
+    409 `ACCOUNT_ALREADY_VERIFIED`; a deactivated one → 401 `ACCOUNT_DEACTIVATED`; nothing
+    is sent in any of them
   - self-signup always gets `{}`; `roles` in the body → 400
   - a verified no-role user can log in and gets `403 NO_ROLE_ASSIGNED` everywhere except
     `/me`, password, sessions, logout and the access request
@@ -286,16 +338,18 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - policy field codes
   - change-password revokes the other sessions and keeps the current one
   - a wrong current password → 400 `INCORRECT_PASSWORD`
-  - forgot-password returns 202 for an unknown email
+  - forgot-password: an unknown email → 404 `ACCOUNT_NOT_FOUND`; a deactivated account →
+    401 `ACCOUNT_DEACTIVATED`; nothing is sent in either
   - reset-password revokes all sessions, clears a lockout and activates an `UNVERIFIED`
     user
 - Lockout:
-  - 5 failures → the sixth attempt with the right password gets the same 401
+  - 4 wrong passwords → 401 `INCORRECT_PASSWORD` each; the 5th → 423 `ACCOUNT_LOCKED`
+    with `Retry-After`; a 6th attempt with the right password → the same 423
   - unlocked after 15 minutes (with an injected clock)
   - the counter resets on success
   - lockout holds across two app instances
-- Rate limits: signup, resend and forgot-password limits; a per-email limit on a 202
-  endpoint still returns 202.
+- Rate limits: signup, resend and forgot-password limits, per IP and per email → 429
+  `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one
   - revoking a session → that session's next refresh → 401 `SESSION_REVOKED`
@@ -322,15 +376,21 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - flags asserted (HttpOnly, Secure, SameSite=Strict, Path), and no token in any response
     body
 - The rate limiter uses the configured store (a shared-store test with two app instances).
-- A deactivated user's next request → 401. A removed role → next request 403.
+- A deactivated user's next request → 401 `ACCOUNT_DEACTIVATED`. A removed role → next
+  request 403.
+- Access tokens: an expired one → 401 `ACCESS_TOKEN_EXPIRED`; none, a malformed one, or one
+  signed with another key → 401 `UNAUTHENTICATED`.
 - CSRF:
   - a missing or wrong CSRF token → 403 `CSRF_REJECTED`
   - a cross-origin `Origin` → 403, on public endpoints as well
   - after a simulated browser restart (session cookies dropped), refresh succeeds and the
     next state-changing request passes the CSRF check
 - Login: the 31st attempt in a minute from one IP → 429, and the 11th on one account →
-  429 (even from different IPs); an unknown email and a wrong password give identical
-  responses. An account with no password hash (bootstrap or CLI-created, link not yet
-  used) runs the dummy hash and returns the same 401 `INVALID_CREDENTIALS`, with timing
-  within tolerance of a wrong password.
+  429 (even from different IPs). Each row of the login check table returns its own code,
+  and the first failing check wins:
+  - a locked account with the right password → 423 `ACCOUNT_LOCKED`
+  - an unverified or deactivated account with a wrong password → 401
+    `INCORRECT_PASSWORD`
+  - an account with no password set (bootstrap or CLI-created, link unused) → 401
+    `PASSWORD_NOT_SET`, and no failure is counted
 - Security log events are emitted for each event listed, without secrets.

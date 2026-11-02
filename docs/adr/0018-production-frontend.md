@@ -2,7 +2,10 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (account pages, profile, admin
   users, pending count; Access pending screen and access requests; confirmation dialogs;
-  unsaved-changes guard) · component library choice deferred to the slice-0 plan
+  unsaved-changes guard) · amended 2026-10-23 (browser support and test matrix; component
+  library chosen in the slice-0 plan) · amended 2026-11-02 (POC: clear, specific error
+  messages over anti-enumeration: refresh only on `ACCESS_TOKEN_EXPIRED`; the
+  session-expired message; ADR-0017)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -13,13 +16,21 @@
   blocking), TanStack Query.
   - The client and types are generated from the committed OpenAPI (ADR-0008).
   - Forms use the shared Zod schemas.
-  - There is exactly one component library, chosen in the slice-0 plan by accessibility
-    support and virtualised-table fit.
+  - There is exactly one component library: **React Aria Components**, chosen in the
+    slice-0 plan by accessibility support and virtualised-table fit. It provides
+    `alertdialog` semantics with focus trap and return, and pairs with TanStack Virtual
+    for the 500-line editor. Styling uses CSS Modules, so no runtime style injection
+    conflicts with the strict CSP.
 - **Auth flow**:
-  - A `401` from any request triggers one refresh. The refresh is single-flight within a
-    tab, and coordinated across tabs (BroadcastChannel / Web Locks) so only one tab
-    refreshes.
-  - Queued requests then retry. A failed refresh → `/login?returnTo=…`.
+  - A `401 ACCESS_TOKEN_EXPIRED` from any request triggers one refresh. No other `401`
+    does: a login failure or `UNAUTHENTICATED` is shown or sent to login as it is. The
+    refresh is single-flight within a tab, and coordinated across tabs (BroadcastChannel /
+    Web Locks) so only one tab refreshes.
+  - Queued requests then retry, each once. A refresh that fails with `SESSION_EXPIRED` or
+    `SESSION_REVOKED` shows "Your session has expired. Please log in again." and goes to
+    `/login?returnTo=…`, keeping the page to return to. Any other failed refresh goes to
+    `/login?returnTo=…` too.
+  - `401 ACCOUNT_DEACTIVATED` from any request goes to login and shows its message.
   - The CSRF token is read from its cookie and sent as `X-CSRF-Token`.
   - Role-based routes only hide what the user can't use.
   - A user with no role is routed to the Access pending screen. A `403 NO_ROLE_ASSIGNED`
@@ -45,6 +56,9 @@
   - Lint bans `dangerouslySetInnerHTML`. All user-supplied text (access-request messages,
     notes, reasons) renders as text.
   - Dependency audit in CI.
+- **Browser support**: the latest 2 versions of Chrome, Edge, Firefox and Safari, which
+  is also the build target. Playwright runs Chromium on every pull request, and Chromium,
+  Firefox and WebKit nightly and on `main`.
 - **Performance**: route-level code splitting. Budgets and editor targets are in ADR-0012.
 
 ### Confirmation dialogs

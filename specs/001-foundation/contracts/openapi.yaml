@@ -1,0 +1,113 @@
+# Draft of the slice 0 public API contract, for review at the contract gate.
+# The committed, generated document is packages/contracts/openapi/openapi.json (from the
+# Zod schemas). This draft states the target shape; CI compares the generated one against
+# itself, not against this file.
+openapi: 3.1.0
+info:
+  title: Vendor & Purchase Order Management API
+  version: 0.1.0
+servers:
+  - url: /api
+    description: >
+      Same-origin prefix. nginx (and Vite's dev proxy) strips /api before forwarding, so the
+      API itself serves /healthz.
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Liveness. The process is up and serving.
+      x-access: public
+      responses:
+        '200':
+          description: Alive
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                additionalProperties: false
+                properties:
+                  status: { const: ok }
+        default: { $ref: '#/components/responses/Problem' }
+  /readyz:
+    get:
+      operationId: getReadiness
+      summary: Readiness. The database is reachable and migrations are complete.
+      x-access: public
+      responses:
+        '200':
+          description: Ready
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Readiness' }
+        '503':
+          description: Not ready. The body is a problem document with code SERVICE_UNAVAILABLE.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        default: { $ref: '#/components/responses/Problem' }
+components:
+  headers:
+    XRequestId:
+      description: >
+        Correlation id. If the client sends a value matching ^[A-Za-z0-9._-]{8,36}$ (room
+        for a UUID), it is echoed back; otherwise a generated UUIDv7 is returned.
+      schema: { type: string, pattern: '^[A-Za-z0-9._-]{8,36}$' }
+  responses:
+    Problem:
+      description: Any error, in RFC 9457 format.
+      headers:
+        X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Readiness:
+      type: object
+      required: [status, checks]
+      additionalProperties: false
+      properties:
+        status: { const: ready }
+        checks:
+          type: object
+          required: [database, migrations]
+          additionalProperties: false
+          properties:
+            database: { const: ok }
+            migrations: { const: ok }
+    ErrorCode:
+      description: Every code in the registry (packages/contracts/src/errors.ts). The list grows by slice.
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - CSRF_REJECTED
+        - NOT_FOUND
+        - PAYLOAD_TOO_LARGE
+        - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
+        - CONCURRENCY_RETRY_EXHAUSTED
+    FieldError:
+      type: object
+      required: [path, code]
+      additionalProperties: false
+      properties:
+        path: { type: string, description: 'Dot path into the request, e.g. "body.lines.3.quantity" or "header.content-type".' }
+        code: { type: string, description: 'Field code, e.g. MALFORMED_JSON, UNSUPPORTED_MEDIA_TYPE, REQUIRED, UNKNOWN_FIELD, INVALID_FORMAT.' }
+    Problem:
+      type: object
+      required: [type, title, status, code, correlationId]
+      additionalProperties: false
+      properties:
+        type: { type: string, description: 'about:blank, or a documentation URI for the code' }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        correlationId: { type: string }
+        details:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }

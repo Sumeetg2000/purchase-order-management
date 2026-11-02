@@ -1,0 +1,51 @@
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty,
+.error {
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  max-width: 40rem;
+}
+
+.error {
+  border-color: var(--color-danger);
+}
+
+.message {
+  font-weight: 600;
+}
+
+.requestId code {
+  font-family: ui-monospace, monospace;
+}
+
+.retry {
+  composes: button from '../styles/controls.module.css';
+}

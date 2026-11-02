@@ -1,0 +1,30 @@
+/* Colours meet WCAG 2.1 AA contrast (4.5:1 for text) on the light surface. */
+:root {
+  --color-text: #1b1f24;
+  --color-muted: #4b5563;
+  --color-surface: #ffffff;
+  --color-page: #f6f7f9;
+  --color-border: #d0d5dd;
+  --color-border-strong: #6b7280;
+  --color-accent: #1d4ed8;
+  --color-on-accent: #ffffff;
+  --color-danger: #b42318;
+  --color-focus: #1d4ed8;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-page);
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+a:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}

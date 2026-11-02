@@ -1,0 +1,15 @@
+dist/
+build/
+coverage/
+reports/
+node_modules/
+package-lock.json
+# Prose and generated tooling files keep their own formatting.
+*.md
+.specify/
+.claude/
+specs/
+docs/
+# Generated and committed; CI compares a fresh generation byte for byte.
+packages/contracts/openapi/
+frontend/src/api/schema.d.ts

@@ -2,7 +2,9 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (profile phone, account status,
   assignable role sets, Admin user management: **signed off by the owner 2026-10-20**;
-  operator CLI for admin accounts; signup with no role, access requests, retention)
+  operator CLI for admin accounts; signup with no role, access requests, retention) ·
+  amended 2026-11-02 (POC: clear, specific error messages over anti-enumeration: login
+  codes per status, ADR-0017)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -51,10 +53,11 @@ a separate power and does not touch any order.
   - `ACTIVE → DEACTIVATED` and `DEACTIVATED → ACTIVE`: by an Admin for Buyers and
     Approvers, and by the operator CLI for Admins.
   - Users are **never deleted**.
-- Only `ACTIVE` users can log in. `UNVERIFIED`, `DEACTIVATED` and locked-out users all get
-  the same `401 INVALID_CREDENTIALS` (ADR-0017).
+- Only `ACTIVE` users can log in. With the right password, `UNVERIFIED` →
+  `401 ACCOUNT_NOT_VERIFIED` and `DEACTIVATED` → `401 ACCOUNT_DEACTIVATED`; a locked-out
+  user → `423 ACCOUNT_LOCKED` (ADR-0017).
 - Roles and status are **loaded on every request**. A deactivated user's next request →
-  `401`. A request needing a role the user no longer has → `403`.
+  `401 ACCOUNT_DEACTIVATED`. A request needing a role the user no longer has → `403`.
 - **No role assigned** (`{}`): after verifying, the user can log in, view and edit `/me`,
   change their password, manage their sessions, log out and send an access request.
   Every other endpoint → `403 NO_ROLE_ASSIGNED` (ADR-0004). Assigning a first role is a
@@ -141,6 +144,8 @@ email: notifications stay deferred (ADR-0019).
   set-password link (a `RESET` token, ADR-0017) to the log.
 - It runs under an advisory lock, so two instances can't both create an admin. It is
   idempotent: once an admin exists it does nothing and never prints a token again.
+- It's audited as `ADMIN_CREATED` with actorType `SYSTEM` and `details.source =
+  "bootstrap"`.
 - If the link expires, the admin uses forgot-password.
 - This and the operator CLI's `admin:create` link (below) are the **only two exceptions**
   to "no tokens in logs" (Principle IX). Each is printed once, and the token is single-use
@@ -215,7 +220,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `ACCESS_REQUESTED` | request id; message (first send and each update) |
 | `ACCESS_REQUEST_RESOLVED` | request id; roles assigned; resolving admin |
 | `ACCESS_REQUEST_DISMISSED` | request id; note; dismissing admin, or "Account deactivated" |
-| `ADMIN_CREATED` | actorType `OPERATOR`; new admin's id, name and email; `osUser`, `host` |
+| `ADMIN_CREATED` | new admin's id, name and email; `details.source`: `cli` (actorType `OPERATOR`, with `osUser` and `host`) or `bootstrap` (actorType `SYSTEM`) |
 
 Authentication events (logins, lockouts, password changes, session revocations) are
 **security logs**, not business audit (ADR-0017).

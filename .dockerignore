@@ -1,0 +1,42 @@
+# Build context for deploy/api.Dockerfile and deploy/web.Dockerfile, which build from the
+# repository root. Secrets, git metadata, dependencies and build or test output never
+# enter an image.
+
+# Environment files hold real secrets. Only the placeholder example may be copied.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Git metadata
+.git
+.gitignore
+.github
+
+# Dependencies (installed inside the image with npm ci) and build output
+**/node_modules
+**/dist
+**/build
+**/*.tsbuildinfo
+backend/src/generated
+
+# Test output and reports
+**/coverage
+reports
+**/playwright-report
+**/test-results
+
+# Prose and tooling, not needed to build or run
+docs
+specs
+.specify
+.claude
+**/*.md
+
+# OS and editor noise
+**/.DS_Store
+**/*.log
+**/*.swp
+.idea
+.vscode

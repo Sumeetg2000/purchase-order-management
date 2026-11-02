@@ -1,0 +1,71 @@
+// Prisma 7 schema (research R8). Triggers, functions, CHECKs and grants live as raw SQL
+// in the migrations. The connection URL comes from prisma.config.ts (CLI) and from the
+// driver adapter (runtime).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Minimal users table (migration 0002_users). Never deleted: po_app has no DELETE.
+model User {
+  id            String         @id @db.Uuid
+  name          String
+  email         String         @unique(map: "users_email_key")
+  roles         String[]       @default([])
+  status        String
+  deactivatedAt DateTime?      @map("deactivated_at") @db.Timestamptz(6)
+  passwordHash  String?        @map("password_hash")
+  version       Int            @default(1)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tokens        OneTimeToken[]
+
+  @@map("users")
+}
+
+// Audit trail (migration 0003_audit). Writes go only through writeAudit (src/audit), whose
+// INSERT the triggers complete from the actor context; po_app can't update or delete. The
+// model keeps this schema a full description of the database (the migrations test diffs
+// them) and serves reads in later slices.
+model AuditEntry {
+  id          BigInt   @id @default(autoincrement())
+  occurredAt  DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  actorType   String   @map("actor_type")
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorName   String?  @map("actor_name")
+  actorEmail  String?  @map("actor_email")
+  actingRole  String?  @map("acting_role")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  orderId     String?  @map("order_id") @db.Uuid
+  poNumber    String?  @map("po_number")
+  details     Json     @default("{}")
+  requestId   String?  @map("request_id")
+
+  @@index([occurredAt, id])
+  @@map("audit_entries")
+}
+
+// One-time tokens (migration 0005_one_time_tokens). Only the SHA-256 hash is stored, and
+// po_app can update only used_at and superseded_at. The partial index for superseding and
+// the purge's expression index live in the migration only: Prisma can't express the
+// expression index, and the partial one needs a preview feature. prisma migrate diff
+// ignores both, so tests/integration/tokens.test.ts pins their definitions.
+model OneTimeToken {
+  id           String    @id @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  purpose      String
+  tokenHash    Bytes     @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt       DateTime? @map("used_at") @db.Timestamptz(6)
+  supersededAt DateTime? @map("superseded_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("one_time_tokens")
+}
