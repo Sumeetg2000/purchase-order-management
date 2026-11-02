@@ -46,6 +46,13 @@ whether an email has an account. ADR-0018's account-page text and the `NFR-FE-08
 traceability row still described the earlier neutral confirmations; both are corrected
 with this spec to match the decision.
 
+## Clarifications
+
+### Session 2026-11-02
+
+- Q: Where do rate-limit counters live? → A: Always in PostgreSQL, as the lockout does. No
+  configurable store and no in-memory option (FR-016; ADR-0017 amended).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Log in, stay logged in, log out (Priority: P1)
@@ -372,11 +379,9 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   hour per email; resend-verification and forgot-password ≤ 10 per hour per address and
   ≤ 3 per hour per email. Over any limit → `429 RATE_LIMITED` with `Retry-After`, and
   nothing is sent. *(NFR-SEC-05, NFR-SEC-08)*
-- **FR-016**: Rate-limit counters MUST hold across every API instance.
-  [NEEDS CLARIFICATION: ADR-0017 says the counter store is "chosen by configuration"
-  (in-memory allowed only for a single instance, startup refused otherwise). Should this
-  slice instead always keep the counters in PostgreSQL, which the stack already runs, so
-  limits hold across instances with nothing to configure?] *(NFR-SEC-05)*
+- **FR-016**: Rate-limit counters MUST hold across every API instance. They live in
+  one store, the database, as the lockout does: there is no in-memory option and nothing
+  to configure (ADR-0017, amended 2026-11-02). *(NFR-SEC-05)*
 
 **Sessions, tokens and CSRF**
 - **FR-006**: A successful login MUST set the access, refresh and CSRF cookies with the

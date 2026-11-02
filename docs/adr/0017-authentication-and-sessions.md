@@ -8,7 +8,8 @@
   requires TLS) · amended 2026-11-02 (POC: clear, specific error messages over
   anti-enumeration, **owner decision**: one code per login failure, `EMAIL_IN_USE` and
   `ACCOUNT_NOT_FOUND` instead of silent `202`s, no dummy hash or timing padding,
-  `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`)
+  `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`; rate-limit counters always in
+  PostgreSQL, **owner decision**)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -261,11 +262,9 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
   No CORS is needed, and cross-origin requests are rejected.
 - `Secure` cookies work on `http://localhost` (browsers treat it as a secure context). Any
   other deployment terminates TLS at nginx.
-- **Rate-limit counters**: an in-memory store is acceptable **only** for the single API
-  instance in docker compose. Any multi-instance deployment MUST use a shared store (a
-  PostgreSQL table or Redis), so limits hold across instances. The store is chosen by
-  configuration and validated at startup. If more than one instance is configured with the
-  in-memory store, startup fails. Lockout state is always in PostgreSQL.
+- **Rate-limit counters** (amended 2026-11-02): one store, the database, as for the
+  lockout. Counters live in a PostgreSQL table, so limits hold across every API instance;
+  there is no in-memory option and nothing to configure.
 
 ### Security logs
 These events are written as structured `security` log entries, separate from the business
