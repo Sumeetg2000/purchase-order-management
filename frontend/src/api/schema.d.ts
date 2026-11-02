@@ -67,8 +67,6 @@ export interface components {
             checks: {
                 /** @constant */
                 database: "ok";
-                /** @constant */
-                migrations: "ok";
             };
         };
     };

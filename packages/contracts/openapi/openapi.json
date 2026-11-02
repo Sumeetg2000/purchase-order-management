@@ -259,15 +259,10 @@
               "database": {
                 "type": "string",
                 "const": "ok"
-              },
-              "migrations": {
-                "type": "string",
-                "const": "ok"
               }
             },
             "required": [
-              "database",
-              "migrations"
+              "database"
             ],
             "additionalProperties": false
           }

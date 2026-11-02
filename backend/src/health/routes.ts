@@ -27,7 +27,7 @@ export function healthRoutes(readiness: ReadinessService): RouteDefinition[] {
           );
           return;
         }
-        res.json({ status: 'ready', checks: { database: 'ok', migrations: 'ok' } });
+        res.json({ status: 'ready', checks: { database: 'ok' } });
       },
     }),
   ];

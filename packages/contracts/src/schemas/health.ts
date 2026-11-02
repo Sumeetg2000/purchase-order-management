@@ -7,6 +7,6 @@ export const healthSchema = z.strictObject({ status: z.literal('ok') });
 export const readinessSchema = z
   .strictObject({
     status: z.literal('ready'),
-    checks: z.strictObject({ database: z.literal('ok'), migrations: z.literal('ok') }),
+    checks: z.strictObject({ database: z.literal('ok') }),
   })
   .meta({ id: 'Readiness' });
