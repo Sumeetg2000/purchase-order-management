@@ -4,7 +4,11 @@
   and the full status and code registry moved here from the constitution; `NO_ROLE_ASSIGNED`,
   access-request codes; `DUPLICATE_APPROVER` removed) · amended 2026-10-23 (`413
   PAYLOAD_TOO_LARGE` and generic field codes, from the slice 0 plan; the pg-pool timeout
-  exception and custom trigger SQLSTATEs, from the Prisma 7 adapter probe)
+  exception and custom trigger SQLSTATEs, from the Prisma 7 adapter probe) · amended
+  2026-11-02 (POC: clear, specific error messages over anti-enumeration, **owner
+  decision**: `INVALID_CREDENTIALS` replaced by one code per login failure;
+  `ACCOUNT_NOT_FOUND`, `EMAIL_IN_USE`, `ACCOUNT_ALREADY_VERIFIED`, `ACCESS_TOKEN_EXPIRED`;
+  a body-schema inventory test for mutating operations)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -64,16 +68,25 @@ One registry module holds every code. Every endpoint documents its codes in the 
 - Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and `INVALID_TOKEN` (an invalid, expired,
   used or superseded one-time token, all indistinguishable).
 - `401`:
-  - `UNAUTHENTICATED`
-  - `INVALID_CREDENTIALS`: one response for an unknown email, a wrong password, a missing
-    password hash, and an unverified, deactivated or locked account
+  - `UNAUTHENTICATED`: no access token, or a malformed or wrongly signed one
+  - `ACCESS_TOKEN_EXPIRED`: a valid access token past its expiry; the web app refreshes
+    once and retries (ADR-0018)
+  - `INCORRECT_PASSWORD`: login with a wrong password. The change-password form keeps its
+    `400` field code of the same name (ADR-0017).
+  - `PASSWORD_NOT_SET`: login to an account whose set-password link hasn't been used
+  - `ACCOUNT_NOT_VERIFIED`: login, with the right password, to an `UNVERIFIED` account
+  - `ACCOUNT_DEACTIVATED`: login, with the right password, to a `DEACTIVATED` account;
+    forgot-password or resend-verification for one; and any request after deactivation
   - `SESSION_EXPIRED`: idle or absolute limit reached
   - `SESSION_REVOKED`
 - `403`:
   - `FORBIDDEN`, `NO_ROLE_ASSIGNED`
   - `NOT_ORDER_OWNER`, `SELF_APPROVAL`
   - `CSRF_REJECTED`: a missing or wrong CSRF token, or a disallowed `Origin`
-- `404 NOT_FOUND`.
+- `404`:
+  - `NOT_FOUND`
+  - `ACCOUNT_NOT_FOUND`: no account has the email (login, forgot-password,
+    resend-verification)
 - `409`:
   - `ORDER_LOCKED`, `INVALID_STATE_TRANSITION`, `VERSION_CONFLICT`
   - `ORDER_NOT_RECEIVABLE`, `ORDER_FULLY_RECEIVED`, `RECEIPT_EXCEEDS_OUTSTANDING`
@@ -81,12 +94,18 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `IDEMPOTENCY_KEY_REUSED`
   - `ADMIN_NOT_MODIFIABLE`, `SELF_MODIFICATION`, `USER_UNVERIFIED`
   - `ACCESS_REQUEST_NOT_OPEN`
+  - `EMAIL_IN_USE`: signup with an email that already has an account
+  - `ACCOUNT_ALREADY_VERIFIED`: resend-verification for an account that is verified
 - `413 PAYLOAD_TOO_LARGE`: a body over the size limit, refused before parsing.
+- `423 ACCOUNT_LOCKED`, with `Retry-After` (seconds until the lockout ends).
 - `429 RATE_LIMITED`, with `Retry-After`.
 - `500 INTERNAL_ERROR`, with no internal details.
 - `503 SERVICE_UNAVAILABLE`, `CONCURRENCY_RETRY_EXHAUSTED`.
 - The problem body carries `code`, `title`, `status`, `detail`, `correlationId` and an
   optional `details`.
+- Every code has a user-facing message in the web app's message map
+  (`frontend/src/errors/messages.ts`), typed `Record<ErrorCode, …>`, so a code added
+  without a message fails the typecheck.
 
 ## Alternatives
 Cursor-only pagination (more scalable, but no page numbers); the `{error:{…}}` format
@@ -96,3 +115,9 @@ Cursor-only pagination (more scalable, but no page numbers); the `{error:{…}}`
 Page boundaries, defaults, max, invalid values, sort stability with equal timestamps;
 malformed JSON → 400; bad UUID → 400; unknown errors → 500 with no leak; every documented
 code appears in the OpenAPI.
+
+Body-schema inventory: a contract test pins, for every mutating operation (`post`, `put`,
+`patch`, `delete`), its body's fields and whether each is required, or that it takes no
+body. Adding a field or making one optional fails the test until the inventory changes in
+the same commit. So an action with no input of its own (approve takes only `version`)
+can't grow optional fields unnoticed.
