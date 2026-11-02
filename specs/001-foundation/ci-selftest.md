@@ -23,16 +23,17 @@ That is expected and not counted as a second failure.
 | Smoke | nginx's `location = /metrics { return 404; }` removed | e2e (Smoke test) | [40504534998](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/40504534998) |
 | Secrets | the AWS key fixture from gitleaks' `testdata/repos/nogit/main.go`, in a doc (not repeated here, or this file would fail the scan); confirmed locally with the pinned image first | secrets (gitleaks, pull request commits) | [40504546408](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/40504546408) |
 | Coverage floor (T118) | line floor raised to 95% (measured 90.31%) | api ("Coverage for lines (90.31%) does not meet global threshold (95%)") | [40504865037](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/40504865037) |
+| Breaking change (2026-11-02) | `checks.migrations` removed from the readiness response, PR #14 from `002-accounts-user-management` at `89407f5` | breaking (`response-required-property-removed`, `BREAKING_LABEL: false`) | [41408535809](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/41408535809) |
 
 Notes:
 - **Migration** fails two jobs by design: `api` runs every migration from empty against
   Testcontainers, and `e2e` starts the stack, whose `migrate` service runs them too.
 - **Bundle**: the first attempt also failed `static`, because the generated padding wasn't
   Prettier-formatted ([40504520710](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/40504520710)). After formatting it, only `web` failed.
-- **Breaking change without the label**: can't be exercised in CI yet. The check compares
-  against the PR base, and `main` has no OpenAPI document until slice 0 merges, so it
-  passes with "nothing to compare". It was run locally against `HEAD` with
-  `checks.migrations` removed from the readiness response: exit 1
-  (`response-required-property-removed`) without the label, and exit 0 with
-  `BREAKING_LABEL=true` and a "Breaking change:" line. **Repeat this row as a CI
-  self-test on the first PR after slice 0 merges.**
+- **Breaking change**: before slice 0 merged, `main` had no OpenAPI document to compare
+  against, so this row was first run locally. It was repeated in CI on 2026-11-02, on
+  the first PR after the merge: without the label the `breaking` job failed (run above).
+  With the `breaking` label and a "Breaking change:" line, the same change passed with
+  "breaking change accepted" (run
+  [41408617398](https://github.com/Sumeetg2000/purchase-order-management/actions/runs/41408617398)).
+  PR #14 was closed and `selftest/breaking` deleted.
