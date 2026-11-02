@@ -75,10 +75,74 @@ const PARTS = [
   ['body', 'body'],
 ] as const;
 
+// Express 5 path parameters: `:name` or `*name`, the name optionally quoted.
+const PATH_PARAMETER = /[:*](?:\w+|"[^"]*")/g;
+
+function isSchema(value: unknown): value is z.core.$ZodType {
+  return typeof value === 'object' && value !== null && '_zod' in value;
+}
+
+/**
+ * The first place a schema would take an unknown key without rejecting it, or undefined:
+ * z.object drops unknown keys and z.looseObject keeps them, where only z.strictObject
+ * rejects them. Walks every nested schema, through wrappers, pipes and lazy schemas.
+ */
+function nonStrictObjectAt(
+  schema: z.core.$ZodType,
+  path: string,
+  seen: Set<z.core.$ZodType>,
+): string | undefined {
+  if (seen.has(schema)) return undefined;
+  seen.add(schema);
+  const def = schema._zod.def as unknown as Record<string, unknown> & { type: string };
+  if (def.type === 'object') {
+    const catchall = def['catchall'];
+    if (!isSchema(catchall) || catchall._zod.def.type !== 'never') return path;
+    for (const [key, inner] of Object.entries(def['shape'] as Record<string, z.core.$ZodType>)) {
+      const found = nonStrictObjectAt(inner, `${path}.${key}`, seen);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  const children =
+    def.type === 'lazy'
+      ? [(def['getter'] as () => unknown)()]
+      : Object.entries(def)
+          .filter(([key]) => key !== 'checks')
+          .flatMap(([, value]) => value);
+  const childPath = def.type === 'array' ? `${path}[]` : path;
+  for (const child of children) {
+    if (!isSchema(child)) continue;
+    const found = nonStrictObjectAt(child, childPath, seen);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Why a route's request schemas can't guarantee validated input, or undefined (ADR-0007):
+ * a path parameter with no params schema would reach the handler unchecked, and a
+ * non-strict object would drop or keep unknown fields instead of rejecting them, where a
+ * derived field in a body must be refused (ADR-0003).
+ */
+export function requestSchemaProblem(route: OperationContract): string | undefined {
+  const parameters = route.path.match(PATH_PARAMETER) ?? [];
+  if (parameters.length > 0 && !route.request?.params) {
+    return `has path parameters (${parameters.join(', ')}) but no params schema`;
+  }
+  for (const [part] of PARTS) {
+    const schema = route.request?.[part];
+    const at = schema && nonStrictObjectAt(schema, part, new Set());
+    if (at) return `accepts unknown fields at ${at}; use z.strictObject`;
+  }
+  return undefined;
+}
+
 /**
  * Validates path, query and body against the route's schemas before the handler runs.
- * Any failure is 400 VALIDATION_FAILED with field details; parsed values replace req.body
- * and are available as res.locals.input.
+ * Any failure is 400 VALIDATION_FAILED with field details; parsed values replace
+ * req.params, req.query and req.body, so a handler can't read the raw input, and are
+ * available as res.locals.input.
  */
 export function validateRequest(route: RouteDefinition): RequestHandler {
   return (req, res, next) => {
@@ -100,6 +164,14 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
       next(new AppError('VALIDATION_FAILED', { details }));
       return;
     }
+    req.params = input['params'] as Request['params'];
+    // Express 5's req.query is a getter that reparses the URL, so it is shadowed, not assigned.
+    Object.defineProperty(req, 'query', {
+      value: input['query'],
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
     req.body = input['body'];
     res.locals['input'] = input;
     next();

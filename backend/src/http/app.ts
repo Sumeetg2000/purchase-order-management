@@ -4,7 +4,12 @@ import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { serializeError, serializeRequest, serializeResponse } from '../observability/logger.js';
 import type { Metrics } from '../observability/metrics.js';
-import { ACCESS_LEVELS, validateRequest, type RouteDefinition } from './define-route.js';
+import {
+  ACCESS_LEVELS,
+  requestSchemaProblem,
+  validateRequest,
+  type RouteDefinition,
+} from './define-route.js';
 import { correlation } from './middleware/correlation.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 import { metricsMiddleware } from './middleware/metrics.js';
@@ -42,7 +47,8 @@ const CONTRACT_FIELDS = ['summary', 'access', 'request', 'responses', 'errors'] 
 /**
  * Startup check: every route declares a known access level and documented responses, and
  * serves exactly one operation of the contract (or, in tests, of the test-only registry),
- * so nothing is served that the OpenAPI document doesn't describe.
+ * so nothing is served that the OpenAPI document doesn't describe. Its request schemas must
+ * cover every path parameter and reject unknown fields at any depth.
  */
 export function validateRoutes(
   routes: readonly RouteDefinition[],
@@ -99,6 +105,10 @@ export function validateRoutes(
       throw new RouteRegistrationError(
         `Route ${label} changes ${changed.join(', ')} of contract operation "${route.operationId}"`,
       );
+    }
+    const schemaProblem = requestSchemaProblem(route);
+    if (schemaProblem) {
+      throw new RouteRegistrationError(`Route ${label} ${schemaProblem}`);
     }
     operationIds.add(route.operationId);
     endpoints.add(label);
