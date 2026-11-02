@@ -86,6 +86,88 @@ describe('[NFR-API-01] routes follow the contract', () => {
   });
 });
 
+describe('[NFR-VAL-01] request schemas cover every input and reject unknown fields', () => {
+  function testRoute(path: string, request?: RouteDefinition['request']): RouteDefinition {
+    return defineRoute({
+      method: 'post',
+      path,
+      operationId: 'testSchemas',
+      summary: 'test only',
+      access: 'public',
+      ...(request === undefined ? {} : { request }),
+      responses: { 200: z.object({}) },
+      handler: (_req, res) => {
+        res.json({});
+      },
+    });
+  }
+
+  function start(route: RouteDefinition) {
+    return () =>
+      createApp({ ...appOptions, routes: [route], testOnlyOperations: { testSchemas: route } });
+  }
+
+  it('[NFR-VAL-01] refuses a route with a path parameter but no params schema', () => {
+    expect(start(testRoute('/items/:id'))).toThrow(RouteRegistrationError);
+    expect(start(testRoute('/items/:id'))).toThrow(/POST \/items\/:id.*params/);
+    expect(start(testRoute('/items/:id', { body: z.strictObject({}) }))).toThrow(/params/);
+  });
+
+  it('[NFR-VAL-01] accepts a path parameter with a params schema', () => {
+    const route = testRoute('/items/:id', { params: z.strictObject({ id: z.uuid() }) });
+    expect(start(route)).not.toThrow();
+  });
+
+  it('[NFR-VAL-01] refuses a request schema that would drop unknown fields instead of rejecting them', () => {
+    const cases: [RouteDefinition['request'], RegExp][] = [
+      [{ params: z.object({ id: z.uuid() }) }, /params/],
+      [{ params: z.strictObject({ id: z.uuid() }), query: z.looseObject({}) }, /query/],
+      [{ params: z.strictObject({ id: z.uuid() }), body: z.object({}) }, /body/],
+      [{ params: z.strictObject({ id: z.uuid() }), body: z.strictObject({}).strip() }, /body/],
+      [
+        {
+          params: z.strictObject({ id: z.uuid() }),
+          body: z.strictObject({ lines: z.array(z.object({ quantity: z.number() })) }),
+        },
+        /body\.lines\[\]/,
+      ],
+      [
+        {
+          params: z.strictObject({ id: z.uuid() }),
+          body: z.strictObject({ vendor: z.object({ id: z.uuid() }).optional() }),
+        },
+        /body\.vendor/,
+      ],
+      [
+        { params: z.strictObject({ id: z.uuid() }), body: z.preprocess((v) => v, z.object({})) },
+        /body/,
+      ],
+    ];
+    for (const [request, where] of cases) {
+      const route = testRoute('/items/:id', request);
+      expect(start(route)).toThrow(RouteRegistrationError);
+      expect(start(route)).toThrow(where);
+    }
+  });
+
+  it('[NFR-VAL-01] accepts strict objects at every depth, through wrappers', () => {
+    const line = z.strictObject({ id: z.uuid().optional(), quantity: z.number() });
+    const route = testRoute('/items/:id', {
+      params: z.strictObject({ id: z.uuid() }),
+      query: z.strictObject({ verbose: z.coerce.boolean().optional() }),
+      body: z
+        .strictObject({
+          lines: z.array(line).min(1),
+          vendor: z.union([z.strictObject({ id: z.uuid() }), z.null()]),
+          next: z.lazy(() => line).optional(),
+        })
+        .refine(() => true)
+        .transform((v) => v),
+    });
+    expect(start(route)).not.toThrow();
+  });
+});
+
 describe('[NFR-API-01] only contract operations are served', () => {
   const secret = defineRoute({
     method: 'get',

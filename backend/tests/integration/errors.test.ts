@@ -60,6 +60,21 @@ function buildApp() {
       }),
       defineRoute({
         method: 'get',
+        path: '/items/:id/echo',
+        operationId: 'testEchoInput',
+        summary: 'test only',
+        access: 'public',
+        request: {
+          params: z.strictObject({ id: z.uuid().transform((id) => id.toLowerCase()) }),
+          query: z.strictObject({ limit: z.coerce.number().int().min(1).max(10) }),
+        },
+        responses: { 200: z.object({}) },
+        handler: (req, res) => {
+          res.json({ id: req.params['id'], limit: req.query['limit'] });
+        },
+      }),
+      defineRoute({
+        method: 'get',
         path: '/boom',
         operationId: 'testBoom',
         summary: 'test only',
@@ -198,6 +213,13 @@ describe('[NFR-VAL-01] request validation before business logic', () => {
     const res = await request(app).post('/items').send({ name: 'bolts', qty: 5 });
     expect(res.status).toBe(201);
     expect(calls.create).toBe(1);
+  });
+
+  it('[NFR-VAL-01] a handler sees only the validated path and query, never the raw ones', async () => {
+    const { app } = buildApp();
+    const res = await request(app).get('/items/0192E4A0-7B1C-7CC0-8A4E-1F2B3C4D5E6F/echo?limit=5');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f', limit: 5 });
   });
 });
 

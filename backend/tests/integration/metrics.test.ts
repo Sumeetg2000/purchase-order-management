@@ -23,6 +23,7 @@ function testApp() {
         operationId: 'testItem',
         summary: 'test only',
         access: 'public',
+        request: { params: z.strictObject({ id: z.string() }) },
         responses: { 200: z.object({ ok: z.boolean() }) },
         handler: (_req, res) => {
           res.json({ ok: true });
@@ -125,6 +126,7 @@ describe('[NFR-OPS-02] internal metrics listener', () => {
           operationId: 'testSlow',
           summary: 'test only',
           access: 'public',
+          request: { params: z.strictObject({ id: z.string() }) },
           responses: { 200: z.object({}) },
           handler: () => {
             entered();
