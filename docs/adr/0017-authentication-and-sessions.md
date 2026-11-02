@@ -374,7 +374,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - the refresh cookie is not sent to non-auth `/api` routes (Path asserted)
   - flags asserted (HttpOnly, Secure, SameSite=Strict, Path), and no token in any response
     body
-- The rate limiter uses the configured store (a shared-store test with two app instances).
+- The rate limiter keeps its counters in PostgreSQL: two app instances share one limit.
 - A deactivated user's next request → 401 `ACCOUNT_DEACTIVATED`. A removed role → next
   request 403.
 - Access tokens: an expired one → 401 `ACCESS_TOKEN_EXPIRED`; none, a malformed one, or one
