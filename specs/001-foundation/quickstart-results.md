@@ -25,5 +25,6 @@ snap-packaged Docker (Compose v5.1.2) and Node 24.22.1.
 
 ## Not done here
 
-Branch protection on `main` (T117) is a manual GitHub settings step; it is recorded here
-when done.
+Branch protection on `main` (T117): **skipped by owner decision, 2026-11-02.** `main` is
+unprotected, so a direct push would not be rejected. The rule instead: never push to
+`main`; every change goes through a slice branch and a PR the owner approves.

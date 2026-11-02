@@ -1014,11 +1014,13 @@ second concurrent run is a no-op.
   - Then `gh pr ready`.
 
   — Verify: `gh pr view --json isDraft` shows `false`, and the checks page is all green.
-- [ ] T117 **Manual GitHub settings step**: enable branch protection on `main` — require
+- [X] T117 **Manual GitHub settings step**: enable branch protection on `main` — require
   every `ci.yml` job above and the `breaking` job of `contract-breaking.yml`, require the PR
   to be up to date, no force pushes, no deletion.
   Record who did it and when in `specs/001-foundation/quickstart-results.md` — Verify: a
   test push straight to `main` is rejected, and the PR shows the required checks.
+  - **Skipped (owner decision, 2026-11-02).** `main` has no branch protection. Nobody pushes
+    to `main`: every change goes through a slice branch and a PR the owner approves.
 
 ---
 
