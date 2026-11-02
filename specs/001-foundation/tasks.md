@@ -987,13 +987,18 @@ second concurrent run is a no-op.
   queries. Add an `import-x/no-restricted-paths` rule so a route module importing the
   Prisma client or a repository fails lint. — Verify: the rule fails on a probe route that
   imports a repository, and passes on the repo.
-- [ ] T120 Re-check nodemailer on or after 2026-11-01 (added at US7): it is pinned to 10.1.7,
+- [X] T120 Re-check nodemailer on or after 2026-11-01 (added at US7): it is pinned to 10.1.7,
   an exception to the two-week minimum age because GHSA-8c8m-p3m8-cjg8,
   GHSA-m943-m63m-w62w and GHSA-85x2-q946-cp5h affect every version below 10.1.4 and every
   fixed version was under 14 days old. 10.1.7 (released 2026-10-18) turns 14 days on
   2026-11-01. Check npm audit and the advisories again, and move to the newest release that
   is at least two weeks old and free of known advisories. — Verify: `npm audit` is clean,
   the mail tests pass, and the commit records the outcome.
+  - Outcome (2026-11-02): 10.1.7 stays. It is 15 days old, and the newer 10.2.0
+    (2026-10-21) is under 14 days. `npm audit --omit=dev` finds nothing; the full audit
+    has 22 moderate advisories, all in dev tooling (minimatch and glob, through eslint,
+    testcontainers and openapi-typescript), none in nodemailer. CI's
+    `--audit-level=high` passes.
 - [ ] T121 Shutdown waits for in-flight handlers, not a timer (added at the US7 review):
   when the drain cuts a request off, shutdown now waits out the 2 s mail reserve in case
   that handler still commits and dispatches mail. Track in-flight handler work instead
