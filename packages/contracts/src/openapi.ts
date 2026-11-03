@@ -9,7 +9,7 @@ import { ETAG_PATTERN } from './etag.js';
 import { OPERATIONS, type Access, type OperationContract } from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
-import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE } from './session-cookies.js';
+import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE, requiresCsrf } from './session-cookies.js';
 
 // Generates the OpenAPI document from the operation contracts and the error registry
 // (ADR-0008, research R12). `npm run contract:generate` writes it to
@@ -43,8 +43,6 @@ const SUCCESS_DESCRIPTIONS: Readonly<Record<number, string>> = {
   204: 'No content',
 };
 
-const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
-
 /** The cookies and header that authenticate a request (ADR-0017). */
 const SECURITY_SCHEMES = {
   accessCookie: { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
@@ -67,7 +65,7 @@ function security(operation: OperationContract): Record<string, string[]>[] | un
   const credential = CREDENTIAL[operation.access];
   if (!credential) return undefined;
   const requirement: Record<string, string[]> = { [credential]: [] };
-  if (UNSAFE_METHODS.has(operation.method)) requirement['csrfHeader'] = [];
+  if (requiresCsrf(operation.method)) requirement['csrfHeader'] = [];
   return [requirement];
 }
 
@@ -81,7 +79,7 @@ const ifMatchHeader = z.strictObject({
 /** Codes any operation can return: validation, size and origin for bodies, and failure. */
 function errorCodes(operation: OperationContract): ErrorCode[] {
   const codes: ErrorCode[] = ['VALIDATION_FAILED', 'INTERNAL_ERROR'];
-  if (UNSAFE_METHODS.has(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
+  if (requiresCsrf(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
   for (const code of operation.errors ?? []) if (!codes.includes(code)) codes.push(code);
   return codes;
 }

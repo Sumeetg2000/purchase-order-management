@@ -2,13 +2,13 @@ import { errors, jwtVerify, SignJWT } from 'jose';
 import { z } from 'zod';
 import type { Clock } from '../lib/clock.js';
 import { ACCESS_TOKEN_LIFETIME_SECONDS } from './constants.js';
+import { SECOND_MS } from '../lib/time.js';
 
 // The access JWT (ADR-0017, research R2): HS256 with a kid, carrying only the user id
 // (sub) and the session id (sid). An expired but otherwise valid token is
 // ACCESS_TOKEN_EXPIRED, so the web app refreshes; anything else wrong is UNAUTHENTICATED.
 
 const ALGORITHM = 'HS256';
-const SECOND_MS = 1_000;
 
 const claimsSchema = z.object({ sub: z.uuid(), sid: z.uuid() });
 

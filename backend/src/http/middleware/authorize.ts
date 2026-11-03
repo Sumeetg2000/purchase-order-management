@@ -1,4 +1,4 @@
-import { AppError, CSRF_HEADER, ROLE, type Access } from '@po/contracts';
+import { AppError, CSRF_HEADER, requiresCsrf, ROLE, type Access } from '@po/contracts';
 import type { RequestHandler, Response } from 'express';
 import { readCookies } from '../../auth/cookies.js';
 import { csrfTokenMatches } from '../../auth/csrf.js';
@@ -16,8 +16,6 @@ export interface AuthDependencies {
   csrfSecret: string;
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
 const AUTH_KEY = 'auth';
 const REFRESH_KEY = 'refreshSession';
 
@@ -30,7 +28,7 @@ function checkCsrf(
   sessionId: string,
   header: string | undefined,
 ) {
-  if (SAFE_METHODS.has(method)) return;
+  if (!requiresCsrf(method)) return;
   if (!csrfTokenMatches(deps.csrfSecret, sessionId, header)) throw new AppError('CSRF_REJECTED');
 }
 

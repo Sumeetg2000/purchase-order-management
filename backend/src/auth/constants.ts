@@ -1,4 +1,5 @@
 import { PUBLIC_REVOKE_REASONS } from '@po/contracts';
+import { DAY_SECONDS, MINUTE_SECONDS } from '../lib/time.js';
 
 // Authentication and session numbers (ADR-0017). The sessions table's CHECKs (migration
 // 0008_sessions) and the users lockout CHECK (0007_user_accounts) hold copies of some of
@@ -23,9 +24,6 @@ export const LOCKOUT_THRESHOLD = 5;
 
 /** The longest user agent kept for a session; longer ones are truncated. */
 export const USER_AGENT_MAX_LENGTH = 512;
-
-const MINUTE_SECONDS = 60;
-const DAY_SECONDS = 24 * 60 * MINUTE_SECONDS;
 
 /** How long an access token (and its cookie) is valid. */
 export const ACCESS_TOKEN_LIFETIME_SECONDS = 15 * MINUTE_SECONDS;

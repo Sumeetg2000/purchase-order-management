@@ -35,22 +35,20 @@ export function needsRehash(storedHash: string): boolean {
   return argon2NeedsRehash(storedHash, PROFILE);
 }
 
-const LIST = new URL('./common-passwords.txt', import.meta.url);
-let commonPasswords: ReadonlySet<string> | undefined;
-
-/** The bundled list (lower-cased entries, `#` comments), read once on first use. */
-function loadCommonPasswords(): ReadonlySet<string> {
-  commonPasswords ??= new Set(
-    readFileSync(LIST, 'utf8')
-      .split('\n')
-      .filter((line) => line !== '' && !line.startsWith('#')),
-  );
-  return commonPasswords;
-}
+/**
+ * The bundled list (lower-cased entries, `#` comments), read once when the module loads:
+ * at API startup, so a missing list stops the start rather than failing a request, and no
+ * request blocks on reading it.
+ */
+const COMMON_PASSWORDS: ReadonlySet<string> = new Set(
+  readFileSync(new URL('./common-passwords.txt', import.meta.url), 'utf8')
+    .split('\n')
+    .filter((line) => line !== '' && !line.startsWith('#')),
+);
 
 /** PASSWORD_TOO_COMMON at `path` when the password is on the list, whatever its case. */
 export function commonPasswordError(path: string, password: string): FieldError | undefined {
-  return loadCommonPasswords().has(password.toLowerCase())
+  return COMMON_PASSWORDS.has(password.toLowerCase())
     ? { path, code: 'PASSWORD_TOO_COMMON' }
     : undefined;
 }

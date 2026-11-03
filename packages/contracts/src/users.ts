@@ -29,6 +29,10 @@ export const ASSIGNABLE_ROLE_SETS = [
   [ROLE.BUYER, ROLE.APPROVER],
 ] as const satisfies readonly RoleSet[];
 
+export function isUserRole(value: unknown): value is UserRole {
+  return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);
+}
+
 export const USER_STATUSES = ['UNVERIFIED', 'ACTIVE', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

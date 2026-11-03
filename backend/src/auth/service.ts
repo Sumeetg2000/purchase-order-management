@@ -1,4 +1,4 @@
-import { AppError, USER_ROLES, USER_STATUS, type UserRole } from '@po/contracts';
+import { AppError, isUserRole, USER_STATUS, type UserRole } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import { withDatabase } from '../db/transaction.js';
 import { hashToken } from '../tokens/one-time.js';
@@ -37,8 +37,13 @@ export interface AuthService {
   identifyRefreshSession(refreshToken: string | undefined): Promise<RefreshSession>;
 }
 
-function isUserRole(value: string): value is UserRole {
-  return (USER_ROLES as readonly string[]).includes(value);
+/** A stored role the code doesn't know means the code and the database disagree. */
+function rolesOf(user: { id: string; roles: string[] }): UserRole[] {
+  const unknown = user.roles.filter((role) => !isUserRole(role));
+  if (unknown.length > 0) {
+    throw new Error(`User ${user.id} holds roles the code doesn't know: ${unknown.join(', ')}`);
+  }
+  return user.roles.filter(isUserRole);
 }
 
 export function createAuthService(deps: {
@@ -60,7 +65,7 @@ export function createAuthService(deps: {
         sessionId: check.sessionId,
         name: user.name,
         email: user.email,
-        roles: user.roles.filter(isUserRole),
+        roles: rolesOf(user),
       };
     },
 

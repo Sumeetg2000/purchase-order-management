@@ -121,6 +121,18 @@ export function validateRoutes(
   }
 }
 
+/** The steps before a route's handler; a guarded route with no authenticator can't start. */
+function requestSteps(route: RouteDefinition, auth: AuthDependencies | undefined) {
+  const validate = [parseJson(), validateRequest(route)];
+  if (route.access === 'public') return validate;
+  if (!auth) {
+    throw new RouteRegistrationError(
+      `Route ${describeRoute(route)} needs authentication, but the app has none`,
+    );
+  }
+  return [authenticate(route.access, auth), ...validate, requireAccess(route.access)];
+}
+
 export function createApp({
   routes,
   logger,
@@ -130,12 +142,6 @@ export function createApp({
   testOnlyOperations,
 }: CreateAppOptions): Express {
   validateRoutes(routes, testOnlyOperations);
-  const guarded = routes.filter((route) => route.access !== 'public');
-  if (guarded.length > 0 && !auth) {
-    throw new RouteRegistrationError(
-      `Routes ${guarded.map(describeRoute).join(', ')} need authentication, but the app has none`,
-    );
-  }
 
   const app = express();
   app.disable('x-powered-by');
@@ -158,15 +164,11 @@ export function createApp({
 
   app.use(securityHeaders());
   app.use(originGuard(appOrigin));
-  app.use(parseJson());
 
-  // ADR-0004 precedence: 401, CSRF and NO_ROLE_ASSIGNED, then 400, then the role's 403.
+  // ADR-0004 precedence: 401, CSRF and NO_ROLE_ASSIGNED, then the body and its shape
+  // (400), then the role's 403. The body is read only after the caller is known.
   for (const route of routes) {
-    const steps =
-      route.access === 'public' || !auth
-        ? [validateRequest(route)]
-        : [authenticate(route.access, auth), validateRequest(route), requireAccess(route.access)];
-    app.route(route.path)[route.method](...steps, route.handler);
+    app.route(route.path)[route.method](...requestSteps(route, auth), route.handler);
   }
 
   app.use(notFound());

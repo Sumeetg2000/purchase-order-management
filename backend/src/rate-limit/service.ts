@@ -4,12 +4,11 @@ import { withDatabase } from '../db/transaction.js';
 import type { Clock } from '../lib/clock.js';
 import { RATE_LIMIT_BUCKETS, type RateLimitBucket } from './buckets.js';
 import { countHit } from './repository.js';
+import { SECOND_MS } from '../lib/time.js';
 
 // Fixed-window rate limits kept in PostgreSQL (ADR-0017 amended 2026-11-02, research R8):
 // every API instance shares the counts. Windows align to the epoch, so all instances agree
 // on where one starts.
-
-const SECOND_MS = 1_000;
 
 export interface RateLimiter {
   /**

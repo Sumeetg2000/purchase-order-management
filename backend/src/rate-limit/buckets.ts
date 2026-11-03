@@ -2,9 +2,7 @@
 // per key within a fixed window. rate_limit_counters.bucket (migration 0010_rate_limits)
 // allows exactly these names; tests/integration/accounts-schema.test.ts pins the copy.
 
-const MINUTE_SECONDS = 60;
-const HOUR_SECONDS = 60 * MINUTE_SECONDS;
-const DAY_SECONDS = 24 * HOUR_SECONDS;
+import { DAY_SECONDS, HOUR_SECONDS, MINUTE_SECONDS } from '../lib/time.js';
 
 export interface RateLimitBucketDefinition {
   name: string;

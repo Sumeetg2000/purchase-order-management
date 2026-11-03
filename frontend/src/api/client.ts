@@ -3,6 +3,7 @@ import {
   CSRF_HEADER,
   ERROR_REGISTRY,
   problemSchema,
+  requiresCsrf,
   type Problem,
 } from '@po/contracts';
 import createClient, { type ClientOptions, type Middleware } from 'openapi-fetch';
@@ -23,14 +24,17 @@ export class NetworkError extends Error {
   }
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
 /** One cookie's value from a Cookie string (document.cookie), decoded. */
 export function readCookie(cookies: string, name: string): string | undefined {
   for (const pair of cookies.split(';')) {
     const separator = pair.indexOf('=');
     if (separator !== -1 && pair.slice(0, separator).trim() === name) {
-      return decodeURIComponent(pair.slice(separator + 1).trim());
+      try {
+        return decodeURIComponent(pair.slice(separator + 1).trim());
+      } catch {
+        // A malformed value is no token: send none, and the API refuses the call.
+        return undefined;
+      }
     }
   }
   return undefined;
@@ -43,7 +47,7 @@ export function readCookie(cookies: string, name: string): string | undefined {
 export function csrfMiddleware(cookies: () => string = () => document.cookie): Middleware {
   return {
     onRequest({ request }) {
-      if (SAFE_METHODS.has(request.method)) return undefined;
+      if (!requiresCsrf(request.method)) return undefined;
       const token = readCookie(cookies(), CSRF_COOKIE);
       if (token === undefined) return undefined;
       request.headers.set(CSRF_HEADER, token);

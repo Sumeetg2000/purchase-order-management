@@ -2,6 +2,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 import { parseCookie } from 'cookie';
 import type { CookieOptions, Request, Response } from 'express';
 import { ACCESS_TOKEN_LIFETIME_SECONDS } from './constants.js';
+import { SECOND_MS } from '../lib/time.js';
 
 // The three session cookies (ADR-0017 "Tokens and cookies", research R2). No __Host- or
 // __Secure- prefix: __Host- forbids a non-root path, and Firefox refuses prefixed
@@ -14,8 +15,6 @@ const ACCESS_PATH = '/api';
 const REFRESH_PATH = '/api/auth';
 /** The page reads the CSRF cookie, so it lives at the root. */
 const CSRF_PATH = '/';
-
-const SECOND_MS = 1_000;
 
 const BASE: CookieOptions = { secure: true, sameSite: 'strict' };
 

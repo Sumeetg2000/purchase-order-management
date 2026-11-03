@@ -8,8 +8,13 @@ export function etagFor(version: number): string {
   return `"${String(version)}"`;
 }
 
+/** The highest version a row can hold: versions are PostgreSQL integers. */
+export const VERSION_MAX = 2_147_483_647;
+
 /** The version in an If-Match value, or undefined when it isn't one of our ETags. */
 export function versionFromEtag(value: string): number | undefined {
-  const match = ETAG_PATTERN.exec(value);
-  return match?.[1] === undefined ? undefined : Number(match[1]);
+  const digits = ETAG_PATTERN.exec(value)?.[1];
+  if (digits === undefined) return undefined;
+  const version = Number(digits);
+  return version <= VERSION_MAX ? version : undefined;
 }
