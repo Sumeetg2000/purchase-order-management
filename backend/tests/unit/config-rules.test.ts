@@ -26,6 +26,10 @@ const appUrl = 'postgres://po_app:xxxx-app-xxxx-xxxx@db:5432/po';
 const ownerUrl = 'postgres://po_owner:xxxx-owner-xxxx-xxxx@db:5432/po';
 const maintUrl = 'postgres://po_maintenance:xxxx-maint-xxxx-xxxx@db:5432/po';
 
+// 32-byte keys, base64url-encoded: the shortest the signing and CSRF rules accept.
+const jwtKey = Buffer.alloc(32, 1).toString('base64url');
+const csrfKey = Buffer.alloc(32, 2).toString('base64url');
+
 const apiEnv: Env = {
   APP_ENV: 'local',
   APP_ORIGIN: 'http://localhost:8080',
@@ -42,6 +46,10 @@ const apiEnv: Env = {
   SMTP_USER: '',
   SMTP_PASSWORD: '',
   MAIL_FROM: 'no-reply@example.local',
+  SIGNUP_ALLOWED_DOMAINS: 'example.local',
+  JWT_SIGNING_KEY: jwtKey,
+  JWT_KEY_ID: 'local-1',
+  CSRF_SECRET: csrfKey,
 };
 
 const cliEnv: Env = {
@@ -115,6 +123,79 @@ describe('[NFR-OPS-02] config rules: valid local configuration', () => {
     const { result } = run(cliConfig, { ...cliEnv, PATH: '/usr/bin', HOME: '/home/x' });
     expect(Object.keys(result ?? {}).sort()).toEqual([...cliConfig.keys].sort());
   });
+});
+
+describe('[NFR-OPS-02] config rules: signup domains and session secrets', () => {
+  it('[FR-ACC-01] parses SIGNUP_ALLOWED_DOMAINS trimmed and lower-cased', () => {
+    const { result } = run(apiConfig, {
+      ...apiEnv,
+      SIGNUP_ALLOWED_DOMAINS: ' Example.COM , sub.example.co.in ',
+    });
+    expect(result).toMatchObject({ SIGNUP_ALLOWED_DOMAINS: ['example.com', 'sub.example.co.in'] });
+  });
+
+  it.each([
+    ['empty', ''],
+    ['an empty entry', 'example.com,,example.org'],
+    ['a value that is not a domain', 'not a domain'],
+    ['a single label', 'localhost'],
+    ['a label starting with a hyphen', '-bad.example.com'],
+    ['an address instead of a domain', 'user@example.com'],
+    ['a domain listed twice', 'example.com,EXAMPLE.com'],
+  ])('[FR-ACC-01] refuses SIGNUP_ALLOWED_DOMAINS with %s', (_case, value) => {
+    expectRefused(
+      apiConfig,
+      { ...apiEnv, SIGNUP_ALLOWED_DOMAINS: value },
+      'SIGNUP_ALLOWED_DOMAINS',
+    );
+  });
+
+  it.each(['JWT_SIGNING_KEY', 'CSRF_SECRET'])(
+    '[NFR-SEC-01] refuses a %s that is not base64url or decodes to fewer than 32 bytes',
+    (key) => {
+      const short = Buffer.alloc(31, 3).toString('base64url');
+      for (const value of ['not base64url!', short, '']) {
+        const output = expectRefused(apiConfig, { ...apiEnv, [key]: value }, key);
+        if (value) expect(output).not.toContain(value);
+      }
+    },
+  );
+
+  it('[NFR-SEC-01] refuses a CSRF_SECRET equal to JWT_SIGNING_KEY', () => {
+    expectRefused(apiConfig, { ...apiEnv, CSRF_SECRET: jwtKey }, 'CSRF_SECRET');
+  });
+
+  it.each([
+    ['empty', ''],
+    ['over 64 characters', 'k'.repeat(65)],
+    ['with a space', 'key 1'],
+    ['with a slash', 'key/1'],
+  ])('[NFR-SEC-01] refuses a JWT_KEY_ID %s', (_case, value) => {
+    expectRefused(apiConfig, { ...apiEnv, JWT_KEY_ID: value }, 'JWT_KEY_ID');
+  });
+
+  it('[NFR-SEC-01] accepts a JWT_KEY_ID of 64 letters, digits, dots, hyphens and underscores', () => {
+    const value = `${'a'.repeat(60)}.-_9`;
+    expect(run(apiConfig, { ...apiEnv, JWT_KEY_ID: value }).exitCode).toBeUndefined();
+  });
+
+  it.each(['JWT_SIGNING_KEY', 'CSRF_SECRET'])(
+    '[NFR-SEC-01] production refuses the .env.example placeholder for %s',
+    (key) => {
+      const placeholder = new RegExp(`^${key}=(.+)$`, 'm').exec(
+        readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8'),
+      )?.[1];
+      expect(placeholder).toMatch(/^change-me-/);
+      const local = { ...apiEnv, [key]: placeholder };
+      expect(run(apiConfig, local).exitCode).toBeUndefined();
+      const output = expectRefused(
+        apiConfig,
+        { ...local, APP_ENV: 'production', SMTP_HOST: 'smtp.example.com' },
+        key,
+      );
+      expect(output).not.toContain(placeholder);
+    },
+  );
 });
 
 describe('[NFR-OPS-02] config rules: production refusals', () => {

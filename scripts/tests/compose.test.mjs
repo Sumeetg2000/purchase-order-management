@@ -27,6 +27,10 @@ const ALLOWED = {
     'SMTP_USER',
     'SMTP_PASSWORD',
     'MAIL_FROM',
+    'SIGNUP_ALLOWED_DOMAINS',
+    'JWT_SIGNING_KEY',
+    'JWT_KEY_ID',
+    'CSRF_SECRET',
   ],
   maintenance: ['APP_ENV', 'MAINTENANCE_DATABASE_URL', 'LOG_LEVEL', 'PURGE_INTERVAL_HOURS'],
   migrate: [
@@ -152,6 +156,11 @@ describe('[NFR-OPS-05] compose credential separation', () => {
       assert.deepEqual(extra, [], `${name} receives variables it must not have`);
     });
   }
+
+  it('[NFR-OPS-02] api receives every variable the API reads, slice 1 secrets included', () => {
+    const missing = ALLOWED.api.filter((key) => !(key in environment('api')));
+    assert.deepEqual(missing, [], 'api is missing variables its config requires');
+  });
 
   it('[NFR-OPS-05] migrate gets DATABASE_URL for the bootstrap and never the maintenance URL', () => {
     const env = environment('migrate');
