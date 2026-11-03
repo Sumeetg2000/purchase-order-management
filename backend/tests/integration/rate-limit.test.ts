@@ -1,14 +1,15 @@
 import { AppError } from '@po/contracts';
-import express from 'express';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
-import { sendProblem } from '../../src/http/problem.js';
-import { correlation } from '../../src/http/middleware/correlation.js';
+import { defineRoute } from '../../src/http/define-route.js';
 import { createRateLimiter, type RateLimiter } from '../../src/rate-limit/service.js';
 import { testClock, type TestClock } from '../support/clock.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
+import { testLogger } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
+import { createTestApp } from '../support/test-app.js';
 
 // Rate limits in PostgreSQL (ADR-0017 amended 2026-11-02, research R8): fixed windows, one
 // upsert per hit, shared by every API instance.
@@ -127,10 +128,22 @@ describe('[NFR-SEC-05] rate limiter', () => {
 
 describe('[NFR-SEC-05] Retry-After on the wire', () => {
   it('[NFR-SEC-05] a refusal with a retry time sends the Retry-After header', async () => {
-    const app = express();
-    app.use(correlation());
-    app.get('/limited', (_req, res) => {
-      sendProblem(res, new AppError('RATE_LIMITED', { retryAfterSeconds: 40 }));
+    const app = createTestApp({
+      logger: testLogger(),
+      appOrigin: 'http://localhost:8080',
+      testOnlyRoutes: [
+        defineRoute({
+          method: 'get',
+          path: '/limited',
+          operationId: 'testLimited',
+          summary: 'test only',
+          access: 'public',
+          responses: { 204: z.void() },
+          handler: () => {
+            throw new AppError('RATE_LIMITED', { retryAfterSeconds: 40 });
+          },
+        }),
+      ],
     });
     const res = await request(app).get('/limited');
     expect(res.status).toBe(429);

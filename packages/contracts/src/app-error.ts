@@ -18,6 +18,8 @@ export interface AppErrorOptions {
   detail?: string;
   /** Why a session was revoked; only for codes whose registry entry allows a reason. */
   reason?: PublicRevokeReason;
+  /** Seconds until a retry can succeed, sent as Retry-After (lockout, rate limits). */
+  retryAfterSeconds?: number;
   cause?: unknown;
 }
 
@@ -29,6 +31,7 @@ export class AppError extends Error {
   readonly details: readonly FieldError[] | undefined;
   readonly detail: string | undefined;
   readonly reason: PublicRevokeReason | undefined;
+  readonly retryAfterSeconds: number | undefined;
 
   constructor(code: ErrorCode, options: AppErrorOptions = {}) {
     if (!isErrorCode(code)) {
@@ -43,5 +46,6 @@ export class AppError extends Error {
     this.details = options.details;
     this.detail = options.detail;
     this.reason = options.reason;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }

@@ -126,12 +126,12 @@ short summary stop.
   `backend/tests/integration/tokens.test.ts` — FR-ACC-03.
 - [X] T015 `consumeToken(tx, purpose, token)` returning the outcome —
   `backend/src/tokens/one-time.ts` — T014 green.
-- [ ] T016 Tests: rate limiter — fixed window per bucket, the (N+1)th hit → `429
+- [X] T016 Tests: rate limiter — fixed window per bucket, the (N+1)th hit → `429
   RATE_LIMITED` with `Retry-After` to the window end, new window resets, two app
   instances on one database share the count, every bucket of ADR-0017 listed once —
   `backend/tests/integration/rate-limit.test.ts`, `backend/tests/unit/buckets.test.ts` —
   FR-005, FR-016, NFR-SEC-05.
-- [ ] T017 Buckets const list, repository (single upsert statement returning hits), and
+- [X] T017 Buckets const list, repository (single upsert statement returning hits), and
   service — `backend/src/rate-limit/{buckets,repository,service}.ts` — T016 green.
 - [ ] T018 Tests: authorize step on a probe route table — no or bad token → `401
   UNAUTHENTICATED`, expired → `401 ACCESS_TOKEN_EXPIRED`, deactivated user → `401

@@ -10,6 +10,9 @@ import { requestIdOf } from './middleware/correlation.js';
 export function sendProblem(res: Response, error: AppError): void {
   const entry = ERROR_REGISTRY[error.code];
   res.locals['problemCode'] = error.code;
+  if (error.retryAfterSeconds !== undefined) {
+    res.set('Retry-After', String(error.retryAfterSeconds));
+  }
   res
     .status(entry.status)
     .type('application/problem+json')
