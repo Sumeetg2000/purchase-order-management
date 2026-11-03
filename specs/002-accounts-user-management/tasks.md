@@ -83,13 +83,13 @@ short summary stop.
   `SESSION_REVOKED` without one. The full `SESSION_REVOKE_REASONS` (all eight, built from
   the public three) stays backend-only in T013's `auth/constants.ts` — `packages/contracts/src/errors.ts`, `schemas/problem.ts`,
   `users.ts`, `frontend/src/errors/messages.ts` — T006 green.
-- [ ] T008 Tests: the slice 1 request and response schemas of
+- [X] T008 Tests: the slice 1 request and response schemas of
   [contracts/api.md](contracts/api.md) (strict bodies, password field codes, pagination,
   list queries, role sets), `ACCESS_LEVELS`, and the generator's per-access-level security
   schemes and `If-Match` header, using made-up operations —
   `packages/contracts/tests/account-schemas.test.ts`, `tests/openapi.test.ts` — FR-032,
   NFR-VAL-01.
-- [ ] T009 Zod schemas, the five access levels, the `ifMatch` flag, and the generator's
+- [X] T009 Zod schemas, the five access levels, the `ifMatch` flag, and the generator's
   security schemes and `If-Match` header — `packages/contracts/src/schemas/*`,
   `operations.ts`, `openapi.ts` — T008 green. The 22 operations themselves join
   `OPERATIONS`, the body inventory and the OpenAPI document **with their routes, story by

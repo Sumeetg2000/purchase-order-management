@@ -3,10 +3,14 @@ import type { ErrorCode } from './errors.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
 
 /**
- * Who may call an operation (Principle III, deny by default). Slice 0 has only public
- * health routes; slice 1 adds the authenticated levels.
+ * Who may call an operation (Principle III, deny by default; research R1):
+ * - public: anyone
+ * - refresh: the holder of a refresh cookie (refresh, logout, logout-all)
+ * - user: any logged-in user, with or without a role
+ * - no-role: a logged-in user with no role (their own access request)
+ * - admin: a logged-in Admin
  */
-export const ACCESS_LEVELS = ['public'] as const;
+export const ACCESS_LEVELS = ['public', 'refresh', 'user', 'no-role', 'admin'] as const;
 export type Access = (typeof ACCESS_LEVELS)[number];
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -27,6 +31,8 @@ export interface OperationContract {
   operationId: string;
   summary: string;
   access: Access;
+  /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
+  ifMatch?: 'required';
   request?: OperationRequestSchemas;
   /** Success responses by status. */
   responses: Readonly<Record<number, z.ZodType>>;

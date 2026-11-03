@@ -5,7 +5,7 @@ import {
   type ZodOpenApiResponseObject,
 } from 'zod-openapi';
 import { ERROR_REGISTRY, type ErrorCode } from './errors.js';
-import { OPERATIONS, type OperationContract } from './operations.js';
+import { OPERATIONS, type Access, type OperationContract } from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
 
@@ -42,6 +42,42 @@ const SUCCESS_DESCRIPTIONS: Readonly<Record<number, string>> = {
 };
 
 const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+
+/** The cookies and header that authenticate a request (ADR-0017). */
+const SECURITY_SCHEMES = {
+  accessCookie: { type: 'apiKey', in: 'cookie', name: 'po_access' },
+  refreshCookie: { type: 'apiKey', in: 'cookie', name: 'po_refresh' },
+  csrfHeader: { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
+} as const;
+type SecurityScheme = keyof typeof SECURITY_SCHEMES;
+
+/** The credential each access level needs; public needs none. */
+const CREDENTIAL: Readonly<Record<Access, SecurityScheme | undefined>> = {
+  public: undefined,
+  refresh: 'refreshCookie',
+  user: 'accessCookie',
+  'no-role': 'accessCookie',
+  admin: 'accessCookie',
+};
+
+/** Security requirements: the credential, plus the CSRF header on unsafe methods. */
+function security(operation: OperationContract): Record<string, string[]>[] | undefined {
+  const credential = CREDENTIAL[operation.access];
+  if (!credential) return undefined;
+  const requirement: Record<string, string[]> = { [credential]: [] };
+  if (UNSAFE_METHODS.has(operation.method)) requirement['csrfHeader'] = [];
+  return [requirement];
+}
+
+/** The ETag a versioned update must echo in If-Match: the version, quoted (ADR-0016). */
+const ETAG_PATTERN = /^"[1-9][0-9]*"$/;
+
+const ifMatchHeader = z.strictObject({
+  'If-Match': z
+    .string()
+    .regex(ETAG_PATTERN)
+    .meta({ description: 'The ETag from the last read; a missing or stale one is refused.' }),
+});
 
 /** Codes any operation can return: validation, size and origin for bodies, and failure. */
 function errorCodes(operation: OperationContract): ErrorCode[] {
@@ -81,12 +117,21 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   responses['default'] = problemResponse;
 
   const { params, query, body } = operation.request ?? {};
+  const header = operation.ifMatch === 'required' ? ifMatchHeader : undefined;
+  const requirements = security(operation);
   return {
     operationId: operation.operationId,
     summary: operation.summary,
     'x-access': operation.access,
-    ...(params || query
-      ? { requestParams: { ...(params ? { path: params } : {}), ...(query ? { query } : {}) } }
+    ...(requirements ? { security: requirements } : {}),
+    ...(params || query || header
+      ? {
+          requestParams: {
+            ...(params ? { path: params } : {}),
+            ...(query ? { query } : {}),
+            ...(header ? { header } : {}),
+          },
+        }
       : {}),
     ...(body ? { requestBody: { content: { 'application/json': { schema: body } } } } : {}),
     responses,
@@ -118,6 +163,7 @@ export function buildOpenApiDocument(
       },
     ],
     paths,
+    components: { securitySchemes: SECURITY_SCHEMES },
   });
 }
 

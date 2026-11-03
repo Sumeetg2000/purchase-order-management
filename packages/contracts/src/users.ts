@@ -22,6 +22,13 @@ export const ROLE_SETS = [
 ] as const satisfies readonly (readonly UserRole[])[];
 export type RoleSet = (typeof ROLE_SETS)[number];
 
+/** The role sets an admin may assign: never none (that's signup's) and never Admin. */
+export const ASSIGNABLE_ROLE_SETS = [
+  [ROLE.BUYER],
+  [ROLE.APPROVER],
+  [ROLE.BUYER, ROLE.APPROVER],
+] as const satisfies readonly RoleSet[];
+
 export const USER_STATUSES = ['UNVERIFIED', 'ACTIVE', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
