@@ -52,10 +52,12 @@ function setup(options: Parameters<typeof fakeApi>[0]) {
     fetch: api.fetch,
     cookies: () => 'po_csrf=c',
   });
+  const noRole: string[] = [];
   const middleware = expiredAccessMiddleware({
     refresher,
     fetch: api.fetch,
     onSessionEnded: (p) => ended.push(p),
+    onNoRoleAssigned: () => noRole.push('routed'),
   });
   /** A call through the middleware, as openapi-fetch would make it. */
   async function call(path: string, id: string) {
@@ -66,7 +68,7 @@ function setup(options: Parameters<typeof fakeApi>[0]) {
     const result = await middleware.onResponse?.({ ...options, request, response });
     return result instanceof Response ? result : response;
   }
-  return { ...api, ended, refresher, call };
+  return { ...api, ended, noRole, refresher, call };
 }
 
 describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
@@ -198,5 +200,13 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
     await t.call('/orders', '1');
     expect(t.ended).toEqual([expect.objectContaining({ code: 'ACCOUNT_DEACTIVATED' })]);
     expect(t.calls).toEqual(['POST /api/orders']);
+  });
+
+  it('[FR-ACC-08] NO_ROLE_ASSIGNED from any call routes to Access pending, without a refresh', async () => {
+    const t = setup({ answers: [() => problem(403, 'NO_ROLE_ASSIGNED')] });
+    const res = await t.call('/orders', '1');
+    expect(res.status).toBe(403);
+    expect(t.noRole).toEqual(['routed']);
+    expect(t.ended).toEqual([]);
   });
 });
