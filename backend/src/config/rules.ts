@@ -10,6 +10,63 @@ export const port = z.coerce.number().int().min(1).max(65_535);
 export const positiveInt = z.coerce.number().int().positive();
 export const secret = z.string().min(16, 'must be at least 16 characters');
 
+/** The shortest signing or HMAC secret accepted, in bytes (256 bits, for HS256). */
+export const SIGNING_SECRET_MIN_BYTES = 32;
+
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * A base64url-encoded secret of at least SIGNING_SECRET_MIN_BYTES bytes. Messages never
+ * echo the value.
+ */
+export const signingSecret = z.string().superRefine((value, ctx) => {
+  // A length of 1 mod 4 can't be valid base64url: it would end mid-byte.
+  if (!BASE64URL.test(value) || value.length % 4 === 1) {
+    ctx.addIssue({ code: 'custom', message: 'must be base64url (A-Z, a-z, 0-9, - and _)' });
+  } else if (Buffer.from(value, 'base64url').length < SIGNING_SECRET_MIN_BYTES) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `must decode to at least ${String(SIGNING_SECRET_MIN_BYTES)} bytes`,
+    });
+  }
+});
+
+/** The longest key id accepted in a JWT header (`kid`). */
+export const KEY_ID_MAX_LENGTH = 64;
+
+export const keyId = z
+  .string()
+  .regex(
+    new RegExp(`^[A-Za-z0-9._-]{1,${String(KEY_ID_MAX_LENGTH)}}$`),
+    `must be 1-${String(KEY_ID_MAX_LENGTH)} letters, digits, dots, hyphens or underscores`,
+  );
+
+// A DNS name of two or more labels: letters, digits and inner hyphens, a letter TLD.
+const DOMAIN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+/**
+ * A comma-separated list of domains, trimmed and lower-cased: at least one, no empty
+ * entries, no duplicates.
+ */
+export const domainList = z.string().transform((value, ctx) => {
+  const domains = value.split(',').map((entry) => entry.trim().toLowerCase());
+  for (const domain of domains) {
+    if (!DOMAIN.test(domain)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: domain
+          ? `"${domain}" is not a domain such as example.com`
+          : 'must be a comma-separated list of domains with no empty entries',
+      });
+    }
+  }
+  const repeated = domains.find((domain, index) => domain && domains.indexOf(domain) !== index);
+  if (repeated) {
+    ctx.addIssue({ code: 'custom', message: `lists "${repeated}" more than once` });
+  }
+  return domains;
+});
+
 /** `true` or `false` only; `z.coerce.boolean()` would read "false" as true. */
 export const envBoolean = z
   .enum(['true', 'false'], { error: 'must be true or false' })

@@ -4,13 +4,16 @@ import {
   appEnv,
   databaseUrl,
   defineProcessConfig,
+  domainList,
   envBoolean,
   isPrivilegedDatabaseKey,
+  keyId,
   logLevel,
   optional,
   origin,
   port,
   positiveInt,
+  signingSecret,
 } from './rules.js';
 
 export const apiConfig = defineProcessConfig({
@@ -31,6 +34,10 @@ export const apiConfig = defineProcessConfig({
     SMTP_USER: optional(z.string()),
     SMTP_PASSWORD: optional(z.string()),
     MAIL_FROM: emailAddressSchema,
+    SIGNUP_ALLOWED_DOMAINS: domainList,
+    JWT_SIGNING_KEY: signingSecret,
+    JWT_KEY_ID: keyId,
+    CSRF_SECRET: signingSecret,
   },
   forbidden: (key) => key === 'MAINTENANCE_DATABASE_URL' || isPrivilegedDatabaseKey(key),
   refine: (config, ctx) => {
@@ -48,6 +55,14 @@ export const apiConfig = defineProcessConfig({
         code: 'custom',
         path: [hasUser ? 'SMTP_PASSWORD' : 'SMTP_USER'],
         message: 'SMTP_USER and SMTP_PASSWORD are set together or not at all',
+      });
+    }
+    // One leaked secret must not give both: forging access tokens and CSRF tokens.
+    if (config.CSRF_SECRET === config.JWT_SIGNING_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CSRF_SECRET'],
+        message: 'must differ from JWT_SIGNING_KEY',
       });
     }
     if (config.APP_ENV === 'production' && config.SMTP_HOST === 'mailpit') {

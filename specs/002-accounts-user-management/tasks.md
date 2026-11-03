@@ -36,7 +36,7 @@ short summary stop.
 - [X] T001 Add `argon2` 0.45.1, `jose` 6.2.12 and `cookie` 2.0.1, exact, to the backend
   only — `backend/package.json`, `package-lock.json` — R21.
   `npm audit --audit-level=high` still exits 0.
-- [ ] T002 [P] Config: `SIGNUP_ALLOWED_DOMAINS`, `JWT_SIGNING_KEY`, `JWT_KEY_ID`,
+- [X] T002 [P] Config: `SIGNUP_ALLOWED_DOMAINS`, `JWT_SIGNING_KEY`, `JWT_KEY_ID`,
   `CSRF_SECRET` with the rules in [contracts/config.md](contracts/config.md) (placeholders
   refused in production, `CSRF_SECRET ≠ JWT_SIGNING_KEY`, secrets redacted and never
   echoed); tests first in `backend/tests/unit/config.test.ts` —

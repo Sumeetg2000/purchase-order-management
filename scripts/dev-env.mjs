@@ -37,6 +37,10 @@ const COPIED_KEYS = [
   'SMTP_USER',
   'SMTP_PASSWORD',
   'MAIL_FROM',
+  'SIGNUP_ALLOWED_DOMAINS',
+  'JWT_SIGNING_KEY',
+  'JWT_KEY_ID',
+  'CSRF_SECRET',
 ];
 
 /** What a host-run process needs from the shell; nothing else is inherited. */

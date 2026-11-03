@@ -79,6 +79,10 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
+      SIGNUP_ALLOWED_DOMAINS: ${SIGNUP_ALLOWED_DOMAINS}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY}
+      JWT_KEY_ID: ${JWT_KEY_ID}
+      CSRF_SECRET: ${CSRF_SECRET}
     depends_on:
       migrate:
         condition: service_completed_successfully
