@@ -10,6 +10,7 @@ import { createTestApp } from '../support/test-app.js';
 import { defineRoute } from '../../src/http/define-route.js';
 import { createShutdown } from '../../src/http/shutdown.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
+import { testApiConfig } from '../support/api-config.js';
 import { trackDatabase } from '../support/setup.js';
 import { testLogger } from '../support/log-capture.js';
 
@@ -171,23 +172,11 @@ describe('[NFR-OPS-02] a failed start', () => {
     try {
       await expect(
         startApi(
-          {
-            APP_ENV: 'local',
-            APP_ORIGIN: 'http://localhost:8080',
+          testApiConfig({
             DATABASE_URL: db.url('po_app'),
-            DB_POOL_SIZE: 2,
-            DB_TX_TIMEOUT_MS: 5_000,
-            DB_TX_MAX_WAIT_MS: 2_000,
             HTTP_PORT: httpPort,
             METRICS_PORT: (taken.address() as AddressInfo).port,
-            LOG_LEVEL: 'error',
-            SMTP_HOST: 'mailpit',
-            SMTP_PORT: 1025,
-            SMTP_SECURE: false,
-            SMTP_USER: undefined,
-            SMTP_PASSWORD: undefined,
-            MAIL_FROM: 'noreply@example.local',
-          },
+          }),
           silent,
         ),
       ).rejects.toThrow();

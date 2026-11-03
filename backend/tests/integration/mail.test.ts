@@ -16,6 +16,7 @@ import { createSmtpMailer } from '../../src/mail/smtp.js';
 import { defineTemplate, InvalidRecipientError, renderMail } from '../../src/mail/template.js';
 import { createLogger } from '../../src/observability/logger.js';
 import { createTestDatabase } from '../support/db.js';
+import { testApiConfig } from '../support/api-config.js';
 import { createCapture } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
 import { createTestApp } from '../support/test-app.js';
@@ -582,23 +583,11 @@ describe('[NFR-OPS-04] startup with an unreachable mail server', () => {
   it('[NFR-OPS-04] the API starts and passes readiness while the SMTP host is unreachable', async () => {
     const db = trackDatabase(await createTestDatabase());
     const api: RunningApi = await startApi(
-      {
-        APP_ENV: 'local',
-        APP_ORIGIN: 'http://localhost:8080',
+      testApiConfig({
         DATABASE_URL: db.url('po_app'),
-        DB_POOL_SIZE: 2,
-        DB_TX_TIMEOUT_MS: 5_000,
-        DB_TX_MAX_WAIT_MS: 2_000,
-        HTTP_PORT: 0,
-        METRICS_PORT: 0,
-        LOG_LEVEL: 'error',
         SMTP_HOST: '127.0.0.1',
         SMTP_PORT: await closedPort(),
-        SMTP_SECURE: false,
-        SMTP_USER: undefined,
-        SMTP_PASSWORD: undefined,
-        MAIL_FROM: 'noreply@example.local',
-      },
+      }),
       createCapture().logger,
     );
     cleanups.push(() => api.close());
