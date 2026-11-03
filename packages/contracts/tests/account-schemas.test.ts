@@ -103,6 +103,16 @@ describe('[FR-ACC-04] password policy schema', () => {
     ]);
   });
 
+  it('[FR-ACC-04] login and change-password accept every password the policy accepts', () => {
+    // Counted in characters like the policy: 128 emoji are 256 UTF-16 units.
+    const longest = '😀'.repeat(PASSWORD_MAX_LENGTH);
+    expect(codes(loginBody, { email, password: longest })).toEqual([]);
+    expect(codes(changePasswordBody, { currentPassword: longest, newPassword: password })).toEqual(
+      [],
+    );
+    expect(loginBody.safeParse({ email, password: `${longest}😀` }).success).toBe(false);
+  });
+
   it('[FR-ACC-04] login checks only that a password is present and not over the maximum', () => {
     // An old password may predate a policy change (contracts/api.md).
     expect(codes(loginBody, { email, password: 'short' })).toEqual([]);

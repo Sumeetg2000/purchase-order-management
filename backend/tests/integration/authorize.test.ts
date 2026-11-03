@@ -240,6 +240,26 @@ describe('[NFR-SEC-04] CSRF', () => {
     expect(res.body).toMatchObject({ code: 'CSRF_REJECTED' });
   });
 
+  it('[NFR-AUTH-01] no session beats a bad body: malformed JSON or the wrong media type is 401', async () => {
+    const { app } = await setup();
+    for (const req of [
+      request(app)
+        .post('/me')
+        .set('Origin', APP_ORIGIN)
+        .set('Content-Type', 'application/json')
+        .send('{"name":'),
+      request(app)
+        .post('/me')
+        .set('Origin', APP_ORIGIN)
+        .set('Content-Type', 'text/plain')
+        .send('x'),
+    ]) {
+      const res = await req;
+      expect(res.status).toBe(401);
+      expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED' });
+    }
+  });
+
   it('[NFR-AUTH-01] no session beats a missing CSRF header: 401, not 403', async () => {
     const { app } = await setup();
     const res = await request(app).post('/me').set('Origin', APP_ORIGIN).send({ name: 'x' });
@@ -251,8 +271,11 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
   it('[FR-ACC-08] a no-role user gets 403 NO_ROLE_ASSIGNED on a role route, before body validation', async () => {
     const { app, seed } = await setup();
     const user = await seed('{}');
-    for (const sent of [{ name: 'x' }, { wrong: true }]) {
-      const res = await as(app, user).post('/admin').send(sent);
+    for (const sent of [{ name: 'x' }, { wrong: true }, '{"name":']) {
+      const res = await as(app, user)
+        .post('/admin')
+        .set('Content-Type', 'application/json')
+        .send(sent);
       expect(res.status).toBe(403);
       expect(res.body).toMatchObject({ code: 'NO_ROLE_ASSIGNED' });
     }
@@ -373,7 +396,8 @@ describe('[FR-ADM-02] If-Match and custom field codes', () => {
   });
 
   it('[FR-ADM-02] an If-Match that is not a quoted version is INVALID_FORMAT', async () => {
-    for (const value of ['3', '"0"', '"x"', 'W/"3"']) {
+    // Beyond PostgreSQL's integer range, a version can't exist.
+    for (const value of ['3', '"0"', '"x"', 'W/"3"', '"2147483648"', '"99999999999999999999999"']) {
       expect((await versioned(value)).body, value).toMatchObject({
         details: [{ path: 'header.if-match', code: 'INVALID_FORMAT' }],
       });

@@ -38,6 +38,11 @@ describe('[NFR-FE-02] CSRF header', () => {
     expect(await sent('POST', 'theme=dark')).toBeNull();
   });
 
+  it('[NFR-FE-02] a malformed cookie value sends no header instead of breaking the call', async () => {
+    expect(readCookie('po_csrf=%E0%A4%A', 'po_csrf')).toBeUndefined();
+    expect(await sent('POST', 'po_csrf=%E0%A4%A')).toBeNull();
+  });
+
   it('[NFR-FE-02] reads one cookie by exact name and decodes it', () => {
     expect(readCookie('xpo_csrf=no; po_csrf=a%3Db', 'po_csrf')).toBe('a=b');
     expect(readCookie('', 'po_csrf')).toBeUndefined();
