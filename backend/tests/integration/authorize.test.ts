@@ -281,15 +281,17 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
     }
   });
 
-  it('[NFR-AUTH-02] a user with the wrong role gets 400 for a bad body, then 403 FORBIDDEN', async () => {
+  it("[NFR-AUTH-02] a user without the route's role gets 403 FORBIDDEN, before body validation", async () => {
     const { app, seed } = await setup();
     const buyer = await seed('{BUYER}');
-    expect((await as(app, buyer).post('/admin').send({ wrong: true })).body).toMatchObject({
-      code: 'VALIDATION_FAILED',
-    });
-    const res = await as(app, buyer).post('/admin').send({ name: 'x' });
-    expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
+    for (const sent of [{ name: 'x' }, { wrong: true }, '{"name":']) {
+      const res = await as(app, buyer)
+        .post('/admin')
+        .set('Content-Type', 'application/json')
+        .send(sent);
+      expect(res.status, JSON.stringify(sent)).toBe(403);
+      expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
+    }
   });
 
   it('[NFR-AUTH-02] an Admin passes an admin route', async () => {
@@ -303,9 +305,11 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
     const none = await seed('{}');
     const buyer = await seed('{BUYER}');
     expect((await as(app, none).post('/request').send({ name: 'x' })).status).toBe(200);
-    const res = await as(app, buyer).post('/request').send({ name: 'x' });
-    expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
+    for (const sent of [{ name: 'x' }, { wrong: true }]) {
+      const res = await as(app, buyer).post('/request').send(sent);
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
+    }
   });
 
   it('[FR-ACC-08] a user route serves users with and without a role', async () => {
