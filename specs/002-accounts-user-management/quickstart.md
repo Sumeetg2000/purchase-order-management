@@ -64,6 +64,9 @@ docker compose exec api npm run admin -- admin:reactivate --email second.admin@e
 - `npm test` (backend accounts, sessions, authorization matrix, rate-limit, purge and
   suites; contracts inventory; frontend pages and dialogs), `npm run e2e`,
   contract drift, `npm run check:traceability`.
+- Local e2e: `npm run e2e:local` builds `po-api:e2e` and runs compose project `po-e2e` on
+  ports 18080 and 18025, then removes it; `po-api:local` and the default stack's
+  containers and volumes are never rebuilt or replaced. CI runs the default stack.
 - Security log: `docker compose logs api | grep '"security":true'` shows each event with
   no token or password.
 

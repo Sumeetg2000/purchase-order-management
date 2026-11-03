@@ -24,6 +24,7 @@
     "contract:generate": "npm run build -w @po/contracts && node packages/contracts/scripts/write-openapi.mjs",
     "contract:types": "npm run contract:types -w @po/frontend",
     "e2e": "npm run e2e -w @po/frontend",
+    "e2e:local": "scripts/e2e-local.sh",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "prepare": "node -e \"if (require('node:fs').existsSync('.git')) require('node:child_process').execFileSync('npx', ['--no-install', 'lefthook', 'install'], { stdio: 'inherit' })\""
   },

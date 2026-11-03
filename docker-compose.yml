@@ -26,7 +26,7 @@ services:
   # One-shot: role provisioning, then migrations (the bootstrap is added in US5).
   migrate:
     build: *api-build
-    image: po-api:local
+    image: po-api:${API_IMAGE_TAG:-local}
     command: ['node', 'dist/migrate/run.js']
     security_opt: ['no-new-privileges:true']
     cap_drop: [ALL]
@@ -49,7 +49,7 @@ services:
 
   api:
     build: *api-build
-    image: po-api:local
+    image: po-api:${API_IMAGE_TAG:-local}
     command: ['node', 'dist/server.js']
     security_opt: ['no-new-privileges:true']
     cap_drop: [ALL]
@@ -114,7 +114,7 @@ services:
 
   maintenance:
     build: *api-build
-    image: po-api:local
+    image: po-api:${API_IMAGE_TAG:-local}
     command: ['node', 'dist/maintenance/loop.js']
     security_opt: ['no-new-privileges:true']
     cap_drop: [ALL]
@@ -135,7 +135,7 @@ services:
     profiles: ['local']
     restart: unless-stopped
     ports:
-      - '127.0.0.1:8025:8025'
+      - '127.0.0.1:${MAILPIT_PORT:-8025}:8025'
 
 volumes:
   db-data:
