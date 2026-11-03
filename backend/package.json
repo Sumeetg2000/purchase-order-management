@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && tsc -b tsconfig.build.json",
+    "build": "prisma generate && tsc -b tsconfig.build.json && node -e \"require('node:fs').cpSync('src/auth/common-passwords.txt', 'dist/auth/common-passwords.txt')\"",
     "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin": "node dist/cli/admin.js",

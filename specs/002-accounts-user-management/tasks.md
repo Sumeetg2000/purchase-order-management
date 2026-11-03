@@ -42,7 +42,7 @@ short summary stop.
   echoed); tests first in `backend/tests/unit/config.test.ts` —
   `backend/src/config/api.ts`, `.env.example`, `scripts/ci-env.sh`, `scripts/dev-env.mjs`
   — FR-031, NFR-SEC-01.
-- [ ] T003 [P] Bundle the common-password list (NCSC 100k from SecLists, entries of
+- [X] T003 [P] Bundle the common-password list (NCSC 100k from SecLists, entries of
   12–128 characters, lower-cased, header naming the source); a test pins its line count
   and SHA-256 — `backend/src/auth/common-passwords.txt`,
   `backend/tests/unit/passwords.test.ts` — R4, FR-014.
