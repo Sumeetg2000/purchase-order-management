@@ -28,6 +28,17 @@ export const ASSIGNABLE_ROLE_SETS = [
   [ROLE.APPROVER],
   [ROLE.BUYER, ROLE.APPROVER],
 ] as const satisfies readonly RoleSet[];
+export type AssignableRoleSet = (typeof ASSIGNABLE_ROLE_SETS)[number];
+
+/**
+ * The assignable set holding exactly these roles, in canonical order, or undefined: any
+ * order is accepted, a repeated role is not.
+ */
+export function assignableRoleSet(roles: readonly UserRole[]): AssignableRoleSet | undefined {
+  return ASSIGNABLE_ROLE_SETS.find(
+    (set) => set.length === roles.length && set.every((role) => roles.includes(role)),
+  );
+}
 
 export function isUserRole(value: unknown): value is UserRole {
   return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);

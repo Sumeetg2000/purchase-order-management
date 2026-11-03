@@ -158,6 +158,20 @@ function ifMatchVersion(header: string | undefined): number | FieldError {
   return versionFromEtag(header) ?? { path: IF_MATCH_PATH, code: 'INVALID_FORMAT' };
 }
 
+/** The `id` path parameter validateRequest parsed (idParams: a UUID). */
+export function idParamOf(req: Request): string {
+  const id = req.params['id'];
+  if (typeof id !== 'string') throw new Error('idParamOf on a route without an id parameter');
+  return id;
+}
+
+/** The If-Match version validateRequest parsed, for a versioned update's handler. */
+export function ifMatchVersionOf(res: Response): number {
+  const version = (res.locals['input'] as { version?: unknown } | undefined)?.version;
+  if (typeof version !== 'number') throw new Error('ifMatchVersionOf on a route without If-Match');
+  return version;
+}
+
 /**
  * Validates path, query and body against the route's schemas before the handler runs.
  * A versioned update's If-Match is parsed first, into `input.version`.

@@ -1,11 +1,12 @@
 import { ROLE, USER_STATUS, type UserRole, type UserStatus } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { userRolesOf, userStatusOf } from './codes.js';
 
-// The minimal user repository slice 0 needs for the bootstrap and admin:create. Slice 1
-// adds the rest (ADR-0016). Emails arrive lower-cased (users_email_lower requires it); the
+// Users (ADR-0016): the bootstrap and admin:create, login bookkeeping, the profile, and
+// the admin screens. Emails arrive lower-cased (users_email_lower requires it); the
 // callers normalise them once.
 
 export interface UserSummary {
@@ -230,4 +231,115 @@ export async function createSignupUser(
     select: PROFILE,
   });
   return parsed(created);
+}
+
+/** A user as the admin screens show them (ADR-0016). */
+export interface ManagedUser {
+  id: string;
+  name: string;
+  email: string;
+  roles: UserRole[];
+  status: UserStatus;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  version: number;
+}
+
+const MANAGED = {
+  id: true,
+  name: true,
+  email: true,
+  roles: true,
+  status: true,
+  lastLoginAt: true,
+  createdAt: true,
+  version: true,
+} as const;
+
+export interface UserListFilter {
+  role?: UserRole | 'NONE' | undefined;
+  status?: UserStatus | undefined;
+  /** A case-insensitive prefix of the name or email, matched literally. */
+  q?: string | undefined;
+  offset: number;
+  limit: number;
+}
+
+/** LIKE's wildcards and its escape character, escaped so the text matches literally. */
+function likePrefix(text: string): string {
+  return `${text.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+/**
+ * A page of users sorted by name then id, and the number of matches. The prefix search
+ * compares lower(name) and lower(email), which the text_pattern_ops indexes serve
+ * (migration 0007_user_accounts).
+ */
+export async function listUsers(
+  prisma: AppPrismaClient,
+  filter: UserListFilter,
+): Promise<{ users: ManagedUser[]; total: number }> {
+  const conditions: Prisma.Sql[] = [];
+  if (filter.role === 'NONE') conditions.push(Prisma.sql`roles = '{}'`);
+  else if (filter.role) conditions.push(Prisma.sql`${filter.role} = ANY (roles)`);
+  if (filter.status) conditions.push(Prisma.sql`status = ${filter.status}`);
+  if (filter.q) {
+    const pattern = likePrefix(filter.q);
+    conditions.push(Prisma.sql`(lower(name) LIKE ${pattern} OR lower(email) LIKE ${pattern})`);
+  }
+  const where =
+    conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}` : Prisma.empty;
+  const [rows, [count]] = await Promise.all([
+    prisma.$queryRaw<
+      (Omit<ManagedUser, 'roles' | 'status'> & { roles: string[]; status: string })[]
+    >`
+      SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt",
+             created_at AS "createdAt", version
+        FROM users ${where}
+       ORDER BY name, id
+       LIMIT ${filter.limit} OFFSET ${filter.offset}`,
+    prisma.$queryRaw<{ total: bigint }[]>`SELECT count(*) AS total FROM users ${where}`,
+  ]);
+  const users = rows.map(parsed);
+  return { users, total: Number(count?.total ?? 0) };
+}
+
+export async function findManagedUser(
+  prisma: AppPrismaClient,
+  id: string,
+): Promise<ManagedUser | null> {
+  const user = await prisma.user.findUnique({ where: { id }, select: MANAGED });
+  return user && parsed(user);
+}
+
+/** Locks a user's row for an admin change and returns it, or null. */
+export async function lockManagedUser(
+  tx: AuditedTransaction,
+  id: string,
+): Promise<ManagedUser | null> {
+  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
+  const user = await tx.user.findUnique({ where: { id }, select: MANAGED });
+  return user && parsed(user);
+}
+
+/**
+ * An admin's change of role set or activation, under the row lock: one version bump,
+ * and deactivated_at kept in step with the status (users_deactivated_at_matches_status).
+ */
+export async function updateManagedUser(
+  tx: AuditedTransaction,
+  id: string,
+  change: { roles: readonly UserRole[]; status: UserStatus; now: Date },
+): Promise<ManagedUser> {
+  const user = await tx.user.update({
+    where: { id },
+    data: {
+      roles: [...change.roles],
+      status: change.status,
+      deactivatedAt: change.status === USER_STATUS.DEACTIVATED ? change.now : null,
+      version: { increment: 1 },
+    },
+    select: MANAGED,
+  });
+  return parsed(user);
 }

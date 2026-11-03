@@ -1,3 +1,5 @@
+import type { UserRole, UserStatus } from '@po/contracts';
+
 // The audit event catalogue (ADR-0016). Each slice adds the events it records; slice 0
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
 // database fills them from the transaction's actor context.
@@ -17,6 +19,34 @@ export interface AuditEventCatalogue {
   USER_EMAIL_VERIFIED: {
     entityType: 'user';
     details: { via: 'link' | 'reset' };
+  };
+  /** An admin changed a user's role set; every session of theirs ended. */
+  USER_ROLES_CHANGED: {
+    entityType: 'user';
+    details: { before: readonly UserRole[]; after: readonly UserRole[]; sessionsRevoked: number };
+  };
+  USER_DEACTIVATED: {
+    entityType: 'user';
+    details: { before: UserStatus; after: UserStatus; sessionsRevoked: number };
+  };
+  USER_REACTIVATED: {
+    entityType: 'user';
+    details: { before: UserStatus; after: UserStatus; sessionsRevoked: number };
+  };
+  /** An admin sent a user the reset email; the entity is the user, nothing else is kept. */
+  USER_PASSWORD_RESET_SENT: {
+    entityType: 'user';
+    details: Record<string, never>;
+  };
+  /** Assigning a role closed the user's open request. */
+  ACCESS_REQUEST_RESOLVED: {
+    entityType: 'access_request';
+    details: { requestId: string; roles: readonly UserRole[] };
+  };
+  /** An admin dismissed a request, or deactivating its user did. */
+  ACCESS_REQUEST_DISMISSED: {
+    entityType: 'access_request';
+    details: { requestId: string; note: string | null };
   };
   ADMIN_CREATED: {
     entityType: 'user';

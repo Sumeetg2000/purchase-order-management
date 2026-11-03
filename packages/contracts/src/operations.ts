@@ -1,9 +1,23 @@
 import { z } from 'zod';
 import type { ErrorCode } from './errors.js';
-import { accessRequestBody, ownAccessRequest } from './schemas/access-requests.js';
+import {
+  accessRequestBody,
+  accessRequestListQuery,
+  adminAccessRequest,
+  dismissBody,
+  ownAccessRequest,
+} from './schemas/access-requests.js';
+import {
+  adminUserDetail,
+  adminUserItem,
+  updateUserBody,
+  userListQuery,
+} from './schemas/admin-users.js';
 import { emailBody, loginBody, resetPasswordBody, signupBody, tokenBody } from './schemas/auth.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
+import { idParams } from './schemas/ids.js';
 import { me } from './schemas/me.js';
+import { pageOf } from './schemas/pagination.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -38,6 +52,8 @@ export interface OperationContract {
   ifMatch?: 'required';
   /** Its success response sets (or clears) the session cookies (ADR-0017). */
   setsCookies?: true;
+  /** Its success response carries the resource's version as `ETag` (ADR-0016). */
+  etag?: true;
   request?: OperationRequestSchemas;
   /** Success responses by status. */
   responses: Readonly<Record<number, z.ZodType>>;
@@ -192,5 +208,74 @@ export const OPERATIONS = {
     request: { body: accessRequestBody },
     responses: { 200: ownAccessRequest },
     errors: ['RATE_LIMITED'],
+  },
+
+  // Slice 1, US3: user administration and access requests (ADR-0016).
+  listUsers: {
+    method: 'get',
+    path: '/admin/users',
+    operationId: 'listUsers',
+    summary: 'Users, filtered by role, status and a name or email prefix, by name then id.',
+    access: 'admin',
+    request: { query: userListQuery },
+    responses: { 200: pageOf(adminUserItem) },
+  },
+  getUser: {
+    method: 'get',
+    path: '/admin/users/:id',
+    operationId: 'getUser',
+    summary: 'One user, with their version and open-order counts.',
+    access: 'admin',
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: adminUserDetail },
+    errors: ['NOT_FOUND'],
+  },
+  updateUser: {
+    method: 'patch',
+    path: '/admin/users/:id',
+    operationId: 'updateUser',
+    summary: "Change a user's role set or activation; their sessions end.",
+    access: 'admin',
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: updateUserBody },
+    responses: { 200: adminUserDetail },
+    errors: [
+      'NOT_FOUND',
+      'SELF_MODIFICATION',
+      'ADMIN_NOT_MODIFIABLE',
+      'USER_UNVERIFIED',
+      'VERSION_CONFLICT',
+    ],
+  },
+  sendUserPasswordReset: {
+    method: 'post',
+    path: '/admin/users/:id/reset-password',
+    operationId: 'sendUserPasswordReset',
+    summary: 'Email the user the standard password reset link.',
+    access: 'admin',
+    request: { params: idParams },
+    responses: { 202: z.void() },
+    errors: ['NOT_FOUND', 'SELF_MODIFICATION', 'ADMIN_NOT_MODIFIABLE'],
+  },
+  listAccessRequests: {
+    method: 'get',
+    path: '/admin/access-requests',
+    operationId: 'listAccessRequests',
+    summary: 'Access requests, optionally by status, newest activity first.',
+    access: 'admin',
+    request: { query: accessRequestListQuery },
+    responses: { 200: pageOf(adminAccessRequest) },
+  },
+  dismissAccessRequest: {
+    method: 'post',
+    path: '/admin/access-requests/:id/dismiss',
+    operationId: 'dismissAccessRequest',
+    summary: 'Dismiss an open access request, with an optional note for the user.',
+    access: 'admin',
+    request: { params: idParams, body: dismissBody },
+    responses: { 200: adminAccessRequest },
+    errors: ['NOT_FOUND', 'ACCESS_REQUEST_NOT_OPEN'],
   },
 } as const satisfies Record<string, OperationContract>;

@@ -15,9 +15,15 @@ function patchUser(
   jar: CookieJar,
   id: string,
   body: unknown,
-  ifMatch: string | undefined = '"1"',
+  ifMatch: string | null = '"1"',
 ) {
-  return h.send('patch', `/admin/users/${id}`, jar, body, ifMatch ? { 'If-Match': ifMatch } : {});
+  return h.send(
+    'patch',
+    `/admin/users/${id}`,
+    jar,
+    body,
+    ifMatch === null ? {} : { 'If-Match': ifMatch },
+  );
 }
 
 async function auditOf(h: AccountsHarness, action: string) {
@@ -204,7 +210,7 @@ describe('[FR-ADM-02] admin user update: input and version', () => {
   it('[FR-ADM-02] a missing If-Match is 400 VERSION_REQUIRED; a stale one 409 VERSION_CONFLICT', async () => {
     const { h, jar } = await asAdmin();
     const bea = await h.seedUser();
-    const missing = await patchUser(h, jar, bea.id, { roles: ['APPROVER'] }, undefined);
+    const missing = await patchUser(h, jar, bea.id, { roles: ['APPROVER'] }, null);
     expect(missing.status).toBe(400);
     expect(missing.body).toMatchObject({
       code: 'VALIDATION_FAILED',

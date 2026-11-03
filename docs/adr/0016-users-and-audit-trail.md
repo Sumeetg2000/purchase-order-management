@@ -119,6 +119,9 @@ email: notifications stay deferred (ADR-0019).
   3. `isActive: true` on an `UNVERIFIED` user → `409 USER_UNVERIFIED`. Admins can't verify
      an email on someone's behalf. They can send a reset email instead, and completing it
      verifies the account.
+     *Amended 2026-11-03 (slice 1 US3):* `isActive: false` on an `UNVERIFIED` user is
+     refused the same way, since the transitions above have no `UNVERIFIED → DEACTIVATED`;
+     a later reactivation would otherwise activate an unverified mailbox.
 - **Admins never set or see passwords.**
 - A no-op change (same roles, same status) writes nothing: no audit entry and no
   revocation.

@@ -22,3 +22,11 @@ export function pageOf<T extends z.ZodType>(item: T) {
     total: z.int(),
   });
 }
+
+/** A page of items as the API returns it. */
+export interface Page<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}

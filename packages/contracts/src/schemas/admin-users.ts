@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { USER_NAME_MAX_LENGTH, USER_ROLES, USER_STATUSES } from '../users.js';
+import { assignableRoleSet, USER_NAME_MAX_LENGTH, USER_ROLES, USER_STATUSES } from '../users.js';
 import { pageQueryShape } from './pagination.js';
 
 // Admin user management (ADR-0016).
@@ -8,8 +8,13 @@ import { pageQueryShape } from './pagination.js';
 export const ROLE_FILTERS = [...USER_ROLES, 'NONE'] as const;
 export type RoleFilter = (typeof ROLE_FILTERS)[number];
 
-/** Any list of roles; the service checks it is one of ASSIGNABLE_ROLE_SETS. */
-export const roleSet = z.array(z.enum(USER_ROLES));
+/** One of ASSIGNABLE_ROLE_SETS, in any order; anything else is INVALID_ROLE_SET. */
+export const roleSet = z
+  .array(z.enum(USER_ROLES))
+  .refine((roles) => assignableRoleSet(roles) !== undefined, {
+    message: 'not an assignable role set',
+    params: { fieldCode: 'INVALID_ROLE_SET' },
+  });
 
 export const userListQuery = z.strictObject({
   ...pageQueryShape,
@@ -47,3 +52,8 @@ export const updateUserBody = z
   .refine((body) => body.roles !== undefined || body.isActive !== undefined, {
     message: 'set roles, isActive or both',
   });
+
+export type UserListQuery = z.infer<typeof userListQuery>;
+export type AdminUserItem = z.infer<typeof adminUserItem>;
+export type AdminUserDetail = z.infer<typeof adminUserDetail>;
+export type UpdateUserBody = z.infer<typeof updateUserBody>;

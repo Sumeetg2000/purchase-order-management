@@ -1,5 +1,9 @@
+import { accessRequestRoutes } from '../../access-requests/routes.js';
+import { createAccessRequestsService } from '../../access-requests/service.js';
 import { accountsRoutes } from '../../accounts/routes.js';
 import { createAccountsService } from '../../accounts/service.js';
+import { adminUserRoutes } from '../../admin-users/routes.js';
+import { createAdminUsersService } from '../../admin-users/service.js';
 import { authRoutes } from '../../auth/routes.js';
 import { createSessionService, type SessionServiceDependencies } from '../../auth/service.js';
 import { healthRoutes } from '../../health/routes.js';
@@ -13,7 +17,9 @@ import type { RouteDefinition } from '../define-route.js';
 export type RouteDependencies = HealthDependencies &
   SessionServiceDependencies &
   Parameters<typeof createAccountsService>[0] &
-  Parameters<typeof createProfileService>[0] & {
+  Parameters<typeof createProfileService>[0] &
+  Parameters<typeof createAdminUsersService>[0] &
+  Parameters<typeof createAccessRequestsService>[0] & {
     mail: MailDispatcher;
   };
 
@@ -28,5 +34,7 @@ export function productionRoutes(deps: RouteDependencies): RouteDefinition[] {
     ...authRoutes(createSessionService(deps)),
     ...accountsRoutes(createAccountsService(deps)),
     ...profileRoutes(createProfileService(deps)),
+    ...adminUserRoutes(createAdminUsersService(deps)),
+    ...accessRequestRoutes(createAccessRequestsService(deps)),
   ];
 }

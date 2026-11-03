@@ -15,3 +15,6 @@ export const ACCESS_REQUEST_MESSAGE_MAX_LENGTH = 500;
 
 /** The longest note an admin may add when dismissing a request (ADR-0007). */
 export const ACCESS_REQUEST_NOTE_MAX_LENGTH = 500;
+
+/** The note on a request dismissed because its user was deactivated (ADR-0016). */
+export const DEACTIVATION_DISMISSAL_NOTE = 'Account deactivated';

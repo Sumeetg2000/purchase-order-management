@@ -35,6 +35,13 @@ const cookieHeaders = responseHeaders.extend({
   }),
 });
 
+const etagHeaders = responseHeaders.extend({
+  ETag: z
+    .string()
+    .regex(ETAG_PATTERN)
+    .meta({ description: "The resource's version; send it back in If-Match to update it." }),
+});
+
 const retryHeaders = responseHeaders.extend({
   'Retry-After': z
     .string()
@@ -132,7 +139,11 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   for (const [status, schema] of Object.entries(operation.responses)) {
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
-      headers: operation.setsCookies ? cookieHeaders : responseHeaders,
+      headers: operation.setsCookies
+        ? cookieHeaders
+        : operation.etag
+          ? etagHeaders
+          : responseHeaders,
       // A void response (204, or a 202 that only acknowledges) has no body, so no content
       // type either.
       ...(schema._zod.def.type === 'void' ? {} : { content: { 'application/json': { schema } } }),

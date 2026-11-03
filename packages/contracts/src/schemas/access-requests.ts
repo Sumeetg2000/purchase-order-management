@@ -46,3 +46,6 @@ export const dismissBody = z.strictObject({
 
 export type AccessRequestBody = z.infer<typeof accessRequestBody>;
 export type OwnAccessRequest = z.infer<typeof ownAccessRequest>;
+export type AdminAccessRequest = z.infer<typeof adminAccessRequest>;
+export type AccessRequestListQuery = z.infer<typeof accessRequestListQuery>;
+export type DismissBody = z.infer<typeof dismissBody>;
