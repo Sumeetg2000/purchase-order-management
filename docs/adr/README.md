@@ -22,9 +22,10 @@
 | [0018](0018-production-frontend.md) | Production-grade frontend | Accepted |
 | [0019](0019-considered-and-deferred-features.md) | Features considered, deferred or not adopted | Accepted |
 | [0020](0020-stack-operations-and-retention.md) | Stack, operations, security baseline, retention | Accepted |
+| [0021](0021-deviation-admin-list-query-plans.md) | Deviation: admin-list query plans deferred to slice 7 | Accepted (deviation) |
 
 ## Open deviations
 
 | ADR | Principle / rule | Revisit condition |
 |---|---|---|
-| — | none | — |
+| [0021](0021-deviation-admin-list-query-plans.md) | VII: committed query plans for the admin users and access-request lists | Slice 7 commits both plans at 10,000 users; slice 7 can't merge with it open |

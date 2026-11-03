@@ -72,7 +72,7 @@ short summary stop.
   optional, a `SessionRevokeReason`, and allowed only on `SESSION_REVOKED`; the web
   message map and the revoke-reason map are complete `Record`s —
   `packages/contracts/tests/errors.test.ts`, `frontend/src/errors/messages.test.ts` —
-  FR-031, FR-ACC-03, NFR-FE-02.
+  FR-031, FR-ACC-03, SC-003, NFR-FE-02.
 - [ ] T007 Registry, field codes, `Problem.reason`, `SESSION_REVOKE_REASONS`,
   `ACCESS_LEVELS`, `ACTING_ROLES` (+`SELF`), password and name limits, and the web
   messages, including the four token codes and "You were logged out because <reason>.
@@ -121,7 +121,7 @@ short summary stop.
   role → `403 FORBIDDEN`, missing/wrong CSRF or foreign `Origin` → `403 CSRF_REJECTED`,
   roles read per request; an operation without an access level fails at startup; missing
   `If-Match` → `VERSION_REQUIRED` field code — `backend/tests/integration/csrf.test.ts`,
-  `backend/tests/integration/authorize.test.ts` — FR-007, FR-010, FR-017, NFR-AUTH-01,
+  `backend/tests/integration/authorize.test.ts` — FR-007, FR-010, FR-017, SC-006, NFR-AUTH-01,
   NFR-SEC-04.
 - [ ] T018 Authorize middleware and `defineRoute` (access level, custom field codes,
   `If-Match` parsing) — `backend/src/http/middleware/authorize.ts`,

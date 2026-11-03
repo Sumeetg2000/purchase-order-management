@@ -22,6 +22,9 @@ permissions also requires sign-off (Principle X).
 | **Receipt corrections** (reversal or negative receipt) | Keeps receipts strictly append-only and the outstanding guarantee simple. | **A mistyped receipt is permanent.** If it fully receives a line, the order can become fully received and can then no longer be cancelled (`409 ORDER_FULLY_RECEIVED`). Mitigation: the receipt confirmation dialog shows received-so-far and outstanding-after per line, and warns when a line becomes fully received (ADR-0011, ADR-0018). |
 | **Owner transfer / reassignment** of orders | Buyers clear their backlog before leaving. | Anything left open: the Approver rejects pending orders and cancels approved ones, and a new order is raised (ADR-0004). The vendor then gets a new PO number. |
 | **Approval authority levels** | One Approver and one tier today (ADR-0002). | Revisit with a second tier or a second Approver. |
+| **User phone number** (POC scope, owner decision 2026-11-03) | The brief doesn't require it; personal data with no purpose isn't collected. | No phone purge or leak scans are needed (ADR-0016, ADR-0020). |
+| **Cross-tab refresh coordination** (POC scope, owner decision 2026-11-03) | ADR-0017's 10-second sibling window already lets several tabs refresh at once. | Each tab refreshes on its own: a few extra refresh calls (ADR-0018). |
+| **Per-IP limits on resend-verification and forgot-password** (POC scope, owner decision 2026-11-03) | The per-email limits already cap the mail any one address receives. | One client can try many addresses; each address still gets at most 3 mails an hour (ADR-0017). |
 | **Multi-tenancy (`org_id`)** | One organisation per deployment (ADR-0016). Every table, index, query, uniqueness rule and test would carry a tenant key, for no requirement in the brief. Restricted signup (ADR-0017) keeps outsiders out. | — |
 
 ### Considered, deferred

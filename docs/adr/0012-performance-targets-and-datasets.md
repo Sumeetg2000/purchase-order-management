@@ -1,6 +1,8 @@
 # ADR-0012: Performance targets, datasets and load-test execution
 
-- **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset)
+- **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset) ·
+  amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
+  ADR-0021)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -13,7 +15,7 @@
     approver queue: every pending order is in one queue. Approval policy: the single-tier
     seed.
   - **Users** (for the admin user list plan only): 10,000 generated users across every
-    status and role set (ADR-0016).
+    status and role set (ADR-0016), built in slice 7 (ADR-0021).
 - p95 targets: outstanding report 200 ms; vendor summary 300 ms; "my orders" for the
   **busiest** buyer 150 ms; approver queue 150 ms; create, replace or submit a 500-line
   order 500 ms each; a single receipt or approval 150 ms; 50 concurrent virtual users for

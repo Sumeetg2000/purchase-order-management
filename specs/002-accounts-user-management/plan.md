@@ -63,7 +63,7 @@ tasks, 25 error codes + 6 field codes, 9 screens, 8 dialogs.
 | IV. Audit | Ten user events in the change's transaction, `SELF`/`ADMIN`/`OPERATOR` actors; auth events are security logs, not audit | Pass |
 | V. Concurrency | Refresh under row lock (R5), atomic lockout and counter statements (R8, R9), `If-Match` on admin updates (R14), `ADMIN_LOCK` for the CLI | Pass |
 | VI. API contract | Zod single source, strict bodies at every depth, body inventory updated, registry + message map complete, additive OpenAPI diff | Pass |
-| VII. Performance | First lists: `LIMIT`ed SQL, filters in SQL, matching indexes (R13). Their committed `EXPLAIN` at 10k users is deferred to slice 7 (Complexity Tracking) | Pass, deferred part tracked |
+| VII. Performance | First lists: `LIMIT`ed SQL, filters in SQL, matching indexes (R13). Their committed `EXPLAIN` at 10k users is deferred to slice 7 (deviation ADR-0021, Complexity Tracking) | Deviation recorded |
 | VIII. Test-first, real PostgreSQL | Each story's tests written first and seen failing against Testcontainers; injected clock for every time rule; barriers for concurrent refresh and CLI | Pass |
 | IX. Operability and security | New secrets validated and refused as placeholders in production; argon2id; HttpOnly SameSite=Strict cookies; CSRF; security log; 90-day purge (DPDP) | Pass |
 | X. Brief binding | §6 "every action tied to a real, authenticated user"; every FR traces to a traceability row; ADR-0017 amended for FR-016; no permission change beyond the signed-off ADR-0016 | Pass |
@@ -204,4 +204,4 @@ summary stop after each story.
 
 | Deferral | Why | Where it is paid |
 |---|---|---|
-| Principle VII: committed query plans (page and `COUNT`) for the admin users and access-request lists | POC scope, owner decision 2026-11-03: a 10,000-user seed and plan tooling for two admin lists cost more here than they prove; the indexes ship now | Slice 7, with the other load tests and query plans (ADR-0016 amended) |
+| Principle VII: committed query plans (page and `COUNT`) for the admin users and access-request lists | POC scope, owner decision 2026-11-03: a 10,000-user seed and plan tooling for two admin lists cost more here than they prove; the indexes ship now | Slice 7, with the other load tests and query plans. Deviation ADR-0021 (revisit: slice 7 commits both plans) |

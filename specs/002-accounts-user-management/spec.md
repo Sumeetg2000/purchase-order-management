@@ -283,8 +283,8 @@ inbox, set a new password, and confirm every old session ended and the new passw
 3. **Given** a reset link that is expired (30 minutes), used, superseded or unknown,
    **When** it is used, **Then** it gets `400 TOKEN_EXPIRED`, `TOKEN_USED`,
    `TOKEN_SUPERSEDED` or `INVALID_TOKEN` respectively, each with its own message.
-4. **Given** signup, resend-verification or forgot-password, **When** a client address or
-   an email goes over its limit in ADR-0017, **Then** it gets `429 RATE_LIMITED` with
+4. **Given** signup (limited per client address and per email) or resend-verification
+   or forgot-password (per email only), **When** a limit in ADR-0017 is exceeded, **Then** it gets `429 RATE_LIMITED` with
    `Retry-After`, and nothing is sent.
 
 ---
