@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LOCKOUT_DURATION_SECONDS, LOCKOUT_THRESHOLD } from '../../src/auth/constants.js';
+import { createPrismaClient } from '../../src/db/client.js';
+import { withTransaction } from '../../src/db/transaction.js';
+import { recordSuccessfulLogin } from '../../src/users/repository.js';
 import { accountsHarness, cookiesSet, PASSWORD } from '../support/accounts.js';
 import { TOKEN_SHAPED } from '../support/log-capture.js';
 
@@ -164,6 +167,44 @@ describe('[NFR-SEC-07] per-account lockout', () => {
     );
     expect(results.filter((r) => r.status === 423)).toHaveLength(1);
     expect((await h.login(user.email, PASSWORD)).status).toBe(423);
+  });
+});
+
+describe('[NFR-SEC-07] lockout under a race', () => {
+  it('[NFR-SEC-07] a right password whose check started before a lock does not clear it', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    // As if concurrent wrong guesses locked the account while this attempt was checking
+    // the password: the success write must see the lock and refuse.
+    const lockedUntil = new Date(h.clock.now().getTime() + 600_000);
+    const prisma = createPrismaClient({
+      url: h.db.url('po_app'),
+      poolSize: 1,
+      connectionTimeoutMs: 2_000,
+    });
+    try {
+      await h.query(`SET session_replication_role = replica`);
+      await h.query(`UPDATE users SET locked_until = $2 WHERE id = $1`, [user.id, lockedUntil]);
+      const outcome = await withTransaction(
+        {
+          prisma,
+          actor: { type: 'SYSTEM' },
+          requestId: 'req-race',
+          timeoutMs: 5_000,
+          maxWaitMs: 2_000,
+        },
+        (tx) => recordSuccessfulLogin(tx, { id: user.id, now: h.clock.now() }),
+      );
+      expect(outcome).toEqual({ ok: false, lockedUntil });
+    } finally {
+      await prisma.$disconnect();
+    }
+    const [row] = await h.query<{ locked_until: Date | null; last_login_at: Date | null }>(
+      'SELECT locked_until, last_login_at FROM users WHERE id = $1',
+      [user.id],
+    );
+    expect(row?.locked_until?.toISOString()).toBe(lockedUntil.toISOString());
+    expect(row?.last_login_at).toBeNull();
   });
 });
 

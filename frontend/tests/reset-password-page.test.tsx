@@ -104,6 +104,20 @@ describe('[NFR-FE-08] reset-password page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("This link isn't valid.");
   });
 
+  it('[NFR-FE-01] an unreachable API says so, and the form can be sent again', async () => {
+    fakeApi({
+      'POST /auth/reset-password': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    const { user } = renderPage();
+    await choose(user, 'a brand new passphrase');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The service is temporarily unavailable.',
+    );
+    expect(screen.getByRole('button', { name: 'Set password' })).toBeEnabled();
+  });
+
   it('[NFR-FE-08] has no accessibility violations', async () => {
     fakeApi({});
     renderPage();

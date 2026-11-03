@@ -123,6 +123,21 @@ describe('[NFR-FE-08] login page', () => {
     );
   });
 
+  it('[NFR-FE-01] an unreachable API says so, and the form can be sent again', async () => {
+    fakeApi({
+      'GET /me': () => problem(401, 'UNAUTHENTICATED'),
+      'POST /auth/login': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    const { user } = renderAt('/login');
+    await submit(user);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The service is temporarily unavailable.',
+    );
+    expect(screen.getByRole('button', { name: 'Log in' })).toBeEnabled();
+  });
+
   it('[NFR-FE-08] has no accessibility violations', async () => {
     fakeApi({ 'GET /me': () => problem(401, 'UNAUTHENTICATED') });
     renderAt('/login');

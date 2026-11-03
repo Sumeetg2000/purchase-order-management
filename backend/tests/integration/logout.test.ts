@@ -58,6 +58,48 @@ describe('[NFR-SEC-03] logout', () => {
     expect((await h.withRefresh('/auth/refresh', someoneElse)).status).toBe(204);
   });
 
+  it('[NFR-SEC-03] logging out of a session already revoked still answers 204 and clears the cookies', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    await h.query(`UPDATE sessions SET revoked_at = now(), revoke_reason = 'PASSWORD_RESET'`);
+    for (const path of ['/auth/logout', '/auth/logout-all']) {
+      const res = await h.withRefresh(path, jar);
+      expect(res.status, path).toBe(204);
+      expect(cleared(res.get('Set-Cookie')), path).toEqual(['po_access', 'po_csrf', 'po_refresh']);
+    }
+    // The first revocation's reason stays.
+    expect(await h.query('SELECT revoke_reason FROM sessions')).toEqual([
+      { revoke_reason: 'PASSWORD_RESET' },
+    ]);
+  });
+
+  it('[NFR-SEC-03] a deactivated user can still log out: the session ends and the cookies go', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    await h.query('SET session_replication_role = replica');
+    await h.query(`UPDATE users SET status = 'DEACTIVATED', deactivated_at = now() WHERE id = $1`, [
+      user.id,
+    ]);
+    const res = await h.withRefresh('/auth/logout', jar);
+    expect(res.status).toBe(204);
+    expect(cleared(res.get('Set-Cookie'))).toEqual(['po_access', 'po_csrf', 'po_refresh']);
+    expect(await h.query('SELECT revoke_reason FROM sessions')).toEqual([
+      { revoke_reason: 'LOGOUT' },
+    ]);
+  });
+
+  it('[NFR-SEC-03] logging out of an expired session answers 204 and clears the cookies', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    h.clock.advance(8 * 24 * 60 * 60 * 1_000);
+    const res = await h.withRefresh('/auth/logout', jar);
+    expect(res.status).toBe(204);
+    expect(cleared(res.get('Set-Cookie'))).toEqual(['po_access', 'po_csrf', 'po_refresh']);
+  });
+
   it('[NFR-SEC-04] logout needs the CSRF header like any state change', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser();
