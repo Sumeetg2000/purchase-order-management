@@ -83,15 +83,19 @@ short summary stop.
   `SESSION_REVOKED` without one. The full `SESSION_REVOKE_REASONS` (all eight, built from
   the public three) stays backend-only in T013's `auth/constants.ts` — `packages/contracts/src/errors.ts`, `schemas/problem.ts`,
   `users.ts`, `frontend/src/errors/messages.ts` — T006 green.
-- [ ] T008 Tests: body inventory `EXPECTED` gains every mutating operation of
-  [contracts/api.md](contracts/api.md) (and the five no-body ones); the OpenAPI test
-  expects the 22 operations, security schemes and headers —
-  `packages/contracts/tests/body-inventory.test.ts`, `tests/openapi.test.ts` — FR-032,
+- [ ] T008 Tests: the slice 1 request and response schemas of
+  [contracts/api.md](contracts/api.md) (strict bodies, password field codes, pagination,
+  list queries, role sets), `ACCESS_LEVELS`, and the generator's per-access-level security
+  schemes and `If-Match` header, using made-up operations —
+  `packages/contracts/tests/account-schemas.test.ts`, `tests/openapi.test.ts` — FR-032,
   NFR-VAL-01.
-- [ ] T009 Zod schemas and the 22 operations with access level and `ifMatch` flag;
-  regenerate `openapi.json` and the frontend types; `scripts/contract-breaking.sh` reports
-  no breaking change — `packages/contracts/src/schemas/*`, `operations.ts`, `openapi.ts`
-  — T008 green.
+- [ ] T009 Zod schemas, the five access levels, the `ifMatch` flag, and the generator's
+  security schemes and `If-Match` header — `packages/contracts/src/schemas/*`,
+  `operations.ts`, `openapi.ts` — T008 green. The 22 operations themselves join
+  `OPERATIONS`, the body inventory and the OpenAPI document **with their routes, story by
+  story**: a test requires the served routes to equal the contract's operations, so
+  adding them all here would leave documented operations unserved (decided while
+  implementing, 2026-11-03).
 
 ### Platform
 

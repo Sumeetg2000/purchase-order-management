@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ERROR_CODES, FIELD_CODES } from '../src/index.js';
+import { ACCESS_LEVELS, ERROR_CODES, FIELD_CODES } from '../src/index.js';
 import { z } from 'zod';
 import {
   buildOpenApiDocument,
@@ -84,6 +84,54 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
   it('[NFR-API-01] generation is deterministic and matches the committed document', () => {
     expect(serializeOpenApiDocument()).toBe(serializeOpenApiDocument());
     expect(readFileSync(COMMITTED, 'utf8')).toBe(serializeOpenApiDocument());
+  });
+
+  it('[NFR-SEC-01] each access level lists the cookies and CSRF header it requires', () => {
+    const op = (method: 'get' | 'post', access: (typeof ACCESS_LEVELS)[number]) => ({
+      method,
+      path: `/${access}/${method}`,
+      operationId: `${access}${method}`.replace('-', ''),
+      summary: 'test only',
+      access,
+      responses: { 204: z.void() },
+    });
+    const built = buildOpenApiDocument(
+      ACCESS_LEVELS.flatMap((access) => [op('get', access), op('post', access)]),
+    ) as unknown as Json;
+    const security = (access: string, method: string) =>
+      at(built, 'paths', `/${access}/${method}`, method)['security'];
+
+    expect(security('public', 'get')).toBeUndefined();
+    expect(security('public', 'post')).toBeUndefined();
+    expect(security('refresh', 'post')).toEqual([{ refreshCookie: [], csrfHeader: [] }]);
+    for (const access of ['user', 'no-role', 'admin']) {
+      expect(security(access, 'get')).toEqual([{ accessCookie: [] }]);
+      expect(security(access, 'post')).toEqual([{ accessCookie: [], csrfHeader: [] }]);
+    }
+    expect(at(built, 'components', 'securitySchemes')).toEqual({
+      accessCookie: { type: 'apiKey', in: 'cookie', name: 'po_access' },
+      refreshCookie: { type: 'apiKey', in: 'cookie', name: 'po_refresh' },
+      csrfHeader: { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
+    });
+  });
+
+  it('[FR-ADM-02] an operation flagged ifMatch documents a required If-Match header', () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'patch',
+        path: '/items/:id',
+        operationId: 'updateItem',
+        summary: 'test only',
+        access: 'admin',
+        ifMatch: 'required',
+        request: { params: z.strictObject({ id: z.uuid() }), body: z.strictObject({}) },
+        responses: { 200: z.strictObject({}) },
+      },
+    ]) as unknown as Json;
+    const parameters = at(built, 'paths', '/items/{id}', 'patch')['parameters'] as Json[];
+    expect(parameters).toContainEqual(
+      expect.objectContaining({ in: 'header', name: 'If-Match', required: true }),
+    );
   });
 
   it('[NFR-API-01] documents a 204 response without a body', () => {
