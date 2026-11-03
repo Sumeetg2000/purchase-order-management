@@ -249,7 +249,7 @@ so revocation takes effect on the next request (ADR-0017, ADR-0018). Covered by 
 **Goal**: a new employee signs up, verifies, logs in with no role and sends an access
 request. **Independent test**: quickstart step 4 up to the Access pending screen.
 
-- [ ] T036 [P] [US2] Tests: signup (strict body, `roles` → 400, allowed domains
+- [X] T036 [P] [US2] Tests: signup (strict body, `roles` → 400, allowed domains
   case-insensitive, `SIGNUP_DOMAIN_NOT_ALLOWED`, `EMAIL_IN_USE` with nothing sent, new
   user `UNVERIFIED` with `{}`, `USER_SIGNED_UP`), verify (the four token codes, `ACTIVE`,
   not logged in, `USER_EMAIL_VERIFIED`), resend (new link supersedes the old;
@@ -258,15 +258,15 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
   mail only after commit —
   `backend/tests/integration/accounts.test.ts` — FR-001, FR-002, FR-ACC-01, FR-ACC-02,
   NFR-SEC-08.
-- [ ] T037 [P] [US2] Tests: access request (no-role only, else `403 FORBIDDEN`; first send
+- [X] T037 [P] [US2] Tests: access request (no-role only, else `403 FORBIDDEN`; first send
   `OPEN`, second updates the message, one row; 4th in a day → 429; `GET` 404 when none;
   new request after dismissal; `ACCESS_REQUESTED`); a no-role user gets `403
   NO_ROLE_ASSIGNED` on every other non-public route, before body validation —
   `backend/tests/integration/access-requests.test.ts` — FR-018, FR-022, FR-ACC-08,
   FR-ACC-09.
-- [ ] T038 [US2] Verify-email mail template; accounts service signup, verify, resend —
+- [X] T038 [US2] Verify-email mail template; accounts service signup, verify, resend —
   `backend/src/mail/template.ts`, `backend/src/accounts/{service,routes}.ts` — T036 green.
-- [ ] T039 [US2] Access-requests repository; profile service and routes for own request
+- [X] T039 [US2] Access-requests repository; profile service and routes for own request
   — `backend/src/access-requests/repository.ts`, `backend/src/profile/` — T037 green.
 - [ ] T040 [P] [US2] Frontend tests then Signup, VerifyEmail (token codes, resend on
   `TOKEN_EXPIRED`), AccessPending pages; `NO_ROLE_ASSIGNED` routing; axe —

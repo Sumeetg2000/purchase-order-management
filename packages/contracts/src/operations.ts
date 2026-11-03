@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ErrorCode } from './errors.js';
-import { loginBody, resetPasswordBody } from './schemas/auth.js';
+import { accessRequestBody, ownAccessRequest } from './schemas/access-requests.js';
+import { emailBody, loginBody, resetPasswordBody, signupBody, tokenBody } from './schemas/auth.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
 import { me } from './schemas/me.js';
 
@@ -129,5 +130,61 @@ export const OPERATIONS = {
     summary: "The caller's own profile.",
     access: 'user',
     responses: { 200: me },
+  },
+
+  // Slice 1, US2: signup, verification and the access request (ADR-0016, ADR-0017).
+  signup: {
+    method: 'post',
+    path: '/auth/signup',
+    operationId: 'signup',
+    summary: 'Create an unverified account with no role, and email a verification link.',
+    access: 'public',
+    request: { body: signupBody },
+    responses: { 202: z.void() },
+    errors: ['SIGNUP_DOMAIN_NOT_ALLOWED', 'EMAIL_IN_USE', 'RATE_LIMITED'],
+  },
+  verifyEmail: {
+    method: 'post',
+    path: '/auth/verify-email',
+    operationId: 'verifyEmail',
+    summary: "Activate an account from its verification link; doesn't log in.",
+    access: 'public',
+    request: { body: tokenBody },
+    responses: { 204: z.void() },
+    errors: ['TOKEN_EXPIRED', 'TOKEN_USED', 'TOKEN_SUPERSEDED', 'INVALID_TOKEN'],
+  },
+  resendVerification: {
+    method: 'post',
+    path: '/auth/resend-verification',
+    operationId: 'resendVerification',
+    summary: 'Email a new verification link; the earlier one stops working.',
+    access: 'public',
+    request: { body: emailBody },
+    responses: { 202: z.void() },
+    errors: [
+      'ACCOUNT_NOT_FOUND',
+      'ACCOUNT_ALREADY_VERIFIED',
+      'ACCOUNT_DEACTIVATED',
+      'RATE_LIMITED',
+    ],
+  },
+  getOwnAccessRequest: {
+    method: 'get',
+    path: '/me/access-request',
+    operationId: 'getOwnAccessRequest',
+    summary: "The caller's latest access request; 404 if they never sent one.",
+    access: 'no-role',
+    responses: { 200: ownAccessRequest },
+    errors: ['NOT_FOUND'],
+  },
+  sendAccessRequest: {
+    method: 'post',
+    path: '/me/access-request',
+    operationId: 'sendAccessRequest',
+    summary: 'Ask for a role: opens a request, or updates the open one.',
+    access: 'no-role',
+    request: { body: accessRequestBody },
+    responses: { 200: ownAccessRequest },
+    errors: ['RATE_LIMITED'],
   },
 } as const satisfies Record<string, OperationContract>;

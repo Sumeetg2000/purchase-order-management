@@ -133,8 +133,9 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
       headers: operation.setsCookies ? cookieHeaders : responseHeaders,
-      // 204 has no body, so no content type either.
-      ...(status === '204' ? {} : { content: { 'application/json': { schema } } }),
+      // A void response (204, or a 202 that only acknowledges) has no body, so no content
+      // type either.
+      ...(schema._zod.def.type === 'void' ? {} : { content: { 'application/json': { schema } } }),
     };
   }
   const byStatus = new Map<number, ErrorCode[]>();

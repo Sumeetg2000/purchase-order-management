@@ -43,3 +43,6 @@ export const accessRequestListQuery = z.strictObject({
 export const dismissBody = z.strictObject({
   note: z.string().trim().max(ACCESS_REQUEST_NOTE_MAX_LENGTH).optional(),
 });
+
+export type AccessRequestBody = z.infer<typeof accessRequestBody>;
+export type OwnAccessRequest = z.infer<typeof ownAccessRequest>;

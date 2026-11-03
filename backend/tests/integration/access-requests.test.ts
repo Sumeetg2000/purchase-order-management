@@ -1,4 +1,8 @@
-import { ACCESS_REQUEST_MESSAGE_MAX_LENGTH, OPERATIONS } from '@po/contracts';
+import {
+  ACCESS_REQUEST_MESSAGE_MAX_LENGTH,
+  OPERATIONS,
+  type OperationContract,
+} from '@po/contracts';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { accountsHarness, APP_ORIGIN, cookieHeader } from '../support/accounts.js';
@@ -125,10 +129,14 @@ describe('[FR-ACC-08] what a no-role user may use', () => {
     const { h, jar } = await noRoleUser();
     // Admin operations join the contract with US3; the authorization matrix (Polish)
     // covers every cell.
-    const gated = Object.values(OPERATIONS).filter((op) => op.access === 'admin');
+    const operations: readonly OperationContract[] = Object.values(OPERATIONS);
+    const gated = operations.filter((op) => op.access === 'admin');
     for (const op of gated) {
-      const res = await request(h.app)
-        [op.method](op.path.replace(/:\w+/g, '00000000-0000-7000-8000-000000000000'))
+      const method = op.method as 'get' | 'post' | 'patch' | 'delete';
+      const agent = request(h.app);
+      const res = await agent[method](
+        op.path.replace(/:\w+/g, '00000000-0000-7000-8000-000000000000'),
+      )
         .set('Origin', APP_ORIGIN)
         .set('Cookie', cookieHeader(jar, 'po_access'))
         .set('X-CSRF-Token', jar['po_csrf'] ?? '')

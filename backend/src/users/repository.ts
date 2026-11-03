@@ -212,3 +212,22 @@ export async function activateUser(tx: AuditedTransaction, id: string): Promise<
     select: { id: true },
   });
 }
+
+/** A self-signup: UNVERIFIED, with no role (ADR-0017). */
+export async function createSignupUser(
+  tx: AuditedTransaction,
+  user: { name: string; email: string; passwordHash: string },
+): Promise<ProfileUser> {
+  const created = await tx.user.create({
+    data: {
+      id: uuidv7(),
+      name: user.name,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      roles: [],
+      status: USER_STATUS.UNVERIFIED,
+    },
+    select: PROFILE,
+  });
+  return parsed(created);
+}

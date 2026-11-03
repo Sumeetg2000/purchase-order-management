@@ -3,6 +3,7 @@ import { violatedConstraint } from '../db/errors.js';
 import { lockAdmins } from '../db/locks.js';
 import type { CliErrorCode } from '../lib/operator-codes.js';
 import type { AuditedTransaction } from '../db/transaction.js';
+import { setPasswordLink } from '../tokens/links.js';
 import { issueToken } from '../tokens/one-time.js';
 import { createAdminUser, findUserByEmail } from './repository.js';
 
@@ -19,18 +20,6 @@ export interface CreatedAdmin {
   email: string;
   /** The set-password link, shown once and never stored. */
   link: string;
-}
-
-/**
- * The set-password page slice 1 builds, with the token in the fragment: browsers never send
- * a fragment to the server, so the token can't reach an access log or a Referer header. The
- * page reads location.hash and POSTs the token in the request body (ADR-0017). The token is
- * base64url, so it needs no escaping.
- */
-export function setPasswordLink(appOrigin: string, token: string): string {
-  const url = new URL('/reset-password', appOrigin);
-  url.hash = `token=${token}`;
-  return url.toString();
 }
 
 /**

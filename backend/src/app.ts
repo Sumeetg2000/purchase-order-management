@@ -47,6 +47,8 @@ export function routeDependencies(options: Omit<ApiAppOptions, 'metrics'>): Rout
       clock,
     }),
     csrfSecret: config.CSRF_SECRET,
+    appOrigin: config.APP_ORIGIN,
+    signupDomains: config.SIGNUP_ALLOWED_DOMAINS,
   };
 }
 
