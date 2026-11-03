@@ -11,6 +11,8 @@ import { createMailDispatcher } from './mail/dispatcher.js';
 import { createSmtpMailer } from './mail/smtp.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
 import { systemClock, type Clock } from './lib/clock.js';
+import { createAccessTokens } from './auth/access-token.js';
+import { createAuthService } from './auth/service.js';
 
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -58,7 +60,17 @@ export async function startApi(
     logger,
     appOrigin: config.APP_ORIGIN,
     metrics,
-    clock,
+    auth: {
+      service: createAuthService({
+        prisma,
+        accessTokens: createAccessTokens({
+          signingKey: config.JWT_SIGNING_KEY,
+          keyId: config.JWT_KEY_ID,
+          clock,
+        }),
+      }),
+      csrfSecret: config.CSRF_SECRET,
+    },
     routes: productionRoutes({
       prisma,
       expectedMigrations,

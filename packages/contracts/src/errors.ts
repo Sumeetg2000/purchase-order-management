@@ -76,6 +76,10 @@ export function isErrorCode(value: unknown): value is ErrorCode {
   return typeof value === 'string' && Object.hasOwn(ERROR_REGISTRY, value);
 }
 
+export function isFieldCode(value: unknown): value is FieldCode {
+  return typeof value === 'string' && (FIELD_CODES as readonly string[]).includes(value);
+}
+
 /** Whether a problem with this code may carry a public revoke `reason`. */
 export function carriesRevokeReason(code: ErrorCode): boolean {
   const entry: ErrorDefinition = ERROR_REGISTRY[code];

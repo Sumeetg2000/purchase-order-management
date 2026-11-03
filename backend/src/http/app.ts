@@ -12,7 +12,7 @@ import {
 } from './define-route.js';
 import { correlation } from './middleware/correlation.js';
 import { errorHandler, notFound } from './middleware/errors.js';
-import type { Clock } from '../lib/clock.js';
+import { authenticate, requireAccess, type AuthDependencies } from './middleware/authorize.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 import { parseJson } from './middleware/parse-json.js';
 import { originGuard, securityHeaders } from './middleware/security.js';
@@ -29,8 +29,11 @@ export interface CreateAppOptions {
   appOrigin: string;
   /** Records request metrics; they are served by the separate metrics listener. */
   metrics?: Metrics;
-  /** The time access tokens are checked against; tests inject one. Default: the system. */
-  clock?: Clock;
+  /**
+   * Who is calling, for every route that isn't public. An app with a non-public route
+   * and no authenticator fails at startup (deny by default).
+   */
+  auth?: AuthDependencies;
   /**
    * Tests only: operations for test-only routes (to provoke errors the real routes can't).
    * They can't name a contract operation. The server never passes this; a test checks no
@@ -123,9 +126,16 @@ export function createApp({
   logger,
   appOrigin,
   metrics,
+  auth,
   testOnlyOperations,
 }: CreateAppOptions): Express {
   validateRoutes(routes, testOnlyOperations);
+  const guarded = routes.filter((route) => route.access !== 'public');
+  if (guarded.length > 0 && !auth) {
+    throw new RouteRegistrationError(
+      `Routes ${guarded.map(describeRoute).join(', ')} need authentication, but the app has none`,
+    );
+  }
 
   const app = express();
   app.disable('x-powered-by');
@@ -150,8 +160,13 @@ export function createApp({
   app.use(originGuard(appOrigin));
   app.use(parseJson());
 
+  // ADR-0004 precedence: 401, CSRF and NO_ROLE_ASSIGNED, then 400, then the role's 403.
   for (const route of routes) {
-    app.route(route.path)[route.method](validateRequest(route), route.handler);
+    const steps =
+      route.access === 'public' || !auth
+        ? [validateRequest(route)]
+        : [authenticate(route.access, auth), validateRequest(route), requireAccess(route.access)];
+    app.route(route.path)[route.method](...steps, route.handler);
   }
 
   app.use(notFound());

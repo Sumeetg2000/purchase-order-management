@@ -1,4 +1,11 @@
-import { AppError, type FieldCode, type FieldError, type OperationContract } from '@po/contracts';
+import {
+  AppError,
+  isFieldCode,
+  versionFromEtag,
+  type FieldCode,
+  type FieldError,
+  type OperationContract,
+} from '@po/contracts';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { z } from 'zod';
 
@@ -36,6 +43,11 @@ function fieldCode(issue: ZodIssue): FieldCode {
       return ['string', 'array', 'set', 'file'].includes(issue.origin)
         ? 'TOO_LONG'
         : 'OUT_OF_RANGE';
+    case 'custom': {
+      // A schema's own rule names its field code (research R4), e.g. PASSWORD_TOO_SHORT.
+      const named: unknown = issue.params?.['fieldCode'];
+      return isFieldCode(named) ? named : 'INVALID_FORMAT';
+    }
     default:
       return 'INVALID_FORMAT';
   }
@@ -138,8 +150,17 @@ export function requestSchemaProblem(route: OperationContract): string | undefin
   return undefined;
 }
 
+const IF_MATCH_PATH = 'header.if-match';
+
+/** The version a versioned update must name in If-Match (research R14). */
+function ifMatchVersion(header: string | undefined): number | FieldError {
+  if (header === undefined) return { path: IF_MATCH_PATH, code: 'VERSION_REQUIRED' };
+  return versionFromEtag(header) ?? { path: IF_MATCH_PATH, code: 'INVALID_FORMAT' };
+}
+
 /**
  * Validates path, query and body against the route's schemas before the handler runs.
+ * A versioned update's If-Match is parsed first, into `input.version`.
  * Any failure is 400 VALIDATION_FAILED with field details; parsed values replace
  * req.params, req.query and req.body, so a handler can't read the raw input, and are
  * available as res.locals.input.
@@ -148,6 +169,11 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
   return (req, res, next) => {
     const details: FieldError[] = [];
     const input: Record<string, unknown> = {};
+    if (route.ifMatch === 'required') {
+      const version = ifMatchVersion(req.get('if-match'));
+      if (typeof version === 'number') input['version'] = version;
+      else details.push(version);
+    }
     for (const [part, prefix] of PARTS) {
       const schema = route.request?.[part];
       const raw: unknown = req[part];

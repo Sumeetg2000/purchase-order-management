@@ -5,6 +5,7 @@ import {
   type ZodOpenApiResponseObject,
 } from 'zod-openapi';
 import { ERROR_REGISTRY, type ErrorCode } from './errors.js';
+import { ETAG_PATTERN } from './etag.js';
 import { OPERATIONS, type Access, type OperationContract } from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
@@ -68,9 +69,6 @@ function security(operation: OperationContract): Record<string, string[]>[] | un
   if (UNSAFE_METHODS.has(operation.method)) requirement['csrfHeader'] = [];
   return [requirement];
 }
-
-/** The ETag a versioned update must echo in If-Match: the version, quoted (ADR-0016). */
-const ETAG_PATTERN = /^"[1-9][0-9]*"$/;
 
 const ifMatchHeader = z.strictObject({
   'If-Match': z

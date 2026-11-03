@@ -133,7 +133,7 @@ short summary stop.
   FR-005, FR-016, NFR-SEC-05.
 - [X] T017 Buckets const list, repository (single upsert statement returning hits), and
   service — `backend/src/rate-limit/{buckets,repository,service}.ts` — T016 green.
-- [ ] T018 Tests: authorize step on a probe route table — no or bad token → `401
+- [X] T018 Tests: authorize step on a probe route table — no or bad token → `401
   UNAUTHENTICATED`, expired → `401 ACCESS_TOKEN_EXPIRED`, deactivated user → `401
   ACCOUNT_DEACTIVATED`, no role → `403 NO_ROLE_ASSIGNED` before body validation, wrong
   role → `403 FORBIDDEN`, missing/wrong CSRF or foreign `Origin` → `403 CSRF_REJECTED`,
@@ -141,7 +141,7 @@ short summary stop.
   `If-Match` → `VERSION_REQUIRED` field code — `backend/tests/integration/csrf.test.ts`,
   `backend/tests/integration/authorize.test.ts` — FR-007, FR-010, FR-017, SC-006, NFR-AUTH-01,
   NFR-SEC-04.
-- [ ] T019 Authorize middleware and `defineRoute` (access level, custom field codes,
+- [X] T019 Authorize middleware and `defineRoute` (access level, custom field codes,
   `If-Match` parsing) — `backend/src/http/middleware/authorize.ts`,
   `backend/src/http/define-route.ts`, `backend/src/http/routes/index.ts` — T018 green.
 - [ ] T020 [P] Security-log event names and writer for this slice's events (R18); a test

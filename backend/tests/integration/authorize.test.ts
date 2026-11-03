@@ -13,7 +13,7 @@ import { defineRoute, type RouteDefinition } from '../../src/http/define-route.j
 import { authOf, refreshSessionOf } from '../../src/http/middleware/authorize.js';
 import { hashToken } from '../../src/tokens/one-time.js';
 import { testClock } from '../support/clock.js';
-import { createTestDatabase, type TestDatabase } from '../support/db.js';
+import { createTestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
 import { createTestApp } from '../support/test-app.js';
@@ -141,12 +141,13 @@ type Setup = Awaited<ReturnType<typeof setup>>;
 function as(app: Setup['app'], user: Seeded) {
   return {
     get: (path: string) => request(app).get(path).set('Cookie', `po_access=${user.access}`),
-    post: (path: string, csrf: string | undefined = user.csrf) => {
+    /** null sends no CSRF header. */
+    post: (path: string, csrf: string | null = user.csrf) => {
       const req = request(app)
         .post(path)
         .set('Origin', APP_ORIGIN)
         .set('Cookie', `po_access=${user.access}`);
-      return csrf === undefined ? req : req.set('X-CSRF-Token', csrf);
+      return csrf === null ? req : req.set('X-CSRF-Token', csrf);
     },
   };
 }
@@ -214,7 +215,7 @@ describe('[NFR-SEC-04] CSRF', () => {
     const { app, seed } = await setup();
     const user = await seed('{BUYER}');
     const other = await seed('{BUYER}');
-    for (const csrf of [undefined, '', other.csrf, `${user.csrf}x`]) {
+    for (const csrf of [null, '', other.csrf, `${user.csrf}x`]) {
       const res = await as(app, user).post('/me', csrf).send({ name: 'x' });
       expect(res.status, String(csrf)).toBe(403);
       expect(res.body).toMatchObject({ code: 'CSRF_REJECTED' });

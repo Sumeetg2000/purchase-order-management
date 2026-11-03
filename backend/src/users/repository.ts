@@ -1,4 +1,5 @@
 import { ROLE, USER_STATUS } from '@po/contracts';
+import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 
@@ -46,5 +47,25 @@ export function createAdminUser(
       status: USER_STATUS.ACTIVE,
     },
     select: SUMMARY,
+  });
+}
+
+/** What every authenticated request needs about its user (research R1). */
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  roles: string[];
+  status: string;
+}
+
+/**
+ * The user behind an access token, read by primary key on every request, so a role
+ * change or deactivation applies to the very next request. Runs outside a transaction.
+ */
+export function findAuthUser(prisma: AppPrismaClient, id: string): Promise<AuthUser | null> {
+  return prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, email: true, roles: true, status: true },
   });
 }

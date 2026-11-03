@@ -4,6 +4,7 @@ export * from './access-requests.js';
 export * from './app-error.js';
 export * from './email.js';
 export * from './errors.js';
+export * from './etag.js';
 export * from './operations.js';
 export * from './request-id.js';
 export * from './schemas/access-requests.js';
