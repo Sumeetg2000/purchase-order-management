@@ -66,17 +66,7 @@ export function createApiClient({
 }: ApiClientOptions = {}) {
   const send = options.fetch ?? ((request: Request) => globalThis.fetch(request));
   const baseUrl = options.baseUrl ?? defaultBaseUrl();
-  const client = createClient<paths>({
-    ...options,
-    baseUrl,
-    fetch: async (request: Request) => {
-      try {
-        return await send(request);
-      } catch (cause) {
-        throw new NetworkError({ cause });
-      }
-    },
-  });
+  /** One call to the API; an unreachable API becomes a NetworkError. */
   const fetchOnce = async (request: Request) => {
     try {
       return await send(request);
@@ -84,6 +74,7 @@ export function createApiClient({
       throw new NetworkError({ cause });
     }
   };
+  const client = createClient<paths>({ ...options, baseUrl, fetch: fetchOnce });
   client.use(
     csrfMiddleware(cookies),
     expiredAccessMiddleware({

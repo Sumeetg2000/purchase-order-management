@@ -7,8 +7,8 @@ export function toMe(user: ProfileUser): Me {
     id: user.id,
     name: user.name,
     email: user.email,
-    roles: user.roles as Me['roles'],
-    status: user.status as Me['status'],
+    roles: user.roles,
+    status: user.status,
     createdAt: user.createdAt.toISOString(),
   };
 }

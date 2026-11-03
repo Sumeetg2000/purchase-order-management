@@ -1,6 +1,8 @@
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
-import type { SessionRevokeReason } from './constants.js';
+import type { UserStatus } from '@po/contracts';
+import { userStatusOf } from '../users/codes.js';
+import { SESSION_REVOKE_REASONS, type SessionRevokeReason } from './constants.js';
 
 // Sessions and refresh tokens (migration 0008_sessions, research R5 and R6). Times come
 // from the API's clock, passed in, so lifetimes are testable.
@@ -61,6 +63,14 @@ export async function insertRefreshToken(
             ${token.expiresAt}, ${token.now})`;
 }
 
+/** A stored revoke reason, parsed: the CHECK allows only SESSION_REVOKE_REASONS. */
+function revokeReasonOf(value: string | null): SessionRevokeReason | null {
+  if (value === null) return null;
+  const reason = SESSION_REVOKE_REASONS.find((known) => known === value);
+  if (!reason) throw new Error(`session revoke reason the code doesn't know: ${value}`);
+  return reason;
+}
+
 /** A refresh token with its session and its user's status, as the refresh decides on. */
 export interface LockedRefreshToken {
   tokenId: string;
@@ -70,8 +80,8 @@ export interface LockedRefreshToken {
   userId: string;
   absoluteExpiresAt: Date;
   revokedAt: Date | null;
-  revokeReason: string | null;
-  userStatus: string;
+  revokeReason: SessionRevokeReason | null;
+  userStatus: UserStatus;
 }
 
 /**
@@ -112,8 +122,8 @@ export async function lockRefreshToken(
     userId: row.user_id,
     absoluteExpiresAt: row.absolute_expires_at,
     revokedAt: row.revoked_at,
-    revokeReason: row.revoke_reason,
-    userStatus: row.user_status,
+    revokeReason: revokeReasonOf(row.revoke_reason),
+    userStatus: userStatusOf({ id: row.user_id, status: row.user_status }),
   };
 }
 

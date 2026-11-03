@@ -1,7 +1,8 @@
-import { ROLE, USER_STATUS } from '@po/contracts';
+import { ROLE, USER_STATUS, type UserRole, type UserStatus } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
+import { userRolesOf, userStatusOf } from './codes.js';
 
 // The minimal user repository slice 0 needs for the bootstrap and admin:create. Slice 1
 // adds the rest (ADR-0016). Emails arrive lower-cased (users_email_lower requires it); the
@@ -55,19 +56,27 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  roles: string[];
-  status: string;
+  roles: UserRole[];
+  status: UserStatus;
+}
+
+/** A user row's codes, parsed (users/codes.ts). */
+function parsed<T extends { id: string; roles: string[]; status: string }>(
+  user: T,
+): Omit<T, 'roles' | 'status'> & { roles: UserRole[]; status: UserStatus } {
+  return { ...user, roles: userRolesOf(user), status: userStatusOf(user) };
 }
 
 /**
  * The user behind an access token, read by primary key on every request, so a role
  * change or deactivation applies to the very next request. Runs outside a transaction.
  */
-export function findAuthUser(prisma: AppPrismaClient, id: string): Promise<AuthUser | null> {
-  return prisma.user.findUnique({
+export async function findAuthUser(prisma: AppPrismaClient, id: string): Promise<AuthUser | null> {
+  const user = await prisma.user.findUnique({
     where: { id },
     select: { id: true, name: true, email: true, roles: true, status: true },
   });
+  return user && parsed(user);
 }
 
 /** What login needs about a user, read outside any transaction. */
@@ -75,15 +84,18 @@ export interface LoginUser {
   id: string;
   name: string;
   email: string;
-  roles: string[];
-  status: string;
+  roles: UserRole[];
+  status: UserStatus;
   createdAt: Date;
   passwordHash: string | null;
   lockedUntil: Date | null;
 }
 
-export function findLoginUser(prisma: AppPrismaClient, email: string): Promise<LoginUser | null> {
-  return prisma.user.findUnique({
+export async function findLoginUser(
+  prisma: AppPrismaClient,
+  email: string,
+): Promise<LoginUser | null> {
+  const user = await prisma.user.findUnique({
     where: { email },
     select: {
       id: true,
@@ -96,6 +108,7 @@ export function findLoginUser(prisma: AppPrismaClient, email: string): Promise<L
       lockedUntil: true,
     },
   });
+  return user && parsed(user);
 }
 
 export type FailedLogin = { locked: true; lockedUntil: Date } | { locked: false };
@@ -131,21 +144,29 @@ export async function recordFailedLogin(
   return { locked: true, lockedUntil: current?.lockedUntil ?? user.lockUntil };
 }
 
-/** A successful login: the count resets and the time is kept; an old hash is upgraded. */
+export type SuccessfulLogin = { ok: true } | { ok: false; lockedUntil: Date };
+
+/**
+ * A successful login: the count resets, the time is kept and an old hash is upgraded.
+ * The lock is checked again here, under the row lock the UPDATE takes: wrong guesses
+ * running alongside this one may have locked the account while its password was checked,
+ * and a correct guess must not clear that lock.
+ */
 export async function recordSuccessfulLogin(
   tx: AuditedTransaction,
   user: { id: string; now: Date; upgradedHash?: string | undefined },
-): Promise<void> {
-  await tx.user.update({
+): Promise<SuccessfulLogin> {
+  const updated = await tx.$executeRaw`
+    UPDATE users SET failed_login_count = 0, locked_until = NULL, last_login_at = ${user.now},
+                     password_hash = COALESCE(${user.upgradedHash ?? null}, password_hash)
+     WHERE id = ${user.id}::uuid AND (locked_until IS NULL OR locked_until <= ${user.now})`;
+  if (updated === 1) return { ok: true };
+  const current = await tx.user.findUnique({
     where: { id: user.id },
-    data: {
-      failedLoginCount: 0,
-      lockedUntil: null,
-      lastLoginAt: user.now,
-      ...(user.upgradedHash === undefined ? {} : { passwordHash: user.upgradedHash }),
-    },
-    select: { id: true },
+    select: { lockedUntil: true },
   });
+  if (!current?.lockedUntil) throw new Error(`login for a user that does not exist: ${user.id}`);
+  return { ok: false, lockedUntil: current.lockedUntil };
 }
 
 /** The user's profile as the API shows it to them. */
@@ -153,8 +174,8 @@ export interface ProfileUser {
   id: string;
   name: string;
   email: string;
-  roles: string[];
-  status: string;
+  roles: UserRole[];
+  status: UserStatus;
   createdAt: Date;
 }
 
@@ -167,14 +188,19 @@ const PROFILE = {
   createdAt: true,
 } as const;
 
-export function findProfile(prisma: AppPrismaClient, id: string): Promise<ProfileUser | null> {
-  return prisma.user.findUnique({ where: { id }, select: PROFILE });
+export async function findProfile(
+  prisma: AppPrismaClient,
+  id: string,
+): Promise<ProfileUser | null> {
+  const user = await prisma.user.findUnique({ where: { id }, select: PROFILE });
+  return user && parsed(user);
 }
 
 /** Locks a user's row for a change and returns it, or null. */
 export async function lockUser(tx: AuditedTransaction, id: string): Promise<ProfileUser | null> {
   await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
-  return tx.user.findUnique({ where: { id }, select: PROFILE });
+  const user = await tx.user.findUnique({ where: { id }, select: PROFILE });
+  return user && parsed(user);
 }
 
 /** A completed reset: the new password, and any lockout cleared. Version unchanged. */

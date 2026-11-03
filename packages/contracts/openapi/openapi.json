@@ -522,7 +522,7 @@
     "/auth/logout": {
       "post": {
         "operationId": "logout",
-        "summary": "End this browser's session and clear its cookies.",
+        "summary": "End this browser's session, whatever its state, and clear its cookies.",
         "x-access": "refresh",
         "security": [
           {
@@ -566,11 +566,10 @@
             }
           },
           "401": {
-            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED.",
+            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED.",
             "x-error-codes": [
               "UNAUTHENTICATED",
-              "SESSION_EXPIRED",
-              "SESSION_REVOKED"
+              "SESSION_EXPIRED"
             ],
             "headers": {
               "X-Request-Id": {
@@ -692,11 +691,10 @@
             }
           },
           "401": {
-            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED.",
+            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED.",
             "x-error-codes": [
               "UNAUTHENTICATED",
-              "SESSION_EXPIRED",
-              "SESSION_REVOKED"
+              "SESSION_EXPIRED"
             ],
             "headers": {
               "X-Request-Id": {

@@ -34,8 +34,6 @@ export function createAccountsService(deps: {
     resetPassword: async (input, ctx) => {
       const common = commonPasswordError('body.newPassword', input.newPassword);
       if (common) throw new AppError('VALIDATION_FAILED', { details: [common] });
-      // Hashing takes tens of milliseconds; no transaction is held open for it.
-      const passwordHash = await hashPassword(input.newPassword);
       const now = deps.clock.now();
 
       const userId = await deps.transactions.run(
@@ -44,6 +42,9 @@ export function createAccountsService(deps: {
         async (tx) => {
           const consumed = await consumeToken(tx, 'RESET', input.token);
           if (!consumed.ok) throw new AppError(consumed.code);
+          // Hashed only once the link proved valid, so a junk token costs no hashing. The
+          // token's row stays locked for the few tens of milliseconds this takes.
+          const passwordHash = await hashPassword(input.newPassword);
           const user = await lockUser(tx, consumed.userId);
           if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
           await actAs(

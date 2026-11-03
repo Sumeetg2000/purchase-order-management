@@ -6,6 +6,7 @@ import { api, parseProblem } from '../../api/client';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
 import { safeReturnTo } from '../../auth/return-to';
 import { messageForProblem, sentenceFor, type ProblemLike } from '../../errors/messages';
+import { problemFrom } from '../../errors/problem';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -34,10 +35,17 @@ export function Login() {
     event.preventDefault();
     setPending(true);
     setFailure(undefined);
-    const { data, error, response } = await api.POST('/auth/login', {
-      body: { email, password },
-    });
-    setPending(false);
+    let result;
+    try {
+      result = await api.POST('/auth/login', { body: { email, password } });
+    } catch (thrown) {
+      // The API couldn't be reached: say so, and let the form be sent again.
+      setFailure(sentenceFor(problemFrom(thrown)));
+      return;
+    } finally {
+      setPending(false);
+    }
+    const { data, error, response } = result;
     if (error !== undefined) {
       const retryAfter = Number(response.headers.get('Retry-After') ?? Number.NaN);
       setFailure(

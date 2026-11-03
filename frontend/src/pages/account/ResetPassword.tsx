@@ -3,6 +3,7 @@ import { FieldError, Input, Label, Text, TextField } from 'react-aria-components
 import { Link, useLocation } from 'react-router';
 import { api, parseProblem } from '../../api/client';
 import { fieldMessages, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
+import { problemFrom } from '../../errors/problem';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -42,10 +43,19 @@ export function ResetPassword() {
     setPending(true);
     setFailure(undefined);
     setFieldError(undefined);
-    const { error, response } = await api.POST('/auth/reset-password', {
-      body: { token, newPassword: password },
-    });
-    setPending(false);
+    let result;
+    try {
+      result = await api.POST('/auth/reset-password', {
+        body: { token, newPassword: password },
+      });
+    } catch (thrown) {
+      // The API couldn't be reached: say so, and let the form be sent again.
+      setFailure(sentenceFor(problemFrom(thrown)));
+      return;
+    } finally {
+      setPending(false);
+    }
+    const { error, response } = result;
     if (error === undefined) {
       setDone(true);
       return;

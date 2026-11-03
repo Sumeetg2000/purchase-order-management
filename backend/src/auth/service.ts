@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
   AppError,
-  isUserRole,
   PUBLIC_REVOKE_REASONS,
   USER_STATUS,
   type Me,
@@ -31,6 +30,7 @@ import {
 import type { AccessTokens } from './access-token.js';
 import {
   LOCKOUT_DURATION_SECONDS,
+  type LoginFailureReason,
   LOCKOUT_THRESHOLD,
   REFRESH_SIBLING_GRACE_SECONDS,
   REFRESH_TOKEN_BYTES,
@@ -83,15 +83,6 @@ export interface AuthService {
   identifyRefreshSession(refreshToken: string | undefined): Promise<RefreshSession>;
 }
 
-/** A stored role the code doesn't know means the code and the database disagree. */
-function rolesOf(user: { id: string; roles: string[] }): UserRole[] {
-  const unknown = user.roles.filter((role) => !isUserRole(role));
-  if (unknown.length > 0) {
-    throw new Error(`User ${user.id} holds roles the code doesn't know: ${unknown.join(', ')}`);
-  }
-  return user.roles.filter(isUserRole);
-}
-
 export function createAuthService(deps: {
   prisma: AppPrismaClient;
   accessTokens: AccessTokens;
@@ -111,7 +102,7 @@ export function createAuthService(deps: {
         sessionId: check.sessionId,
         name: user.name,
         email: user.email,
-        roles: rolesOf(user),
+        roles: user.roles,
       };
     },
 
@@ -169,6 +160,11 @@ function secondsUntil(time: Date, now: Date): number {
   return Math.max(1, Math.ceil((time.getTime() - now.getTime()) / SECOND_MS));
 }
 
+/** A new refresh token's expiry: 7 days on, never past the session's absolute end. */
+function refreshTokenExpiry(now: Date, absoluteExpiresAt: Date): Date {
+  return earlier(plus(now, REFRESH_TOKEN_IDLE_SECONDS), absoluteExpiresAt);
+}
+
 function isPublicRevokeReason(reason: string | null): reason is PublicRevokeReason {
   return (PUBLIC_REVOKE_REASONS as readonly (string | null)[]).includes(reason);
 }
@@ -221,7 +217,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     now: Date,
   ) {
     const refreshToken = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
-    const expiresAt = earlier(plus(now, REFRESH_TOKEN_IDLE_SECONDS), session.absoluteExpiresAt);
+    const expiresAt = refreshTokenExpiry(now, session.absoluteExpiresAt);
     await insertRefreshToken(tx, {
       id: uuidv7(now.getTime()),
       sessionId: session.id,
@@ -248,7 +244,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       await deps.rateLimiter.hit('login-account', email);
 
       const user = await withDatabase(() => findLoginUser(deps.prisma, email));
-      const failed = (reason: string, userId?: string) => {
+      const failed = (reason: LoginFailureReason, userId?: string) => {
         logSecurityEvent(ctx.logger, 'login_failed', { ...event, userId, reason });
       };
       if (!user) {
@@ -305,19 +301,23 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       const issued = await transactions.run(
         { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
-          await recordSuccessfulLogin(tx, { id: user.id, now, upgradedHash });
-          const expiresAt = earlier(
-            plus(now, REFRESH_TOKEN_IDLE_SECONDS),
-            session.absoluteExpiresAt,
-          );
+          const recorded = await recordSuccessfulLogin(tx, { id: user.id, now, upgradedHash });
+          if (!recorded.ok) return recorded;
           await insertSession(
             tx,
             { ...session, userId: user.id, now, userAgent: ctx.userAgent, ip: ctx.ip },
-            expiresAt,
+            refreshTokenExpiry(now, session.absoluteExpiresAt),
           );
-          return issueRefreshToken(tx, session, now);
+          return { ok: true as const, ...(await issueRefreshToken(tx, session, now)) };
         },
       );
+      if (!issued.ok) {
+        // Concurrent wrong guesses locked the account while this password was checked.
+        failed('locked', user.id);
+        throw new AppError('ACCOUNT_LOCKED', {
+          retryAfterSeconds: secondsUntil(issued.lockedUntil, now),
+        });
+      }
       logSecurityEvent(ctx.logger, 'login_succeeded', {
         ...event,
         userId: user.id,
@@ -325,7 +325,13 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       });
       return {
         user: toMe(user),
-        cookies: await cookiesFor({ userId: user.id, sessionId: session.id, now, ...issued }),
+        cookies: await cookiesFor({
+          userId: user.id,
+          sessionId: session.id,
+          now,
+          refreshToken: issued.refreshToken,
+          expiresAt: issued.expiresAt,
+        }),
       };
     },
 
@@ -380,10 +386,10 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       const now = clock.now();
       const userId = await transactions.run(
         { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        // Logging out always succeeds for a known token, whatever the session's state:
+        // the cookies are cleared either way, and a revoked session keeps its first reason.
         async (tx) => {
           const token = await locked(tx, session);
-          const refused = unusable(token, now);
-          if (refused) throw refused;
           await revokeSession(tx, { id: token.sessionId, reason: 'LOGOUT', now });
           return token.userId;
         },
@@ -402,8 +408,6 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const token = await locked(tx, session);
-          const refused = unusable(token, now);
-          if (refused) throw refused;
           await revokeUserSessions(tx, { id: token.userId, reason: 'LOGOUT_ALL', now });
           return token.userId;
         },

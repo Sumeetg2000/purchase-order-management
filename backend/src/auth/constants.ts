@@ -42,3 +42,14 @@ export const LOCKOUT_DURATION_SECONDS = 15 * MINUTE_SECONDS;
 
 /** Random bytes in a refresh token (256 bits). */
 export const REFRESH_TOKEN_BYTES = 32;
+
+/** Why a login failed, as the security log records it (research R18). */
+export const LOGIN_FAILURE_REASONS = [
+  'unknown_email',
+  'locked',
+  'password_not_set',
+  'wrong_password',
+  'unverified',
+  'deactivated',
+] as const;
+export type LoginFailureReason = (typeof LOGIN_FAILURE_REASONS)[number];

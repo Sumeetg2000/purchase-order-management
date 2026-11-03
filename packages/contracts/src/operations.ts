@@ -98,11 +98,10 @@ export const OPERATIONS = {
     method: 'post',
     path: '/auth/logout',
     operationId: 'logout',
-    summary: "End this browser's session and clear its cookies.",
+    summary: "End this browser's session, whatever its state, and clear its cookies.",
     access: 'refresh',
     setsCookies: true,
     responses: { 204: z.void() },
-    errors: ['SESSION_REVOKED'],
   },
   logoutAll: {
     method: 'post',
@@ -112,7 +111,6 @@ export const OPERATIONS = {
     access: 'refresh',
     setsCookies: true,
     responses: { 204: z.void() },
-    errors: ['SESSION_REVOKED'],
   },
   resetPassword: {
     method: 'post',

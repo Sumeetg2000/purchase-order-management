@@ -88,6 +88,11 @@ export function expiredAccessMiddleware(options: {
       if (!isAccountCall(request)) sent.set(id, request.clone());
       return undefined;
     },
+    onError({ id }) {
+      // No response will come for this call (the network failed): drop its copy.
+      sent.delete(id);
+      return undefined;
+    },
     async onResponse({ response, id }) {
       const original = sent.get(id);
       sent.delete(id);
