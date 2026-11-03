@@ -9,7 +9,7 @@ ADR-0007's and ADR-0017's (amended 2026-11-02 and 2026-11-03).
 | `UNAUTHENTICATED` | 401 | "Please log in." → login |
 | `ACCESS_TOKEN_EXPIRED` | 401 | never shown: triggers one refresh |
 | `SESSION_EXPIRED` | 401 | "Your session has expired. Please log in again." → login with `returnTo` |
-| `SESSION_REVOKED` | 401 | "You were logged out because <reason>. Please log in again." → login with `returnTo` (reason below) |
+| `SESSION_REVOKED` | 401 | with `reason`: "You were logged out because <reason>. Please log in again."; without: "You've been logged out. Please log in again." → login with `returnTo` |
 | `PASSWORD_NOT_SET` | 401 | "No password is set for this account. Use your set-password link, or reset your password." → forgot-password |
 | `INCORRECT_PASSWORD` | 401 | "Incorrect password." |
 | `ACCOUNT_NOT_VERIFIED` | 401 | "Verify your email before logging in." → resend |
@@ -35,21 +35,23 @@ ADR-0007's and ADR-0017's (amended 2026-11-02 and 2026-11-03).
 Token codes are checked in the order used → superseded → expired; no row with that hash
 and purpose (a typo, the wrong page, or a token already purged) is `INVALID_TOKEN`.
 
-`SESSION_REVOKED` carries `reason`, an optional RFC 9457 extension member of `Problem`
-(`z.enum(SESSION_REVOKE_REASONS)`), set only on this code and only for the session whose
-refresh cookie made the request. The web app's `Record<SessionRevokeReason, string>`:
+`SESSION_REVOKED` may carry `reason`, an optional RFC 9457 extension member of `Problem`
+typed by the public enum `PUBLIC_REVOKE_REASONS` in `packages/contracts`
+(`PublicRevokeReason`). It is set only on this code, only for the session whose refresh
+cookie made the request, and only for a public reason:
 
 | `reason` | `<reason>` in the message |
 |---|---|
 | `PASSWORD_CHANGED` | "your password was changed" |
 | `PASSWORD_RESET` | "your password was reset" |
 | `ROLES_CHANGED` | "your roles were changed" |
-| `DEACTIVATED` | "your account was deactivated" |
-| `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED` | "you logged out elsewhere" |
-| `REUSE_DETECTED` | "your session was used from another browser or device" |
 
-A `SESSION_REVOKED` without a `reason` (an older API) falls back to the
-`SESSION_EXPIRED` message. `reason` is a new optional member rather than a new shape of
+The sessions table and the security log keep all eight `SESSION_REVOKE_REASONS` (backend
+only, built from the public three plus `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`,
+`USER_REVOKED`, `REUSE_DETECTED`). The other five never leave the API: `LOGOUT`,
+`LOGOUT_ALL`, `USER_REVOKED` and `REUSE_DETECTED` send no `reason` and the web app shows
+"You've been logged out. Please log in again."; `DEACTIVATED` never shows, because a
+deactivated user gets `ACCOUNT_DEACTIVATED` first. `reason` is a new optional member rather than a new shape of
 `details`: oasdiff counts changing `details` from an array to a union as breaking
 (probed 2026-11-03), and an added optional member as additive.
 

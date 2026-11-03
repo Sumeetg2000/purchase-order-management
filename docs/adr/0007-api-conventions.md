@@ -11,7 +11,8 @@
   a body-schema inventory test for mutating operations) · amended 2026-11-03 (specific
   one-time-link codes `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`; `SESSION_REVOKED`
   carries its `reason`, **owner decision**) · amended 2026-11-03 (POC scope, owner
-  decision: no `phone` field, so no `INVALID_PHONE`)
+  decision: no `phone` field, so no `INVALID_PHONE`; `SESSION_REVOKED`'s `reason` only
+  for the three public revoke reasons)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -82,9 +83,10 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ACCOUNT_DEACTIVATED`: login, with the right password, to a `DEACTIVATED` account;
     forgot-password or resend-verification for one; and any request after deactivation
   - `SESSION_EXPIRED`: idle or absolute limit reached
-  - `SESSION_REVOKED`: the session was revoked. The problem carries the extension member
-    `reason`, the session's revoke reason (ADR-0017), returned only to the holder of that
-    session's refresh token.
+  - `SESSION_REVOKED`: the session was revoked. When the revoke reason is public
+    (`PASSWORD_CHANGED`, `PASSWORD_RESET` or `ROLES_CHANGED`, ADR-0017), the problem
+    carries it as the extension member `reason`, returned only to the holder of that
+    session's refresh token. Any other revocation leaves `reason` out.
 - `403`:
   - `FORBIDDEN`, `NO_ROLE_ASSIGNED`
   - `NOT_ORDER_OWNER`, `SELF_APPROVAL`

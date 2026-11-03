@@ -12,7 +12,8 @@
   PostgreSQL, **owner decision**) · amended 2026-11-03 (one code per failed one-time
   token; `SESSION_REVOKED` carries the revoke reason, **owner decision**) · amended
   2026-11-03 (POC scope, owner decision: resend-verification and forgot-password are
-  limited per email only; no phone in security logs because none is stored)
+  limited per email only; no phone in security logs because none is stored;
+  `SESSION_REVOKED` names only the three public revoke reasons)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -201,12 +202,21 @@ answer to an in-app access request (ADR-0016).
     sibling instead of triggering revocation. The window is short, the token is HttpOnly
     and limited to `/api/auth`, and reuse after the window still revokes the whole session.
 - An expired refresh token or a session past its absolute expiry → `401 SESSION_EXPIRED`.
-  A refresh on a revoked session → `401 SESSION_REVOKED`, with the session's revoke
-  reason as the problem's `reason` (amended 2026-11-03): `PASSWORD_CHANGED`,
-  `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`,
-  `USER_REVOKED` or `REUSE_DETECTED`. The web app shows "You were logged out because
-  <reason>. Please log in again." Only the holder of that session's refresh token ever
-  sees the reason: no response about another user's session carries it.
+  A refresh on a revoked session → `401 SESSION_REVOKED` (amended 2026-11-03, POC scope,
+  owner decision):
+  - The session row records one of eight revoke reasons (`PASSWORD_CHANGED`,
+    `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`,
+    `USER_REVOKED`, `REUSE_DETECTED`), which the security log also carries.
+  - Only three are public: `PASSWORD_CHANGED`, `PASSWORD_RESET` and `ROLES_CHANGED` go in
+    the problem's `reason`, and the web app shows "You were logged out because <reason>.
+    Please log in again."
+  - `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED` and `REUSE_DETECTED` leave `reason` out, and
+    the web app shows "You've been logged out. Please log in again." Reuse detection
+    still revokes the whole session.
+  - `DEACTIVATED` never reaches the user as a reason: a deactivated user's refresh gets
+    `401 ACCOUNT_DEACTIVATED` first.
+  - Only the holder of that session's refresh token ever sees a reason: no response
+    about another user's session carries it.
 - **Session management**:
   - `GET /api/auth/sessions` lists the caller's active sessions: id, createdAt,
     lastUsedAt, user agent, IP, and `current: true` on the calling session. It is
@@ -365,8 +375,8 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one
-  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED` with
-    `reason: USER_REVOKED`; each revoke path stores its own reason
+  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED` with no
+    `reason`; each revoke path stores its own reason in the session row
   - another user's session id → 404
   - revoking the current session clears its cookies
 - Mail: sent only after commit, with nothing sent on rollback; a mail failure is logged and
@@ -379,8 +389,10 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   ones stay; the purge runs only as the maintenance role.
 - Rotation:
   - rotation issues a new pair
-  - reuse of a rotated token after 10 s → session revoked → 401 `SESSION_REVOKED` with
-    `reason: REUSE_DETECTED`
+  - reuse of a rotated token after 10 s → whole session revoked (`REUSE_DETECTED` stored
+    and logged) → 401 `SESSION_REVOKED` with no `reason`
+  - a password change, reset or role change → the session's next refresh → 401
+    `SESSION_REVOKED` with that `reason`
   - concurrent refreshes within 10 s both succeed (sibling tokens) and the session stays
     valid
 - Logout:

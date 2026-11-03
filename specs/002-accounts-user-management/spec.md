@@ -58,9 +58,11 @@ with this spec to match the decision.
 - Q: What does a failed one-time link return? → A: One code per cause: `TOKEN_EXPIRED`,
   `TOKEN_USED`, `TOKEN_SUPERSEDED`, and `INVALID_TOKEN` only for an unknown token
   (FR-002, FR-015; ADR-0007 and ADR-0017 amended).
-- Q: What does `SESSION_REVOKED` tell the user? → A: Why: the problem carries the
-  session's revoke reason, and the web app shows "You were logged out because <reason>.
-  Please log in again." Never for another user's session (FR-008, FR-033).
+- Q: What does `SESSION_REVOKED` tell the user? → A: Why, for the three public reasons
+  only (password changed, password reset, roles changed): "You were logged out because
+  <reason>. Please log in again." Every other revocation, reuse detection included, shows
+  "You've been logged out. Please log in again." Never for another user's session
+  (FR-008, FR-033; amended the same day, POC scope, owner decision).
 - Q: What is cut for the POC? → A: Owner decision, recorded as "POC scope" ADR amendments:
   no phone field (so no phone purge, phone-leak scans or `INVALID_PHONE`); no cross-tab
   refresh coordination; no 10,000-user seed or committed query plans in this slice
@@ -113,7 +115,7 @@ confirm the next call is refused.
    expired. Please log in again." and goes to login, keeping the page to return to.
 8. **Given** a refresh token that was already rotated, **When** it is presented more than
    10 seconds after its rotation, **Then** the whole session is revoked and the response
-   is `401 SESSION_REVOKED` with reason `REUSE_DETECTED`. **When** it is presented
+   is `401 SESSION_REVOKED`, with no reason given. **When** it is presented
    within 10 seconds (several tabs
    refreshing at once), **Then** each request gets a new token and the session stays
    valid.
@@ -252,8 +254,8 @@ and log out everywhere.
    own active sessions (device, address, created and last used), marks the current one,
    and is paginated. Another user's session id → `404`.
 6. **Given** a revoked session, **When** that browser next refreshes, **Then** it gets
-   `401 SESSION_REVOKED`, sees "You were logged out because you logged out elsewhere.
-   Please log in again." and is sent to login. Revoking the current session also clears
+   `401 SESSION_REVOKED`, sees "You've been logged out. Please log in again." and is sent
+   to login. Revoking the current session also clears
    its cookies.
 7. **Given** "Log out everywhere", **When** the user confirms, **Then** every session of
    the user ends, this one included.
@@ -412,8 +414,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   detection and the 10-second sibling window from ADR-0017. Reuse after the window
   revokes the session (`401 SESSION_REVOKED`). An expired refresh token or a session past
   its absolute limit → `401 SESSION_EXPIRED`; a revoked session → `401 SESSION_REVOKED`
-  carrying the session's revoke reason (`reason` in the problem), so the web app can say
-  why. The reason is only ever returned to the holder of that session's refresh token,
+  carrying `reason` only when the revoke reason is public (password changed, password
+  reset, roles changed), so the web app can say why. The reason is only ever returned to the holder of that session's refresh token,
   never for another user's session. *(NFR-SEC-02)*
 - **FR-009**: A session MUST end after 7 days unused or 30 days after login, whichever
   comes first. Rotation never extends the 30-day limit, and each refresh cookie's lifetime
@@ -507,7 +509,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   within a tab (tabs are not coordinated); retry each queued request once; show the
   session-expired message and go to login with the return page on `SESSION_EXPIRED`;
   on `SESSION_REVOKED`, show "You were logged out because <reason>. Please log in
-  again." for the problem's `reason` and go to login the same way; and go to login with
+  again." for a `reason`, or "You've been logged out. Please log in again." without one,
+  and go to login the same way; and go to login with
   its message on `ACCOUNT_DEACTIVATED`.
   *(NFR-FE-02)*
 - **FR-034**: The web app MUST provide the screens in ADR-0018 for this slice: login,

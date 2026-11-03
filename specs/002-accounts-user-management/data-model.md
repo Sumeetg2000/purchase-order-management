@@ -51,9 +51,10 @@ POC scope).
 | `revoked_at` | `timestamptz NULL` | |
 | `revoke_reason` | `text NULL` | one of `SESSION_REVOKE_REASONS`; `CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))` |
 
-`SESSION_REVOKE_REASONS` (in `packages/contracts`, since `SESSION_REVOKED` returns the
-reason and the web app maps it): `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DETECTED`,
-`PASSWORD_CHANGED`, `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`.
+`SESSION_REVOKE_REASONS` (backend `auth/constants.ts`, for this column and the security
+log): the public three from `packages/contracts` `PUBLIC_REVOKE_REASONS`
+(`PASSWORD_CHANGED`, `PASSWORD_RESET`, `ROLES_CHANGED`, the only ones `SESSION_REVOKED`
+returns), plus `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DETECTED`.
 
 - **Ended** = `revoked_at IS NOT NULL OR expires_at <= now` (R6).
 - **Indexes**: `sessions_user_active_idx (user_id, last_used_at DESC, id DESC) WHERE

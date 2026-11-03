@@ -25,7 +25,7 @@ page. They only hide; the API enforces.
 `frontend/src/auth/`: `AuthProvider` (current user from `GET /api/me`),
 `refreshSession()` (single-flight within the tab), the openapi-fetch
 middleware (CSRF header, `401`/`403` routing; the login page shows the logged-out
-message for a `SESSION_REVOKED` reason), `RequireUser`, `RequireRole`,
+logged-out message for `SESSION_REVOKED`, with or without a `reason`), `RequireUser`, `RequireRole`,
 `useFragmentToken()`.
 
 ## Dialogs (ADR-0018 wording)

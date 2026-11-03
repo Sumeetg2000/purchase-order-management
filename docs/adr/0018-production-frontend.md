@@ -8,7 +8,8 @@
   session-expired message; account pages show the specific outcome; ADR-0017) · amended
   2026-11-03 (the revoke reason in the logged-out message; the one-time-link codes) ·
   amended 2026-11-03 (POC scope, owner decision: refresh once per tab, no cross-tab
-  coordination; no phone on the profile)
+  coordination; no phone on the profile; a generic logged-out message unless the revoke
+  reason is public)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -33,8 +34,9 @@
   - Queued requests then retry, each once. A refresh that fails with `SESSION_EXPIRED` or
     `SESSION_REVOKED` shows "Your session has expired. Please log in again." and goes to
     `/login?returnTo=…`, keeping the page to return to. For `SESSION_REVOKED` the message
-    names the problem's `reason` instead: "You were logged out because <reason>. Please
-    log in again." (amended 2026-11-03). Any other failed refresh goes to
+    is "You were logged out because <reason>. Please log in again." when the problem has
+    a `reason`, and "You've been logged out. Please log in again." when it doesn't
+    (amended 2026-11-03). Any other failed refresh goes to
     `/login?returnTo=…` too.
   - `401 ACCOUNT_DEACTIVATED` from any request goes to login and shows its message.
   - The CSRF token is read from its cookie and sent as `X-CSRF-Token`.
