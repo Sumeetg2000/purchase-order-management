@@ -12,6 +12,7 @@ import {
 } from './define-route.js';
 import { correlation } from './middleware/correlation.js';
 import { errorHandler, notFound } from './middleware/errors.js';
+import type { Clock } from '../lib/clock.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 import { parseJson } from './middleware/parse-json.js';
 import { originGuard, securityHeaders } from './middleware/security.js';
@@ -28,6 +29,8 @@ export interface CreateAppOptions {
   appOrigin: string;
   /** Records request metrics; they are served by the separate metrics listener. */
   metrics?: Metrics;
+  /** The time access tokens are checked against; tests inject one. Default: the system. */
+  clock?: Clock;
   /**
    * Tests only: operations for test-only routes (to provoke errors the real routes can't).
    * They can't name a contract operation. The server never passes this; a test checks no

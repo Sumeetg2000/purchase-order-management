@@ -9,6 +9,7 @@ import { productionRoutes } from '../../src/http/routes/index.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
 import { testLogger } from '../support/log-capture.js';
+import { systemClock } from '../../src/lib/clock.js';
 
 const SRC = fileURLToPath(new URL('../../src/', import.meta.url));
 
@@ -46,6 +47,7 @@ describe('[FR-ADM-05] operator code is unreachable over HTTP', () => {
         prisma: {} as AppPrismaClient,
         expectedMigrations: [],
         mail: createMailDispatcher(new CaptureMailer()),
+        clock: systemClock,
       }),
     });
     const res = await request(app).get('/metrics');

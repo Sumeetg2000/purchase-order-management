@@ -108,7 +108,7 @@ short summary stop.
   slice 3 idempotency keys); keep `phone` in the logger's redaction pattern
   (`backend/src/observability/logger.ts`) — NFR-PRIV-01. The remaining `NFR-PRIV-01`
   tests (log redaction) still pass.
-- [ ] T011 [P] Injected `Clock` (system and test clocks), threaded through the app
+- [X] T011 [P] Injected `Clock` (system and test clocks), threaded through the app
   factory — `backend/src/lib/clock.ts`, `backend/src/http/app.ts`.
 - [ ] T012 [P] Unit tests: password policy field codes (`PASSWORD_TOO_SHORT`/`_LONG`/
   `_COMMON`), argon2id profile (19 MiB, t=2, p=1), cookie names, flags and paths

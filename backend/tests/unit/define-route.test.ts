@@ -11,6 +11,7 @@ import { productionRoutes } from '../../src/http/routes/index.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
 import { testLogger } from '../support/log-capture.js';
+import { systemClock } from '../../src/lib/clock.js';
 
 const health = defineRoute({
   ...OPERATIONS.getHealth,
@@ -77,6 +78,7 @@ describe('[NFR-API-01] routes follow the contract', () => {
       prisma: {} as AppPrismaClient,
       expectedMigrations: [],
       mail: createMailDispatcher(new CaptureMailer()),
+      clock: systemClock,
     });
     const served = routes.map((r) => `${r.operationId} ${r.method} ${r.path}`).sort();
     const documented = Object.values(OPERATIONS)
