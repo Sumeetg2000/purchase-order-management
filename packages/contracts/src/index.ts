@@ -16,5 +16,6 @@ export * from './schemas/me.js';
 export * from './schemas/pagination.js';
 export * from './schemas/problem.js';
 export * from './schemas/sessions.js';
+export * from './session-cookies.js';
 export * from './sessions.js';
 export * from './users.js';

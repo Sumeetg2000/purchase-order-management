@@ -1,3 +1,4 @@
+import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 import { parseCookie } from 'cookie';
 import type { CookieOptions, Request, Response } from 'express';
 import { ACCESS_TOKEN_LIFETIME_SECONDS } from './constants.js';
@@ -6,9 +7,7 @@ import { ACCESS_TOKEN_LIFETIME_SECONDS } from './constants.js';
 // __Secure- prefix: __Host- forbids a non-root path, and Firefox refuses prefixed
 // cookies on http://localhost.
 
-export const ACCESS_COOKIE = 'po_access';
-export const REFRESH_COOKIE = 'po_refresh';
-export const CSRF_COOKIE = 'po_csrf';
+export { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 
 /** The access cookie reaches the whole API; the refresh cookie only /api/auth. */
 const ACCESS_PATH = '/api';

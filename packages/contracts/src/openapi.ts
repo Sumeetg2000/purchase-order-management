@@ -9,6 +9,7 @@ import { ETAG_PATTERN } from './etag.js';
 import { OPERATIONS, type Access, type OperationContract } from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
+import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE } from './session-cookies.js';
 
 // Generates the OpenAPI document from the operation contracts and the error registry
 // (ADR-0008, research R12). `npm run contract:generate` writes it to
@@ -46,9 +47,9 @@ const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
 /** The cookies and header that authenticate a request (ADR-0017). */
 const SECURITY_SCHEMES = {
-  accessCookie: { type: 'apiKey', in: 'cookie', name: 'po_access' },
-  refreshCookie: { type: 'apiKey', in: 'cookie', name: 'po_refresh' },
-  csrfHeader: { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
+  accessCookie: { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
+  refreshCookie: { type: 'apiKey', in: 'cookie', name: REFRESH_COOKIE },
+  csrfHeader: { type: 'apiKey', in: 'header', name: CSRF_HEADER },
 } as const;
 type SecurityScheme = keyof typeof SECURITY_SCHEMES;
 

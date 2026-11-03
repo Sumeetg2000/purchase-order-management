@@ -148,9 +148,11 @@ short summary stop.
   asserts the field allow-list never carries a token or password —
   `backend/src/observability/security-log.ts`,
   `backend/tests/unit/security-log.test.ts` — FR-029, NFR-SEC-06.
-- [ ] T021 [P] Frontend client middleware (`X-CSRF-Token` from `po_csrf` on mutating
-  calls) and `AuthProvider` shell over `GET /api/me`; tests first with MSW —
-  `frontend/src/auth/{client-middleware,AuthProvider}.tsx` + tests — FR-033.
+- [X] T021 [P] Frontend client middleware: `X-CSRF-Token` from `po_csrf` on mutating
+  calls, with the cookie and header names shared from `@po/contracts` —
+  `frontend/src/api/client.ts`, `frontend/tests/csrf-middleware.test.ts` — FR-033. The
+  `AuthProvider` over `GET /api/me` moves to T033, since `/me` joins the contract with its
+  route in US1; tests inject `fetch` as the existing client tests do (no MSW dependency).
 
 **Checkpoint**: T022 `/code-review` of Foundational; full gate; CI green on PR #13.
 
@@ -221,7 +223,8 @@ steps 1–3 with only the bootstrap admin.
   set-password page posts the fragment token once, clears it, shows each token code's
   message; axe clean — `frontend/src/auth/*.test.ts(x)`,
   `frontend/src/pages/account/*.test.tsx` — FR-033, FR-034, NFR-FE-02, NFR-FE-08.
-- [ ] T033 [US1] `refreshSession`, `useFragmentToken`, `RequireUser`, Login and
+- [ ] T033 [US1] `AuthProvider` (current user from `GET /api/me`), `refreshSession`,
+  `useFragmentToken`, `RequireUser`, Login and
   ResetPassword pages, router entries — `frontend/src/auth/`,
   `frontend/src/pages/account/`, `frontend/src/app/router.tsx` — T032 green.
 - [ ] T034 [US1] E2E: bootstrap set-password → login → silent refresh after access

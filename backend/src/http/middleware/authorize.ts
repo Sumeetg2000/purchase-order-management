@@ -1,4 +1,4 @@
-import { AppError, ROLE, type Access } from '@po/contracts';
+import { AppError, CSRF_HEADER, ROLE, type Access } from '@po/contracts';
 import type { RequestHandler, Response } from 'express';
 import { readCookies } from '../../auth/cookies.js';
 import { csrfTokenMatches } from '../../auth/csrf.js';
@@ -16,7 +16,6 @@ export interface AuthDependencies {
   csrfSecret: string;
 }
 
-const CSRF_HEADER = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const AUTH_KEY = 'auth';

@@ -1,5 +1,11 @@
-import { ERROR_REGISTRY, problemSchema, type Problem } from '@po/contracts';
-import createClient, { type ClientOptions } from 'openapi-fetch';
+import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
+  ERROR_REGISTRY,
+  problemSchema,
+  type Problem,
+} from '@po/contracts';
+import createClient, { type ClientOptions, type Middleware } from 'openapi-fetch';
 import type { paths } from './schema';
 
 // The typed API client (ADR-0008, research R12): openapi-fetch over the types generated
@@ -17,9 +23,43 @@ export class NetworkError extends Error {
   }
 }
 
-export function createApiClient(options: ClientOptions = {}) {
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** One cookie's value from a Cookie string (document.cookie), decoded. */
+export function readCookie(cookies: string, name: string): string | undefined {
+  for (const pair of cookies.split(';')) {
+    const separator = pair.indexOf('=');
+    if (separator !== -1 && pair.slice(0, separator).trim() === name) {
+      return decodeURIComponent(pair.slice(separator + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Sends the CSRF cookie back as X-CSRF-Token on every state-changing call (ADR-0017,
+ * research R17). Without the cookie nothing is sent, and the API refuses the call.
+ */
+export function csrfMiddleware(cookies: () => string = () => document.cookie): Middleware {
+  return {
+    onRequest({ request }) {
+      if (SAFE_METHODS.has(request.method)) return undefined;
+      const token = readCookie(cookies(), CSRF_COOKIE);
+      if (token === undefined) return undefined;
+      request.headers.set(CSRF_HEADER, token);
+      return request;
+    },
+  };
+}
+
+export interface ApiClientOptions extends ClientOptions {
+  /** Where cookies are read from; the browser's document.cookie by default. */
+  cookies?: () => string;
+}
+
+export function createApiClient({ cookies, ...options }: ApiClientOptions = {}) {
   const send = options.fetch ?? ((request: Request) => globalThis.fetch(request));
-  return createClient<paths>({
+  const client = createClient<paths>({
     baseUrl: API_BASE_URL,
     ...options,
     fetch: async (request: Request) => {
@@ -30,6 +70,8 @@ export function createApiClient(options: ClientOptions = {}) {
       }
     },
   });
+  client.use(csrfMiddleware(cookies));
+  return client;
 }
 
 /**
