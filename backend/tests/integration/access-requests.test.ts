@@ -5,7 +5,12 @@ import {
 } from '@po/contracts';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
+import { createPrismaClient } from '../../src/db/client.js';
+import { createTransactionRunner } from '../../src/db/transaction.js';
+import { createProfileService } from '../../src/profile/service.js';
+import { createRateLimiter } from '../../src/rate-limit/service.js';
 import { accountsHarness, APP_ORIGIN, cookieHeader } from '../support/accounts.js';
+import { testLogger } from '../support/log-capture.js';
 
 // A no-role user's own access request (ADR-0016 "Access requests"; spec US2 scenarios
 // 7–9).
@@ -144,5 +149,45 @@ describe('[FR-ACC-08] what a no-role user may use', () => {
       expect(res.body, op.operationId).toMatchObject({ code: 'NO_ROLE_ASSIGNED' });
     }
     expect((await h.get('/me', jar)).status).toBe(200);
+  });
+});
+
+describe('[FR-ACC-09] a role granted while a request is being sent', () => {
+  it('[FR-ACC-09] the send re-checks the role under the user lock: 403 FORBIDDEN, nothing opened', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser({ roles: '{}' });
+    // As if an admin assigned a role after the authorize step read the user.
+    await h.query('SET session_replication_role = replica');
+    await h.query(`UPDATE users SET roles = '{BUYER}' WHERE id = $1`, [user.id]);
+    const prisma = createPrismaClient({
+      url: h.db.url('po_app'),
+      poolSize: 2,
+      connectionTimeoutMs: 2_000,
+    });
+    try {
+      const profile = createProfileService({
+        prisma,
+        transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
+        rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
+      });
+      const stale = {
+        userId: user.id,
+        sessionId: user.id,
+        name: user.name,
+        email: user.email,
+        roles: [],
+      };
+      await expect(
+        profile.sendAccessRequest(stale, 'hi', {
+          requestId: 'req-race',
+          logger: testLogger(),
+          ip: '10.0.0.1',
+          userAgent: 'test',
+        }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    } finally {
+      await prisma.$disconnect();
+    }
+    expect(await h.query('SELECT 1 FROM access_requests')).toEqual([]);
   });
 });

@@ -163,6 +163,21 @@ describe('[FR-ACC-02] email verification', () => {
     expect(h.logs.some((line) => line['event'] === 'email_verified')).toBe(true);
   });
 
+  it('[FR-ACC-02] a link for an account deactivated since is 401 ACCOUNT_DEACTIVATED, and stays unused', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser({ status: 'UNVERIFIED' });
+    const token = await h.issue(user.id, 'VERIFY_EMAIL');
+    await h.query('SET session_replication_role = replica');
+    await h.query(`UPDATE users SET status = 'DEACTIVATED', deactivated_at = now() WHERE id = $1`, [
+      user.id,
+    ]);
+    const res = await verify(h, token);
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'ACCOUNT_DEACTIVATED' });
+    expect(await h.query('SELECT used_at FROM one_time_tokens')).toEqual([{ used_at: null }]);
+    expect(h.logs.some((line) => line['event'] === 'email_verified')).toBe(false);
+  });
+
   it('[FR-ACC-03] a used link is TOKEN_USED', async () => {
     const h = await accountsHarness();
     await signup(h, 'ravi@example.local');

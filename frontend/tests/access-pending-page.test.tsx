@@ -1,5 +1,6 @@
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { noRoleAssigned } from '../src/auth/session-events';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem } from './support/fake-api';
 import { renderApp } from './support/render-app';
@@ -112,5 +113,38 @@ describe('[NFR-FE-08] Access pending', () => {
     renderApp('/access-pending');
     await screen.findByText('Request sent on 2 November 2026.');
     expect(await axeViolations(document.body)).toEqual([]);
+  });
+});
+
+describe('[FR-ACC-08] role changes while the app is open', () => {
+  it('[FR-ACC-08] NO_ROLE_ASSIGNED re-reads the user, so a user who lost their roles lands on Access pending', async () => {
+    let roles: string[] = ['BUYER'];
+    fakeApi({
+      'GET /me': () => json(200, { ...ME, roles }),
+      'GET /me/access-request': () => problem(404, 'NOT_FOUND'),
+    });
+    renderApp('/');
+    await screen.findByRole('heading', { level: 1, name: 'Welcome' });
+    roles = [];
+    act(() => {
+      noRoleAssigned();
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Access pending' }),
+    ).toBeInTheDocument();
+  });
+
+  it('[FR-ACC-08] once a role is granted, Access pending re-reads the user and goes home', async () => {
+    let roles: string[] = [];
+    fakeApi({
+      'GET /me': () => json(200, { ...ME, roles }),
+      'GET /me/access-request': () => {
+        // The role arrived: the no-role route now refuses this user.
+        roles = ['BUYER'];
+        return problem(403, 'FORBIDDEN');
+      },
+    });
+    renderApp('/access-pending');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Welcome' })).toBeInTheDocument();
   });
 });
