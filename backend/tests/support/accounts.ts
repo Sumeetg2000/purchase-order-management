@@ -62,15 +62,16 @@ function instance(db: TestDatabase, clock: TestClock) {
   clients.push(prisma);
   const capture = createCapture();
   const mailer = new CaptureMailer();
+  const mail = createMailDispatcher(mailer);
   const app = createApiApp({
     config: testApiConfig({ DATABASE_URL: db.url('po_app'), APP_ORIGIN }),
     prisma,
     clock,
     logger: capture.logger,
-    mail: createMailDispatcher(mailer),
+    mail,
     expectedMigrations: [],
   });
-  return { app, prisma, logs: capture.lines, mailer };
+  return { app, prisma, logs: capture.lines, mailer, mail };
 }
 
 export async function accountsHarness(start?: Date) {
@@ -158,6 +159,17 @@ export async function accountsHarness(start?: Date) {
     app: first.app,
     logs: first.logs,
     mailer: first.mailer,
+    /** The mail sent so far, once every send started after commit has finished. */
+    sentMail: async () => {
+      await first.mail.settled();
+      return first.mailer.sent;
+    },
+    post: (path: string, body: unknown, ip = '10.0.0.1') =>
+      request(first.app)
+        .post(path)
+        .set('Origin', APP_ORIGIN)
+        .set('X-Forwarded-For', ip)
+        .send(body as object),
     /** A second API instance on the same database and clock. */
     secondInstance: () => instance(db, clock).app,
     seedUser,
