@@ -53,6 +53,15 @@ with this spec to match the decision.
 - Q: Where do rate-limit counters live? → A: Always in PostgreSQL, as the lockout does. No
   configurable store and no in-memory option (FR-016; ADR-0017 amended).
 
+### Session 2026-11-03
+
+- Q: What does a failed one-time link return? → A: One code per cause: `TOKEN_EXPIRED`,
+  `TOKEN_USED`, `TOKEN_SUPERSEDED`, and `INVALID_TOKEN` only for an unknown token
+  (FR-002, FR-015; ADR-0007 and ADR-0017 amended).
+- Q: What does `SESSION_REVOKED` tell the user? → A: Why: the problem carries the
+  session's revoke reason, and the web app shows "You were logged out because <reason>.
+  Please log in again." Never for another user's session (FR-008, FR-033).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Log in, stay logged in, log out (Priority: P1)
@@ -98,7 +107,8 @@ confirm the next call is refused.
    expired. Please log in again." and goes to login, keeping the page to return to.
 8. **Given** a refresh token that was already rotated, **When** it is presented more than
    10 seconds after its rotation, **Then** the whole session is revoked and the response
-   is `401 SESSION_REVOKED`. **When** it is presented within 10 seconds (several tabs
+   is `401 SESSION_REVOKED` with reason `REUSE_DETECTED`. **When** it is presented
+   within 10 seconds (several tabs
    refreshing at once), **Then** each request gets a new token and the session stays
    valid.
 9. **Given** a logged-in user, **When** they log out, even with an expired access token,
@@ -141,7 +151,8 @@ feature is refused with `NO_ROLE_ASSIGNED`, and send an access request.
    it is sent, **Then** it gets `400` and nothing is created.
 5. **Given** a valid verification link, **When** the user opens it, **Then** the account
    becomes active, the page removes the token from the address bar, and it does not log
-   the user in. An invalid, expired, used or superseded link → `400 INVALID_TOKEN`.
+   the user in. An expired link → `400 TOKEN_EXPIRED`, a used one → `400 TOKEN_USED`, a
+   superseded one → `400 TOKEN_SUPERSEDED`, an unknown one → `400 INVALID_TOKEN`.
 6. **Given** resend-verification, **When** it is asked for an unverified account, **Then**
    a new link is sent (`202`) and the earlier one stops working. Unknown email →
    `404 ACCOUNT_NOT_FOUND`; verified account → `409 ACCOUNT_ALREADY_VERIFIED`; deactivated
@@ -237,7 +248,8 @@ and log out everywhere.
    own active sessions (device, address, created and last used), marks the current one,
    and is paginated. Another user's session id → `404`.
 6. **Given** a revoked session, **When** that browser next refreshes, **Then** it gets
-   `401 SESSION_REVOKED` and is sent to login. Revoking the current session also clears
+   `401 SESSION_REVOKED`, sees "You were logged out because you logged out elsewhere.
+   Please log in again." and is sent to login. Revoking the current session also clears
    its cookies.
 7. **Given** "Log out everywhere", **When** the user confirms, **Then** every session of
    the user ends, this one included.
@@ -264,8 +276,9 @@ inbox, set a new password, and confirm every old session ended and the new passw
 2. **Given** a valid reset link, **When** the user sets a valid new password, **Then** it
    is saved, every session of the user ends, any lockout is cleared, an unverified
    account becomes active, and the user then logs in.
-3. **Given** a reset link that is invalid, expired (30 minutes), used or superseded,
-   **When** it is used, **Then** it gets `400 INVALID_TOKEN`.
+3. **Given** a reset link that is expired (30 minutes), used, superseded or unknown,
+   **When** it is used, **Then** it gets `400 TOKEN_EXPIRED`, `TOKEN_USED`,
+   `TOKEN_SUPERSEDED` or `INVALID_TOKEN` respectively, each with its own message.
 4. **Given** signup, resend-verification or forgot-password, **When** a client address or
    an email goes over its limit in ADR-0017, **Then** it gets `429 RATE_LIMITED` with
    `Retry-After`, and nothing is sent.
@@ -360,8 +373,9 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   `409 EMAIL_IN_USE`, with nothing created or sent. *(FR-ACC-01)*
 - **FR-002**: Verification MUST activate the account from a valid one-time link and not
   log the user in. Resend-verification MUST behave as in User Story 2, scenario 6.
-  Verification links are valid 24 hours, single use, and superseded by a newer link.
-  *(FR-ACC-02, FR-ACC-03)*
+  Verification links are valid 24 hours, single use, and superseded by a newer link. A
+  failed link gets its own code: `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, or
+  `INVALID_TOKEN` for an unknown token. *(FR-ACC-02, FR-ACC-03)*
 
 **Login, lockout and rate limits**
 - **FR-003**: Login MUST apply ADR-0017's checks in order, returning the first failing
@@ -395,8 +409,10 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 - **FR-008**: Refresh MUST rotate the refresh token within the same session, with reuse
   detection and the 10-second sibling window from ADR-0017. Reuse after the window
   revokes the session (`401 SESSION_REVOKED`). An expired refresh token or a session past
-  its absolute limit → `401 SESSION_EXPIRED`; a revoked session → `401 SESSION_REVOKED`.
-  *(NFR-SEC-02)*
+  its absolute limit → `401 SESSION_EXPIRED`; a revoked session → `401 SESSION_REVOKED`
+  carrying the session's revoke reason (`reason` in the problem), so the web app can say
+  why. The reason is only ever returned to the holder of that session's refresh token,
+  never for another user's session. *(NFR-SEC-02)*
 - **FR-009**: A session MUST end after 7 days unused or 30 days after login, whichever
   comes first. Rotation never extends the 30-day limit, and each refresh cookie's lifetime
   matches. *(NFR-SEC-09)*
@@ -486,8 +502,10 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   *(NFR-VAL-01)*
 - **FR-033**: The web app MUST refresh only on `ACCESS_TOKEN_EXPIRED`, single-flight
   within a tab and coordinated across tabs; retry each queued request once; show the
-  session-expired message and go to login with the return page on `SESSION_EXPIRED` or
-  `SESSION_REVOKED`; and go to login with its message on `ACCOUNT_DEACTIVATED`.
+  session-expired message and go to login with the return page on `SESSION_EXPIRED`;
+  on `SESSION_REVOKED`, show "You were logged out because <reason>. Please log in
+  again." for the problem's `reason` and go to login the same way; and go to login with
+  its message on `ACCOUNT_DEACTIVATED`.
   *(NFR-FE-02)*
 - **FR-034**: The web app MUST provide the screens in ADR-0018 for this slice: login,
   signup, verify-email, forgot-password, reset-password (also the set-password page),

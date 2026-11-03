@@ -9,7 +9,8 @@
   anti-enumeration, **owner decision**: one code per login failure, `EMAIL_IN_USE` and
   `ACCOUNT_NOT_FOUND` instead of silent `202`s, no dummy hash or timing padding,
   `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`; rate-limit counters always in
-  PostgreSQL, **owner decision**)
+  PostgreSQL, **owner decision**) · amended 2026-11-03 (one code per failed one-time
+  token; `SESSION_REVOKED` carries the revoke reason, **owner decision**)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -106,8 +107,12 @@ answer to an in-app access request (ADR-0016).
   - `VERIFY_EMAIL`: valid 24 h
   - `RESET`: valid 30 min
 - Issuing a new token invalidates the user's earlier unused tokens with the same purpose.
-- An invalid, expired, used or superseded token → `400 INVALID_TOKEN`. All four look the
-  same.
+- A failed token gets its own code (amended 2026-11-03), checked in this order:
+  - used → `400 TOKEN_USED` ("This link has already been used.")
+  - superseded → `400 TOKEN_SUPERSEDED` ("A newer link was sent. Use the latest email.")
+  - expired → `400 TOKEN_EXPIRED` ("This link has expired. Request a new one.")
+  - unknown (no row with that hash and purpose, including one already purged) →
+    `400 INVALID_TOKEN`
 - Links point at the frontend with the token in the **fragment**:
   `APP_ORIGIN/verify-email#token=…` and `APP_ORIGIN/reset-password#token=…`. This covers
   every link: the bootstrap and `admin:create` set-password links, and from slice 1 the
@@ -194,7 +199,12 @@ answer to an in-app access request (ADR-0016).
     sibling instead of triggering revocation. The window is short, the token is HttpOnly
     and limited to `/api/auth`, and reuse after the window still revokes the whole session.
 - An expired refresh token or a session past its absolute expiry → `401 SESSION_EXPIRED`.
-  A refresh on a revoked session → `401 SESSION_REVOKED`.
+  A refresh on a revoked session → `401 SESSION_REVOKED`, with the session's revoke
+  reason as the problem's `reason` (amended 2026-11-03): `PASSWORD_CHANGED`,
+  `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`,
+  `USER_REVOKED` or `REUSE_DETECTED`. The web app shows "You were logged out because
+  <reason>. Please log in again." Only the holder of that session's refresh token ever
+  sees the reason: no response about another user's session carries it.
 - **Session management**:
   - `GET /api/auth/sessions` lists the caller's active sessions: id, createdAt,
     lastUsedAt, user agent, IP, and `current: true` on the calling session. It is
@@ -331,8 +341,10 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - self-signup always gets `{}`; `roles` in the body → 400
   - a verified no-role user can log in and gets `403 NO_ROLE_ASSIGNED` everywhere except
     `/me`, password, sessions, logout and the access request
-- Tokens: an expired, used or superseded token → `INVALID_TOKEN`; a new token invalidates
-  the previous one with the same purpose; the database stores only the hash.
+- Tokens: expired → `TOKEN_EXPIRED`, used → `TOKEN_USED`, superseded →
+  `TOKEN_SUPERSEDED`, unknown or wrong purpose → `INVALID_TOKEN`; a used and expired token
+  → `TOKEN_USED`; a new token invalidates the previous one with the same purpose; the
+  database stores only the hash.
 - Passwords:
   - policy field codes
   - change-password revokes the other sessions and keeps the current one
@@ -351,7 +363,8 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one
-  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED`
+  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED` with
+    `reason: USER_REVOKED`; each revoke path stores its own reason
   - another user's session id → 404
   - revoking the current session clears its cookies
 - Mail: sent only after commit, with nothing sent on rollback; a mail failure is logged and
@@ -364,7 +377,8 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   ones stay; the purge runs only as the maintenance role.
 - Rotation:
   - rotation issues a new pair
-  - reuse of a rotated token after 10 s → session revoked → 401 `SESSION_REVOKED`
+  - reuse of a rotated token after 10 s → session revoked → 401 `SESSION_REVOKED` with
+    `reason: REUSE_DETECTED`
   - concurrent refreshes within 10 s both succeed (sibling tokens) and the session stays
     valid
 - Logout:

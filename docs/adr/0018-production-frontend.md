@@ -5,7 +5,8 @@
   unsaved-changes guard) · amended 2026-10-23 (browser support and test matrix; component
   library chosen in the slice-0 plan) · amended 2026-11-02 (POC: clear, specific error
   messages over anti-enumeration: refresh only on `ACCESS_TOKEN_EXPIRED`; the
-  session-expired message; account pages show the specific outcome; ADR-0017)
+  session-expired message; account pages show the specific outcome; ADR-0017) · amended
+  2026-11-03 (the revoke reason in the logged-out message; the one-time-link codes)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -28,7 +29,9 @@
     Web Locks) so only one tab refreshes.
   - Queued requests then retry, each once. A refresh that fails with `SESSION_EXPIRED` or
     `SESSION_REVOKED` shows "Your session has expired. Please log in again." and goes to
-    `/login?returnTo=…`, keeping the page to return to. Any other failed refresh goes to
+    `/login?returnTo=…`, keeping the page to return to. For `SESSION_REVOKED` the message
+    names the problem's `reason` instead: "You were logged out because <reason>. Please
+    log in again." (amended 2026-11-03). Any other failed refresh goes to
     `/login?returnTo=…` too.
   - `401 ACCOUNT_DEACTIVATED` from any request goes to login and shows its message.
   - The CSRF token is read from its cookie and sent as `X-CSRF-Token`.
@@ -141,7 +144,8 @@ Everyone:
 - **Account pages** (public): signup, verify-email, forgot-password and reset-password.
   - Each shows the specific outcome: a confirmation when the email is sent, otherwise the
     message for the API's code (`EMAIL_IN_USE`, `ACCOUNT_NOT_FOUND`,
-    `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, `INVALID_TOKEN`), with its next step
+    `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, `TOKEN_EXPIRED`, `TOKEN_USED`,
+    `TOKEN_SUPERSEDED`, `INVALID_TOKEN`), with its next step
     (ADR-0017, amended 2026-11-02).
   - Password fields show the policy, and field errors come from the API field codes.
   - Pages that receive a token post it once and then remove it from the URL (history

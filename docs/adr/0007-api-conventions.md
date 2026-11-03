@@ -8,7 +8,9 @@
   2026-11-02 (POC: clear, specific error messages over anti-enumeration, **owner
   decision**: `INVALID_CREDENTIALS` replaced by one code per login failure;
   `ACCOUNT_NOT_FOUND`, `EMAIL_IN_USE`, `ACCOUNT_ALREADY_VERIFIED`, `ACCESS_TOKEN_EXPIRED`;
-  a body-schema inventory test for mutating operations)
+  a body-schema inventory test for mutating operations) · amended 2026-11-03 (specific
+  one-time-link codes `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`; `SESSION_REVOKED`
+  carries its `reason`, **owner decision**)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -65,8 +67,9 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `VERSION_REQUIRED`
   - `INVALID_PHONE`, `INVALID_ROLE_SET`
   - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`
-- Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and `INVALID_TOKEN` (an invalid, expired,
-  used or superseded one-time token, all indistinguishable).
+- Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and one code per failed one-time token
+  (ADR-0017): `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, and `INVALID_TOKEN` for
+  an unknown one.
 - `401`:
   - `UNAUTHENTICATED`: no access token, or a malformed or wrongly signed one
   - `ACCESS_TOKEN_EXPIRED`: a valid access token past its expiry; the web app refreshes
@@ -78,7 +81,9 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ACCOUNT_DEACTIVATED`: login, with the right password, to a `DEACTIVATED` account;
     forgot-password or resend-verification for one; and any request after deactivation
   - `SESSION_EXPIRED`: idle or absolute limit reached
-  - `SESSION_REVOKED`
+  - `SESSION_REVOKED`: the session was revoked. The problem carries the extension member
+    `reason`, the session's revoke reason (ADR-0017), returned only to the holder of that
+    session's refresh token.
 - `403`:
   - `FORBIDDEN`, `NO_ROLE_ASSIGNED`
   - `NOT_ORDER_OWNER`, `SELF_APPROVAL`

@@ -9,9 +9,9 @@ error states, axe checks, and lazy loading (one chunk each, ≤ 150 KB gzip).
 |---|---|---|
 | `/login?returnTo=` | anonymous | Login: each login code's message; `ACCOUNT_NOT_VERIFIED` offers resend, `PASSWORD_NOT_SET` links forgot-password, `ACCOUNT_LOCKED` shows N minutes |
 | `/signup` | anonymous | Signup: password policy shown; field codes from the API; success → "Check your email" |
-| `/verify-email#token=` | anyone | Verify: posts once, clears the hash; success → login link |
+| `/verify-email#token=` | anyone | Verify: posts once, clears the hash; success → login link; each token code's message (`TOKEN_EXPIRED` offers resend) |
 | `/forgot-password` | anyone | Forgot: specific outcome per code |
-| `/reset-password#token=` | anyone | Reset / set password: posts once with the new password, clears the hash |
+| `/reset-password#token=` | anyone | Reset / set password: posts once with the new password, clears the hash; each token code's message (`TOKEN_EXPIRED` links forgot-password) |
 | `/access-pending` | no-role user | Access pending: signup date, message form (1–500), request status, admin note as text |
 | `/profile` | any logged-in user | Profile (name, phone), Change password, Sessions (revoke one, log out everywhere) |
 | `/admin/users?role=&status=&q=&page=` | Admin | Users list, filters in the URL; row actions |
@@ -24,7 +24,8 @@ page. They only hide; the API enforces.
 ## Auth flow (R17)
 `frontend/src/auth/`: `AuthProvider` (current user from `GET /api/me`),
 `refreshSession()` (single-flight, Web Locks, BroadcastChannel), the openapi-fetch
-middleware (CSRF header, `401`/`403` routing), `RequireUser`, `RequireRole`,
+middleware (CSRF header, `401`/`403` routing; the login page shows the logged-out
+message for a `SESSION_REVOKED` reason), `RequireUser`, `RequireRole`,
 `useFragmentToken()`.
 
 ## Dialogs (ADR-0018 wording)

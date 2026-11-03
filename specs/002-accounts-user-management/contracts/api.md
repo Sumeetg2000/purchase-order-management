@@ -99,10 +99,10 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 |---|---|---|---|---|---|
 | `login` | `POST /auth/login` | public | `loginBody` | `200 me` + 3 cookies | `ACCOUNT_NOT_FOUND`, `ACCOUNT_LOCKED`, `PASSWORD_NOT_SET`, `INCORRECT_PASSWORD`, `ACCOUNT_NOT_VERIFIED`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `signup` | `POST /auth/signup` | public | `signupBody` | `202` | `SIGNUP_DOMAIN_NOT_ALLOWED`, `EMAIL_IN_USE`, `RATE_LIMITED` |
-| `verifyEmail` | `POST /auth/verify-email` | public | `tokenBody` | `204` | `INVALID_TOKEN` |
+| `verifyEmail` | `POST /auth/verify-email` | public | `tokenBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN` |
 | `resendVerification` | `POST /auth/resend-verification` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `forgotPassword` | `POST /auth/forgot-password` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
-| `resetPassword` | `POST /auth/reset-password` | public | `resetPasswordBody` | `204` | `INVALID_TOKEN` |
+| `resetPassword` | `POST /auth/reset-password` | public | `resetPasswordBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN` |
 | `refreshSession` | `POST /auth/refresh` | refresh | none | `204` + 3 cookies | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logout` | `POST /auth/logout` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logoutAll` | `POST /auth/logout-all` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
@@ -152,3 +152,6 @@ Additive only; oasdiff's breaking check passes without the `breaking` label.
   `ETag`, `Set-Cookie`, request header `If-Match`.
 - The `Problem.code` enum grows by the codes in [errors.md](errors.md); the field-code
   enum by its field codes. Adding enum values to a response is non-breaking for oasdiff.
+- `Problem` gains the optional member `reason` (`SessionRevokeReason` enum), set only on
+  `SESSION_REVOKED` ([errors.md](errors.md)). An added optional response property is
+  non-breaking; widening `details` instead was probed and is breaking.

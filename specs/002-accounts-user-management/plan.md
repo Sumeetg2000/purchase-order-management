@@ -50,7 +50,7 @@ strict schemas everywhere; deny by default; no anti-enumeration (owner decision
 2026-11-02); no infrastructure beyond ADR-0020.
 
 **Scale/Scope**: 22 operations, 4 tables (+ `users` columns), 2 CLI commands, 3 purge
-tasks, 22 error codes + 7 field codes, 9 screens, 8 dialogs.
+tasks, 25 error codes + 7 field codes, 9 screens, 8 dialogs.
 
 ## Constitution Check
 

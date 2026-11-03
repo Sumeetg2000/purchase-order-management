@@ -51,7 +51,8 @@ Unchanged from slice 0: `id`, `name` (1–100), `email` (lower-case, unique), `r
 | `revoked_at` | `timestamptz NULL` | |
 | `revoke_reason` | `text NULL` | one of `SESSION_REVOKE_REASONS`; `CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))` |
 
-`SESSION_REVOKE_REASONS`: `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DETECTED`,
+`SESSION_REVOKE_REASONS` (in `packages/contracts`, since `SESSION_REVOKED` returns the
+reason and the web app maps it): `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DETECTED`,
 `PASSWORD_CHANGED`, `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`.
 
 - **Ended** = `revoked_at IS NOT NULL OR expires_at <= now` (R6).
@@ -113,7 +114,10 @@ Unchanged from slice 0: `id`, `name` (1–100), `email` (lower-case, unique), `r
 ## Existing tables used
 
 - `one_time_tokens` (slice 0): `VERIFY_EMAIL` (24 h) and `RESET` (30 min) tokens, single
-  use, superseded on reissue. No schema change.
+  use, superseded on reissue. No schema change. Consuming one reads the row by hash and
+  purpose under `FOR UPDATE` and returns its outcome: used, superseded, expired, unknown,
+  or valid (then `used_at` is set), for `TOKEN_USED`, `TOKEN_SUPERSEDED`,
+  `TOKEN_EXPIRED`, `INVALID_TOKEN`.
 - `audit_entries` (slice 0): new actions added to `AuditEventCatalogue` (below). No schema
   change.
 

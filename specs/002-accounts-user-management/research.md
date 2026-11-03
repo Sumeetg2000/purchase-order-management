@@ -82,14 +82,14 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
 - **Decision**: `POST /api/auth/refresh` runs in one transaction:
   1. `SELECT … FROM refresh_tokens JOIN sessions … WHERE token_hash = $1 FOR UPDATE` (the
      token row, then the session row).
-  2. Unknown hash → `401 SESSION_EXPIRED` (indistinguishable from a purged one). Session
-     revoked → `401 SESSION_REVOKED`. Token or session past expiry → `401 SESSION_EXPIRED`.
+  2. Unknown hash → `401 SESSION_EXPIRED` (indistinguishable from a purged one). User not
+     `ACTIVE` → `401 ACCOUNT_DEACTIVATED`. Session revoked → `401 SESSION_REVOKED` with
+     `reason` = its `revoke_reason`. Token or session past expiry → `401 SESSION_EXPIRED`.
   3. `rotated_at` null → set it, insert the next token. `rotated_at` within
      `REFRESH_SIBLING_GRACE_SECONDS` (10) → insert a sibling. Later → revoke the session
-     (`REUSE_DETECTED`), security log, `401 SESSION_REVOKED`.
+     (`REUSE_DETECTED`), security log, `401 SESSION_REVOKED` with that reason.
   4. New token expiry = min(now + 7 days, session absolute expiry); `sessions.expires_at`
      = greatest of its current value and that; `last_used_at` = now.
-  5. The user must still be `ACTIVE` → otherwise `401 ACCOUNT_DEACTIVATED`.
 - The row lock serialises concurrent refreshes of one token, so two tabs can't both see
   `rotated_at` null.
 - **Alternatives**: a family-wide counter (loses the sibling rule); Redis (excluded).
@@ -220,8 +220,8 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
     in the tab, and across tabs under `navigator.locks.request('po-refresh')`; a tab that
     waited re-reads `po_csrf` and retries without refreshing again if another tab already
     did (announced on a `BroadcastChannel`). Each queued request retries once.
-  - `SESSION_EXPIRED` / `SESSION_REVOKED` → the session-expired message and
-    `/login?returnTo=…`; `ACCOUNT_DEACTIVATED` → login with its message;
+  - `SESSION_EXPIRED` → the session-expired message, `SESSION_REVOKED` → "You were logged
+    out because <reason>." (errors.md), both then `/login?returnTo=…`; `ACCOUNT_DEACTIVATED` → login with its message;
     `NO_ROLE_ASSIGNED` → Access pending; `UNAUTHENTICATED` → login, no refresh.
   - The current user comes from `GET /api/me` (TanStack Query); route guards read it.
   - Account pages read `location.hash`, `history.replaceState` it away, and post the token
