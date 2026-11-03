@@ -149,7 +149,9 @@ Additive only; oasdiff's breaking check passes without the `breaking` label.
 - New components: the schemas above, `Page*` envelopes, response headers `Retry-After`,
   `ETag`, `Set-Cookie`, request header `If-Match`.
 - The `Problem.code` enum grows by the codes in [errors.md](errors.md); the field-code
-  enum by its field codes. Adding enum values to a response is non-breaking for oasdiff.
+  enum by its field codes. oasdiff counts a value added to a response `enum` as breaking,
+  so both are published as `x-extensible-enum` (ADR-0008, amended 2026-11-03), which it
+  accepts.
 - `Problem` gains the optional member `reason` (`PublicRevokeReason` enum), set only on
   `SESSION_REVOKED` ([errors.md](errors.md)). An added optional response property is
   non-breaking; widening `details` instead was probed and is breaking.

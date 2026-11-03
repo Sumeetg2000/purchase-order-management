@@ -50,16 +50,14 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             correlationId: string;
             details?: components["schemas"]["FieldError"][];
+            /** @enum {string} */
+            reason?: "PASSWORD_CHANGED" | "PASSWORD_RESET" | "ROLES_CHANGED";
         };
-        /**
-         * @description Every code in the registry (packages/contracts/src/errors.ts).
-         * @enum {string}
-         */
-        ErrorCode: "VALIDATION_FAILED" | "CSRF_REJECTED" | "NOT_FOUND" | "PAYLOAD_TOO_LARGE" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "CONCURRENCY_RETRY_EXHAUSTED";
+        /** @description Every code in the registry (packages/contracts/src/errors.ts). */
+        ErrorCode: string;
         FieldError: {
             path: string;
-            /** @enum {string} */
-            code: "MALFORMED_JSON" | "UNSUPPORTED_MEDIA_TYPE" | "REQUIRED" | "UNKNOWN_FIELD" | "INVALID_FORMAT" | "TOO_SHORT" | "TOO_LONG" | "OUT_OF_RANGE";
+            code: string;
         };
         Readiness: {
             /** @constant */

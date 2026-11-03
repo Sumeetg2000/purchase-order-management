@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ERROR_CODES } from '../src/index.js';
+import { ERROR_CODES, FIELD_CODES } from '../src/index.js';
 import { z } from 'zod';
 import {
   buildOpenApiDocument,
@@ -37,9 +37,16 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(at(doc, 'paths', '/readyz', 'get')['x-access']).toBe('public');
   });
 
-  it('[NFR-API-01] has a Problem schema whose code is an ErrorCode enum equal to the registry', () => {
+  it('[NFR-API-01] has a Problem schema whose code is an extensible ErrorCode enum equal to the registry', () => {
     const schemas = at(doc, 'components', 'schemas');
-    expect(at(schemas, 'ErrorCode')['enum']).toEqual([...ERROR_CODES]);
+    // Codes grow every slice and clients fall back on unknown ones, so the enums are
+    // published as x-extensible-enum: a new code is not a breaking change (ADR-0008).
+    expect(at(schemas, 'ErrorCode')['x-extensible-enum']).toEqual([...ERROR_CODES]);
+    expect(at(schemas, 'ErrorCode')).not.toHaveProperty('enum');
+    expect(at(schemas, 'FieldError', 'properties', 'code')['x-extensible-enum']).toEqual([
+      ...FIELD_CODES,
+    ]);
+    expect(at(schemas, 'FieldError', 'properties', 'code')).not.toHaveProperty('enum');
     expect(at(schemas, 'Problem', 'properties', 'code')).toEqual({
       $ref: '#/components/schemas/ErrorCode',
     });

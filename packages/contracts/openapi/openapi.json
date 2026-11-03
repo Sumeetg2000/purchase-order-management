@@ -196,6 +196,14 @@
             "items": {
               "$ref": "#/components/schemas/FieldError"
             }
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "PASSWORD_CHANGED",
+              "PASSWORD_RESET",
+              "ROLES_CHANGED"
+            ]
           }
         },
         "required": [
@@ -209,16 +217,41 @@
       },
       "ErrorCode": {
         "type": "string",
-        "enum": [
+        "description": "Every code in the registry (packages/contracts/src/errors.ts).",
+        "x-extensible-enum": [
           "VALIDATION_FAILED",
           "CSRF_REJECTED",
           "NOT_FOUND",
           "PAYLOAD_TOO_LARGE",
           "INTERNAL_ERROR",
           "SERVICE_UNAVAILABLE",
-          "CONCURRENCY_RETRY_EXHAUSTED"
-        ],
-        "description": "Every code in the registry (packages/contracts/src/errors.ts)."
+          "CONCURRENCY_RETRY_EXHAUSTED",
+          "SIGNUP_DOMAIN_NOT_ALLOWED",
+          "TOKEN_EXPIRED",
+          "TOKEN_USED",
+          "TOKEN_SUPERSEDED",
+          "INVALID_TOKEN",
+          "UNAUTHENTICATED",
+          "ACCESS_TOKEN_EXPIRED",
+          "SESSION_EXPIRED",
+          "SESSION_REVOKED",
+          "PASSWORD_NOT_SET",
+          "INCORRECT_PASSWORD",
+          "ACCOUNT_NOT_VERIFIED",
+          "ACCOUNT_DEACTIVATED",
+          "FORBIDDEN",
+          "NO_ROLE_ASSIGNED",
+          "ACCOUNT_NOT_FOUND",
+          "EMAIL_IN_USE",
+          "ACCOUNT_ALREADY_VERIFIED",
+          "VERSION_CONFLICT",
+          "SELF_MODIFICATION",
+          "ADMIN_NOT_MODIFIABLE",
+          "USER_UNVERIFIED",
+          "ACCESS_REQUEST_NOT_OPEN",
+          "ACCOUNT_LOCKED",
+          "RATE_LIMITED"
+        ]
       },
       "FieldError": {
         "type": "object",
@@ -228,7 +261,7 @@
           },
           "code": {
             "type": "string",
-            "enum": [
+            "x-extensible-enum": [
               "MALFORMED_JSON",
               "UNSUPPORTED_MEDIA_TYPE",
               "REQUIRED",
@@ -236,7 +269,13 @@
               "INVALID_FORMAT",
               "TOO_SHORT",
               "TOO_LONG",
-              "OUT_OF_RANGE"
+              "OUT_OF_RANGE",
+              "VERSION_REQUIRED",
+              "INVALID_ROLE_SET",
+              "PASSWORD_TOO_SHORT",
+              "PASSWORD_TOO_LONG",
+              "PASSWORD_TOO_COMMON",
+              "INCORRECT_PASSWORD"
             ]
           }
         },

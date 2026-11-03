@@ -67,7 +67,7 @@ short summary stop.
 
 ### Contracts
 
-- [ ] T006 Tests: registry has the 25 codes and 6 field codes of
+- [X] T006 Tests: registry has the 25 codes and 6 field codes of
   [contracts/errors.md](contracts/errors.md) with their statuses; `Problem.reason` is
   optional, a `PublicRevokeReason` (`PASSWORD_CHANGED`, `PASSWORD_RESET`,
   `ROLES_CHANGED` only), and allowed only on `SESSION_REVOKED`; the web message map and
@@ -75,7 +75,7 @@ short summary stop.
   `reason` maps to the generic logged-out message —
   `packages/contracts/tests/errors.test.ts`, `frontend/src/errors/messages.test.ts` —
   FR-031, FR-ACC-03, SC-003, NFR-FE-02.
-- [ ] T007 Registry, field codes, `Problem.reason`, the public enum
+- [X] T007 Registry, field codes, `Problem.reason`, the public enum
   `PUBLIC_REVOKE_REASONS` (`PASSWORD_CHANGED`, `PASSWORD_RESET`, `ROLES_CHANGED`),
   `ACCESS_LEVELS`, `ACTING_ROLES` (+`SELF`), password and name limits, and the web
   messages: the four token codes, "You were logged out because <reason>. Please log in

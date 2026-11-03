@@ -1,4 +1,4 @@
-import { ERROR_REGISTRY, type AppError } from '@po/contracts';
+import { carriesRevokeReason, ERROR_REGISTRY, type AppError } from '@po/contracts';
 import type { Response } from 'express';
 import { requestIdOf } from './middleware/correlation.js';
 
@@ -21,5 +21,8 @@ export function sendProblem(res: Response, error: AppError): void {
       correlationId: requestIdOf(res),
       ...(error.detail === undefined ? {} : { detail: error.detail }),
       ...(entry.fieldDetails && error.details?.length ? { details: error.details } : {}),
+      ...(carriesRevokeReason(error.code) && error.reason !== undefined
+        ? { reason: error.reason }
+        : {}),
     });
 }

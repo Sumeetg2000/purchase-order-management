@@ -29,3 +29,14 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export const USER_STATUS = Object.fromEntries(USER_STATUSES.map((status) => [status, status])) as {
   readonly [S in UserStatus]: S;
 };
+
+/** What a user may act as in an audit entry: a role, or SELF for their own account. */
+export const ACTING_ROLES = [...USER_ROLES, 'SELF'] as const;
+export type ActingRole = (typeof ACTING_ROLES)[number];
+
+/** A user's name: 1 to 100 characters (ADR-0007). */
+export const USER_NAME_MAX_LENGTH = 100;
+
+/** Password length bounds (ADR-0017). */
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MAX_LENGTH = 128;
