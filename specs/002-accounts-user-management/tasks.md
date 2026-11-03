@@ -156,7 +156,7 @@ short summary stop.
 
 **Checkpoint**: T022 `/code-review` of Foundational; full gate; CI green on PR #13.
 
-- [ ] T022 Foundational checkpoint review and fixes.
+- [X] T022 Foundational checkpoint review and fixes.
 
 ---
 
