@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ACCESS_TOKEN_LIFETIME_SECONDS } from '../../src/auth/constants.js';
 import { SECOND_MS } from '../../src/lib/time.js';
-import { accountsHarness } from '../support/accounts.js';
+import { accountsHarness, APP_ORIGIN } from '../support/accounts.js';
+import request from 'supertest';
 
 // Logout and logout-all (ADR-0017 "Logout and revocation"; spec US1 scenario 9).
 
@@ -131,5 +132,67 @@ describe('[FR-USR-01] the current user', () => {
     const res = await h.get('/me', await h.loggedIn(user));
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ roles: [] });
+  });
+});
+
+describe('[NFR-SEC-03] revocation on the next request', () => {
+  it('[NFR-SEC-03] after logout, the old access token gets SESSION_REVOKED on its next request', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    await h.withRefresh('/auth/logout', jar);
+    const res = await h.get('/me', jar);
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'SESSION_REVOKED' });
+    expect(res.body).not.toHaveProperty('reason');
+  });
+
+  it('[NFR-SEC-03] after a password change, the old access token learns why on its next request', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    // As change-password (US4) revokes the other sessions.
+    await h.query(`UPDATE sessions SET revoked_at = now(), revoke_reason = 'PASSWORD_CHANGED'`);
+    expect((await h.get('/me', jar)).body).toMatchObject({
+      code: 'SESSION_REVOKED',
+      reason: 'PASSWORD_CHANGED',
+    });
+  });
+
+  it('[NFR-SEC-03] after a password reset, the old access token gets SESSION_REVOKED with the reason', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    await request(h.app)
+      .post('/auth/reset-password')
+      .set('Origin', APP_ORIGIN)
+      .send({ token: await h.issue(user.id), newPassword: 'a brand new passphrase' });
+    expect((await h.get('/me', jar)).body).toMatchObject({
+      code: 'SESSION_REVOKED',
+      reason: 'PASSWORD_RESET',
+    });
+  });
+
+  it('[NFR-SEC-09] a session past its end gets SESSION_EXPIRED even with a fresh access token', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    const end = new Date(h.clock.now().getTime() + 60_000);
+    await h.query(`UPDATE sessions SET expires_at = $1, absolute_expires_at = $1`, [end]);
+    h.clock.advance(120_000);
+    const res = await h.get('/me', jar);
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'SESSION_EXPIRED' });
+  });
+
+  it('[NFR-AUTH-01] a request with no access cookie is UNAUTHENTICATED, even with a valid session', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    const res = await request(h.app)
+      .get('/me')
+      .set('Cookie', `po_refresh=${jar['po_refresh'] ?? ''}; po_csrf=${jar['po_csrf'] ?? ''}`);
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 });

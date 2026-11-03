@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createRefresher, expiredAccessMiddleware } from '../src/auth/refresh';
+import { NetworkError } from '../src/api/client';
 import type { ProblemLike } from '../src/errors/messages';
 
 // The web app refreshes only on ACCESS_TOKEN_EXPIRED, once at a time within the tab, and
@@ -142,16 +143,55 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
     ]);
   });
 
-  it('[NFR-FE-02] an unreachable refresh ends the session as SESSION_EXPIRED', async () => {
+  it('[NFR-FE-02] an unreachable refresh keeps the session: the waiting call fails with NetworkError', async () => {
     const t = setup({
       refreshWith: () => {
         throw new TypeError('offline');
       },
       answers: [() => problem(401, 'ACCESS_TOKEN_EXPIRED')],
     });
-    await t.call('/orders', '1');
-    expect(t.ended).toEqual([expect.objectContaining({ code: 'SESSION_EXPIRED' })]);
+    await expect(t.call('/orders', '1')).rejects.toBeInstanceOf(NetworkError);
+    expect(t.ended).toEqual([]);
   });
+
+  it('[NFR-FE-02] a refresh that fails with a server error keeps the session: the waiting calls get that error', async () => {
+    const t = setup({
+      refreshWith: () => problem(503, 'SERVICE_UNAVAILABLE'),
+      answers: [
+        () => problem(401, 'ACCESS_TOKEN_EXPIRED'),
+        () => problem(401, 'ACCESS_TOKEN_EXPIRED'),
+      ],
+    });
+    const results = await Promise.all([t.call('/a', '1'), t.call('/b', '2')]);
+    expect(results.map((r) => r.status)).toEqual([503, 503]);
+    for (const res of results) {
+      expect(await res.json()).toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    }
+    expect(t.ended).toEqual([]);
+  });
+
+  it.each(['SESSION_EXPIRED', 'SESSION_REVOKED', 'ACCOUNT_DEACTIVATED', 'UNAUTHENTICATED'])(
+    '[NFR-FE-02] a refresh refused with %s ends the session',
+    async (code) => {
+      const t = setup({
+        refreshWith: () => problem(401, code),
+        answers: [() => problem(401, 'ACCESS_TOKEN_EXPIRED')],
+      });
+      await t.call('/orders', '1');
+      expect(t.ended).toEqual([expect.objectContaining({ code })]);
+    },
+  );
+
+  it.each(['SESSION_REVOKED', 'SESSION_EXPIRED'])(
+    '[NFR-FE-02] %s from any call ends the session, without a refresh',
+    async (code) => {
+      const extra = code === 'SESSION_REVOKED' ? { reason: 'ROLES_CHANGED' } : {};
+      const t = setup({ answers: [() => problem(401, code, extra)] });
+      await t.call('/orders', '1');
+      expect(t.ended).toEqual([expect.objectContaining({ code })]);
+      expect(t.calls).toEqual(['POST /api/orders']);
+    },
+  );
 
   it('[NFR-FE-02] ACCOUNT_DEACTIVATED from any call ends the session', async () => {
     const t = setup({ answers: [() => problem(401, 'ACCOUNT_DEACTIVATED')] });

@@ -51,12 +51,15 @@ describe('[NFR-SEC-01] session cookies', () => {
     ]);
   });
 
-  it('[NFR-SEC-01] the access cookie is HttpOnly, Secure, SameSite=Strict, Path=/api, 15 minutes', async () => {
+  it('[NFR-SEC-01] the access cookie is HttpOnly, Secure, SameSite=Strict, Path=/api, and lives as long as the refresh cookie', async () => {
     const res = await request(app()).post('/set');
     const access = cookieNamed(res.get('Set-Cookie'), ACCESS_COOKIE);
     expect(access).toMatch(/^po_access=access-jwt;/);
     expect(access).toContain('Path=/api;');
-    expect(access).toContain(`Max-Age=${String(ACCESS_TOKEN_LIFETIME_SECONDS)};`);
+    // Not the JWT's 15 minutes: a cookie that expired with its token would vanish, and the
+    // next request would be UNAUTHENTICATED instead of ACCESS_TOKEN_EXPIRED (ADR-0017).
+    expect(access).toContain(`Max-Age=${String(REFRESH_MAX_AGE_SECONDS)};`);
+    expect(REFRESH_MAX_AGE_SECONDS).toBeGreaterThan(ACCESS_TOKEN_LIFETIME_SECONDS);
     expect(access).toMatch(/HttpOnly/);
     expect(access).toMatch(/Secure/);
     expect(access).toMatch(/SameSite=Strict/);

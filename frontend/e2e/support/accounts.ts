@@ -1,8 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { createHmac, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { parseEnv } from 'node:util';
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { expect, type Page } from '@playwright/test';
 
 // Accounts for end-to-end tests against the compose stack. Each test gets its own admin
 // from admin:create (the operator CLI), so no test depends on another or on the
@@ -67,28 +65,4 @@ export async function loggedInAdmin(page: Page): Promise<NewAdmin> {
   await setPassword(page, admin);
   await logIn(page, admin.email);
   return admin;
-}
-
-/**
- * Replaces the access cookie with the same token already expired, as if 15 minutes had
- * passed, by re-signing it with the stack's key from .env (HS256, ADR-0017).
- */
-export async function expireAccessToken(context: BrowserContext): Promise<void> {
-  // The stack's env file: .env, or E2E_ENV_FILE when the stack was started with another.
-  const file = process.env['E2E_ENV_FILE'] ?? new URL('.env', ROOT);
-  const env = parseEnv(readFileSync(file, 'utf8'));
-  const key = Buffer.from(env['JWT_SIGNING_KEY'] ?? '', 'base64url');
-  const cookie = (await context.cookies()).find((c) => c.name === 'po_access');
-  if (!cookie) throw new Error('no access cookie to expire');
-  const [header = '', payload = ''] = cookie.value.split('.');
-  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<
-    string,
-    number
-  >;
-  const now = Math.floor(Date.now() / 1_000);
-  const expired = Buffer.from(
-    JSON.stringify({ ...claims, iat: now - 960, exp: now - 60 }),
-  ).toString('base64url');
-  const signature = createHmac('sha256', key).update(`${header}.${expired}`).digest('base64url');
-  await context.addCookies([{ ...cookie, value: `${header}.${expired}.${signature}` }]);
 }
