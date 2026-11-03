@@ -26,10 +26,50 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents getHealth and getReadiness, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations and the slice 1 US1 ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
-    expect(Object.keys(at(doc, 'paths')).sort()).toEqual(['/healthz', '/readyz']);
+    const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
+      Object.entries(methods as Json).map(
+        ([method, op]) => `${(op as Json)['operationId'] as string} ${method} ${path}`,
+      ),
+    );
+    expect(operations.sort()).toEqual(
+      [
+        'getHealth get /healthz',
+        'getReadiness get /readyz',
+        'getMe get /me',
+        'login post /auth/login',
+        'logout post /auth/logout',
+        'logoutAll post /auth/logout-all',
+        'refreshSession post /auth/refresh',
+        'resetPassword post /auth/reset-password',
+      ].sort(),
+    );
+  });
+
+  it('[NFR-SEC-01] documents Set-Cookie on the responses that set the session cookies', () => {
+    for (const [path, status] of [
+      ['/auth/login', '200'],
+      ['/auth/refresh', '204'],
+      ['/auth/logout', '204'],
+      ['/auth/logout-all', '204'],
+    ] as const) {
+      expect(at(doc, 'paths', path, 'post', 'responses', status, 'headers'), path).toHaveProperty(
+        'Set-Cookie',
+      );
+    }
+    expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
+      'Set-Cookie',
+    );
+  });
+
+  it('[NFR-SEC-05] documents Retry-After on 423 and 429 responses', () => {
+    const responses = at(doc, 'paths', '/auth/login', 'post', 'responses');
+    for (const status of ['423', '429']) {
+      expect(at(responses, status, 'headers'), status).toHaveProperty('Retry-After');
+    }
+    expect(at(responses, '401', 'headers')).not.toHaveProperty('Retry-After');
   });
 
   it('[NFR-API-01] declares each operation access level', () => {
