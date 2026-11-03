@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type SyntheticEvent } from 'react';
-import { Button, Input, Label, TextField } from 'react-aria-components';
+import { Input, Label, TextField } from 'react-aria-components';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api, parseProblem } from '../../api/client';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
@@ -89,9 +89,9 @@ export function Login() {
             {failure}
           </p>
         )}
-        <Button type="submit" className={controls.primary} isDisabled={pending}>
+        <button type="submit" className={controls.primary} disabled={pending}>
           Log in
-        </Button>
+        </button>
       </form>
     </div>
   );

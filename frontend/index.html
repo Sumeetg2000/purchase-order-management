@@ -7,6 +7,8 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- First, on its own: Zod must be configured before any chunk builds a schema. -->
+    <script type="module" src="/src/zod-config.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

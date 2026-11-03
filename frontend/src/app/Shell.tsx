@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button } from 'react-aria-components';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
@@ -38,9 +37,9 @@ export function Shell() {
         {user && (
           <div className={styles.account}>
             <span>{user.name}</span>
-            <Button className={controls.button} onPress={() => void logOut()}>
+            <button type="button" className={controls.button} onClick={() => void logOut()}>
               Log out
-            </Button>
+            </button>
           </div>
         )}
       </header>

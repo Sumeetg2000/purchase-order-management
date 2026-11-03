@@ -227,7 +227,7 @@ steps 1–3 with only the bootstrap admin.
   `useFragmentToken`, `RequireUser`, Login and
   ResetPassword pages, router entries — `frontend/src/auth/`,
   `frontend/src/pages/account/`, `frontend/src/app/router.tsx` — T032 green.
-- [ ] T034 [US1] E2E: bootstrap set-password → login → silent refresh after access
+- [X] T034 [US1] E2E: bootstrap set-password → login → silent refresh after access
   expiry → logout — `frontend/e2e/auth-refresh.spec.ts`, `logout.spec.ts` — FR-036.
 - [ ] T035 [US1] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 

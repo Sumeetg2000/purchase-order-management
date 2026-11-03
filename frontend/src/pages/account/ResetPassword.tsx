@@ -1,5 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { Button, FieldError, Input, Label, Text, TextField } from 'react-aria-components';
+import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
 import { Link, useLocation } from 'react-router';
 import { api, parseProblem } from '../../api/client';
 import { fieldMessages, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
@@ -91,9 +91,9 @@ export function ResetPassword() {
               {failure}
             </p>
           )}
-          <Button type="submit" className={controls.primary} isDisabled={pending}>
+          <button type="submit" className={controls.primary} disabled={pending}>
             Set password
-          </Button>
+          </button>
         </form>
       )}
     </div>
