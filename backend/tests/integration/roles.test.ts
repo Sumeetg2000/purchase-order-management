@@ -11,6 +11,9 @@ const ROLES = ['po_owner', 'po_app', 'po_maintenance'] as const;
 /** Every grant on tables, views and sequences in public, excluding the owner's own. */
 const EXPECTED_RELATION_GRANTS = [
   '_prisma_migrations po_app SELECT',
+  'access_requests po_app INSERT',
+  'access_requests po_app SELECT',
+  'access_requests po_app UPDATE',
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
   'audit_entries po_maintenance SELECT',
@@ -18,6 +21,19 @@ const EXPECTED_RELATION_GRANTS = [
   'one_time_tokens po_app SELECT',
   'one_time_tokens po_maintenance DELETE',
   'one_time_tokens po_maintenance SELECT',
+  'rate_limit_counters po_app INSERT',
+  'rate_limit_counters po_app SELECT',
+  'rate_limit_counters po_app UPDATE',
+  'rate_limit_counters po_maintenance DELETE',
+  'rate_limit_counters po_maintenance SELECT',
+  'refresh_tokens po_app INSERT',
+  'refresh_tokens po_app SELECT',
+  'refresh_tokens po_maintenance DELETE',
+  'refresh_tokens po_maintenance SELECT',
+  'sessions po_app INSERT',
+  'sessions po_app SELECT',
+  'sessions po_maintenance DELETE',
+  'sessions po_maintenance SELECT',
   'users po_app INSERT',
   'users po_app SELECT',
   'users po_app UPDATE',
@@ -114,7 +130,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(grants.map((g) => g.grant)).toEqual(EXPECTED_RELATION_GRANTS);
   });
 
-  it("[NFR-AUD-02] column grants are exactly INSERT on the audit columns other than id, and UPDATE of a token's used and superseded times", async () => {
+  it("[NFR-AUD-02] column grants are exactly INSERT on the audit columns other than id, and UPDATE of a token's used and superseded times and of a session's use, expiry and revocation", async () => {
     const { admin } = await freshDb();
     const columns = await rows<{ grant: string }>(
       admin,
@@ -134,6 +150,13 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       // po_app marks a token used or superseded; it can never change its hash, owner or expiry.
       'one_time_tokens.superseded_at po_app UPDATE',
       'one_time_tokens.used_at po_app UPDATE',
+      // po_app rotates a refresh token and touches, extends or revokes a session; it can
+      // never change a token's hash, a session's owner, device or absolute expiry.
+      'refresh_tokens.rotated_at po_app UPDATE',
+      'sessions.expires_at po_app UPDATE',
+      'sessions.last_used_at po_app UPDATE',
+      'sessions.revoke_reason po_app UPDATE',
+      'sessions.revoked_at po_app UPDATE',
     ].sort();
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
@@ -211,6 +234,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         WHERE NOT t.tgisinternal ORDER BY 1`,
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
+      'access_requests access_requests_set_updated_at O',
       'audit_entries audit_fill_actor O',
       'audit_entries audit_immutable O',
       'audit_entries audit_no_truncate O',

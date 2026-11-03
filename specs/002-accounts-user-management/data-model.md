@@ -46,7 +46,7 @@ POC scope).
 | `last_used_at` | `timestamptz NOT NULL` | login and each refresh |
 | `absolute_expires_at` | `timestamptz NOT NULL` | `created_at + 30 days`; `CHECK (absolute_expires_at > created_at)` |
 | `expires_at` | `timestamptz NOT NULL` | latest refresh token's expiry; `CHECK (expires_at <= absolute_expires_at)` |
-| `user_agent` | `text NOT NULL` | truncated to 512 characters |
+| `user_agent` | `text NOT NULL` | truncated to `USER_AGENT_MAX_LENGTH` (512) by the service; `CHECK` backs it |
 | `ip` | `inet NOT NULL` | |
 | `revoked_at` | `timestamptz NULL` | |
 | `revoke_reason` | `text NULL` | one of `SESSION_REVOKE_REASONS`; `CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))` |
@@ -70,6 +70,9 @@ returns), plus `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DET
 | `token_hash` | `bytea NOT NULL UNIQUE` | SHA-256; `CHECK (octet_length(token_hash) = 32)` |
 | `expires_at` | `timestamptz NOT NULL` | min(issue + 7 days, session absolute expiry) |
 | `rotated_at` | `timestamptz NULL` | set once; never cleared |
+
+- **Index**: `refresh_tokens_session_id_idx (session_id)` for the cascade delete and
+  revoke-all.
 | `created_at` | `timestamptz NOT NULL` | |
 
 - **Grants**: `po_app`: `SELECT, INSERT` on both, `UPDATE (last_used_at, expires_at,
@@ -105,11 +108,12 @@ returns), plus `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_DET
 | `bucket` | `text NOT NULL` | one of the bucket names in `rate-limit/buckets.ts` (`CHECK`) |
 | `key` | `text NOT NULL` | IP, lower-cased email or user id |
 | `window_start` | `timestamptz NOT NULL` | |
-| `window_seconds` | `integer NOT NULL` | from the bucket; lets the purge find ended windows |
+| `window_end` | `timestamptz NOT NULL` | `window_start` + the bucket's window, set by the service; `CHECK (window_end > window_start)` |
 | `hits` | `integer NOT NULL` | `CHECK (hits >= 1)` |
 
-- `PRIMARY KEY (bucket, key, window_start)`; index on
-  `((window_start + make_interval(secs => window_seconds)))` for the purge.
+- `PRIMARY KEY (bucket, key, window_start)`; `rate_limit_counters_window_end_idx
+  (window_end)` for the purge. `window_end` is stored rather than computed in an index:
+  `timestamptz + interval` is only `STABLE` in PostgreSQL, so it can't be indexed.
 - **Grants**: `po_app`: `SELECT, INSERT, UPDATE`. `po_maintenance`: `SELECT, DELETE`.
 
 ## Existing tables used
