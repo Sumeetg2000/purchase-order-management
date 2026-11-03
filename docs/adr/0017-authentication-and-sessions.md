@@ -13,7 +13,10 @@
   token; `SESSION_REVOKED` carries the revoke reason, **owner decision**) · amended
   2026-11-03 (POC scope, owner decision: resend-verification and forgot-password are
   limited per email only; no phone in security logs because none is stored;
-  `SESSION_REVOKED` names only the three public revoke reasons)
+  `SESSION_REVOKED` names only the three public revoke reasons) · amended 2026-11-03
+  (**owner decision**: revocation takes effect on the next request, since every request
+  reads its session with its user; the access cookie lives as long as the refresh cookie,
+  and the JWT inside it still expires after 15 minutes)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -36,7 +39,7 @@ answer to an in-app access request (ADR-0016).
 ### Tokens and cookies
 | Cookie | Content | Lifetime | Flags | Path |
 |---|---|---|---|---|
-| access | JWT `{ sub: userId, sid: sessionId }` | 15 min | HttpOnly, Secure, SameSite=Strict | `/api` |
+| access | JWT `{ sub: userId, sid: sessionId }` | the cookie as long as the refresh cookie; the JWT's `exp` 15 min | HttpOnly, Secure, SameSite=Strict | `/api` |
 | refresh | opaque random (256-bit) | 7 days idle, capped by the 30-day session limit | HttpOnly, Secure, SameSite=Strict | `/api/auth` |
 | csrf | `HMAC(sessionId, server secret)` | same as the refresh cookie, re-issued on every refresh | Secure, SameSite=Strict (**not** HttpOnly, by design) | `/` |
 
@@ -53,9 +56,21 @@ answer to an in-app access request (ADR-0016).
 - An access token that is well formed and correctly signed but past its expiry →
   `401 ACCESS_TOKEN_EXPIRED`. No access token, or a malformed or wrongly signed one →
   `401 UNAUTHENTICATED`. The web app refreshes only on `ACCESS_TOKEN_EXPIRED` (ADR-0018).
-- **Every request loads `status` and `roles` from the database** (indexed by user id), so
-  changes take effect immediately. A user who is no longer `ACTIVE` →
-  `401 ACCOUNT_DEACTIVATED`. A missing role → `403`.
+- The access cookie outlives its JWT on purpose (amended 2026-11-03): a cookie that
+  expired with the JWT would vanish from the browser, the next request would arrive with
+  no token and get `UNAUTHENTICATED`, and the silent refresh on `ACCESS_TOKEN_EXPIRED`
+  would never run.
+- **Every request loads its session with its user from the database** (amended
+  2026-11-03, owner decision): one indexed lookup of the session by id, joined to its user,
+  so revocation, deactivation and role changes all take effect on the very next request.
+  In the refresh's order:
+  - a user who is not `ACTIVE` → `401 ACCOUNT_DEACTIVATED`
+  - a revoked session → `401 SESSION_REVOKED`, with the reason only when it is public
+  - a session past its idle or absolute end → `401 SESSION_EXPIRED`
+  - a session that no longer exists, or isn't the token's user's → `401 UNAUTHENTICATED`
+  - a missing role → `403`
+- The web app ends the session on `SESSION_REVOKED` or `SESSION_EXPIRED` from any call, as
+  it does on `ACCOUNT_DEACTIVATED`, and shows its message (ADR-0018).
 
 ### Signup and verification
 - `POST /api/auth/signup { name, email, password }`, with a strict schema. A body with
@@ -224,11 +239,8 @@ answer to an in-app access request (ADR-0016).
   - `DELETE /api/auth/sessions/:id` revokes one session.
     - Another user's session id → `404`.
     - Revoking the current session also clears its cookies, like logout.
-- Revocation is checked at refresh. An access token already issued to a revoked session
-  stays valid until it expires (≤ 15 min).
-  - Accepted trade-off: this keeps the per-request lookup to the user row.
-  - Deactivation and role changes still take effect on the very next request, through the
-    per-request load of status and roles.
+- A revoked session is refused on its next request, whatever its access token's expiry
+  (amended 2026-11-03).
 
 ### Logout and revocation
 - `POST /api/auth/logout` revokes the session identified by **the refresh token itself**,
@@ -327,11 +339,9 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   Self-signup with no role costs the admin one role assignment and no account
   administration.
 - Bearer tokens in `localStorage`: readable by any XSS. Rejected.
-- Server-side sessions only (no JWT): simpler revocation, but a session lookup on every
-  request. We already load the user on every request, and the JWT saves the session
-  lookup. Revocation applies at refresh, within 15 minutes.
-- Checking the session on every request: makes revocation immediate, at the cost of a
-  second lookup. Not adopted, because deactivation and role changes are already immediate.
+- Server-side sessions only (no JWT): the session is read on every request anyway, but
+  the signed token still lets a forged or expired one be refused without a database read,
+  and gives the web app `ACCESS_TOKEN_EXPIRED` to refresh on.
 - Long-lived access tokens: delay deactivation. Rejected.
 - **Anti-enumeration** (the decision until 2026-11-02): one `401 INVALID_CREDENTIALS` for
   every login failure, `202` from signup, resend and forgot-password whatever the account,
@@ -375,7 +385,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one
-  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED` with no
+  - revoking a session → that session's next request and refresh → 401 `SESSION_REVOKED` with no
     `reason`; each revoke path stores its own reason in the session row
   - another user's session id → 404
   - revoking the current session clears its cookies
@@ -391,7 +401,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - rotation issues a new pair
   - reuse of a rotated token after 10 s → whole session revoked (`REUSE_DETECTED` stored
     and logged) → 401 `SESSION_REVOKED` with no `reason`
-  - a password change, reset or role change → the session's next refresh → 401
+  - a password change, reset or role change → the session's next request and refresh → 401
     `SESSION_REVOKED` with that `reason`
   - concurrent refreshes within 10 s both succeed (sibling tokens) and the session stays
     valid

@@ -22,8 +22,10 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
   or validated, so the order is ADR-0004's (amended 2026-11-03): `401` → CSRF →
   `403 NO_ROLE_ASSIGNED` → `403 FORBIDDEN` (the route's access level) → `400` → `404` →
   order-level `403` → `409`.
-  The step verifies the access cookie, loads `status` and `roles` by primary key (one
-  indexed read per request), refuses non-`ACTIVE` users with `401 ACCOUNT_DEACTIVATED`,
+  The step verifies the access cookie, loads its session joined to its user by the
+  session's primary key (one indexed read per request; ADR-0017 amended 2026-11-03), and
+  refuses in the refresh's order: non-`ACTIVE` user → `401 ACCOUNT_DEACTIVATED`, revoked
+  session → `401 SESSION_REVOKED`, ended session → `401 SESSION_EXPIRED`. It
   checks CSRF on state-changing methods, and puts a typed `req.auth` (user id, session id,
   roles, name, email) on the request.
 - The step lives in `http/middleware/authorize.ts` and calls `auth/service.ts`; it never
@@ -216,7 +218,9 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
     refreshes on its own and the server's 10-second sibling window lets them all
     succeed. Each queued request retries once.
   - `SESSION_EXPIRED` → the session-expired message, `SESSION_REVOKED` → "You were logged
-    out because <reason>." or, without a `reason`, "You've been logged out." (errors.md), both then `/login?returnTo=…`; `ACCOUNT_DEACTIVATED` → login with its message;
+    out because <reason>." or, without a `reason`, "You've been logged out." (errors.md), both then `/login?returnTo=…`, whether a refresh or any other call answered it;
+    `ACCOUNT_DEACTIVATED` → login with its message. A refresh that fails any other way (no
+    network, 5xx) keeps the session: the waiting calls fail with that error;
     `NO_ROLE_ASSIGNED` → Access pending; `UNAUTHENTICATED` → login, no refresh.
   - The current user comes from `GET /api/me` (TanStack Query); route guards read it.
   - Account pages read `location.hash`, `history.replaceState` it away, and post the token

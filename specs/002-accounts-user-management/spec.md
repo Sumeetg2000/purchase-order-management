@@ -342,9 +342,13 @@ purge with an injected clock and confirm only data past its limit is removed.
 - **Two tabs refresh at once**: each tab refreshes on its own (no cross-tab
   coordination, ADR-0018 amended 2026-11-03), and both succeed through the 10-second
   sibling window.
-- **A role change while the user is mid-session**: the change ends their sessions; their
-  next refresh gets `401 SESSION_REVOKED`, and their next request with a still-valid
-  access token is checked against the new roles, because roles load on every request.
+- **A role change while the user is mid-session**: the change ends their sessions, and
+  their very next request gets `401 SESSION_REVOKED` with the reason, because every
+  request reads its session (ADR-0017 amended 2026-11-03).
+- **Logged out or revoked elsewhere**: the old access token gets `401 SESSION_REVOKED` on
+  its next request, not 15 minutes later.
+- **A refresh that fails for a passing reason** (no network, a server error): the session
+  stays; the waiting calls fail with that error and the next call tries again.
 - **Deactivated while holding a valid access token**: the next request gets
   `401 ACCOUNT_DEACTIVATED` (status loads on every request), not a 15-minute grace.
 - **Squatted signup**: someone signs up with a colleague's address first. The account
@@ -416,7 +420,9 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   its absolute limit → `401 SESSION_EXPIRED`; a revoked session → `401 SESSION_REVOKED`
   carrying `reason` only when the revoke reason is public (password changed, password
   reset, roles changed), so the web app can say why. The reason is only ever returned to the holder of that session's refresh token,
-  never for another user's session. *(NFR-SEC-02)*
+  never for another user's session. Every request checks its session too, in the same
+  order, so a revoked session is refused on its next request (ADR-0017 amended
+  2026-11-03). *(NFR-SEC-02, NFR-SEC-03)*
 - **FR-009**: A session MUST end after 7 days unused or 30 days after login, whichever
   comes first. Rotation never extends the 30-day limit, and each refresh cookie's lifetime
   matches. *(NFR-SEC-09)*
@@ -510,9 +516,9 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   session-expired message and go to login with the return page on `SESSION_EXPIRED`;
   on `SESSION_REVOKED`, show "You were logged out because <reason>. Please log in
   again." for a `reason`, or "You've been logged out. Please log in again." without one,
-  and go to login the same way; and go to login with
-  its message on `ACCOUNT_DEACTIVATED`.
-  *(NFR-FE-02)*
+  and go to login the same way, whether a refresh or any other call answered it; go to
+  login with its message on `ACCOUNT_DEACTIVATED`; and keep the session when a refresh
+  fails for any other reason (no network, a server error). *(NFR-FE-02)*
 - **FR-034**: The web app MUST provide the screens in ADR-0018 for this slice: login,
   signup, verify-email, forgot-password, reset-password (also the set-password page),
   Access pending, profile (with password and sessions), and admin Users with the Access

@@ -9,7 +9,9 @@
   2026-11-03 (the revoke reason in the logged-out message; the one-time-link codes) ·
   amended 2026-11-03 (POC scope, owner decision: refresh once per tab, no cross-tab
   coordination; no phone on the profile; a generic logged-out message unless the revoke
-  reason is public)
+  reason is public) · amended 2026-11-03 (**owner decision**: only a refresh refused for
+  the session ends it; a network failure or server error keeps it; SESSION_REVOKED or
+  SESSION_EXPIRED from any call ends it)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -36,9 +38,14 @@
     `/login?returnTo=…`, keeping the page to return to. For `SESSION_REVOKED` the message
     is "You were logged out because <reason>. Please log in again." when the problem has
     a `reason`, and "You've been logged out. Please log in again." when it doesn't
-    (amended 2026-11-03). Any other failed refresh goes to
-    `/login?returnTo=…` too.
-  - `401 ACCOUNT_DEACTIVATED` from any request goes to login and shows its message.
+    (amended 2026-11-03).
+  - Only a refresh refused with `SESSION_EXPIRED`, `SESSION_REVOKED`, `ACCOUNT_DEACTIVATED`
+    or `UNAUTHENTICATED` ends the session (amended 2026-11-03, owner decision). A network
+    failure or a server error (5xx) keeps it: the waiting calls fail with that error, and
+    the next call tries again.
+  - `401 ACCOUNT_DEACTIVATED`, `SESSION_REVOKED` or `SESSION_EXPIRED` from any request
+    goes to login and shows its message (ADR-0017 checks the session on every request,
+    amended 2026-11-03).
   - The CSRF token is read from its cookie and sent as `X-CSRF-Token`.
   - Role-based routes only hide what the user can't use.
   - A user with no role is routed to the Access pending screen. A `403 NO_ROLE_ASSIGNED`

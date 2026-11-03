@@ -198,6 +198,17 @@ steps 1–3 with only the bootstrap admin.
   when it does — `backend/tests/integration/reset-password.test.ts` — FR-015, FR-ACC-03,
   FR-ACC-05.
 
+Amended after the US1 review (2026-11-03, owner decision): the access cookie lives as long
+as the refresh cookie (its JWT still expires after 15 minutes); a refresh that fails with
+no network or a 5xx keeps the session; and every request reads its session with its user,
+so revocation takes effect on the next request (ADR-0017, ADR-0018). Covered by T035a.
+
+- [ ] T035a [US1] Review fixes: the access cookie's lifetime, refresh failures that keep
+  the session, `parseProblem` in the refresh, and per-request session checks in
+  `authenticate` with the web app ending the session on `SESSION_REVOKED` or
+  `SESSION_EXPIRED` from any call — `backend/src/auth/`, `backend/src/users/`,
+  `frontend/src/auth/refresh.ts` — NFR-SEC-02, NFR-SEC-03, NFR-FE-02.
+
 ### Implementation
 
 - [X] T027 [US1] Users repository: find by email, login bookkeeping, atomic lockout
