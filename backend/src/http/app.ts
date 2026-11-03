@@ -12,7 +12,7 @@ import {
 } from './define-route.js';
 import { correlation } from './middleware/correlation.js';
 import { errorHandler, notFound } from './middleware/errors.js';
-import { authenticate, requireAccess, type AuthDependencies } from './middleware/authorize.js';
+import { authenticate, type AuthDependencies } from './middleware/authorize.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 import { parseJson } from './middleware/parse-json.js';
 import { originGuard, securityHeaders } from './middleware/security.js';
@@ -130,7 +130,7 @@ function requestSteps(route: RouteDefinition, auth: AuthDependencies | undefined
       `Route ${describeRoute(route)} needs authentication, but the app has none`,
     );
   }
-  return [authenticate(route.access, auth), ...validate, requireAccess(route.access)];
+  return [authenticate(route.access, auth), ...validate];
 }
 
 export function createApp({
@@ -165,8 +165,9 @@ export function createApp({
   app.use(securityHeaders());
   app.use(originGuard(appOrigin));
 
-  // ADR-0004 precedence: 401, CSRF and NO_ROLE_ASSIGNED, then the body and its shape
-  // (400), then the role's 403. The body is read only after the caller is known.
+  // ADR-0004 precedence: 401, CSRF, NO_ROLE_ASSIGNED and the access level's FORBIDDEN,
+  // then the body and its shape (400). The body is read only once the caller may use the
+  // route.
   for (const route of routes) {
     app.route(route.path)[route.method](...requestSteps(route, auth), route.handler);
   }

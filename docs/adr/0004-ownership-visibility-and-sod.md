@@ -3,7 +3,8 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (matrix moved here from the
   constitution; no-role users and access requests; `DUPLICATE_APPROVER` removed; approval
   authority and owner transfer **not adopted**) · amended 2026-11-03 (POC scope, owner
-  decision: no phone field, ADR-0016)
+  decision: no phone field, ADR-0016) · amended 2026-11-03 (**owner decision**: a route's
+  access level is checked before validation, like `NO_ROLE_ASSIGNED`)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -56,10 +57,13 @@ let any buyer edit any draft (lesson 3).
   1. `401`
   2. `403 NO_ROLE_ASSIGNED`: route-level, before validation, because the caller can't use
      the route whatever the input
-  3. `400`: shape
-  4. `404`: can't read
-  5. `403`: role, ownership, separation of duties
-  6. `409`: state, version, business rule
+  3. `403 FORBIDDEN` for the route's access level (amended 2026-11-03): also route-level and
+     before validation, for the same reason. A Buyer on `/api/admin/*` gets `403`, never
+     `400`, whatever the body.
+  4. `400`: shape
+  5. `404`: can't read
+  6. `403` order-level: the role in context, ownership, separation of duties
+  7. `409`: state, version, business rule
 - Authorization is checked in the service layer against the order loaded **under lock** in
   the command's transaction.
 

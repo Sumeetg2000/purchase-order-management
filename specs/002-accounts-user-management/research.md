@@ -18,8 +18,10 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
     `403 FORBIDDEN`.
   - `admin`: `{ADMIN}` only. No role → `403 NO_ROLE_ASSIGNED`; another role →
     `403 FORBIDDEN`.
-- `createApp` inserts one `authorize(route.access)` step **before** `validateRequest`, so
-  the order is ADR-0004's: `401` → `403 NO_ROLE_ASSIGNED` → `400` → `404` → `403` → `409`.
+- `createApp` inserts one `authenticate(route.access)` step **before** the body is parsed
+  or validated, so the order is ADR-0004's (amended 2026-11-03): `401` → CSRF →
+  `403 NO_ROLE_ASSIGNED` → `403 FORBIDDEN` (the route's access level) → `400` → `404` →
+  order-level `403` → `409`.
   The step verifies the access cookie, loads `status` and `roles` by primary key (one
   indexed read per request), refuses non-`ACTIVE` users with `401 ACCOUNT_DEACTIVATED`,
   checks CSRF on state-changing methods, and puts a typed `req.auth` (user id, session id,

@@ -4,11 +4,12 @@ import { readCookies } from '../../auth/cookies.js';
 import { csrfTokenMatches } from '../../auth/csrf.js';
 import type { AuthenticatedUser, AuthService, RefreshSession } from '../../auth/service.js';
 
-// The authorize step (research R1, R7; ADR-0004 check precedence). Two middlewares per
-// route, around validation:
-//   authenticate: 401, then CSRF on state changes, then 403 NO_ROLE_ASSIGNED
-//   requireAccess (after validation): 403 FORBIDDEN for the wrong role
-// The global origin guard has already refused a cross-origin request.
+// The authorize step (research R1, R7; ADR-0004 check precedence, amended 2026-11-03).
+// One middleware per guarded route, before the body is read or validated:
+//   401, then CSRF on state changes, then 403 NO_ROLE_ASSIGNED, then 403 FORBIDDEN for a
+//   user without the route's access level: they can't use the route whatever the input.
+// Order-level checks (ownership, separation of duties) are the services' own. The global
+// origin guard has already refused a cross-origin request.
 
 export interface AuthDependencies {
   service: AuthService;
@@ -19,7 +20,7 @@ export interface AuthDependencies {
 const AUTH_KEY = 'auth';
 const REFRESH_KEY = 'refreshSession';
 
-/** Access levels that serve only users holding a role: no role is refused before input. */
+/** Access levels that serve only users holding a role: no role is NO_ROLE_ASSIGNED. */
 const ROLE_LEVELS: ReadonlySet<Access> = new Set(['admin']);
 
 function checkCsrf(
@@ -30,6 +31,20 @@ function checkCsrf(
 ) {
   if (!requiresCsrf(method)) return;
   if (!csrfTokenMatches(deps.csrfSecret, sessionId, header)) throw new AppError('CSRF_REJECTED');
+}
+
+/** Whether a user's roles satisfy an access level. */
+function allowed(access: Access, user: AuthenticatedUser): boolean {
+  switch (access) {
+    case 'public':
+    case 'refresh':
+    case 'user':
+      return true;
+    case 'no-role':
+      return user.roles.length === 0;
+    case 'admin':
+      return user.roles.includes(ROLE.ADMIN);
+  }
 }
 
 export function authenticate(access: Access, deps: AuthDependencies): RequestHandler {
@@ -48,6 +63,7 @@ export function authenticate(access: Access, deps: AuthDependencies): RequestHan
       if (ROLE_LEVELS.has(access) && user.roles.length === 0) {
         throw new AppError('NO_ROLE_ASSIGNED');
       }
+      if (!allowed(access, user)) throw new AppError('FORBIDDEN');
       res.locals[AUTH_KEY] = user;
     };
     run().then(
@@ -60,31 +76,6 @@ export function authenticate(access: Access, deps: AuthDependencies): RequestHan
         next(error);
       },
     );
-  };
-}
-
-/** Whether a user's roles satisfy an access level. */
-function allowed(access: Access, user: AuthenticatedUser): boolean {
-  switch (access) {
-    case 'public':
-    case 'refresh':
-    case 'user':
-      return true;
-    case 'no-role':
-      return user.roles.length === 0;
-    case 'admin':
-      return user.roles.includes(ROLE.ADMIN);
-  }
-}
-
-/** 403 FORBIDDEN for a user whose roles don't fit the level; runs after validation. */
-export function requireAccess(access: Access): RequestHandler {
-  return (_req, res, next) => {
-    if (access === 'public' || access === 'refresh') {
-      next();
-      return;
-    }
-    next(allowed(access, authOf(res)) ? undefined : new AppError('FORBIDDEN'));
   };
 }
 
