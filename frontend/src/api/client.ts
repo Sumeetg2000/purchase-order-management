@@ -7,7 +7,13 @@ import {
   type Problem,
 } from '@po/contracts';
 import createClient, { type ClientOptions, type Middleware } from 'openapi-fetch';
+import { endSession } from '../auth/session-events';
+import { createRefresher, expiredAccessMiddleware } from '../auth/refresh';
+import type { ProblemLike } from '../errors/messages';
+import { documentCookies, readCookie } from './cookies';
 import type { paths } from './schema';
+
+export { readCookie } from './cookies';
 
 // The typed API client (ADR-0008, research R12): openapi-fetch over the types generated
 // from the committed OpenAPI document (`npm run contract:types`). Same origin: nginx and
@@ -24,27 +30,11 @@ export class NetworkError extends Error {
   }
 }
 
-/** One cookie's value from a Cookie string (document.cookie), decoded. */
-export function readCookie(cookies: string, name: string): string | undefined {
-  for (const pair of cookies.split(';')) {
-    const separator = pair.indexOf('=');
-    if (separator !== -1 && pair.slice(0, separator).trim() === name) {
-      try {
-        return decodeURIComponent(pair.slice(separator + 1).trim());
-      } catch {
-        // A malformed value is no token: send none, and the API refuses the call.
-        return undefined;
-      }
-    }
-  }
-  return undefined;
-}
-
 /**
  * Sends the CSRF cookie back as X-CSRF-Token on every state-changing call (ADR-0017,
  * research R17). Without the cookie nothing is sent, and the API refuses the call.
  */
-export function csrfMiddleware(cookies: () => string = () => document.cookie): Middleware {
+export function csrfMiddleware(cookies: () => string = documentCookies): Middleware {
   return {
     onRequest({ request }) {
       if (!requiresCsrf(request.method)) return undefined;
@@ -59,13 +49,26 @@ export function csrfMiddleware(cookies: () => string = () => document.cookie): M
 export interface ApiClientOptions extends ClientOptions {
   /** Where cookies are read from; the browser's document.cookie by default. */
   cookies?: () => string;
+  /** Called when the session ends under the user; the session boundary by default. */
+  onSessionEnded?: (problem: ProblemLike) => void;
 }
 
-export function createApiClient({ cookies, ...options }: ApiClientOptions = {}) {
+/** The API's base URL, absolute: same origin in the browser. */
+function defaultBaseUrl(): string {
+  const origin = typeof location === 'undefined' ? 'http://localhost' : location.origin;
+  return new URL(API_BASE_URL, origin).href;
+}
+
+export function createApiClient({
+  cookies = documentCookies,
+  onSessionEnded = endSession,
+  ...options
+}: ApiClientOptions = {}) {
   const send = options.fetch ?? ((request: Request) => globalThis.fetch(request));
+  const baseUrl = options.baseUrl ?? defaultBaseUrl();
   const client = createClient<paths>({
-    baseUrl: API_BASE_URL,
     ...options,
+    baseUrl,
     fetch: async (request: Request) => {
       try {
         return await send(request);
@@ -74,7 +77,21 @@ export function createApiClient({ cookies, ...options }: ApiClientOptions = {}) 
       }
     },
   });
-  client.use(csrfMiddleware(cookies));
+  const fetchOnce = async (request: Request) => {
+    try {
+      return await send(request);
+    } catch (cause) {
+      throw new NetworkError({ cause });
+    }
+  };
+  client.use(
+    csrfMiddleware(cookies),
+    expiredAccessMiddleware({
+      refresher: createRefresher({ baseUrl, fetch: send, cookies }),
+      fetch: fetchOnce,
+      onSessionEnded,
+    }),
+  );
   return client;
 }
 

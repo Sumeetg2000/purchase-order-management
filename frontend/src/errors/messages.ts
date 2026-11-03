@@ -1,7 +1,10 @@
 import {
   isErrorCode,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
   type ErrorCode,
+  type FieldCode,
   type PublicRevokeReason,
 } from '@po/contracts';
 
@@ -145,4 +148,43 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
 
 export function isRetryable(code: string): boolean {
   return (RETRYABLE_CODES as readonly string[]).includes(code);
+}
+
+/** What a field error says, by field code (ADR-0007), next to the field. */
+export const fieldMessages = {
+  MALFORMED_JSON: 'The request could not be read.',
+  UNSUPPORTED_MEDIA_TYPE: 'The request could not be read.',
+  REQUIRED: 'This is required.',
+  UNKNOWN_FIELD: 'This field is not accepted.',
+  INVALID_FORMAT: 'This is not in the expected format.',
+  TOO_SHORT: 'This is too short.',
+  TOO_LONG: 'This is too long.',
+  OUT_OF_RANGE: 'This is out of range.',
+  VERSION_REQUIRED: 'Reload and try again.',
+  INVALID_ROLE_SET: 'Choose Buyer, Approver, or Buyer and Approver.',
+  PASSWORD_TOO_SHORT: `Use at least ${String(PASSWORD_MIN_LENGTH)} characters.`,
+  PASSWORD_TOO_LONG: `Use at most ${String(PASSWORD_MAX_LENGTH)} characters.`,
+  PASSWORD_TOO_COMMON: 'This password is too common. Choose another.',
+  INCORRECT_PASSWORD: 'Incorrect password.',
+} as const satisfies Record<FieldCode, string>;
+
+/** The password rule, as account pages state it next to a new-password field. */
+export const PASSWORD_RULE = `Use ${String(PASSWORD_MIN_LENGTH)} to ${String(PASSWORD_MAX_LENGTH)} characters. Common passwords are refused.`;
+
+const SECONDS_PER_MINUTE = 60;
+
+/**
+ * A problem's message and next step as one sentence pair. For a lockout or rate limit
+ * with Retry-After, the wait is given in whole minutes, rounded up (ADR-0017).
+ */
+export function sentenceFor(problem: ProblemLike, retryAfterSeconds?: number): string {
+  const { message, action } = messageForProblem(problem);
+  if (
+    retryAfterSeconds !== undefined &&
+    (problem.code === 'ACCOUNT_LOCKED' || problem.code === 'RATE_LIMITED')
+  ) {
+    const minutes = Math.max(1, Math.ceil(retryAfterSeconds / SECONDS_PER_MINUTE));
+    return `${message} Try again in ${String(minutes)} minute${minutes === 1 ? '' : 's'}.`;
+  }
+  return action ? `${message} ${action}` : message;
 }

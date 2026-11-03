@@ -1,4 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { RequireUser } from '../auth/RequireUser';
+import { SessionBoundary } from '../auth/SessionBoundary';
 import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
 import { lazyPage } from './lazyPage';
 import { Shell } from './Shell';
@@ -28,10 +30,33 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
   return [
     {
       path: '/',
-      element: <Shell />,
+      element: <SessionBoundary />,
       errorElement: <RouteErrorBoundary />,
-      // Each page has its own boundary, so a failing page keeps the shell working.
-      children: pages.map((page) => ({ ...page, errorElement: <RouteErrorBoundary /> })),
+      children: [
+        // Account pages: no login needed, no app navigation.
+        {
+          path: 'login',
+          lazy: lazyPage(() => import('../pages/account/Login').then((m) => m.Login)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: 'reset-password',
+          lazy: lazyPage(() =>
+            import('../pages/account/ResetPassword').then((m) => m.ResetPassword),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          element: <RequireUser />,
+          children: [
+            {
+              element: <Shell />,
+              // Each page has its own boundary, so a failing page keeps the shell working.
+              children: pages.map((page) => ({ ...page, errorElement: <RouteErrorBoundary /> })),
+            },
+          ],
+        },
+      ],
     },
   ];
 }

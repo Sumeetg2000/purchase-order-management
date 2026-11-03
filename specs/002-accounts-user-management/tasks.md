@@ -216,14 +216,14 @@ steps 1–3 with only the bootstrap admin.
 
 ### Frontend
 
-- [ ] T032 [P] [US1] Tests: refresh coordinator (only `ACCESS_TOKEN_EXPIRED` refreshes;
+- [X] T032 [P] [US1] Tests: refresh coordinator (only `ACCESS_TOKEN_EXPIRED` refreshes;
   single-flight within the tab, no cross-tab coordination; each queued request retries
   once; `SESSION_EXPIRED` → session-expired message, `SESSION_REVOKED` → the
   reason-specific message, both to `/login?returnTo=`); Login page per code; Reset /
   set-password page posts the fragment token once, clears it, shows each token code's
   message; axe clean — `frontend/src/auth/*.test.ts(x)`,
   `frontend/src/pages/account/*.test.tsx` — FR-033, FR-034, NFR-FE-02, NFR-FE-08.
-- [ ] T033 [US1] `AuthProvider` (current user from `GET /api/me`), `refreshSession`,
+- [X] T033 [US1] `AuthProvider` (current user from `GET /api/me`), `refreshSession`,
   `useFragmentToken`, `RequireUser`, Login and
   ResetPassword pages, router entries — `frontend/src/auth/`,
   `frontend/src/pages/account/`, `frontend/src/app/router.tsx` — T032 green.

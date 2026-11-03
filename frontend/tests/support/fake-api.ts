@@ -12,7 +12,11 @@ export function json(status: number, body: unknown, headers: Record<string, stri
   });
 }
 
-export function problem(status: number, code: string, extra: Record<string, unknown> = {}) {
+export function problem(
+  status: number,
+  code: string,
+  { headers = {}, ...extra }: Record<string, unknown> & { headers?: Record<string, string> } = {},
+) {
   return new Response(
     JSON.stringify({
       type: 'about:blank',
@@ -22,13 +26,7 @@ export function problem(status: number, code: string, extra: Record<string, unkn
       correlationId: 'req-1',
       ...extra,
     }),
-    {
-      status,
-      headers: {
-        'Content-Type': 'application/problem+json',
-        ...(extra['headers'] as Record<string, string> | undefined),
-      },
-    },
+    { status, headers: { 'Content-Type': 'application/problem+json', ...headers } },
   );
 }
 
