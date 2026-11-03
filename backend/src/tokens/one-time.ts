@@ -1,11 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
+import type { ErrorCode } from '@po/contracts';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 
 // One-time tokens for set-password links, and from slice 1 email verification (ADR-0017,
 // data-model.md). The token is 256 random bits, shown once; only its SHA-256 hash is
 // stored, so a database dump can't be turned into working links. The expiry comes from
-// the database clock: now() plus the purpose's lifetime.
+// the database clock: now() plus the purpose's lifetime, and expiry is checked against it.
 
 export type TokenPurpose = 'RESET' | 'VERIFY_EMAIL';
 
@@ -54,4 +55,39 @@ export async function issueToken(
     RETURNING expires_at`;
   if (!row) throw new Error('one_time_tokens insert returned no row');
   return { token, expiresAt: row.expires_at };
+}
+
+/** Why a presented token can't be used; each is its own API code (ADR-0017, 2026-11-03). */
+export type TokenFailure = Extract<
+  ErrorCode,
+  'TOKEN_USED' | 'TOKEN_SUPERSEDED' | 'TOKEN_EXPIRED' | 'INVALID_TOKEN'
+>;
+
+export type ConsumedToken = { ok: true; userId: string } | { ok: false; code: TokenFailure };
+
+/**
+ * Uses a token for its purpose, once. The row is locked first, so two concurrent uses of
+ * one token can't both succeed: the second sees it used. A failure leaves the token as it
+ * was. Precedence: used, then superseded, then expired; a token with no row for this
+ * purpose (a typo, the wrong page, or purged) is INVALID_TOKEN.
+ */
+export async function consumeToken(
+  tx: AuditedTransaction,
+  purpose: TokenPurpose,
+  token: string,
+): Promise<ConsumedToken> {
+  const [row] = await tx.$queryRaw<
+    { id: string; user_id: string; used: boolean; superseded: boolean; expired: boolean }[]
+  >`
+    SELECT id::text, user_id::text, used_at IS NOT NULL AS used,
+           superseded_at IS NOT NULL AS superseded, expires_at <= now() AS expired
+      FROM one_time_tokens
+     WHERE token_hash = ${hashToken(token)} AND purpose = ${purpose}
+       FOR UPDATE`;
+  if (!row) return { ok: false, code: 'INVALID_TOKEN' };
+  if (row.used) return { ok: false, code: 'TOKEN_USED' };
+  if (row.superseded) return { ok: false, code: 'TOKEN_SUPERSEDED' };
+  if (row.expired) return { ok: false, code: 'TOKEN_EXPIRED' };
+  await tx.$executeRaw`UPDATE one_time_tokens SET used_at = now() WHERE id = ${row.id}::uuid`;
+  return { ok: true, userId: row.user_id };
 }

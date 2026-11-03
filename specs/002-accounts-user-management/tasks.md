@@ -119,12 +119,12 @@ short summary stop.
   NFR-SEC-04, NFR-SEC-05, FR-014.
 - [X] T013 Implement them, every lifetime and limit a named constant —
   `backend/src/auth/{passwords,cookies,access-token,csrf,constants}.ts` — T012 green.
-- [ ] T014 Tests: one-time token consume returns used → superseded → expired → unknown in
+- [X] T014 Tests: one-time token consume returns used → superseded → expired → unknown in
   that order (`TOKEN_USED`, `TOKEN_SUPERSEDED`, `TOKEN_EXPIRED`, `INVALID_TOKEN`); wrong
   purpose and purged rows are unknown; a used and expired token is `TOKEN_USED`; a valid
   one is marked used once under `FOR UPDATE` (two concurrent consumes: one wins) —
   `backend/tests/integration/tokens.test.ts` — FR-ACC-03.
-- [ ] T015 `consumeToken(tx, purpose, token)` returning the outcome —
+- [X] T015 `consumeToken(tx, purpose, token)` returning the outcome —
   `backend/src/tokens/one-time.ts` — T014 green.
 - [ ] T016 Tests: rate limiter — fixed window per bucket, the (N+1)th hit → `429
   RATE_LIMITED` with `Retry-After` to the window end, new window resets, two app
