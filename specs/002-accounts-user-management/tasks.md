@@ -144,7 +144,7 @@ short summary stop.
 - [X] T019 Authorize middleware and `defineRoute` (access level, custom field codes,
   `If-Match` parsing) — `backend/src/http/middleware/authorize.ts`,
   `backend/src/http/define-route.ts`, `backend/src/http/routes/index.ts` — T018 green.
-- [ ] T020 [P] Security-log event names and writer for this slice's events (R18); a test
+- [X] T020 [P] Security-log event names and writer for this slice's events (R18); a test
   asserts the field allow-list never carries a token or password —
   `backend/src/observability/security-log.ts`,
   `backend/tests/unit/security-log.test.ts` — FR-029, NFR-SEC-06.

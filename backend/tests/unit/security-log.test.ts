@@ -64,7 +64,7 @@ describe('[NFR-SEC-06] security log', () => {
       email: 'someone@example.local',
       to: 'someone@example.local',
     };
-    logSecurityEvent(capture.logger, 'login_failed', smuggled as never);
+    logSecurityEvent(capture.logger, 'login_failed', smuggled);
     const [line] = capture.lines;
     expect(line).toMatchObject({ userId: 'u1' });
     for (const key of ['password', 'refreshToken', 'email', 'to']) {
