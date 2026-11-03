@@ -41,8 +41,11 @@ export const USER_STATUS = Object.fromEntries(USER_STATUSES.map((status) => [sta
   readonly [S in UserStatus]: S;
 };
 
+/** The acting role of a user acting on their own account: signup, verification, profile. */
+export const SELF_ACTING_ROLE = 'SELF';
+
 /** What a user may act as in an audit entry: a role, or SELF for their own account. */
-export const ACTING_ROLES = [...USER_ROLES, 'SELF'] as const;
+export const ACTING_ROLES = [...USER_ROLES, SELF_ACTING_ROLE] as const;
 export type ActingRole = (typeof ACTING_ROLES)[number];
 
 /** A user's name: 1 to 100 characters (ADR-0007). */

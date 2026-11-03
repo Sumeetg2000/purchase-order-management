@@ -11,6 +11,7 @@ import { withDatabase, type TransactionRunner } from '../db/transaction.js';
 import type { RequestContext } from '../lib/request-context.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { toMe } from '../users/me.js';
+import { selfActor } from '../users/actor.js';
 import { findProfile, lockUser } from '../users/repository.js';
 
 // The caller's own profile and access request (ADR-0016). Slice 1 US4 adds the edit.
@@ -61,19 +62,16 @@ export function createProfileService(deps: {
       await deps.rateLimiter.hit('access-request-user', user.userId);
       const request = await deps.transactions.run(
         {
-          actor: {
-            type: 'USER',
-            userId: user.userId,
-            name: user.name,
-            email: user.email,
-            actingRole: 'SELF',
-          },
+          actor: selfActor({ id: user.userId, name: user.name, email: user.email }),
           requestId: ctx.requestId,
           logger: ctx.logger,
         },
         async (tx) => {
-          // One send at a time per user, so two can't both open a request.
-          await lockUser(tx, user.userId);
+          // One send at a time per user, so two can't both open a request; and the role is
+          // checked again under the lock, since an admin may have granted one since the
+          // authorize step read the user.
+          const locked = await lockUser(tx, user.userId);
+          if (!locked || locked.roles.length > 0) throw new AppError('FORBIDDEN');
           const saved = await openOrUpdateAccessRequest(tx, { userId: user.userId, message });
           await writeAudit(tx, {
             action: 'ACCESS_REQUESTED',

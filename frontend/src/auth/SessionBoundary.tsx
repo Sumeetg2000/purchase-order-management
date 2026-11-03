@@ -28,9 +28,13 @@ export function SessionBoundary() {
   useEffect(
     () =>
       onNoRoleAssigned(() => {
-        void navigate('/access-pending', { replace: true });
+        // The cached user may still hold the role an admin just removed: read it again, so
+        // the guards agree with the API and don't send the user back and forth.
+        void queryClient
+          .invalidateQueries({ queryKey: CURRENT_USER_KEY })
+          .then(() => navigate('/access-pending', { replace: true }));
       }),
-    [navigate],
+    [navigate, queryClient],
   );
 
   return <Outlet />;

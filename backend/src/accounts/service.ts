@@ -19,6 +19,7 @@ import { verifyEmailTemplate } from '../mail/templates.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { verifyEmailLink } from '../tokens/links.js';
+import { selfActor } from '../users/actor.js';
 import { consumeToken, issueToken } from '../tokens/one-time.js';
 import {
   activateUser,
@@ -62,17 +63,6 @@ export interface AccountsServiceDependencies {
   appOrigin: string;
   /** SIGNUP_ALLOWED_DOMAINS, lower-cased. */
   signupDomains: readonly string[];
-}
-
-/** The user as their own actor, for self-service changes (research R12). */
-function self(user: ProfileUser) {
-  return {
-    type: 'USER' as const,
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    actingRole: 'SELF',
-  };
 }
 
 export function createAccountsService(deps: AccountsServiceDependencies): AccountsService {
@@ -124,7 +114,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
             }
             throw error;
           }
-          await actAs(tx, self(user), ctx.requestId);
+          await actAs(tx, selfActor(user), ctx.requestId);
           await writeAudit(tx, {
             action: 'USER_SIGNED_UP',
             entityType: 'user',
@@ -146,37 +136,46 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
           if (!consumed.ok) throw new AppError(consumed.code);
           const user = await lockUser(tx, consumed.userId);
           if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
+          // Deactivated since the link was sent: refused, and the rollback leaves it unused.
+          if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
           // Already active (a reset verified it first): the link has nothing left to do.
-          if (user.status === USER_STATUS.UNVERIFIED) {
-            await actAs(tx, self(user), ctx.requestId);
-            await activateUser(tx, user.id);
-            await writeAudit(tx, {
-              action: 'USER_EMAIL_VERIFIED',
-              entityType: 'user',
-              entityId: user.id,
-              details: { via: 'link' },
-            });
-          }
+          if (user.status !== USER_STATUS.UNVERIFIED) return undefined;
+          await actAs(tx, selfActor(user), ctx.requestId);
+          await activateUser(tx, user.id);
+          await writeAudit(tx, {
+            action: 'USER_EMAIL_VERIFIED',
+            entityType: 'user',
+            entityId: user.id,
+            details: { via: 'link' },
+          });
           return user.id;
         },
       );
-      logSecurityEvent(ctx.logger, 'email_verified', {
-        userId,
-        ip: ctx.ip,
-        userAgent: ctx.userAgent,
-      });
+      if (userId) {
+        logSecurityEvent(ctx.logger, 'email_verified', {
+          userId,
+          ip: ctx.ip,
+          userAgent: ctx.userAgent,
+        });
+      }
     },
 
     resendVerification: async (input, ctx) => {
       const email = input.email.toLowerCase();
       await deps.rateLimiter.hit('resend-email', email);
-      const user = await withDatabase(() => findLoginUser(deps.prisma, email));
-      if (!user) throw new AppError('ACCOUNT_NOT_FOUND');
-      if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
-      if (user.status === USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_ALREADY_VERIFIED');
+      const found = await withDatabase(() => findLoginUser(deps.prisma, email));
+      if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
       await deps.transactions.run(
         { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
-        (tx, hooks) => sendVerification(tx, hooks, user, ctx),
+        async (tx, hooks) => {
+          // Checked under the user's lock, so a verification, reset or deactivation running
+          // at the same time can't be followed by a link the account no longer needs.
+          const user = await lockUser(tx, found.id);
+          if (!user) throw new Error(`user ${found.id} disappeared`);
+          if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
+          if (user.status === USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_ALREADY_VERIFIED');
+          await sendVerification(tx, hooks, user, ctx);
+        },
       );
     },
 
@@ -196,7 +195,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
           const passwordHash = await hashPassword(input.newPassword);
           const user = await lockUser(tx, consumed.userId);
           if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
-          await actAs(tx, self(user), ctx.requestId);
+          await actAs(tx, selfActor(user), ctx.requestId);
           await setPasswordAfterReset(tx, user.id, passwordHash);
           if (user.status === USER_STATUS.UNVERIFIED) {
             await activateUser(tx, user.id);

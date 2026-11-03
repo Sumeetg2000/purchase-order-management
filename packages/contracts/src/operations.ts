@@ -151,7 +151,13 @@ export const OPERATIONS = {
     access: 'public',
     request: { body: tokenBody },
     responses: { 204: z.void() },
-    errors: ['TOKEN_EXPIRED', 'TOKEN_USED', 'TOKEN_SUPERSEDED', 'INVALID_TOKEN'],
+    errors: [
+      'TOKEN_EXPIRED',
+      'TOKEN_USED',
+      'TOKEN_SUPERSEDED',
+      'INVALID_TOKEN',
+      'ACCOUNT_DEACTIVATED',
+    ],
   },
   resendVerification: {
     method: 'post',

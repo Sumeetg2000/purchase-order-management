@@ -274,7 +274,7 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
   NFR-FE-08.
 - [X] T041 [US2] E2E: signup → Mailpit link → verify → login → Access pending → send
   request — `frontend/e2e/signup-to-buyer.spec.ts` (first half) — FR-036, SC-001.
-- [ ] T042 [US2] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [X] T042 [US2] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 

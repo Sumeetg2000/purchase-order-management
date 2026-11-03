@@ -1208,6 +1208,24 @@
               }
             }
           },
+          "401": {
+            "description": "Problem document with code ACCOUNT_DEACTIVATED.",
+            "x-error-codes": [
+              "ACCOUNT_DEACTIVATED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Problem document with code CSRF_REJECTED.",
             "x-error-codes": [

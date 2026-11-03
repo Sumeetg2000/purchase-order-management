@@ -5,6 +5,11 @@
 export const ACCESS_REQUEST_STATUSES = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
 export type AccessRequestStatus = (typeof ACCESS_REQUEST_STATUSES)[number];
 
+/** Each status by name, e.g. ACCESS_REQUEST_STATUS.OPEN. */
+export const ACCESS_REQUEST_STATUS = Object.fromEntries(
+  ACCESS_REQUEST_STATUSES.map((status) => [status, status]),
+) as { readonly [S in AccessRequestStatus]: S };
+
 /** The longest message a user may send with an access request (ADR-0007). */
 export const ACCESS_REQUEST_MESSAGE_MAX_LENGTH = 500;
 

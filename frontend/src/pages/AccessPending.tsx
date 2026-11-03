@@ -1,12 +1,12 @@
 import { ACCESS_REQUEST_MESSAGE_MAX_LENGTH, type OwnAccessRequest } from '@po/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type SyntheticEvent } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Label, TextArea, TextField } from 'react-aria-components';
 import { Navigate } from 'react-router';
 import { api } from '../api/app-client';
 import { dataOrThrow } from '../api/client';
 import { failureMessage, submit } from '../api/submit';
-import { useCurrentUser } from '../auth/current-user';
+import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
 import { ErrorState } from '../components/ErrorState';
 import { Loading } from '../components/Loading';
 import { problemFrom } from '../errors/problem';
@@ -39,6 +39,12 @@ function useOwnAccessRequest() {
 export function AccessPending() {
   const user = useCurrentUser().data;
   const request = useOwnAccessRequest();
+  const queryClient = useQueryClient();
+  const refused = request.isError && problemFrom(request.error).code === 'FORBIDDEN';
+  useEffect(() => {
+    // FORBIDDEN on the no-role route: a role arrived. Read the user again to move on.
+    if (refused) void queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
+  }, [refused, queryClient]);
   if (user && user.roles.length > 0) return <Navigate to="/" replace />;
 
   return (
@@ -52,6 +58,8 @@ export function AccessPending() {
       {user && <p>You signed up on {formatDate(user.createdAt)}.</p>}
       {request.isPending ? (
         <Loading label="Loading your request" />
+      ) : refused ? (
+        <Loading label="Loading your account" />
       ) : request.isError ? (
         <ErrorState problem={problemFrom(request.error)} />
       ) : (

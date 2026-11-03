@@ -1,4 +1,8 @@
-import { ACCESS_REQUEST_STATUSES, type AccessRequestStatus } from '@po/contracts';
+import {
+  ACCESS_REQUEST_STATUS,
+  ACCESS_REQUEST_STATUSES,
+  type AccessRequestStatus,
+} from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
@@ -55,7 +59,7 @@ export async function openOrUpdateAccessRequest(
   request: { userId: string; message: string },
 ): Promise<AccessRequest> {
   const open = await tx.accessRequest.findFirst({
-    where: { userId: request.userId, status: 'OPEN' },
+    where: { userId: request.userId, status: ACCESS_REQUEST_STATUS.OPEN },
     select: { id: true },
   });
   const row = open
@@ -65,7 +69,12 @@ export async function openOrUpdateAccessRequest(
         select: COLUMNS,
       })
     : await tx.accessRequest.create({
-        data: { id: uuidv7(), userId: request.userId, message: request.message, status: 'OPEN' },
+        data: {
+          id: uuidv7(),
+          userId: request.userId,
+          message: request.message,
+          status: ACCESS_REQUEST_STATUS.OPEN,
+        },
         select: COLUMNS,
       });
   return parsed(row);
