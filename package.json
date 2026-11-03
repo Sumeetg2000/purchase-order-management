@@ -50,6 +50,7 @@
     "esbuild@0.28.2": true,
     "prisma@7.10.1": true,
     "@prisma/engines@7.10.1": true,
+    "argon2": false,
     "cpu-features": false,
     "ssh2": false,
     "protobufjs": false,
