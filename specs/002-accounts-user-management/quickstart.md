@@ -44,8 +44,7 @@ the end of the slice. Contracts: [api.md](contracts/api.md), [errors.md](contrac
 - The admin's own row and other admin rows show no actions.
 
 ## 5. Profile, password, sessions (US4)
-- Log in as a demo Buyer in two browsers. Profile → phone `98765 43210` → saved as
-  `+919876543210`. Change password in browser A → browser B's next refresh → login.
+- Log in as a demo Buyer in two browsers. Profile → change the name → saved. Change password in browser A → browser B's next refresh → login.
 - Sessions → revoke B; Log out everywhere → A goes to login too.
 
 ## 6. Forgot / reset (US5)
@@ -63,12 +62,10 @@ docker compose exec api npm run admin -- admin:reactivate --email second.admin@e
 
 ## 8. Automated checks
 - `npm test` (backend accounts, sessions, authorization matrix, rate-limit, purge and
-  query-plan suites; contracts inventory; frontend pages and dialogs), `npm run e2e`,
+  suites; contracts inventory; frontend pages and dialogs), `npm run e2e`,
   contract drift, `npm run check:traceability`.
-- `npm run perf:plans -w @po/backend` regenerates `docs/perf/plans/`; `git diff` shows
-  only timing lines.
 - Security log: `docker compose logs api | grep '"security":true'` shows each event with
-  no token, password or phone.
+  no token or password.
 
 ## Demo accounts
 `SEED_DEMO_DATA=true` creates `buyer1@example.com`, `buyer2@example.com` and

@@ -6,7 +6,9 @@
   library chosen in the slice-0 plan) · amended 2026-11-02 (POC: clear, specific error
   messages over anti-enumeration: refresh only on `ACCESS_TOKEN_EXPIRED`; the
   session-expired message; account pages show the specific outcome; ADR-0017) · amended
-  2026-11-03 (the revoke reason in the logged-out message; the one-time-link codes)
+  2026-11-03 (the revoke reason in the logged-out message; the one-time-link codes) ·
+  amended 2026-11-03 (POC scope, owner decision: refresh once per tab, no cross-tab
+  coordination; no phone on the profile)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -25,8 +27,9 @@
 - **Auth flow**:
   - A `401 ACCESS_TOKEN_EXPIRED` from any request triggers one refresh. No other `401`
     does: a login failure or `UNAUTHENTICATED` is shown or sent to login as it is. The
-    refresh is single-flight within a tab, and coordinated across tabs (BroadcastChannel /
-    Web Locks) so only one tab refreshes.
+    refresh is single-flight within a tab. Tabs are not coordinated (amended 2026-11-03,
+    POC scope, owner decision): each tab refreshes on its own, and ADR-0017's 10-second
+    sibling window lets those concurrent refreshes all succeed.
   - Queued requests then retry, each once. A refresh that fails with `SESSION_EXPIRED` or
     `SESSION_REVOKED` shows "Your session has expired. Please log in again." and goes to
     `/login?returnTo=…`, keeping the page to return to. For `SESSION_REVOKED` the message
@@ -160,7 +163,7 @@ Everyone:
   - Links to profile and logout. After a role is assigned, the user's session ends and the
     next login lands on the role's home screen.
 - **Profile** (`/profile`, every user, with or without a role):
-  - edit name and phone
+  - edit the name
   - email, roles and status shown read-only
   - a change-password form
   - active sessions (device from user agent, IP, last used, "this device"), with

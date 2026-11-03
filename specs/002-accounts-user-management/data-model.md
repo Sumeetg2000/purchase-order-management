@@ -11,14 +11,14 @@ New columns:
 
 | Column | Type | Rule |
 |---|---|---|
-| `phone` | `text NULL` | `CHECK (phone ~ '^\+[1-9][0-9]{6,14}$')` (E.164, normalised by the service) |
 | `last_login_at` | `timestamptz NULL` | set on successful login |
 | `failed_login_count` | `integer NOT NULL DEFAULT 0` | `CHECK (failed_login_count BETWEEN 0 AND 4)`: reaching 5 locks and resets to 0 |
 | `locked_until` | `timestamptz NULL` | lockout end (ADR-0017) |
 
 Unchanged from slice 0: `id`, `name` (1–100), `email` (lower-case, unique), `roles`
 (the five sets, canonical order), `status`, `deactivated_at`, `password_hash`,
-`version`, `created_at`, `updated_at`.
+`version`, `created_at`, `updated_at`. No `phone` column (ADR-0016, amended 2026-11-03,
+POC scope).
 
 - **Version**: profile, role and status changes increment `version`. Login bookkeeping
   (`last_login_at`, `failed_login_count`, `locked_until`) and `password_hash` do not
@@ -29,10 +29,10 @@ Unchanged from slice 0: `id`, `name` (1–100), `email` (lower-case, unique), `r
 - **Indexes** (admin list, R13): `users_name_id_idx (name, id)`,
   `users_status_name_id_idx (status, name, id)`,
   `users_lower_name_prefix_idx (lower(name) text_pattern_ops)`,
-  `users_lower_email_prefix_idx (lower(email) text_pattern_ops)`,
-  `users_phone_purge_idx (deactivated_at) WHERE phone IS NOT NULL`.
-- **Grants**: `po_app` keeps `SELECT, INSERT, UPDATE`. `po_maintenance` gets
-  `SELECT (id, status, deactivated_at, phone)` and `UPDATE (phone)`.
+  `users_lower_email_prefix_idx (lower(email) text_pattern_ops)`. Their committed query
+  plans at 10,000 users land in slice 7.
+- **Grants**: unchanged: `po_app` keeps `SELECT, INSERT, UPDATE`; `po_maintenance` gets
+  nothing on `users`.
 
 ## 0008_sessions: `sessions` and `refresh_tokens`
 
@@ -123,19 +123,18 @@ reason and the web app maps it): `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED`, `REUSE_
 
 ## Audit events written in this slice
 
-All in the transaction of their change; `details` never contains a phone number.
+All in the transaction of their change.
 
 | Action | Actor | `details` |
 |---|---|---|
 | `USER_SIGNED_UP` | the user, `SELF` | `emailDomain`, `roles: []` |
 | `USER_EMAIL_VERIFIED` | the user, `SELF` | `via: 'link' \| 'reset'` |
-| `USER_PROFILE_UPDATED` | the user, `SELF` | `name: { before, after }?`, `phone: 'set' \| 'changed' \| 'cleared'?` |
+| `USER_PROFILE_UPDATED` | the user, `SELF` | `name: { before, after }` |
 | `USER_ROLES_CHANGED` | admin, `ADMIN` | `before`, `after`, `sessionsRevoked` |
 | `USER_DEACTIVATED` / `USER_REACTIVATED` | admin `ADMIN`, or `OPERATOR` | `before`, `after`, `sessionsRevoked` |
 | `USER_PASSWORD_RESET_SENT` | admin, `ADMIN` | `targetUserId` |
 | `ACCESS_REQUESTED` | the user, `SELF` | `requestId`, `message` |
 | `ACCESS_REQUEST_RESOLVED` | admin, `ADMIN` | `requestId`, `roles` |
 | `ACCESS_REQUEST_DISMISSED` | admin `ADMIN`, or the deactivating actor | `requestId`, `note` |
-| `USER_PHONE_PURGED` | `SYSTEM` | `daysSinceDeactivation` |
 
 The admin's identity is the entry's actor, so it is not repeated in `details`.

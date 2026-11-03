@@ -54,7 +54,7 @@ A `SESSION_REVOKED` without a `reason` (an older API) falls back to the
 (probed 2026-11-03), and an added optional member as additive.
 
 Field codes added to `FIELD_CODES` (inside `400 VALIDATION_FAILED`): `VERSION_REQUIRED`,
-`INVALID_PHONE`, `INVALID_ROLE_SET`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`,
+`INVALID_ROLE_SET`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`,
 `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`.
 
 Operator CLI codes added to `backend/src/lib/operator-codes.ts`: `LAST_ADMIN`,

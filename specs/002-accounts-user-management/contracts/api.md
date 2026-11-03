@@ -27,7 +27,6 @@ export const PASSWORD_MAX_LENGTH = 128;
 export const ASSIGNABLE_ROLE_SETS = [[BUYER], [APPROVER], [BUYER, APPROVER]] as const;
 export const userName = z.string().trim().min(1).max(USER_NAME_MAX);
 export const passwordSchema = /* R4: custom issues PASSWORD_TOO_SHORT / _TOO_LONG */;
-export const phoneInput = z.string().max(32).nullable(); // normalised by the service (R11)
 export const roleSet = z.array(z.enum(USER_ROLES)); // service checks it is assignable
 ```
 
@@ -42,11 +41,10 @@ export const changePasswordBody = z.strictObject({ currentPassword: z.string().m
 
 // me.ts
 export const me = z.strictObject({
-  id: z.uuid(), name: z.string(), email: z.string(), phone: z.string().nullable(),
+  id: z.uuid(), name: z.string(), email: z.string(),
   roles: z.array(z.enum(USER_ROLES)), status: z.enum(USER_STATUSES), createdAt: z.iso.datetime(),
 });
-export const updateMeBody = z.strictObject({ name: userName.optional(), phone: phoneInput.optional() })
-  .refine((b) => b.name !== undefined || b.phone !== undefined); // empty body → 400 REQUIRED
+export const updateMeBody = z.strictObject({ name: userName }); // the only editable field; `phone` → UNKNOWN_FIELD
 
 // sessions.ts
 export const sessionItem = z.strictObject({
@@ -80,7 +78,7 @@ export const adminUserItem = z.strictObject({
   status: z.enum(USER_STATUSES), lastLoginAt: z.iso.datetime().nullable(),
 });
 export const adminUserDetail = adminUserItem.extend({
-  phone: z.string().nullable(), createdAt: z.iso.datetime(), version: z.int(),
+  createdAt: z.iso.datetime(), version: z.int(),
   openOrders: z.strictObject({ draft: z.int(), pending: z.int(), approvedWithOpenLines: z.int() }),
 });
 export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActive: z.boolean().optional() })
@@ -110,7 +108,7 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 | `listSessions` | `GET /auth/sessions` | user | `pageQuery` | `200 pageOf(sessionItem)` | |
 | `revokeSession` | `DELETE /auth/sessions/:id` | user | `idParams` | `204` (cookies cleared if current) | `NOT_FOUND` |
 | `getMe` | `GET /me` | user | none | `200 me` | |
-| `updateMe` | `PATCH /me` | user | `updateMeBody` | `200 me` | (field `INVALID_PHONE`) |
+| `updateMe` | `PATCH /me` | user | `updateMeBody` | `200 me` | |
 | `getOwnAccessRequest` | `GET /me/access-request` | no-role | none | `200 ownAccessRequest` | `NOT_FOUND`, `FORBIDDEN` |
 | `sendAccessRequest` | `POST /me/access-request` | no-role | `accessRequestBody` | `200 ownAccessRequest` | `FORBIDDEN`, `RATE_LIMITED` |
 | `listUsers` | `GET /admin/users` | admin | `userListQuery` | `200 pageOf(adminUserItem)` | `NO_ROLE_ASSIGNED`, `FORBIDDEN` |

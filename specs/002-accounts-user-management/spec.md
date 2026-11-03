@@ -61,6 +61,12 @@ with this spec to match the decision.
 - Q: What does `SESSION_REVOKED` tell the user? → A: Why: the problem carries the
   session's revoke reason, and the web app shows "You were logged out because <reason>.
   Please log in again." Never for another user's session (FR-008, FR-033).
+- Q: What is cut for the POC? → A: Owner decision, recorded as "POC scope" ADR amendments:
+  no phone field (so no phone purge, phone-leak scans or `INVALID_PHONE`); no cross-tab
+  refresh coordination; no 10,000-user seed or committed query plans in this slice
+  (slice 7 owns them; the indexes stay); resend-verification and forgot-password limited
+  per email only. `admin:reactivate` stays, since `admin:create` refuses an existing
+  email.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -217,27 +223,25 @@ the user and confirm they can't log in and their next request is refused.
 
 ### User Story 4 - Profile, password and sessions (Priority: P2)
 
-Any logged-in user, with or without a role, views their profile, edits their name and
-phone, changes their password, sees where they're logged in, and ends a session or all of
+Any logged-in user, with or without a role, views their profile, edits their name,
+changes their password, sees where they're logged in, and ends a session or all of
 them.
 
 **Why this priority**: Users need to keep their details right and react to a lost device,
 but the product works without it for a first demo.
 
-**Independent Test**: Log in from two browsers, edit the name and phone, change the
+**Independent Test**: Log in from two browsers, edit the name, change the
 password and confirm the other browser is logged out, then revoke a session from the list
 and log out everywhere.
 
 **Acceptance Scenarios**:
 
 1. **Given** a logged-in user, **When** they open their profile, **Then** they see id,
-   name, email, phone, roles, status and signup date, with email, roles and status
+   name, email, roles, status and signup date, with email, roles and status
    read-only.
-2. **Given** a profile edit, **When** it sets a name (1–100 characters) and a phone (a
-   valid number, normalised to international format; `null` clears it), **Then** it is
-   saved and audited as `USER_PROFILE_UPDATED`, recording the name before and after and
-   only whether the phone was set, changed or cleared. An invalid phone →
-   `400 INVALID_PHONE`. Email, roles, status or any other field → `400`.
+2. **Given** a profile edit, **When** it sets a name (1–100 characters), **Then** it is
+   saved and audited as `USER_PROFILE_UPDATED`, recording the name before and after.
+   Email, roles, status or any other field (`phone` included) → `400`.
 3. **Given** a password change, **When** the current password is wrong, **Then** it gets
    `400` with field code `INCORRECT_PASSWORD` and counts toward the lockout. A new
    password shorter than 12, longer than 128 or on the common-password list gets
@@ -313,7 +317,7 @@ active admin can't be deactivated.
 ### User Story 7 - Retention, privacy and security records (Priority: P3)
 
 Security events are recorded separately from the business audit, without secrets. Old
-session data, and the phone numbers of long-deactivated users, are removed on schedule.
+session data and ended rate-limit windows are removed on schedule.
 
 **Why this priority**: Required by the constitution and DPDP retention rules, but not on
 any user's path.
@@ -325,19 +329,17 @@ purge with an injected clock and confirm only data past its limit is removed.
 
 1. **Given** each event in ADR-0017's security-log list, **When** it happens, **Then** a
    structured security log entry is written with the user id when known, address, user
-   agent, session id and request id, and with no token, password or phone number.
+   agent, session id and request id, and with no token or password.
 2. **Given** sessions that ended more than 90 days ago, **When** the daily purge runs,
    **Then** they are deleted with their refresh tokens, and newer ones stay.
-3. **Given** a user deactivated more than 90 days ago, **When** the purge runs, **Then**
-   their phone is cleared, name and email stay, and `USER_PHONE_PURGED` is audited with
-   no number. At 89 days, or for an active user, the phone stays.
-4. **Given** any audit entry, response readable by a non-admin other than the user
-   themself, or log line, **Then** it contains no phone number.
+3. **Given** rate-limit windows that have ended, **When** the purge runs, **Then** they
+   are deleted, and the current windows stay.
 
 ### Edge Cases
 
-- **Two tabs refresh at once**: both succeed through the 10-second sibling window; the
-  web app also coordinates so normally only one tab refreshes.
+- **Two tabs refresh at once**: each tab refreshes on its own (no cross-tab
+  coordination, ADR-0018 amended 2026-11-03), and both succeed through the 10-second
+  sibling window.
 - **A role change while the user is mid-session**: the change ends their sessions; their
   next refresh gets `401 SESSION_REVOKED`, and their next request with a still-valid
   access token is checked against the new roles, because roles load on every request.
@@ -390,8 +392,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   shared by every API instance. *(NFR-SEC-07)*
 - **FR-005**: Rate limits MUST apply as in ADR-0017: login ≤ 30 per minute per client
   address and ≤ 10 per minute per account; signup ≤ 5 per hour per address and ≤ 3 per
-  hour per email; resend-verification and forgot-password ≤ 10 per hour per address and
-  ≤ 3 per hour per email. Over any limit → `429 RATE_LIMITED` with `Retry-After`, and
+  hour per email; resend-verification and forgot-password ≤ 3 per hour per email, with no
+  per-address limit (ADR-0017, amended 2026-11-03). Over any limit → `429 RATE_LIMITED` with `Retry-After`, and
   nothing is sent. *(NFR-SEC-05, NFR-SEC-08)*
 - **FR-016**: Rate-limit counters MUST hold across every API instance. They live in
   one store, the database, as the lockout does: there is no in-memory option and nothing
@@ -452,10 +454,10 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   no role, and anonymous. *(NFR-AUTH-02)*
 
 **Profile and access requests**
-- **FR-020**: `/me` MUST return id, name, email, phone, roles, status and signup date,
-  and accept edits to name and phone only, as in User Story 4. *(FR-USR-01)*
-- **FR-021**: Phone numbers MUST be visible only to the user and Admins, and never appear
-  in audit entries, logs, or responses readable by anyone else. *(NFR-PRIV-01)*
+- **FR-020**: `/me` MUST return id, name, email, roles, status and signup date, and
+  accept edits to the name only, as in User Story 4. *(FR-USR-01)*
+- **FR-021**: *Withdrawn 2026-11-03 (POC scope, owner decision): no phone is stored
+  (ADR-0016).*
 - **FR-022**: Access requests MUST behave as in ADR-0016: no-role users only, one open
   request per user, message updates, 3 per day, status and admin note readable by the
   user, text never rendered as HTML. *(FR-ACC-09)*
@@ -463,7 +465,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 **Administration**
 - **FR-023**: Admins MUST be able to list users with role (including no role), status
   and name/email prefix filters, paginated, sorted by name then id, with last login time,
-  backed by indexes with committed query plans at 10,000 users. *(FR-ADM-01)*
+  backed by indexes. The committed query plans at 10,000 users land in slice 7
+  (ADR-0016, amended 2026-11-03). *(FR-ADM-01)*
 - **FR-024**: Admins MUST be able to change a user's role set to one of the three
   assignable sets and activate or deactivate them, with a required version, the guards
   and their order from ADR-0016, no-op detection, and one audit entry per change.
@@ -483,15 +486,15 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 - **FR-028**: The user audit events in ADR-0016 (`USER_SIGNED_UP`, `USER_EMAIL_VERIFIED`,
   `USER_PROFILE_UPDATED`, `USER_ROLES_CHANGED`, `USER_DEACTIVATED`, `USER_REACTIVATED`,
   `USER_PASSWORD_RESET_SENT`, `ACCESS_REQUESTED`, `ACCESS_REQUEST_RESOLVED`,
-  `ACCESS_REQUEST_DISMISSED`, `USER_PHONE_PURGED`) MUST be written in the same
+  `ACCESS_REQUEST_DISMISSED`) MUST be written in the same
   transaction as their change, with the payloads in the catalogue. *(NFR-AUD-04 part —
   their visibility in the Admin organisation-wide log lands with that log)*
 - **FR-029**: The security events in ADR-0017 MUST be written as structured security log
-  entries, separate from the audit, with no token, password or phone. *(NFR-SEC-06)*
+  entries, separate from the audit, with no token or password. *(NFR-SEC-06)*
 - **FR-030**: The daily purge MUST delete sessions (with their refresh tokens) that ended
-  more than 90 days ago, and clear the phone of users deactivated more than 90 days ago,
-  as in ADR-0016 and ADR-0020. The maintenance role MUST be able to change only those.
-  *(NFR-OPS-05 part — idempotency keys land in slice 3; NFR-PRIV-02)*
+  more than 90 days ago, and rate-limit windows that have ended, as in ADR-0017 and
+  ADR-0020. The maintenance role MUST be able to delete only those.
+  *(NFR-OPS-05 part — idempotency keys land in slice 3)*
 
 **Errors, contract and web app**
 - **FR-031**: Every new code MUST be added to the single error registry with its status,
@@ -501,7 +504,7 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   inventory; endpoints with no input of their own are listed as taking no body.
   *(NFR-VAL-01)*
 - **FR-033**: The web app MUST refresh only on `ACCESS_TOKEN_EXPIRED`, single-flight
-  within a tab and coordinated across tabs; retry each queued request once; show the
+  within a tab (tabs are not coordinated); retry each queued request once; show the
   session-expired message and go to login with the return page on `SESSION_EXPIRED`;
   on `SESSION_REVOKED`, show "You were logged out because <reason>. Please log in
   again." for the problem's `reason` and go to login the same way; and go to login with
@@ -529,7 +532,7 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 ### Key Entities
 
 - **User** (completed from slice 0): name, email (lower-case, unique, never changed),
-  optional phone, role set (no role, Buyer, Approver, Buyer + Approver, or Admin), status
+  role set (no role, Buyer, Approver, Buyer + Approver, or Admin), status
   (unverified, active, deactivated) with its deactivation date, a version for admin
   updates, last login time, password hash, and lockout bookkeeping.
 - **Session**: one login on one device. It has a creation time, last use, an absolute
@@ -560,10 +563,11 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
 - **SC-006**: A deactivated user is refused on their very next request, with no grace
   period.
 - **SC-007**: Across the whole test suite, zero log lines, audit entries or
-  non-admin responses contain a password, token or phone number (the two set-password
+  non-admin responses contain a password or token (the two set-password
   links excepted).
-- **SC-008**: The admin user list answers with the first page in under 200 ms at 10,000
-  users, as shown by the committed query plans.
+- **SC-008**: *Moved to slice 7 (POC scope, owner decision 2026-11-03)*: the admin user
+  list answers with the first page in under 200 ms at 10,000 users, shown by committed
+  query plans.
 - **SC-009**: Every screen added in this slice has zero automated accessibility
   violations.
 

@@ -10,7 +10,9 @@
   `ACCOUNT_NOT_FOUND` instead of silent `202`s, no dummy hash or timing padding,
   `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`; rate-limit counters always in
   PostgreSQL, **owner decision**) · amended 2026-11-03 (one code per failed one-time
-  token; `SESSION_REVOKED` carries the revoke reason, **owner decision**)
+  token; `SESSION_REVOKED` carries the revoke reason, **owner decision**) · amended
+  2026-11-03 (POC scope, owner decision: resend-verification and forgot-password are
+  limited per email only; no phone in security logs because none is stored)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -167,10 +169,10 @@ answer to an in-app access request (ADR-0016).
   - login: ≤ 30 per minute per IP (offices share one IP) and ≤ 10 per minute per
     account
   - signup: ≤ 5 per hour per IP and ≤ 3 per hour per email
-  - resend-verification and forgot-password: ≤ 10 per hour per IP and ≤ 3 per hour per
-    email
-  - Over any limit, per IP or per email → `429 RATE_LIMITED` with `Retry-After`, and
-    nothing is sent.
+  - resend-verification and forgot-password: ≤ 3 per hour per email. No per-IP limit
+    (amended 2026-11-03, POC scope, owner decision): the per-email limit already caps
+    the mail any one address receives.
+  - Over any limit → `429 RATE_LIMITED` with `Retry-After`, and nothing is sent.
 
 ### Sessions and refresh rotation
 - Table `sessions` (one row per refresh family): id, user, created at, last used at (set
@@ -292,7 +294,7 @@ audit:
 - mail send failure
 
 Each entry has the user id when known, IP, user agent, session id and request id. Entries
-never contain tokens, passwords or phone numbers. The only exceptions are the set-password
+never contain tokens or passwords. The only exceptions are the set-password
 links printed by bootstrap and by `admin:create` (ADR-0016).
 
 ### Retention of session and security data (DPDP Act 2023)
@@ -359,7 +361,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - unlocked after 15 minutes (with an injected clock)
   - the counter resets on success
   - lockout holds across two app instances
-- Rate limits: signup, resend and forgot-password limits, per IP and per email → 429
+- Rate limits: signup per IP and per email, resend and forgot-password per email → 429
   `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one

@@ -33,8 +33,8 @@ short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add `argon2` 0.45.1, `jose` 6.2.12, `cookie` 2.0.1 and `libphonenumber-js`
-  1.13.15, exact, to the backend only — `backend/package.json`, `package-lock.json` — R21.
+- [ ] T001 Add `argon2` 0.45.1, `jose` 6.2.12 and `cookie` 2.0.1, exact, to the backend
+  only — `backend/package.json`, `package-lock.json` — R21.
   `npm audit --audit-level=high` still exits 0.
 - [ ] T002 [P] Config: `SIGNUP_ALLOWED_DOMAINS`, `JWT_SIGNING_KEY`, `JWT_KEY_ID`,
   `CSRF_SECRET` with the rules in [contracts/config.md](contracts/config.md) (placeholders
@@ -54,20 +54,20 @@ short summary stop.
 ### Schema
 
 - [ ] T004 Tests: migrations 0007–0010 per [data-model.md](data-model.md) — every column,
-  `CHECK` (`phone ~ '^\+[1-9][0-9]{6,14}$'`, `failed_login_count BETWEEN 0 AND 4`,
+  `CHECK` (`failed_login_count BETWEEN 0 AND 4`, no `phone` column,
   `(revoked_at IS NULL) = (revoke_reason IS NULL)`, `octet_length(token_hash) = 32`,
   `char_length(message) BETWEEN 1 AND 500`, `(status = 'OPEN') = (decided_at IS NULL)`,
   `hits >= 1`, bucket names), index and grant; each SQL copy of a constant
   (`SESSION_REVOKE_REASONS`, access-request statuses, bucket names, lengths) pinned to it;
   `schema.prisma` diff clean — `backend/tests/integration/migrations.test.ts`,
-  `backend/tests/integration/roles.test.ts` — FR-028, FR-030, NFR-PRIV-02.
+  `backend/tests/integration/roles.test.ts` — FR-028, FR-030.
 - [ ] T005 Migrations `0007_user_accounts`, `0008_sessions`, `0009_access_requests`,
   `0010_rate_limits` and the matching `schema.prisma` models — `backend/prisma/` — T004
   green.
 
 ### Contracts
 
-- [ ] T006 Tests: registry has the 25 codes and 7 field codes of
+- [ ] T006 Tests: registry has the 25 codes and 6 field codes of
   [contracts/errors.md](contracts/errors.md) with their statuses; `Problem.reason` is
   optional, a `SessionRevokeReason`, and allowed only on `SESSION_REVOKED`; the web
   message map and the revoke-reason map are complete `Record`s —
@@ -127,7 +127,7 @@ short summary stop.
   `If-Match` parsing) — `backend/src/http/middleware/authorize.ts`,
   `backend/src/http/define-route.ts`, `backend/src/http/routes/index.ts` — T017 green.
 - [ ] T019 [P] Security-log event names and writer for this slice's events (R18); a test
-  asserts the field allow-list never carries a token, password or phone —
+  asserts the field allow-list never carries a token or password —
   `backend/src/observability/security-log.ts`,
   `backend/tests/unit/security-log.test.ts` — FR-029, NFR-SEC-06.
 - [ ] T020 [P] Frontend client middleware (`X-CSRF-Token` from `po_csrf` on mutating
@@ -195,7 +195,7 @@ steps 1–3 with only the bootstrap admin.
 ### Frontend
 
 - [ ] T031 [P] [US1] Tests: refresh coordinator (only `ACCESS_TOKEN_EXPIRED` refreshes;
-  single-flight; cross-tab via Web Locks + BroadcastChannel; each queued request retries
+  single-flight within the tab, no cross-tab coordination; each queued request retries
   once; `SESSION_EXPIRED` → session-expired message, `SESSION_REVOKED` → the
   reason-specific message, both to `/login?returnTo=`); Login page per code; Reset /
   set-password page posts the fragment token once, clears it, shows each token code's
@@ -220,7 +220,8 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
   user `UNVERIFIED` with `{}`, `USER_SIGNED_UP`), verify (the four token codes, `ACTIVE`,
   not logged in, `USER_EMAIL_VERIFIED`), resend (new link supersedes the old;
   `ACCOUNT_NOT_FOUND`, `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, nothing sent),
-  signup and resend rate limits per IP and email; mail only after commit —
+  signup rate limits per IP and per email, resend per email only (no per-IP limit);
+  mail only after commit —
   `backend/tests/integration/accounts.test.ts` — FR-001, FR-002, FR-ACC-01, FR-ACC-02,
   NFR-SEC-08.
 - [ ] T036 [P] [US2] Tests: access request (no-role only, else `403 FORBIDDEN`; first send
@@ -262,50 +263,45 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   (status filter, `updatedAt DESC, id DESC`) and dismiss (note, `ACCESS_REQUEST_NOT_OPEN`)
   — `backend/tests/integration/admin-access.test.ts` — FR-025, FR-026, FR-ADM-03,
   FR-ADM-06.
-- [ ] T044 [P] [US3] Fixed-seed 10k users; committed `EXPLAIN (ANALYZE, BUFFERS)` for
-  the user list page and `COUNT`, and the access-request list; a test fails on a seq scan
-  — `backend/tests/perf/seed-users.ts`, `backend/tests/integration/query-plans.test.ts`,
-  `docs/perf/plans/` — SC-008, FR-ADM-01, FR-ADM-06.
-- [ ] T045 [US3] Users repository list/detail/update queries; admin-users service and
+- [ ] T044 [US3] Users repository list/detail/update queries; admin-users service and
   routes; admin-reset template — `backend/src/users/repository.ts`,
   `backend/src/admin-users/`, `backend/src/mail/template.ts` — T042, T043 green.
-- [ ] T046 [US3] Demo seed: two Buyers and one Approver with `DEMO_PASSWORD`, never in
+- [ ] T045 [US3] Demo seed: two Buyers and one Approver with `DEMO_PASSWORD`, never in
   production; test first — `backend/src/migrate/seed-demo.ts` — FR-037.
-- [ ] T047 [P] [US3] Frontend tests then Users list (filters in URL), AccessRequests tab,
+- [ ] T046 [P] [US3] Frontend tests then Users list (filters in URL), AccessRequests tab,
   RoleDialog and user action dialogs (ADR-0018 wording), nav badge (60 s, focus, after
   actions), `RequireRole`; axe — `frontend/src/pages/admin/`, `frontend/src/app/Shell.tsx`
   — FR-034, FR-035, NFR-FE-08.
-- [ ] T048 [US3] E2E: assign a role from a request (second half of signup-to-buyer),
+- [ ] T047 [US3] E2E: assign a role from a request (second half of signup-to-buyer),
   dismissal shown to the user, admin users actions —
   `frontend/e2e/{signup-to-buyer,dismissal,admin-users}.spec.ts` — FR-036, SC-002.
-- [ ] T049 [US3] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [ ] T048 [US3] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
 ## Phase 6: US4 — Profile, password and sessions (P2)
 
-**Goal**: a user edits name and phone, changes password and manages sessions.
+**Goal**: a user edits their name, changes password and manages sessions.
 **Independent test**: quickstart step 6.
 
-- [ ] T050 [P] [US4] Tests: `PATCH /me` (name, phone normalised to E.164,
-  `INVALID_PHONE`, clear phone, `USER_PROFILE_UPDATED` without the number); change
+- [ ] T049 [P] [US4] Tests: `PATCH /me` (name only; `phone` or any other field →
+  `UNKNOWN_FIELD`; `USER_PROFILE_UPDATED` with name before and after); change
   password (policy codes, wrong current → field `INCORRECT_PASSWORD`, counted and locked
   like login, revokes other sessions with `PASSWORD_CHANGED`, keeps the current one);
   sessions list (own only, `current`, paginated, sorted) and revoke (`USER_REVOKED`,
   another user's id → 404 with no reason, current → cookies cleared) —
-  `backend/tests/integration/profile.test.ts`, `sessions.test.ts`,
-  `backend/tests/unit/phone.test.ts` — FR-012, FR-014, FR-020, FR-021, FR-ACC-04,
-  FR-ACC-06.
-- [ ] T051 [US4] `phone.ts`; profile service update; auth service change-password,
-  list and revoke sessions; routes — `backend/src/profile/`, `backend/src/auth/` — T050
+  `backend/tests/integration/profile.test.ts`, `sessions.test.ts` — FR-012, FR-014,
+  FR-020, FR-USR-01, FR-ACC-04, FR-ACC-06.
+- [ ] T050 [US4] Profile service update; auth service change-password,
+  list and revoke sessions; routes — `backend/src/profile/`, `backend/src/auth/` — T049
   green.
-- [ ] T052 [P] [US4] Frontend tests then Profile, ChangePasswordForm, SessionsList,
+- [ ] T051 [P] [US4] Frontend tests then Profile, ChangePasswordForm, SessionsList,
   revoke and log-out-everywhere dialogs, unsaved-changes guard; axe —
   `frontend/src/pages/profile/` — FR-034, FR-035.
-- [ ] T053 [US4] E2E: profile save, change password, revoke another session, which then
+- [ ] T052 [US4] E2E: profile save, change password, revoke another session, which then
   sees "You were logged out because you logged out elsewhere." —
   `frontend/e2e/profile-sessions.spec.ts` — FR-036.
-- [ ] T054 [US4] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [ ] T053 [US4] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
@@ -314,17 +310,17 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 **Goal**: a user who forgot their password gets a link and sets a new one.
 **Independent test**: quickstart step 7.
 
-- [ ] T055 [P] [US5] Tests: forgot-password (`202` and email; `ACCOUNT_NOT_FOUND`,
+- [ ] T054 [P] [US5] Tests: forgot-password (`202` and email; `ACCOUNT_NOT_FOUND`,
   `ACCOUNT_DEACTIVATED`, nothing sent; new link supersedes, old → `TOKEN_SUPERSEDED`);
-  resend/forgot rate limits per IP and per email with `Retry-After`; mail failure logged,
+  resend/forgot rate limits per email with `Retry-After` (no per-IP limit); mail failure logged,
   request still succeeds — `backend/tests/integration/forgot-password.test.ts` — FR-015,
   FR-ACC-05, NFR-SEC-08.
-- [ ] T056 [US5] Forgot-password service, route and template —
-  `backend/src/accounts/`, `backend/src/mail/template.ts` — T055 green.
-- [ ] T057 [P] [US5] Frontend tests then ForgotPassword page; ResetPassword links
+- [ ] T055 [US5] Forgot-password service, route and template —
+  `backend/src/accounts/`, `backend/src/mail/template.ts` — T054 green.
+- [ ] T056 [P] [US5] Frontend tests then ForgotPassword page; ResetPassword links
   forgot-password on `TOKEN_EXPIRED`; E2E forgot → Mailpit → reset → login —
   `frontend/src/pages/account/`, `frontend/e2e/forgot-reset.spec.ts` — FR-034, FR-036.
-- [ ] T058 [US5] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [ ] T057 [US5] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
@@ -333,54 +329,58 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 **Goal**: the operator deactivates and reactivates admins from the command line.
 **Independent test**: quickstart step 8.
 
-- [ ] T059 [US6] Tests: `admin:deactivate` / `admin:reactivate` per
+- [ ] T058 [US6] Tests: `admin:deactivate` / `admin:reactivate` per
   [contracts/cli.md](contracts/cli.md) — exit codes `EXIT.OK/USAGE/REFUSED/UNAVAILABLE`,
   `LAST_ADMIN`, `NOT_AN_ADMIN`, sessions revoked with `DEACTIVATED`, `OPERATOR` audit,
   two concurrent deactivations of the last two admins under `ADMIN_LOCK` leave one —
   `backend/tests/integration/cli-admin-status.test.ts` — FR-027.
-- [ ] T060 [US6] Both commands and their registration —
+- [ ] T059 [US6] Both commands and their registration —
   `backend/src/cli/commands/admin-{deactivate,reactivate}.ts`,
-  `backend/src/lib/operator-codes.ts` — T059 green.
-- [ ] T061 [US6] Checkpoint: `/code-review`, fixes, CI green, stop.
+  `backend/src/lib/operator-codes.ts` — T058 green.
+- [ ] T060 [US6] Checkpoint: `/code-review`, fixes, CI green, stop.
 
 ---
 
 ## Phase 9: US7 — Retention, privacy and security records (P3)
 
-**Goal**: ended sessions, old phones and old rate-limit windows are purged; no secret or
-phone leaks. **Independent test**: quickstart step 9.
+**Goal**: ended sessions and old rate-limit windows are purged; no secret leaks. **Independent test**: quickstart step 9.
 
-- [ ] T062 [P] [US7] Tests: purge deletes sessions ended > 90 days with their refresh
-  tokens (newer kept); clears phones 90 days after deactivation (91 cleared, 89 and
-  active kept, `USER_PHONE_PURGED` `SYSTEM`, no number, reactivation doesn't restore);
-  deletes ended rate-limit windows; runs only as `po_maintenance` —
-  `backend/tests/integration/purge.test.ts` — FR-030, NFR-PRIV-02.
-- [ ] T063 [P] [US7] Tests: across the suite's captured logs, audit rows and responses,
-  no token, password hash or phone outside the allowed places; security events emitted
-  for each FR-029 case — `backend/tests/integration/security-log.test.ts` — FR-021,
-  FR-029, SC-007, NFR-SEC-06.
-- [ ] T064 [US7] Purge tasks and registry entries — `backend/src/maintenance/purge.ts`,
-  `registry.ts` — T062, T063 green.
-- [ ] T065 [US7] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [ ] T061 [P] [US7] Tests: purge deletes sessions ended > 90 days with their refresh
+  tokens (newer kept); deletes ended rate-limit windows (current kept); runs only as
+  `po_maintenance` — `backend/tests/integration/purge.test.ts` — FR-030, NFR-OPS-05.
+- [ ] T062 [P] [US7] Tests: across the suite's captured logs, audit rows and responses,
+  no token or password hash outside the allowed places; security events emitted for each
+  FR-029 case — `backend/tests/integration/security-log.test.ts` — FR-029, SC-007,
+  NFR-SEC-06.
+- [ ] T063 [US7] Purge tasks and registry entries — `backend/src/maintenance/purge.ts`,
+  `registry.ts` — T061, T062 green.
+- [ ] T064 [US7] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
 ## Phase 10: Polish
 
-- [ ] T066 Authorization matrix generated from the route table: 22 operations × 6
+- [ ] T065 Authorization matrix generated from the route table: 22 operations × 6
   caller kinds (anonymous, no role, Buyer, Approver, Buyer+Approver, Admin), each cell
   asserted, public list pinned — `backend/tests/integration/authorization-matrix.test.ts`
   — FR-019, SC-005, NFR-AUTH-02.
-- [ ] T067 [P] Bundle budget for every new route chunk (≤ 150 KB gzip) and axe across
+- [ ] T066 [P] Bundle budget for every new route chunk (≤ 150 KB gzip) and axe across
   all new screens — `scripts/check-bundle-budget.mjs`, `frontend/e2e/` — SC-009.
-- [ ] T068 Traceability: every row this slice touches names its passing tests and moves
+- [ ] T067 Traceability: every row this slice touches names its passing tests and moves
   to `Done` — `docs/traceability.md`.
-- [ ] T069 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
+- [ ] T068 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
   the results; `.env.example` and `README` notes — `specs/002-accounts-user-management/quickstart.md`.
-- [ ] T070 Whole-PR `/code-review` and `/security-review`, `/speckit-analyze` re-run,
+- [ ] T069 Whole-PR `/code-review` and `/security-review`, `/speckit-analyze` re-run,
   CI green, PR #13 ready for owner review and merge.
 
 ---
+
+## Out of scope (POC scope, owner decision 2026-11-03)
+
+- Phone field, its purge and leak scans, `INVALID_PHONE`, `libphonenumber-js`.
+- Cross-tab refresh coordination.
+- The 10,000-user seed and committed query plans for the admin lists (slice 7 owns them).
+- Per-IP limits on resend-verification and forgot-password.
 
 ## Dependencies and execution order
 
@@ -398,7 +398,7 @@ phone leaks. **Independent test**: quickstart step 9.
 
 - Foundational: T010, T011, T019, T020 together once T009 is in.
 - US1: T022–T025 together; T031 alongside T026–T030.
-- US3: T042, T043, T044 together; T047 alongside T045.
+- US3: T042, T043 together; T046 alongside T044.
 
 ## Implementation strategy
 

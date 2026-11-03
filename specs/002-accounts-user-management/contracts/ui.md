@@ -13,7 +13,7 @@ error states, axe checks, and lazy loading (one chunk each, ≤ 150 KB gzip).
 | `/forgot-password` | anyone | Forgot: specific outcome per code |
 | `/reset-password#token=` | anyone | Reset / set password: posts once with the new password, clears the hash; each token code's message (`TOKEN_EXPIRED` links forgot-password) |
 | `/access-pending` | no-role user | Access pending: signup date, message form (1–500), request status, admin note as text |
-| `/profile` | any logged-in user | Profile (name, phone), Change password, Sessions (revoke one, log out everywhere) |
+| `/profile` | any logged-in user | Profile (name), Change password, Sessions (revoke one, log out everywhere) |
 | `/admin/users?role=&status=&q=&page=` | Admin | Users list, filters in the URL; row actions |
 | `/admin/users/access-requests?status=&page=` | Admin | Access requests tab |
 | `/` | logged-in user with a role | Home for the role (placeholder until later slices) |
@@ -23,7 +23,7 @@ page. They only hide; the API enforces.
 
 ## Auth flow (R17)
 `frontend/src/auth/`: `AuthProvider` (current user from `GET /api/me`),
-`refreshSession()` (single-flight, Web Locks, BroadcastChannel), the openapi-fetch
+`refreshSession()` (single-flight within the tab), the openapi-fetch
 middleware (CSRF header, `401`/`403` routing; the login page shows the logged-out
 message for a `SESSION_REVOKED` reason), `RequireUser`, `RequireRole`,
 `useFragmentToken()`.

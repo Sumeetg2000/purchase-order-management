@@ -126,8 +126,7 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
     refused or failed command still counts.
   - Buckets are a const list with their limit and window, defined once in
     `rate-limit/buckets.ts`: `login-ip` 30/min, `login-account` 10/min, `signup-ip` 5/h,
-    `signup-email` 3/h, `resend-ip` 10/h, `resend-email` 3/h, `forgot-ip` 10/h,
-    `forgot-email` 3/h, `access-request-user` 3/day. Change-password uses `login-account`.
+    `signup-email` 3/h, `resend-email` 3/h, `forgot-email` 3/h, `access-request-user` 3/day. Change-password uses `login-account`.
   - Keys: the client IP (`req.ip`, trust proxy 1) or the lower-cased email or user id.
   - Order: after the body schema (the email comes from the body), before any lookup.
   - The daily purge deletes windows that ended more than a day ago, so IPs aren't kept.
@@ -154,12 +153,8 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
 
 ## R11. Phone numbers
 
-- **Decision**: `libphonenumber-js` 1.13.15 (`/max` metadata) in the backend only. The
-  schema takes `string | null`, ≤ 32 characters; the profile service parses with default
-  region `IN`, requires `isValid()`, stores E.164. Invalid → `400 VALIDATION_FAILED`,
-  field code `INVALID_PHONE` at `body.phone`. A `CHECK` pins the E.164 shape.
-- **Rationale**: the full metadata is about 150 KB, too much for the web bundle; the web
-  form shows the API's field code instead.
+- **Withdrawn 2026-11-03** (POC scope, owner decision): no phone field, so no
+  normalisation library and no `INVALID_PHONE` (ADR-0016).
 
 ## R12. Acting role for self-service events
 
@@ -180,11 +175,9 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
     `(status, updated_at DESC, id DESC)` and `(updated_at DESC, id DESC)`.
   - Raw SQL through `$queryRaw` in the repository (Prisma can't express the prefix
     predicate on an expression index); one page query and one `COUNT`.
-  - A fixed-seed generator inserts 10,000 users across every status and role set.
-    `npm run perf:plans -w @po/backend` writes `EXPLAIN (ANALYZE, BUFFERS)` for each page
-    and `COUNT` to `docs/perf/plans/`. A test runs the same queries on the seeded data and
-    fails on a sequential scan of `users` or `access_requests`.
-- This is the query-plan tooling the slice 0 plan deferred to the first list.
+  - No 10,000-user seed or committed plans in this slice (2026-11-03, POC scope, owner
+    decision): slice 7 builds the query-plan tooling with the other load work and
+    commits the plans for these two lists. The indexes ship now.
 
 ## R14. Versioned admin updates
 
@@ -216,17 +209,18 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
 
 - **Decision**:
   - `openapi-fetch` middleware adds `X-CSRF-Token` (read from `po_csrf`) on mutating calls.
-  - On `401 ACCESS_TOKEN_EXPIRED` it calls one shared `refreshSession()`: single-flight
-    in the tab, and across tabs under `navigator.locks.request('po-refresh')`; a tab that
-    waited re-reads `po_csrf` and retries without refreshing again if another tab already
-    did (announced on a `BroadcastChannel`). Each queued request retries once.
+  - On `401 ACCESS_TOKEN_EXPIRED` it calls one shared `refreshSession()`, single-flight
+    within the tab. Tabs are not coordinated (ADR-0018, amended 2026-11-03): each
+    refreshes on its own and the server's 10-second sibling window lets them all
+    succeed. Each queued request retries once.
   - `SESSION_EXPIRED` → the session-expired message, `SESSION_REVOKED` → "You were logged
     out because <reason>." (errors.md), both then `/login?returnTo=…`; `ACCOUNT_DEACTIVATED` → login with its message;
     `NO_ROLE_ASSIGNED` → Access pending; `UNAUTHENTICATED` → login, no refresh.
   - The current user comes from `GET /api/me` (TanStack Query); route guards read it.
   - Account pages read `location.hash`, `history.replaceState` it away, and post the token
     once (a ref guards React's double effect in development).
-- **Rationale**: ADR-0018; Web Locks and BroadcastChannel are in every supported browser.
+- **Rationale**: ADR-0018. Cross-tab coordination (Web Locks, BroadcastChannel) was
+  dropped as POC scope: the sibling window already makes concurrent refreshes safe.
 
 ## R18. Security log
 
@@ -236,16 +230,15 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
   `logout_all`, `refresh_reuse_detected`, `session_revoked` (`by`, `reason`),
   `password_reset_requested`, `password_reset_completed`, `password_changed`. Fields:
   `userId`, `ip`, `userAgent`, `sessionId`; the request id comes from the request logger.
-  The logger's redaction paths already cover cookies, `password`, tokens and `phone`; a
+  The logger's redaction paths already cover cookies, `password` and tokens; a
   test drives every event and scans the captured lines.
 
 ## R19. Purge
 
-- **Decision**: three tasks join `maintenance/registry.ts`: `sessions` (ended > 90 days),
-  `user_phones` (deactivated > 90 days; one `USER_PHONE_PURGED` per user as `SYSTEM`, in
-  batches), `rate_limit_counters` (windows ended > 1 day). Grants: `po_maintenance` gets
-  `DELETE` on `sessions`, `refresh_tokens` and `rate_limit_counters`, and
-  `UPDATE (phone)` on `users`, nothing more.
+- **Decision**: two tasks join `maintenance/registry.ts`: `sessions` (ended > 90 days)
+  and `rate_limit_counters` (windows ended > 1 day). Grants: `po_maintenance` gets
+  `DELETE` on `sessions`, `refresh_tokens` and `rate_limit_counters`, nothing more. No
+  phone purge (no phone field, 2026-11-03).
 
 ## R20. Demo seed
 
@@ -262,7 +255,6 @@ No `NEEDS CLARIFICATION` remains: the one spec question (FR-016) was answered on
 | `argon2` | 0.45.1 | backend | argon2id (R3) |
 | `jose` | 6.2.12 | backend | access JWT (R2) |
 | `cookie` | 2.0.1 | backend | cookie parsing (R2) |
-| `libphonenumber-js` | 1.13.15 | backend | phone normalisation (R11) |
 
 Each is the newest release at least two weeks old on 2026-11-02, pinned exactly. No new
 service and no frontend dependency.
