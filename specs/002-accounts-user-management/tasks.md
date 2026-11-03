@@ -272,7 +272,7 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
   `TOKEN_EXPIRED`), AccessPending pages; `NO_ROLE_ASSIGNED` routing; axe —
   `frontend/src/pages/account/`, `frontend/src/pages/AccessPending.tsx` — FR-034,
   NFR-FE-08.
-- [ ] T041 [US2] E2E: signup → Mailpit link → verify → login → Access pending → send
+- [X] T041 [US2] E2E: signup → Mailpit link → verify → login → Access pending → send
   request — `frontend/e2e/signup-to-buyer.spec.ts` (first half) — FR-036, SC-001.
 - [ ] T042 [US2] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 

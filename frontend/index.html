@@ -4,11 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Purchase Orders</title>
+    <!-- A classic script, outside the bundle: configures Zod before any chunk builds a
+         schema (see public/zod-config.js). -->
+    <script src="/zod-config.js"></script>
   </head>
   <body>
     <div id="root"></div>
-    <!-- First, on its own: Zod must be configured before any chunk builds a schema. -->
-    <script type="module" src="/src/zod-config.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
