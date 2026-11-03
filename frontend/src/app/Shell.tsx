@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router';
-import { api } from '../api/client';
+import { api } from '../api/app-client';
 import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';

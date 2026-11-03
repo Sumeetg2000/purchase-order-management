@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { api, dataOrThrow } from '../api/client';
+import { api } from '../api/app-client';
+import { dataOrThrow } from '../api/client';
 import type { paths } from '../api/schema';
 
 export type CurrentUser = paths['/me']['get']['responses'][200]['content']['application/json'];

@@ -1,5 +1,6 @@
-import { CSRF_COOKIE, CSRF_HEADER } from '@po/contracts';
+import { CSRF_COOKIE, CSRF_HEADER, type ErrorCode } from '@po/contracts';
 import type { Middleware } from 'openapi-fetch';
+import { NetworkError, parseProblem } from '../api/client';
 import { readCookie } from '../api/cookies';
 import type { ProblemLike } from '../errors/messages';
 
@@ -8,7 +9,28 @@ import type { ProblemLike } from '../errors/messages';
 // once. Tabs are not coordinated: the API's 10-second sibling window lets several tabs
 // refresh at once.
 
-export type RefreshOutcome = { ok: true } | { ok: false; problem: ProblemLike };
+/** Answers that mean the session is over: from a refresh, or (SESSION_*) from any call. */
+const REFRESH_ENDS: ReadonlySet<string> = new Set<ErrorCode>([
+  'SESSION_EXPIRED',
+  'SESSION_REVOKED',
+  'ACCOUNT_DEACTIVATED',
+  'UNAUTHENTICATED',
+]);
+const ANY_CALL_ENDS: ReadonlySet<string> = new Set<ErrorCode>([
+  'SESSION_EXPIRED',
+  'SESSION_REVOKED',
+  'ACCOUNT_DEACTIVATED',
+]);
+
+/**
+ * A refresh's outcome. A refusal for the session ends it; any other failure (a server
+ * error) is passed to the waiting calls and the session stays. An unreachable API
+ * rejects with NetworkError, which the waiting calls get too.
+ */
+export type RefreshOutcome =
+  | { ok: true }
+  | { ok: false; ends: true; problem: ProblemLike }
+  | { ok: false; ends: false; response: Response };
 
 export interface Refresher {
   refresh(): Promise<RefreshOutcome>;
@@ -16,23 +38,13 @@ export interface Refresher {
 
 type Fetch = (request: Request) => Promise<Response>;
 
-/** The problem in an error response, or INTERNAL_ERROR when its body isn't one. */
-async function problemOf(response: Response): Promise<ProblemLike> {
-  try {
-    const body = (await response.json()) as Partial<Record<string, unknown>>;
-    if (typeof body['code'] === 'string') {
-      return {
-        code: body['code'],
-        ...(typeof body['correlationId'] === 'string'
-          ? { correlationId: body['correlationId'] }
-          : {}),
-        ...(typeof body['reason'] === 'string' ? { reason: body['reason'] } : {}),
-      };
-    }
-  } catch {
-    // Not JSON: fall through.
-  }
-  return { code: 'INTERNAL_ERROR' };
+/** The problem in a response, read from a copy so the response stays readable. */
+async function problemIn(response: Response): Promise<ProblemLike> {
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => undefined);
+  return parseProblem(response, body);
 }
 
 export function createRefresher(options: {
@@ -43,18 +55,22 @@ export function createRefresher(options: {
   let inFlight: Promise<RefreshOutcome> | undefined;
 
   async function attempt(): Promise<RefreshOutcome> {
+    let response: Response;
     try {
-      const response = await options.fetch(
+      response = await options.fetch(
         new Request(`${options.baseUrl}/auth/refresh`, {
           method: 'POST',
           headers: { [CSRF_HEADER]: readCookie(options.cookies(), CSRF_COOKIE) ?? '' },
         }),
       );
-      return response.ok ? { ok: true } : { ok: false, problem: await problemOf(response) };
-    } catch {
-      // The API is unreachable: the session can't be renewed, so the user logs in again.
-      return { ok: false, problem: { code: 'SESSION_EXPIRED' } };
+    } catch (cause) {
+      throw cause instanceof NetworkError ? cause : new NetworkError({ cause });
     }
+    if (response.ok) return { ok: true };
+    const problem = await problemIn(response);
+    return REFRESH_ENDS.has(problem.code)
+      ? { ok: false, ends: true, problem }
+      : { ok: false, ends: false, response };
   }
 
   return {
@@ -73,8 +89,9 @@ function isAccountCall(request: Request): boolean {
 }
 
 /**
- * openapi-fetch middleware: on 401 ACCESS_TOKEN_EXPIRED, refresh and retry the call once;
- * if the refresh fails, or any call answers ACCOUNT_DEACTIVATED, end the session.
+ * openapi-fetch middleware: on 401 ACCESS_TOKEN_EXPIRED, refresh and retry the call once.
+ * SESSION_REVOKED, SESSION_EXPIRED or ACCOUNT_DEACTIVATED from any call, or a refresh
+ * refused for the session, ends it.
  */
 export function expiredAccessMiddleware(options: {
   refresher: Refresher;
@@ -97,19 +114,23 @@ export function expiredAccessMiddleware(options: {
       const original = sent.get(id);
       sent.delete(id);
       if (response.status !== 401 || !original) return undefined;
-      const problem = await problemOf(response.clone());
-      if (problem.code === 'ACCOUNT_DEACTIVATED') {
+      const problem = await problemIn(response);
+      if (ANY_CALL_ENDS.has(problem.code)) {
         options.onSessionEnded(problem);
         return undefined;
       }
       if (problem.code !== 'ACCESS_TOKEN_EXPIRED') return undefined;
       const outcome = await options.refresher.refresh();
-      if (!outcome.ok) {
+      if (outcome.ok) {
+        // Sent directly, not through the middleware, so it is retried at most once.
+        return options.fetch(original);
+      }
+      if (outcome.ends) {
         options.onSessionEnded(outcome.problem);
         return undefined;
       }
-      // Sent directly, not through the middleware, so it is retried at most once.
-      return options.fetch(original);
+      // A passing failure: this call fails with it, and the session stays.
+      return outcome.response.clone();
     },
   };
 }

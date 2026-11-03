@@ -94,7 +94,7 @@ async function setup() {
   const app = createTestApp({
     logger: testLogger(),
     appOrigin: APP_ORIGIN,
-    auth: { service: createAuthService({ prisma, accessTokens }), csrfSecret: CSRF_SECRET },
+    auth: { service: createAuthService({ prisma, accessTokens, clock }), csrfSecret: CSRF_SECRET },
     testOnlyRoutes: ROUTES,
   });
   const admin = await db.client('postgres');

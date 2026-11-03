@@ -203,7 +203,7 @@ as the refresh cookie (its JWT still expires after 15 minutes); a refresh that f
 no network or a 5xx keeps the session; and every request reads its session with its user,
 so revocation takes effect on the next request (ADR-0017, ADR-0018). Covered by T035a.
 
-- [ ] T035a [US1] Review fixes: the access cookie's lifetime, refresh failures that keep
+- [X] T035a [US1] Review fixes: the access cookie's lifetime, refresh failures that keep
   the session, `parseProblem` in the refresh, and per-request session checks in
   `authenticate` with the web app ending the session on `SESSION_REVOKED` or
   `SESSION_EXPIRED` from any call — `backend/src/auth/`, `backend/src/users/`,

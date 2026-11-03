@@ -1,7 +1,8 @@
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import type { UserStatus } from '@po/contracts';
-import { userStatusOf } from '../users/codes.js';
+import { userRolesOf, userStatusOf } from '../users/codes.js';
+import type { AuthUser } from '../users/repository.js';
 import { SESSION_REVOKE_REASONS, type SessionRevokeReason } from './constants.js';
 
 // Sessions and refresh tokens (migration 0008_sessions, research R5 and R6). Times come
@@ -163,4 +164,57 @@ export async function revokeUserSessions(
   return tx.$executeRaw`
     UPDATE sessions SET revoked_at = ${user.now}, revoke_reason = ${user.reason}
      WHERE user_id = ${user.id}::uuid AND revoked_at IS NULL`;
+}
+
+/** An access token's session and user, as every authenticated request checks them. */
+export interface AuthSession {
+  user: AuthUser;
+  revokedAt: Date | null;
+  revokeReason: SessionRevokeReason | null;
+  /** When the session ends: its latest refresh token's expiry or its absolute end. */
+  expiresAt: Date;
+  absoluteExpiresAt: Date;
+}
+
+/**
+ * The session an access token names, with its user, in one indexed lookup (the session's
+ * primary key): revocation, deactivation and role changes all apply on the next request
+ * (ADR-0017, amended 2026-11-03). Null when no such session belongs to the user.
+ */
+export async function findAuthSession(
+  prisma: AppPrismaClient,
+  token: { sessionId: string; userId: string },
+): Promise<AuthSession | null> {
+  const [row] = await prisma.$queryRaw<
+    {
+      user_id: string;
+      name: string;
+      email: string;
+      roles: string[];
+      status: string;
+      revoked_at: Date | null;
+      revoke_reason: string | null;
+      expires_at: Date;
+      absolute_expires_at: Date;
+    }[]
+  >`
+    SELECT u.id::text AS user_id, u.name, u.email, u.roles, u.status,
+           s.revoked_at, s.revoke_reason, s.expires_at, s.absolute_expires_at
+      FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.id = ${token.sessionId}::uuid AND s.user_id = ${token.userId}::uuid`;
+  if (!row) return null;
+  const user = { id: row.user_id, roles: row.roles, status: row.status };
+  return {
+    user: {
+      id: row.user_id,
+      name: row.name,
+      email: row.email,
+      roles: userRolesOf(user),
+      status: userStatusOf(user),
+    },
+    revokedAt: row.revoked_at,
+    revokeReason: revokeReasonOf(row.revoke_reason),
+    expiresAt: row.expires_at,
+    absoluteExpiresAt: row.absolute_expires_at,
+  };
 }

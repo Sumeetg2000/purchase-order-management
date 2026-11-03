@@ -67,18 +67,6 @@ function parsed<T extends { id: string; roles: string[]; status: string }>(
   return { ...user, roles: userRolesOf(user), status: userStatusOf(user) };
 }
 
-/**
- * The user behind an access token, read by primary key on every request, so a role
- * change or deactivation applies to the very next request. Runs outside a transaction.
- */
-export async function findAuthUser(prisma: AppPrismaClient, id: string): Promise<AuthUser | null> {
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, name: true, email: true, roles: true, status: true },
-  });
-  return user && parsed(user);
-}
-
 /** What login needs about a user, read outside any transaction. */
 export interface LoginUser {
   id: string;

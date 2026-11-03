@@ -89,19 +89,23 @@ const ifMatchHeader = z.strictObject({
     .meta({ description: 'The ETag from the last read; a missing or stale one is refused.' }),
 });
 
-/** The codes the authorize step answers for each access level (research R1). */
+/** The codes the authorize step answers for any logged-in caller (research R1). */
+const SESSION_CODES = [
+  'UNAUTHENTICATED',
+  'ACCESS_TOKEN_EXPIRED',
+  'ACCOUNT_DEACTIVATED',
+  'SESSION_REVOKED',
+  'SESSION_EXPIRED',
+] as const satisfies readonly ErrorCode[];
+
+/** The codes the authorize step answers for each access level. */
 const ACCESS_CODES: Readonly<Record<Access, readonly ErrorCode[]>> = {
   public: [],
   refresh: ['UNAUTHENTICATED', 'SESSION_EXPIRED'],
-  user: ['UNAUTHENTICATED', 'ACCESS_TOKEN_EXPIRED', 'ACCOUNT_DEACTIVATED'],
-  'no-role': ['UNAUTHENTICATED', 'ACCESS_TOKEN_EXPIRED', 'ACCOUNT_DEACTIVATED', 'FORBIDDEN'],
-  admin: [
-    'UNAUTHENTICATED',
-    'ACCESS_TOKEN_EXPIRED',
-    'ACCOUNT_DEACTIVATED',
-    'NO_ROLE_ASSIGNED',
-    'FORBIDDEN',
-  ],
+  // Every request checks its session (ADR-0017, amended 2026-11-03).
+  user: SESSION_CODES,
+  'no-role': [...SESSION_CODES, 'FORBIDDEN'],
+  admin: [...SESSION_CODES, 'NO_ROLE_ASSIGNED', 'FORBIDDEN'],
 };
 
 /** Codes whose responses say when to try again (lockout, rate limits). */

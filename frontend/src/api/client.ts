@@ -7,9 +7,6 @@ import {
   type Problem,
 } from '@po/contracts';
 import createClient, { type ClientOptions, type Middleware } from 'openapi-fetch';
-import { endSession } from '../auth/session-events';
-import { createRefresher, expiredAccessMiddleware } from '../auth/refresh';
-import type { ProblemLike } from '../errors/messages';
 import { documentCookies, readCookie } from './cookies';
 import type { paths } from './schema';
 
@@ -46,11 +43,21 @@ export function csrfMiddleware(cookies: () => string = documentCookies): Middlew
   };
 }
 
+/** How the client reaches the API, for middleware that calls it again (silent refresh). */
+export interface ApiIo {
+  baseUrl: string;
+  /** The raw fetch. */
+  send: (request: Request) => Promise<Response>;
+  /** One call; an unreachable API becomes a NetworkError. */
+  fetchOnce: (request: Request) => Promise<Response>;
+  cookies: () => string;
+}
+
 export interface ApiClientOptions extends ClientOptions {
   /** Where cookies are read from; the browser's document.cookie by default. */
   cookies?: () => string;
-  /** Called when the session ends under the user; the session boundary by default. */
-  onSessionEnded?: (problem: ProblemLike) => void;
+  /** Middleware after the CSRF header's, given how to reach the API. */
+  middleware?: (io: ApiIo) => Middleware[];
 }
 
 /** The API's base URL, absolute: same origin in the browser. */
@@ -61,12 +68,11 @@ function defaultBaseUrl(): string {
 
 export function createApiClient({
   cookies = documentCookies,
-  onSessionEnded = endSession,
+  middleware = () => [],
   ...options
 }: ApiClientOptions = {}) {
   const send = options.fetch ?? ((request: Request) => globalThis.fetch(request));
   const baseUrl = options.baseUrl ?? defaultBaseUrl();
-  /** One call to the API; an unreachable API becomes a NetworkError. */
   const fetchOnce = async (request: Request) => {
     try {
       return await send(request);
@@ -75,14 +81,7 @@ export function createApiClient({
     }
   };
   const client = createClient<paths>({ ...options, baseUrl, fetch: fetchOnce });
-  client.use(
-    csrfMiddleware(cookies),
-    expiredAccessMiddleware({
-      refresher: createRefresher({ baseUrl, fetch: send, cookies }),
-      fetch: fetchOnce,
-      onSessionEnded,
-    }),
-  );
+  client.use(csrfMiddleware(cookies), ...middleware({ baseUrl, send, fetchOnce, cookies }));
   return client;
 }
 
@@ -110,8 +109,6 @@ export function dataOrThrow<T>(
   }
   return result.data as T;
 }
-
-export const api = createApiClient();
 
 /**
  * The problem document of an error response. A body that isn't one (an unexpected proxy

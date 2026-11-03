@@ -57,7 +57,11 @@ export function createApiApp(options: ApiAppOptions): Express {
     appOrigin: options.config.APP_ORIGIN,
     ...(options.metrics ? { metrics: options.metrics } : {}),
     auth: {
-      service: createAuthService({ prisma: deps.prisma, accessTokens: deps.accessTokens }),
+      service: createAuthService({
+        prisma: deps.prisma,
+        accessTokens: deps.accessTokens,
+        clock: deps.clock,
+      }),
       csrfSecret: deps.csrfSecret,
     },
     routes: productionRoutes(deps),

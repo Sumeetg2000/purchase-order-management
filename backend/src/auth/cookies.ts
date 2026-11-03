@@ -1,7 +1,6 @@
 import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 import { parseCookie } from 'cookie';
 import type { CookieOptions, Request, Response } from 'express';
-import { ACCESS_TOKEN_LIFETIME_SECONDS } from './constants.js';
 import { SECOND_MS } from '../lib/time.js';
 
 // The three session cookies (ADR-0017 "Tokens and cookies", research R2). No __Host- or
@@ -29,7 +28,7 @@ export interface SessionCookies {
   accessToken: string;
   refreshToken: string;
   csrfToken: string;
-  /** The refresh token's remaining life; the CSRF cookie lives exactly as long. */
+  /** The refresh token's remaining life; the access and CSRF cookies live exactly as long. */
   refreshMaxAgeSeconds: number;
 }
 
@@ -38,7 +37,10 @@ export function setSessionCookies(res: Response, cookies: SessionCookies): void 
   res.cookie(ACCESS_COOKIE, cookies.accessToken, {
     ...BASE,
     ...PATHS[ACCESS_COOKIE],
-    maxAge: ACCESS_TOKEN_LIFETIME_SECONDS * SECOND_MS,
+    // As long as the refresh cookie, not its JWT's 15 minutes: a cookie that expired with
+    // the token would vanish, and the next request would be UNAUTHENTICATED instead of
+    // ACCESS_TOKEN_EXPIRED, so the silent refresh would never run (ADR-0017).
+    maxAge: refreshMaxAge,
   });
   res.cookie(REFRESH_COOKIE, cookies.refreshToken, {
     ...BASE,

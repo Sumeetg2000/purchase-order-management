@@ -1,7 +1,8 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
 import { Link, useLocation } from 'react-router';
-import { api, parseProblem } from '../../api/client';
+import { api } from '../../api/app-client';
+import { parseProblem } from '../../api/client';
 import { fieldMessages, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
 import { problemFrom } from '../../errors/problem';
 import { classes } from '../../styles/classes';

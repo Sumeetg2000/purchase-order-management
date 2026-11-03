@@ -6,6 +6,7 @@ import {
   type Me,
   type PublicRevokeReason,
   type UserRole,
+  type UserStatus,
 } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import {
@@ -21,12 +22,7 @@ import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { hashToken } from '../tokens/one-time.js';
 import { toMe } from '../users/me.js';
-import {
-  findAuthUser,
-  findLoginUser,
-  recordFailedLogin,
-  recordSuccessfulLogin,
-} from '../users/repository.js';
+import { findLoginUser, recordFailedLogin, recordSuccessfulLogin } from '../users/repository.js';
 import type { AccessTokens } from './access-token.js';
 import {
   LOCKOUT_DURATION_SECONDS,
@@ -36,11 +32,13 @@ import {
   REFRESH_TOKEN_BYTES,
   REFRESH_TOKEN_IDLE_SECONDS,
   SESSION_ABSOLUTE_LIFETIME_SECONDS,
+  type SessionRevokeReason,
 } from './constants.js';
 import type { SessionCookies } from './cookies.js';
 import { csrfTokenFor } from './csrf.js';
 import { hashPassword, needsRehash, verifyPassword } from './passwords.js';
 import {
+  findAuthSession,
   findSessionIdByRefreshToken,
   insertRefreshToken,
   insertSession,
@@ -49,7 +47,6 @@ import {
   revokeSession,
   revokeUserSessions,
   touchSession,
-  type LockedRefreshToken,
 } from './repository.js';
 
 // Who is calling (ADR-0017, research R1). The authorize step calls these; it never touches
@@ -86,17 +83,27 @@ export interface AuthService {
 export function createAuthService(deps: {
   prisma: AppPrismaClient;
   accessTokens: AccessTokens;
+  clock: Clock;
 }): AuthService {
   return {
     authenticate: async (accessToken) => {
       if (!accessToken) throw new AppError('UNAUTHENTICATED');
       const check = await deps.accessTokens.verify(accessToken);
       if (!check.ok) throw new AppError(check.code);
-      const user = await withDatabase(() => findAuthUser(deps.prisma, check.userId));
-      if (!user) throw new AppError('UNAUTHENTICATED');
-      if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
-      // Only verified users ever get a session; anything else is not a usable login.
-      if (user.status !== USER_STATUS.ACTIVE) throw new AppError('UNAUTHENTICATED');
+      const session = await withDatabase(() => findAuthSession(deps.prisma, check));
+      // Purged, or not this user's: no login stands behind the token.
+      if (!session) throw new AppError('UNAUTHENTICATED');
+      const refused = refusal(
+        {
+          userStatus: session.user.status,
+          revokedAt: session.revokedAt,
+          revokeReason: session.revokeReason,
+          endsAt: earlier(session.expiresAt, session.absoluteExpiresAt),
+        },
+        deps.clock.now(),
+      );
+      if (refused) throw refused;
+      const { user } = session;
       return {
         userId: user.id,
         sessionId: check.sessionId,
@@ -170,19 +177,28 @@ function isPublicRevokeReason(reason: string | null): reason is PublicRevokeReas
 }
 
 /** SESSION_REVOKED, naming the reason only when the user may be told it. */
-function sessionRevoked(reason: string | null): AppError {
+function sessionRevoked(reason: SessionRevokeReason | null): AppError {
   return isPublicRevokeReason(reason)
     ? new AppError('SESSION_REVOKED', { reason })
     : new AppError('SESSION_REVOKED');
 }
 
-/** Why a session can't be used now, or undefined. Deactivation is checked first. */
-function unusable(token: LockedRefreshToken, now: Date): AppError | undefined {
-  if (token.userStatus !== USER_STATUS.ACTIVE) return new AppError('ACCOUNT_DEACTIVATED');
-  if (token.revokedAt) return sessionRevoked(token.revokeReason);
-  if (token.tokenExpiresAt <= now || token.absoluteExpiresAt <= now) {
-    return new AppError('SESSION_EXPIRED');
-  }
+interface SessionState {
+  userStatus: UserStatus;
+  revokedAt: Date | null;
+  revokeReason: SessionRevokeReason | null;
+  /** The earliest end: the token's or session's idle expiry, or the absolute end. */
+  endsAt: Date;
+}
+
+/**
+ * Why a session can't be used now, or undefined, in one order for every request and the
+ * refresh (ADR-0017): deactivation, then revocation, then expiry.
+ */
+function refusal(state: SessionState, now: Date): AppError | undefined {
+  if (state.userStatus !== USER_STATUS.ACTIVE) return new AppError('ACCOUNT_DEACTIVATED');
+  if (state.revokedAt) return sessionRevoked(state.revokeReason);
+  if (state.endsAt <= now) return new AppError('SESSION_EXPIRED');
   return undefined;
 }
 
@@ -341,7 +357,15 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const token = await locked(tx, session);
-          const refused = unusable(token, now);
+          const refused = refusal(
+            {
+              userStatus: token.userStatus,
+              revokedAt: token.revokedAt,
+              revokeReason: token.revokeReason,
+              endsAt: earlier(token.tokenExpiresAt, token.absoluteExpiresAt),
+            },
+            now,
+          );
           if (refused) return { ok: false, error: refused };
           if (token.rotatedAt) {
             const sinceRotation = now.getTime() - token.rotatedAt.getTime();
