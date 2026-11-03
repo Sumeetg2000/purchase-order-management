@@ -10,20 +10,30 @@ datasource db {
   provider = "postgresql"
 }
 
-// Minimal users table (migration 0002_users). Never deleted: po_app has no DELETE.
+// Users (migrations 0002_users and 0007_user_accounts). Never deleted: po_app has no
+// DELETE. The lower(name) and lower(email) prefix indexes are expression indexes, which
+// Prisma can't express; tests/integration/accounts-schema.test.ts pins them.
 model User {
-  id            String         @id @db.Uuid
-  name          String
-  email         String         @unique(map: "users_email_key")
-  roles         String[]       @default([])
-  status        String
-  deactivatedAt DateTime?      @map("deactivated_at") @db.Timestamptz(6)
-  passwordHash  String?        @map("password_hash")
-  version       Int            @default(1)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-  tokens        OneTimeToken[]
+  id                    String          @id @db.Uuid
+  name                  String
+  email                 String          @unique(map: "users_email_key")
+  roles                 String[]        @default([])
+  status                String
+  deactivatedAt         DateTime?       @map("deactivated_at") @db.Timestamptz(6)
+  passwordHash          String?         @map("password_hash")
+  version               Int             @default(1)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt           DateTime?       @map("last_login_at") @db.Timestamptz(6)
+  failedLoginCount      Int             @default(0) @map("failed_login_count")
+  lockedUntil           DateTime?       @map("locked_until") @db.Timestamptz(6)
+  tokens                OneTimeToken[]
+  sessions              Session[]
+  accessRequests        AccessRequest[] @relation("AccessRequestUser")
+  decidedAccessRequests AccessRequest[] @relation("AccessRequestDecider")
 
+  @@index([name, id], map: "users_name_id_idx")
+  @@index([status, name, id], map: "users_status_name_id_idx")
   @@map("users")
 }
 
@@ -68,4 +78,72 @@ model OneTimeToken {
   user         User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("one_time_tokens")
+}
+
+// Sessions (migration 0008_sessions): one login on one device. The partial index of active
+// sessions and the purge's expression index live in the migration only; the accounts
+// schema test pins them.
+model Session {
+  id                String         @id @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  createdAt         DateTime       @map("created_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime       @map("last_used_at") @db.Timestamptz(6)
+  absoluteExpiresAt DateTime       @map("absolute_expires_at") @db.Timestamptz(6)
+  expiresAt         DateTime       @map("expires_at") @db.Timestamptz(6)
+  userAgent         String         @map("user_agent")
+  ip                String         @db.Inet
+  revokedAt         DateTime?      @map("revoked_at") @db.Timestamptz(6)
+  revokeReason      String?        @map("revoke_reason")
+  user              User           @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  refreshTokens     RefreshToken[]
+
+  @@map("sessions")
+}
+
+// Refresh tokens (migration 0008_sessions): only the SHA-256 hash is stored.
+model RefreshToken {
+  id        String    @id @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  tokenHash Bytes     @unique(map: "refresh_tokens_token_hash_key") @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  rotatedAt DateTime? @map("rotated_at") @db.Timestamptz(6)
+  createdAt DateTime  @map("created_at") @db.Timestamptz(6)
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([sessionId], map: "refresh_tokens_session_id_idx")
+  @@map("refresh_tokens")
+}
+
+// Access requests (migration 0009_access_requests). The one-open-per-user partial unique
+// index lives in the migration only; the accounts schema test pins it.
+model AccessRequest {
+  id        String    @id @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  message   String
+  status    String
+  adminNote String?   @map("admin_note")
+  decidedBy String?   @map("decided_by") @db.Uuid
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user      User      @relation("AccessRequestUser", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decider   User?     @relation("AccessRequestDecider", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([status, updatedAt(sort: Desc), id(sort: Desc)], map: "access_requests_status_updated_idx")
+  @@index([updatedAt(sort: Desc), id(sort: Desc)], map: "access_requests_updated_idx")
+  @@index([userId, createdAt(sort: Desc)], map: "access_requests_user_latest_idx")
+  @@map("access_requests")
+}
+
+// Rate-limit counters (migration 0010_rate_limits): one fixed window per bucket and key.
+model RateLimitCounter {
+  bucket      String
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  windowEnd   DateTime @map("window_end") @db.Timestamptz(6)
+  hits        Int
+
+  @@id([bucket, key, windowStart], map: "rate_limit_counters_pkey")
+  @@index([windowEnd], map: "rate_limit_counters_window_end_idx")
+  @@map("rate_limit_counters")
 }

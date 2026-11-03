@@ -53,7 +53,7 @@ short summary stop.
 
 ### Schema
 
-- [ ] T004 Tests: migrations 0007–0010 per [data-model.md](data-model.md) — every column,
+- [X] T004 Tests: migrations 0007–0010 per [data-model.md](data-model.md) — every column,
   `CHECK` (`failed_login_count BETWEEN 0 AND 4`, no `phone` column,
   `(revoked_at IS NULL) = (revoke_reason IS NULL)`, `octet_length(token_hash) = 32`,
   `char_length(message) BETWEEN 1 AND 500`, `(status = 'OPEN') = (decided_at IS NULL)`,
@@ -61,7 +61,7 @@ short summary stop.
   (`SESSION_REVOKE_REASONS`, access-request statuses, bucket names, lengths) pinned to it;
   `schema.prisma` diff clean — `backend/tests/integration/migrations.test.ts`,
   `backend/tests/integration/roles.test.ts` — FR-028, FR-030.
-- [ ] T005 Migrations `0007_user_accounts`, `0008_sessions`, `0009_access_requests`,
+- [X] T005 Migrations `0007_user_accounts`, `0008_sessions`, `0009_access_requests`,
   `0010_rate_limits` and the matching `schema.prisma` models — `backend/prisma/` — T004
   green.
 
