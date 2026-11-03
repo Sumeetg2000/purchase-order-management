@@ -29,6 +29,19 @@ const requestIdHeader = z
 
 const responseHeaders = z.object({ 'X-Request-Id': requestIdHeader });
 
+const cookieHeaders = responseHeaders.extend({
+  'Set-Cookie': z.string().meta({
+    description: 'The session cookies: po_access, po_refresh and po_csrf (ADR-0017).',
+  }),
+});
+
+const retryHeaders = responseHeaders.extend({
+  'Retry-After': z
+    .string()
+    .regex(/^[0-9]+$/)
+    .meta({ description: 'Seconds to wait.' }),
+});
+
 const problemResponse = {
   id: 'Problem',
   description: 'Any error, in RFC 9457 format.',
@@ -76,10 +89,32 @@ const ifMatchHeader = z.strictObject({
     .meta({ description: 'The ETag from the last read; a missing or stale one is refused.' }),
 });
 
-/** Codes any operation can return: validation, size and origin for bodies, and failure. */
+/** The codes the authorize step answers for each access level (research R1). */
+const ACCESS_CODES: Readonly<Record<Access, readonly ErrorCode[]>> = {
+  public: [],
+  refresh: ['UNAUTHENTICATED', 'SESSION_EXPIRED'],
+  user: ['UNAUTHENTICATED', 'ACCESS_TOKEN_EXPIRED', 'ACCOUNT_DEACTIVATED'],
+  'no-role': ['UNAUTHENTICATED', 'ACCESS_TOKEN_EXPIRED', 'ACCOUNT_DEACTIVATED', 'FORBIDDEN'],
+  admin: [
+    'UNAUTHENTICATED',
+    'ACCESS_TOKEN_EXPIRED',
+    'ACCOUNT_DEACTIVATED',
+    'NO_ROLE_ASSIGNED',
+    'FORBIDDEN',
+  ],
+};
+
+/** Codes whose responses say when to try again (lockout, rate limits). */
+const RETRY_AFTER_CODES: ReadonlySet<ErrorCode> = new Set(['ACCOUNT_LOCKED', 'RATE_LIMITED']);
+
+/**
+ * Codes any operation can return: validation, size and origin for bodies, its access
+ * level's, and failure; then its own.
+ */
 function errorCodes(operation: OperationContract): ErrorCode[] {
   const codes: ErrorCode[] = ['VALIDATION_FAILED', 'INTERNAL_ERROR'];
   if (requiresCsrf(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
+  for (const code of ACCESS_CODES[operation.access]) if (!codes.includes(code)) codes.push(code);
   for (const code of operation.errors ?? []) if (!codes.includes(code)) codes.push(code);
   return codes;
 }
@@ -93,7 +128,7 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   for (const [status, schema] of Object.entries(operation.responses)) {
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
-      headers: responseHeaders,
+      headers: operation.setsCookies ? cookieHeaders : responseHeaders,
       // 204 has no body, so no content type either.
       ...(status === '204' ? {} : { content: { 'application/json': { schema } } }),
     };
@@ -106,7 +141,7 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   for (const [status, codes] of [...byStatus].sort(([a], [b]) => a - b)) {
     responses[String(status)] = {
       description: `Problem document with code ${codes.join(' or ')}.`,
-      headers: responseHeaders,
+      headers: codes.some((code) => RETRY_AFTER_CODES.has(code)) ? retryHeaders : responseHeaders,
       content: { 'application/problem+json': { schema: problemSchema } },
       'x-error-codes': codes,
     };

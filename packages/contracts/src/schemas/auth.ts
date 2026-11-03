@@ -72,3 +72,6 @@ export const changePasswordBody = z.strictObject({
   currentPassword: presentedPassword,
   newPassword: passwordSchema,
 });
+
+export type LoginBody = z.infer<typeof loginBody>;
+export type ResetPasswordBody = z.infer<typeof resetPasswordBody>;

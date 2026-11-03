@@ -53,7 +53,7 @@ export interface SeededUser {
   password: string;
 }
 
-async function instance(db: TestDatabase, clock: TestClock) {
+function instance(db: TestDatabase, clock: TestClock) {
   const prisma = createPrismaClient({
     url: db.url('po_app'),
     poolSize: 4,
@@ -76,7 +76,7 @@ async function instance(db: TestDatabase, clock: TestClock) {
 export async function accountsHarness(start?: Date) {
   const db = trackDatabase(await createTestDatabase());
   const clock = testClock(start);
-  const first = await instance(db, clock);
+  const first = instance(db, clock);
   const admin = await db.client('postgres');
 
   /** A user seeded as the superuser (no audit); password null leaves none set. */
@@ -159,7 +159,7 @@ export async function accountsHarness(start?: Date) {
     logs: first.logs,
     mailer: first.mailer,
     /** A second API instance on the same database and clock. */
-    secondInstance: async () => (await instance(db, clock)).app,
+    secondInstance: () => instance(db, clock).app,
     seedUser,
     issue,
     login,

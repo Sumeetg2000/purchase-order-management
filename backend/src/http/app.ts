@@ -48,7 +48,15 @@ function describeRoute(route: Pick<OperationContract, 'method' | 'path'>): strin
   return `${route.method.toUpperCase()} ${route.path}`;
 }
 
-const CONTRACT_FIELDS = ['summary', 'access', 'ifMatch', 'request', 'responses', 'errors'] as const;
+const CONTRACT_FIELDS = [
+  'summary',
+  'access',
+  'ifMatch',
+  'setsCookies',
+  'request',
+  'responses',
+  'errors',
+] as const;
 
 /**
  * Startup check: every route declares a known access level and documented responses, and

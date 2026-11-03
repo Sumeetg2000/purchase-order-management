@@ -164,6 +164,822 @@
           }
         }
       }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Log in with email and password; sets the session cookies.",
+        "x-access": "public",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Set-Cookie": {
+                "required": true,
+                "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017).",
+                "schema": {
+                  "type": "string",
+                  "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017)."
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code PASSWORD_NOT_SET or INCORRECT_PASSWORD or ACCOUNT_NOT_VERIFIED or ACCOUNT_DEACTIVATED.",
+            "x-error-codes": [
+              "PASSWORD_NOT_SET",
+              "INCORRECT_PASSWORD",
+              "ACCOUNT_NOT_VERIFIED",
+              "ACCOUNT_DEACTIVATED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED.",
+            "x-error-codes": [
+              "CSRF_REJECTED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Problem document with code ACCOUNT_NOT_FOUND.",
+            "x-error-codes": [
+              "ACCOUNT_NOT_FOUND"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Problem document with code ACCOUNT_LOCKED.",
+            "x-error-codes": [
+              "ACCOUNT_LOCKED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "Seconds to wait."
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Problem document with code RATE_LIMITED.",
+            "x-error-codes": [
+              "RATE_LIMITED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "Seconds to wait."
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "refreshSession",
+        "summary": "Rotate the refresh token and issue a new access token.",
+        "x-access": "refresh",
+        "security": [
+          {
+            "refreshCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Set-Cookie": {
+                "required": true,
+                "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017).",
+                "schema": {
+                  "type": "string",
+                  "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017)."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED or ACCOUNT_DEACTIVATED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "SESSION_EXPIRED",
+              "SESSION_REVOKED",
+              "ACCOUNT_DEACTIVATED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED.",
+            "x-error-codes": [
+              "CSRF_REJECTED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "End this browser's session and clear its cookies.",
+        "x-access": "refresh",
+        "security": [
+          {
+            "refreshCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Set-Cookie": {
+                "required": true,
+                "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017).",
+                "schema": {
+                  "type": "string",
+                  "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017)."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "SESSION_EXPIRED",
+              "SESSION_REVOKED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED.",
+            "x-error-codes": [
+              "CSRF_REJECTED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "operationId": "logoutAll",
+        "summary": "End every one of the user's sessions and clear this browser's cookies.",
+        "x-access": "refresh",
+        "security": [
+          {
+            "refreshCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Set-Cookie": {
+                "required": true,
+                "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017).",
+                "schema": {
+                  "type": "string",
+                  "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017)."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "SESSION_EXPIRED",
+              "SESSION_REVOKED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED.",
+            "x-error-codes": [
+              "CSRF_REJECTED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "Set a new password from a reset or set-password link.",
+        "x-access": "public",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "token",
+                  "newPassword"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN.",
+            "x-error-codes": [
+              "VALIDATION_FAILED",
+              "TOKEN_EXPIRED",
+              "TOKEN_USED",
+              "TOKEN_SUPERSEDED",
+              "INVALID_TOKEN"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED.",
+            "x-error-codes": [
+              "CSRF_REJECTED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "The caller's own profile.",
+        "x-access": "user",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "ACCESS_TOKEN_EXPIRED",
+              "ACCOUNT_DEACTIVATED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -314,6 +1130,55 @@
         "required": [
           "status",
           "checks"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "BUYER",
+                "APPROVER",
+                "ADMIN"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UNVERIFIED",
+              "ACTIVE",
+              "DEACTIVATED"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "roles",
+          "status",
+          "createdAt"
         ],
         "additionalProperties": false
       }

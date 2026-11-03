@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import type { AppPrismaClient } from '../../src/db/client.js';
-import { createApp } from '../../src/http/app.js';
-import { productionRoutes } from '../../src/http/routes/index.js';
+import { createApiApp } from '../../src/app.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
+import { testApiConfig } from '../support/api-config.js';
 import { testLogger } from '../support/log-capture.js';
 import { systemClock } from '../../src/lib/clock.js';
 
@@ -40,15 +40,13 @@ describe('[FR-ADM-05] operator code is unreachable over HTTP', () => {
   });
 
   it('[FR-ADM-05] the public app has no /metrics route', async () => {
-    const app = createApp({
+    const app = createApiApp({
+      config: testApiConfig({ DATABASE_URL: 'postgres://po_app:unused@db:5432/po' }),
+      prisma: {} as AppPrismaClient,
+      clock: systemClock,
       logger: testLogger(),
-      appOrigin: 'http://localhost:8080',
-      routes: productionRoutes({
-        prisma: {} as AppPrismaClient,
-        expectedMigrations: [],
-        mail: createMailDispatcher(new CaptureMailer()),
-        clock: systemClock,
-      }),
+      mail: createMailDispatcher(new CaptureMailer()),
+      expectedMigrations: [],
     });
     const res = await request(app).get('/metrics');
     expect(res.status).toBe(404);

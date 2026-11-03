@@ -109,19 +109,27 @@ export function validateResponse(res: ResponseToValidate): string[] {
   const headers = (response['headers'] ?? {}) as Json;
   for (const [name, declared] of Object.entries(headers)) {
     const { node: header, path: headerPath } = resolve(declared, [...path, 'headers', name]);
-    const value = res.headers[name.toLowerCase()];
+    const value: unknown = res.headers[name.toLowerCase()];
     if (value === undefined) {
       if (header['required'] === true) errors.push(`${label}: missing header ${name}`);
       continue;
     }
     const validate = ajv.getSchema(`${DOCUMENT_ID}#/${pointer([...headerPath, 'schema'])}`);
-    if (validate && !validate(value)) {
-      errors.push(`${label}: header ${name} ${ajv.errorsText(validate.errors)}`);
+    // A header sent several times (Set-Cookie) arrives as an array: each line is one value.
+    for (const line of Array.isArray(value) ? (value as unknown[]) : [value]) {
+      if (validate && !validate(line)) {
+        errors.push(`${label}: header ${name} ${ajv.errorsText(validate.errors)}`);
+      }
     }
   }
 
-  const content = (response['content'] ?? {}) as Json;
   const contentType = (res.headers['content-type'] ?? '').split(';')[0]?.trim() ?? '';
+  // A response documented with no content (204) must send no body.
+  if (response['content'] === undefined) {
+    if (contentType !== '') errors.push(`${label}: documented without a body, sent ${contentType}`);
+    return errors;
+  }
+  const content = response['content'] as Json;
   if (!(contentType in content)) {
     errors.push(
       `${label}: content type "${contentType}" is not one of ${Object.keys(content).join(', ')}`,

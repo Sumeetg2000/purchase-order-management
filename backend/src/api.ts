@@ -1,18 +1,15 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from 'pino';
+import { createApiApp } from './app.js';
 import type { ApiConfig } from './config/api.js';
 import { createPrismaClient } from './db/client.js';
-import { createApp } from './http/app.js';
 import { listMigrations } from './health/service.js';
-import { productionRoutes } from './http/routes/index.js';
 import { createShutdown, DRAIN_TIMEOUT_MS } from './http/shutdown.js';
 import { createMailDispatcher } from './mail/dispatcher.js';
 import { createSmtpMailer } from './mail/smtp.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
 import { systemClock, type Clock } from './lib/clock.js';
-import { createAccessTokens } from './auth/access-token.js';
-import { createAuthService } from './auth/service.js';
 
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -56,29 +53,7 @@ export async function startApi(
 
   const mail = createMailDispatcher(createSmtpMailer(config));
   const metrics = createMetrics();
-  const app = createApp({
-    logger,
-    appOrigin: config.APP_ORIGIN,
-    metrics,
-    auth: {
-      service: createAuthService({
-        prisma,
-        accessTokens: createAccessTokens({
-          signingKey: config.JWT_SIGNING_KEY,
-          keyId: config.JWT_KEY_ID,
-          clock,
-        }),
-      }),
-      csrfSecret: config.CSRF_SECRET,
-    },
-    routes: productionRoutes({
-      prisma,
-      expectedMigrations,
-      logger,
-      mail,
-      clock,
-    }),
-  });
+  const app = createApiApp({ config, prisma, clock, logger, mail, expectedMigrations, metrics });
 
   const server = createServer(app);
   const metricsServer = createMetricsServer(metrics);

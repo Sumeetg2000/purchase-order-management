@@ -147,7 +147,7 @@ describe('[NFR-SEC-07] per-account lockout', () => {
 
   it('[NFR-SEC-07] the lockout holds across two API instances', async () => {
     const h = await accountsHarness();
-    const other = await h.secondInstance();
+    const other = h.secondInstance();
     const user = await h.seedUser();
     for (let i = 1; i < LOCKOUT_THRESHOLD; i += 1) {
       await h.login(user.email, WRONG, '10.0.0.1', i % 2 === 0 ? h.app : other);

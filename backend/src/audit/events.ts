@@ -3,6 +3,11 @@
 // database fills them from the transaction's actor context.
 
 export interface AuditEventCatalogue {
+  /** A user proved control of their mailbox: by the verification link or a reset. */
+  USER_EMAIL_VERIFIED: {
+    entityType: 'user';
+    details: { via: 'link' | 'reset' };
+  };
   ADMIN_CREATED: {
     entityType: 'user';
     details: {

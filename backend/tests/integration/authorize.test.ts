@@ -61,14 +61,14 @@ function route(
 const body = z.strictObject({ name: z.string().min(1) });
 
 const ROUTES = [
-  route('get', '/open', 'public'),
-  route('get', '/me', 'user'),
-  route('post', '/me', 'user', { request: { body } }),
-  route('post', '/request', 'no-role', { request: { body } }),
-  route('post', '/admin', 'admin', { request: { body } }),
-  route('post', '/refresh', 'refresh'),
-  route('patch', '/versioned', 'admin', { ifMatch: 'required', request: { body } }),
-  route('post', '/password', 'user', {
+  route('get', '/probe/open', 'public'),
+  route('get', '/probe/me', 'user'),
+  route('post', '/probe/me', 'user', { request: { body } }),
+  route('post', '/probe/request', 'no-role', { request: { body } }),
+  route('post', '/probe/admin', 'admin', { request: { body } }),
+  route('post', '/probe/refresh', 'refresh'),
+  route('patch', '/probe/versioned', 'admin', { ifMatch: 'required', request: { body } }),
+  route('post', '/probe/password', 'user', {
     request: { body: z.strictObject({ password: passwordSchema }) },
   }),
 ];
@@ -155,14 +155,14 @@ function as(app: Setup['app'], user: Seeded) {
 describe('[NFR-AUTH-01] authentication', () => {
   it('[NFR-AUTH-01] a public route needs no session', async () => {
     const { app } = await setup();
-    expect((await request(app).get('/open')).status).toBe(200);
+    expect((await request(app).get('/probe/open')).status).toBe(200);
   });
 
   it('[NFR-AUTH-01] no access cookie, or a malformed one, is 401 UNAUTHENTICATED', async () => {
     const { app } = await setup();
     for (const req of [
-      request(app).get('/me'),
-      request(app).get('/me').set('Cookie', 'po_access=not.a.jwt'),
+      request(app).get('/probe/me'),
+      request(app).get('/probe/me').set('Cookie', 'po_access=not.a.jwt'),
     ]) {
       const res = await req;
       expect(res.status).toBe(401);
@@ -174,7 +174,7 @@ describe('[NFR-AUTH-01] authentication', () => {
     const { app, clock, seed } = await setup();
     const user = await seed('{BUYER}');
     clock.advance(ACCESS_TOKEN_LIFETIME_SECONDS * 1_000);
-    const res = await as(app, user).get('/me');
+    const res = await as(app, user).get('/probe/me');
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ code: 'ACCESS_TOKEN_EXPIRED' });
   });
@@ -184,14 +184,14 @@ describe('[NFR-AUTH-01] authentication', () => {
     const user = await seed('{BUYER}');
     await admin.query('SET session_replication_role = replica');
     await admin.query('DELETE FROM refresh_tokens; DELETE FROM sessions; DELETE FROM users');
-    const res = await as(app, user).get('/me');
+    const res = await as(app, user).get('/probe/me');
     expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('[SC-006] a deactivated user is refused on the very next request, with a valid token', async () => {
     const { app, seed } = await setup();
     const user = await seed('{BUYER}', 'DEACTIVATED');
-    const res = await as(app, user).get('/me');
+    const res = await as(app, user).get('/probe/me');
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ code: 'ACCOUNT_DEACTIVATED' });
   });
@@ -199,14 +199,14 @@ describe('[NFR-AUTH-01] authentication', () => {
   it('[NFR-SEC-03] roles and status are read on every request, not from the token', async () => {
     const { app, seed, admin } = await setup();
     const user = await seed('{BUYER}');
-    expect((await as(app, user).get('/me')).body).toMatchObject({
+    expect((await as(app, user).get('/probe/me')).body).toMatchObject({
       userId: user.userId,
       sessionId: user.sessionId,
       roles: ['BUYER'],
     });
     await admin.query('SET session_replication_role = replica');
     await admin.query(`UPDATE users SET roles = '{APPROVER}' WHERE id = $1`, [user.userId]);
-    expect((await as(app, user).get('/me')).body).toMatchObject({ roles: ['APPROVER'] });
+    expect((await as(app, user).get('/probe/me')).body).toMatchObject({ roles: ['APPROVER'] });
   });
 });
 
@@ -216,24 +216,24 @@ describe('[NFR-SEC-04] CSRF', () => {
     const user = await seed('{BUYER}');
     const other = await seed('{BUYER}');
     for (const csrf of [null, '', other.csrf, `${user.csrf}x`]) {
-      const res = await as(app, user).post('/me', csrf).send({ name: 'x' });
+      const res = await as(app, user).post('/probe/me', csrf).send({ name: 'x' });
       expect(res.status, String(csrf)).toBe(403);
       expect(res.body).toMatchObject({ code: 'CSRF_REJECTED' });
     }
-    expect((await as(app, user).post('/me').send({ name: 'x' })).status).toBe(200);
+    expect((await as(app, user).post('/probe/me').send({ name: 'x' })).status).toBe(200);
   });
 
   it('[NFR-SEC-04] reads are exempt from the CSRF header', async () => {
     const { app, seed } = await setup();
     const user = await seed('{BUYER}');
-    expect((await as(app, user).get('/me')).status).toBe(200);
+    expect((await as(app, user).get('/probe/me')).status).toBe(200);
   });
 
   it('[NFR-SEC-04] a cross-origin request is refused before anything else', async () => {
     const { app, seed } = await setup();
     const user = await seed('{BUYER}');
     const res = await as(app, user)
-      .post('/me')
+      .post('/probe/me')
       .set('Origin', 'https://evil.example')
       .send({ name: 'x' });
     expect(res.status).toBe(403);
@@ -244,12 +244,12 @@ describe('[NFR-SEC-04] CSRF', () => {
     const { app } = await setup();
     for (const req of [
       request(app)
-        .post('/me')
+        .post('/probe/me')
         .set('Origin', APP_ORIGIN)
         .set('Content-Type', 'application/json')
         .send('{"name":'),
       request(app)
-        .post('/me')
+        .post('/probe/me')
         .set('Origin', APP_ORIGIN)
         .set('Content-Type', 'text/plain')
         .send('x'),
@@ -262,7 +262,7 @@ describe('[NFR-SEC-04] CSRF', () => {
 
   it('[NFR-AUTH-01] no session beats a missing CSRF header: 401, not 403', async () => {
     const { app } = await setup();
-    const res = await request(app).post('/me').set('Origin', APP_ORIGIN).send({ name: 'x' });
+    const res = await request(app).post('/probe/me').set('Origin', APP_ORIGIN).send({ name: 'x' });
     expect(res.status).toBe(401);
   });
 });
@@ -273,7 +273,7 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
     const user = await seed('{}');
     for (const sent of [{ name: 'x' }, { wrong: true }, '{"name":']) {
       const res = await as(app, user)
-        .post('/admin')
+        .post('/probe/admin')
         .set('Content-Type', 'application/json')
         .send(sent);
       expect(res.status).toBe(403);
@@ -286,7 +286,7 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
     const buyer = await seed('{BUYER}');
     for (const sent of [{ name: 'x' }, { wrong: true }, '{"name":']) {
       const res = await as(app, buyer)
-        .post('/admin')
+        .post('/probe/admin')
         .set('Content-Type', 'application/json')
         .send(sent);
       expect(res.status, JSON.stringify(sent)).toBe(403);
@@ -297,16 +297,16 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
   it('[NFR-AUTH-02] an Admin passes an admin route', async () => {
     const { app, seed } = await setup();
     const admin = await seed('{ADMIN}');
-    expect((await as(app, admin).post('/admin').send({ name: 'x' })).status).toBe(200);
+    expect((await as(app, admin).post('/probe/admin').send({ name: 'x' })).status).toBe(200);
   });
 
   it('[FR-ACC-08] a no-role route is for users with no role; anyone with a role gets 403 FORBIDDEN', async () => {
     const { app, seed } = await setup();
     const none = await seed('{}');
     const buyer = await seed('{BUYER}');
-    expect((await as(app, none).post('/request').send({ name: 'x' })).status).toBe(200);
+    expect((await as(app, none).post('/probe/request').send({ name: 'x' })).status).toBe(200);
     for (const sent of [{ name: 'x' }, { wrong: true }]) {
-      const res = await as(app, buyer).post('/request').send(sent);
+      const res = await as(app, buyer).post('/probe/request').send(sent);
       expect(res.status).toBe(403);
       expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
     }
@@ -315,7 +315,7 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
   it('[FR-ACC-08] a user route serves users with and without a role', async () => {
     const { app, seed } = await setup();
     for (const roles of ['{}', '{BUYER}', '{ADMIN}']) {
-      expect((await as(app, await seed(roles)).get('/me')).status, roles).toBe(200);
+      expect((await as(app, await seed(roles)).get('/probe/me')).status, roles).toBe(200);
     }
   });
 
@@ -324,7 +324,7 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
       createTestApp({
         logger: testLogger(),
         appOrigin: APP_ORIGIN,
-        testOnlyRoutes: [route('get', '/me', 'user')],
+        testOnlyRoutes: [route('get', '/probe/me', 'user')],
       }),
     ).toThrow(RouteRegistrationError);
   });
@@ -332,7 +332,7 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
 
 describe('[NFR-SEC-02] refresh-cookie routes', () => {
   function refreshCall(app: Setup['app'], token: string | undefined, csrf: string | undefined) {
-    let req = request(app).post('/refresh').set('Origin', APP_ORIGIN);
+    let req = request(app).post('/probe/refresh').set('Origin', APP_ORIGIN);
     if (token !== undefined) req = req.set('Cookie', `po_refresh=${token}`);
     if (csrf !== undefined) req = req.set('X-CSRF-Token', csrf);
     return req;
@@ -383,7 +383,7 @@ describe('[FR-ADM-02] If-Match and custom field codes', () => {
     const { app, seed } = await setup();
     const admin = await seed('{ADMIN}');
     const req = request(app)
-      .patch('/versioned')
+      .patch('/probe/versioned')
       .set('Origin', APP_ORIGIN)
       .set('Cookie', `po_access=${admin.access}`)
       .set('X-CSRF-Token', admin.csrf);
@@ -417,7 +417,7 @@ describe('[FR-ADM-02] If-Match and custom field codes', () => {
   it('[FR-ACC-04] a password failure reports its own field code, not INVALID_FORMAT', async () => {
     const { app, seed } = await setup();
     const user = await seed('{BUYER}');
-    const res = await as(app, user).post('/password').send({ password: 'short' });
+    const res = await as(app, user).post('/probe/password').send({ password: 'short' });
     expect(res.body).toMatchObject({
       code: 'VALIDATION_FAILED',
       details: [{ path: 'body.password', code: 'PASSWORD_TOO_SHORT' }],

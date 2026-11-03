@@ -7,9 +7,11 @@ import { z } from 'zod';
 import type { AppPrismaClient } from '../../src/db/client.js';
 import { createApp, RouteRegistrationError } from '../../src/http/app.js';
 import { defineRoute, type RouteDefinition } from '../../src/http/define-route.js';
+import { routeDependencies } from '../../src/app.js';
 import { productionRoutes } from '../../src/http/routes/index.js';
 import { CaptureMailer } from '../../src/mail/capture.js';
 import { createMailDispatcher } from '../../src/mail/dispatcher.js';
+import { testApiConfig } from '../support/api-config.js';
 import { testLogger } from '../support/log-capture.js';
 import { systemClock } from '../../src/lib/clock.js';
 
@@ -74,12 +76,16 @@ describe('[NFR-API-01] routes follow the contract', () => {
   });
 
   it('[NFR-API-01] the production routes are exactly the contract operations', () => {
-    const routes = productionRoutes({
-      prisma: {} as AppPrismaClient,
-      expectedMigrations: [],
-      mail: createMailDispatcher(new CaptureMailer()),
-      clock: systemClock,
-    });
+    const routes = productionRoutes(
+      routeDependencies({
+        config: testApiConfig({ DATABASE_URL: 'postgres://po_app:unused@db:5432/po' }),
+        prisma: {} as AppPrismaClient,
+        clock: systemClock,
+        logger: testLogger(),
+        mail: createMailDispatcher(new CaptureMailer()),
+        expectedMigrations: [],
+      }),
+    );
     const served = routes.map((r) => `${r.operationId} ${r.method} ${r.path}`).sort();
     const documented = Object.values(OPERATIONS)
       .map((o) => `${o.operationId} ${o.method} ${o.path}`)

@@ -168,7 +168,7 @@ steps 1–3 with only the bootstrap admin.
 
 ### Tests (seen failing)
 
-- [ ] T023 [P] [US1] Login: check order `ACCOUNT_NOT_FOUND` 404 → `ACCOUNT_LOCKED` 423 →
+- [X] T023 [P] [US1] Login: check order `ACCOUNT_NOT_FOUND` 404 → `ACCOUNT_LOCKED` 423 →
   `PASSWORD_NOT_SET` → `INCORRECT_PASSWORD` → `ACCOUNT_NOT_VERIFIED` →
   `ACCOUNT_DEACTIVATED` (401s); 5th wrong password locks for 15 min with `Retry-After`,
   right password while locked → 423, unlock after 15 min, success resets the counter,
@@ -176,7 +176,7 @@ steps 1–3 with only the bootstrap admin.
   per minute → 429); success sets 3 cookies, `last_login_at`, body is `me` with no token —
   `backend/tests/integration/login.test.ts` — FR-003, FR-004, FR-005, FR-006,
   NFR-SEC-01, NFR-SEC-05, NFR-SEC-07.
-- [ ] T024 [P] [US1] Refresh: rotation issues a new pair; reuse within 10 s → sibling,
+- [X] T024 [P] [US1] Refresh: rotation issues a new pair; reuse within 10 s → sibling,
   session stays valid; concurrent refreshes of one token both succeed (barrier); reuse
   after 10 s → whole session revoked (`REUSE_DETECTED` stored and logged), `401
   SESSION_REVOKED` with no `reason`; a session revoked for a public reason →
@@ -187,12 +187,12 @@ steps 1–3 with only the bootstrap admin.
   8-hour working day never needs a login; CSRF cookie survives a simulated browser
   restart — `backend/tests/integration/sessions-refresh.test.ts` — FR-008, FR-009,
   SC-004, NFR-SEC-02, NFR-SEC-09, NFR-SEC-04.
-- [ ] T025 [P] [US1] Logout (even with an expired access token) revokes with `LOGOUT`;
+- [X] T025 [P] [US1] Logout (even with an expired access token) revokes with `LOGOUT`;
   logout-all with `LOGOUT_ALL`; both clear cookies; refresh cookie never sent outside
   `/api/auth`; `GET /me` returns the FR-020 fields —
   `backend/tests/integration/logout.test.ts`, `profile.test.ts` — FR-011, FR-020,
   NFR-SEC-03.
-- [ ] T026 [P] [US1] Reset-password: the four token codes; a valid token sets the
+- [X] T026 [P] [US1] Reset-password: the four token codes; a valid token sets the
   password (policy field codes), revokes every session with `PASSWORD_RESET`, clears the
   lockout, activates an `UNVERIFIED` user, writes `USER_EMAIL_VERIFIED` (`via: 'reset'`)
   when it does — `backend/tests/integration/reset-password.test.ts` — FR-015, FR-ACC-03,
@@ -200,18 +200,18 @@ steps 1–3 with only the bootstrap admin.
 
 ### Implementation
 
-- [ ] T027 [US1] Users repository: find by email, login bookkeeping, atomic lockout
+- [X] T027 [US1] Users repository: find by email, login bookkeeping, atomic lockout
   `UPDATE` (`failed_login_count` 0–4, `locked_until`), set password —
   `backend/src/users/repository.ts`.
-- [ ] T028 [US1] Sessions repository: create session + first token, refresh under row
+- [X] T028 [US1] Sessions repository: create session + first token, refresh under row
   lock (token then session), sibling insert, revoke one/all with reason —
   `backend/src/auth/repository.ts`.
-- [ ] T029 [US1] Auth service: login, refresh (R5 order), logout, logout-all, with
+- [X] T029 [US1] Auth service: login, refresh (R5 order), logout, logout-all, with
   security-log events; `SESSION_REVOKED` carries `reason` only when it is public —
   `backend/src/auth/service.ts` — T023–T025 green.
-- [ ] T030 [US1] Accounts service: reset-password via `consumeToken` —
+- [X] T030 [US1] Accounts service: reset-password via `consumeToken` —
   `backend/src/accounts/service.ts` — T026 green.
-- [ ] T031 [US1] Routes for login, refresh, logout, logout-all, reset-password, `GET /me`
+- [X] T031 [US1] Routes for login, refresh, logout, logout-all, reset-password, `GET /me`
   — `backend/src/{auth,accounts,profile}/routes.ts`, `profile/service.ts`.
 
 ### Frontend

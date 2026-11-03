@@ -16,3 +16,5 @@ export const me = z
 
 /** The only editable profile field; anything else (phone included) is UNKNOWN_FIELD. */
 export const updateMeBody = z.strictObject({ name: userName });
+
+export type Me = z.infer<typeof me>;
