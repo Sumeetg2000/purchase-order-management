@@ -149,6 +149,23 @@ export async function accountsHarness(start?: Date) {
     return request(app).get(path).set('Cookie', cookieHeader(jar, 'po_access'));
   }
 
+  /** A state-changing call with the access cookie and the CSRF header. */
+  function send(
+    method: 'post' | 'patch' | 'delete',
+    path: string,
+    jar: CookieJar,
+    body?: unknown,
+    headers: Record<string, string> = {},
+  ) {
+    const agent = request(first.app);
+    let req = agent[method](path)
+      .set('Origin', APP_ORIGIN)
+      .set('Cookie', cookieHeader(jar, 'po_access'))
+      .set('X-CSRF-Token', jar['po_csrf'] ?? '');
+    for (const [name, value] of Object.entries(headers)) req = req.set(name, value);
+    return body === undefined ? req : req.send(body as object);
+  }
+
   async function query<T extends Record<string, unknown>>(sql: string, params: unknown[] = []) {
     return (await admin.query<T>(sql, params)).rows;
   }
@@ -178,6 +195,7 @@ export async function accountsHarness(start?: Date) {
     loggedIn,
     withRefresh,
     get,
+    send,
     query,
   };
 }

@@ -26,7 +26,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents the health operations and the slice 1 US1 and US2 ones, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations and the slice 1 US1 to US3 ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
     const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
@@ -49,6 +49,12 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'resendVerification post /auth/resend-verification',
         'getOwnAccessRequest get /me/access-request',
         'sendAccessRequest post /me/access-request',
+        'listUsers get /admin/users',
+        'getUser get /admin/users/{id}',
+        'updateUser patch /admin/users/{id}',
+        'sendUserPasswordReset post /admin/users/{id}/reset-password',
+        'listAccessRequests get /admin/access-requests',
+        'dismissAccessRequest post /admin/access-requests/{id}/dismiss',
       ].sort(),
     );
   });
@@ -67,6 +73,17 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
       'Set-Cookie',
     );
+  });
+
+  it('[FR-ADM-02] documents ETag on the reads and updates of a versioned user', () => {
+    for (const method of ['get', 'patch'] as const) {
+      const headers = at(doc, 'paths', '/admin/users/{id}', method, 'responses', '200', 'headers');
+      expect(headers, method).toHaveProperty('ETag');
+      expect(headers, method).toHaveProperty('X-Request-Id');
+    }
+    expect(
+      at(doc, 'paths', '/admin/users', 'get', 'responses', '200', 'headers'),
+    ).not.toHaveProperty('ETag');
   });
 
   it('[NFR-API-01] a 202 with no body documents no content', () => {
