@@ -44,6 +44,10 @@ const EXPECTED: BodyInventory = {
   logout: 'no body',
   logoutAll: 'no body',
   resetPassword: { token: 'required', newPassword: 'required' },
+  signup: { name: 'required', email: 'required', password: 'required' },
+  verifyEmail: { token: 'required' },
+  resendVerification: { email: 'required' },
+  sendAccessRequest: { message: 'required' },
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {

@@ -26,7 +26,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents the health operations and the slice 1 US1 ones, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations and the slice 1 US1 and US2 ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
     const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
@@ -44,6 +44,11 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'logoutAll post /auth/logout-all',
         'refreshSession post /auth/refresh',
         'resetPassword post /auth/reset-password',
+        'signup post /auth/signup',
+        'verifyEmail post /auth/verify-email',
+        'resendVerification post /auth/resend-verification',
+        'getOwnAccessRequest get /me/access-request',
+        'sendAccessRequest post /me/access-request',
       ].sort(),
     );
   });
@@ -62,6 +67,11 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
       'Set-Cookie',
     );
+  });
+
+  it('[NFR-API-01] a 202 with no body documents no content', () => {
+    const accepted = at(doc, 'paths', '/auth/signup', 'post', 'responses', '202');
+    expect(accepted['content']).toBeUndefined();
   });
 
   it('[NFR-SEC-05] documents Retry-After on 423 and 429 responses', () => {
