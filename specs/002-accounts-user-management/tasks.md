@@ -110,14 +110,14 @@ short summary stop.
   tests (log redaction) still pass.
 - [X] T011 [P] Injected `Clock` (system and test clocks), threaded through the app
   factory — `backend/src/lib/clock.ts`, `backend/src/http/app.ts`.
-- [ ] T012 [P] Unit tests: password policy field codes (`PASSWORD_TOO_SHORT`/`_LONG`/
+- [X] T012 [P] Unit tests: password policy field codes (`PASSWORD_TOO_SHORT`/`_LONG`/
   `_COMMON`), argon2id profile (19 MiB, t=2, p=1), cookie names, flags and paths
   (`po_access` `/api`, `po_refresh` `/api/auth`, `po_csrf`; HttpOnly except CSRF,
   Secure, SameSite=Strict, `Max-Age`), access token (HS256, `kid`, `sid`, 15 min,
   expired vs malformed), CSRF HMAC of the session id —
   `backend/tests/unit/{passwords,cookies,access-token,csrf}.test.ts` — NFR-SEC-01,
   NFR-SEC-04, NFR-SEC-05, FR-014.
-- [ ] T013 Implement them, every lifetime and limit a named constant —
+- [X] T013 Implement them, every lifetime and limit a named constant —
   `backend/src/auth/{passwords,cookies,access-token,csrf,constants}.ts` — T012 green.
 - [ ] T014 Tests: one-time token consume returns used → superseded → expired → unknown in
   that order (`TOKEN_USED`, `TOKEN_SUPERSEDED`, `TOKEN_EXPIRED`, `INVALID_TOKEN`); wrong

@@ -23,3 +23,24 @@ export const LOCKOUT_THRESHOLD = 5;
 
 /** The longest user agent kept for a session; longer ones are truncated. */
 export const USER_AGENT_MAX_LENGTH = 512;
+
+const MINUTE_SECONDS = 60;
+const DAY_SECONDS = 24 * 60 * MINUTE_SECONDS;
+
+/** How long an access token (and its cookie) is valid. */
+export const ACCESS_TOKEN_LIFETIME_SECONDS = 15 * MINUTE_SECONDS;
+
+/** How long a refresh token is valid: a session unused this long ends. */
+export const REFRESH_TOKEN_IDLE_SECONDS = 7 * DAY_SECONDS;
+
+/** A session ends this long after login, however active; rotation never extends it. */
+export const SESSION_ABSOLUTE_LIFETIME_SECONDS = 30 * DAY_SECONDS;
+
+/** A rotated refresh token presented within this window gets a sibling, not revocation. */
+export const REFRESH_SIBLING_GRACE_SECONDS = 10;
+
+/** How long a locked account stays locked. */
+export const LOCKOUT_DURATION_SECONDS = 15 * MINUTE_SECONDS;
+
+/** Random bytes in a refresh token (256 bits). */
+export const REFRESH_TOKEN_BYTES = 32;

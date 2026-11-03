@@ -14,8 +14,14 @@ import {
 describe('[NFR-SEC-05] password hashing', () => {
   it('[NFR-SEC-05] hashes with argon2id at 19 MiB, 2 iterations, parallelism 1', async () => {
     expect([ARGON2_MEMORY_KIB, ARGON2_TIME_COST, ARGON2_PARALLELISM]).toEqual([19 * 1024, 2, 1]);
-    const hash = await hashPassword('correct horse battery');
-    expect(hash).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
+    const [, algorithm, version, params] = (await hashPassword('correct horse battery')).split('$');
+    expect([algorithm, version]).toEqual(['argon2id', 'v=19']);
+    // PHC parameters, in whatever order the library writes them.
+    expect(Object.fromEntries((params ?? '').split(',').map((p) => p.split('=')))).toEqual({
+      m: '19456',
+      t: '2',
+      p: '1',
+    });
   });
 
   it('[NFR-SEC-05] salts every hash, and verifies only the right password', async () => {
