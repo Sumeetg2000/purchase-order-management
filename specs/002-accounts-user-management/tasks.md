@@ -95,7 +95,7 @@ short summary stop.
 
 ### Platform
 
-- [ ] T010 [P] Remove slice 0's phone leftovers (no phone is stored, ADR-0016 amended
+- [X] T010 [P] Remove slice 0's phone leftovers (no phone is stored, ADR-0016 amended
   2026-11-03): delete the `PHONE_KEY` check, `phoneKeyPath` and
   `ForbiddenAuditDetailError` from `backend/src/audit/write.ts`, the `NoPhone` type from
   `backend/src/audit/events.ts`, and their test file

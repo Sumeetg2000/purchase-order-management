@@ -2,15 +2,10 @@
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
 // database fills them from the transaction's actor context.
 
-/** A phone number never goes into audit details (ADR-0016). */
-interface NoPhone {
-  phone?: never;
-}
-
 export interface AuditEventCatalogue {
   ADMIN_CREATED: {
     entityType: 'user';
-    details: NoPhone & {
+    details: {
       /** `bootstrap` is audited as SYSTEM, `cli` as OPERATOR (with osUser and host). */
       source: 'bootstrap' | 'cli';
       name: string;

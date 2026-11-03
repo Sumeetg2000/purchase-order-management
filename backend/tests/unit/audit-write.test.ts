@@ -9,11 +9,11 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
 type Event = Parameters<typeof writeAudit>[1];
 type Transaction = Parameters<typeof writeAudit>[0];
 
-interface AdminCreated<Source, Extra = unknown> {
+interface AdminCreated<Source> {
   action: 'ADMIN_CREATED';
   entityType: 'user';
   entityId: string;
-  details: { source: Source; name: string; email: string } & Extra;
+  details: { source: Source; name: string; email: string };
 }
 
 type Bootstrap = AdminCreated<'bootstrap'>;
@@ -25,7 +25,6 @@ type UnknownEvent = {
   details: object;
 };
 type WrongSource = AdminCreated<'web'>;
-type WithPhone = AdminCreated<'cli', { phone: string }>;
 
 describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] accepts the slice 0 ADMIN_CREATED event in both of its forms', () => {
@@ -38,8 +37,6 @@ describe('[NFR-AUD-02] typed audit events', () => {
     expectTypeOf<UnknownEvent>().toExtend<Event>();
     // @ts-expect-error: source must be 'cli' or 'bootstrap'
     expectTypeOf<WrongSource>().toExtend<Event>();
-    // @ts-expect-error: a phone number never goes into audit details (ADR-0016)
-    expectTypeOf<WithPhone>().toExtend<Event>();
   });
 
   it('[NFR-AUD-02] takes only a transaction from withTransaction, never a plain Prisma one', () => {

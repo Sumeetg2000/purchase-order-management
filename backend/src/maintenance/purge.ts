@@ -11,7 +11,10 @@ export const TOKEN_RETENTION_DAYS = 7;
 /** Rows deleted per statement, so no single delete holds locks on a large set. */
 export const PURGE_BATCH_SIZE = 1_000;
 
-/** The tables the purge covers so far; later slices add sessions, keys and phones. */
+/**
+ * The tables the purge covers so far; slice 1 adds sessions and rate-limit windows, and
+ * slice 3 idempotency keys.
+ */
 export const PURGE_TABLES = ['audit_entries', 'one_time_tokens'] as const;
 export type PurgeTable = (typeof PURGE_TABLES)[number];
 
