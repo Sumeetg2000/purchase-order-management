@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { CURRENT_USER_KEY } from './current-user';
-import { onSessionEnded } from './session-events';
+import { onNoRoleAssigned, onSessionEnded } from './session-events';
 import { loginPath } from './return-to';
 
 /**
@@ -23,6 +23,14 @@ export function SessionBoundary() {
         void navigate(loginPath(here), { replace: true, state: { ended: problem } });
       }),
     [navigate, queryClient, here],
+  );
+
+  useEffect(
+    () =>
+      onNoRoleAssigned(() => {
+        void navigate('/access-pending', { replace: true });
+      }),
+    [navigate],
   );
 
   return <Outlet />;

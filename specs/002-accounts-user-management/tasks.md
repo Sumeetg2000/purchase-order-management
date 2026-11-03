@@ -268,7 +268,7 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
   `backend/src/mail/template.ts`, `backend/src/accounts/{service,routes}.ts` — T036 green.
 - [X] T039 [US2] Access-requests repository; profile service and routes for own request
   — `backend/src/access-requests/repository.ts`, `backend/src/profile/` — T037 green.
-- [ ] T040 [P] [US2] Frontend tests then Signup, VerifyEmail (token codes, resend on
+- [X] T040 [P] [US2] Frontend tests then Signup, VerifyEmail (token codes, resend on
   `TOKEN_EXPIRED`), AccessPending pages; `NO_ROLE_ASSIGNED` routing; axe —
   `frontend/src/pages/account/`, `frontend/src/pages/AccessPending.tsx` — FR-034,
   NFR-FE-08.

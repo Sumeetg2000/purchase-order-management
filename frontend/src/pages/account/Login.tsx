@@ -1,13 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type SyntheticEvent } from 'react';
 import { Input, Label, TextField } from 'react-aria-components';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api/app-client';
-import { parseProblem } from '../../api/client';
+import { failureMessage, submit } from '../../api/submit';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
 import { safeReturnTo } from '../../auth/return-to';
-import { messageForProblem, sentenceFor, type ProblemLike } from '../../errors/messages';
-import { problemFrom } from '../../errors/problem';
+import { messageForProblem, type ProblemLike } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -32,31 +31,17 @@ export function Login() {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string>();
 
-  async function submit(event: SyntheticEvent<HTMLFormElement>) {
+  async function logIn(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setFailure(undefined);
-    let result;
-    try {
-      result = await api.POST('/auth/login', { body: { email, password } });
-    } catch (thrown) {
-      // The API couldn't be reached: say so, and let the form be sent again.
-      setFailure(sentenceFor(problemFrom(thrown)));
-      return;
-    } finally {
-      setPending(false);
-    }
-    const { data, error, response } = result;
-    if (error !== undefined) {
-      const retryAfter = Number(response.headers.get('Retry-After') ?? Number.NaN);
-      setFailure(
-        sentenceFor(
-          parseProblem(response, error),
-          Number.isFinite(retryAfter) ? retryAfter : undefined,
-        ),
-      );
+    const outcome = await submit(() => api.POST('/auth/login', { body: { email, password } }));
+    setPending(false);
+    if (!outcome.ok) {
+      setFailure(failureMessage(outcome));
       return;
     }
+    const data = outcome.data;
     queryClient.setQueryData(CURRENT_USER_KEY, data);
     await navigate(safeReturnTo(params.get('returnTo')), { replace: true });
   }
@@ -70,7 +55,7 @@ export function Login() {
           {messageForProblem(ended).message}
         </p>
       )}
-      <form className={styles.form} onSubmit={(event) => void submit(event)}>
+      <form className={styles.form} onSubmit={(event) => void logIn(event)}>
         <TextField
           className={styles.field}
           type="email"
@@ -102,6 +87,9 @@ export function Login() {
           Log in
         </button>
       </form>
+      <p>
+        New here? <Link to="/signup">Sign up</Link>
+      </p>
     </div>
   );
 }

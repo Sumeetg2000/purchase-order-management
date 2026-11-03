@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
+import { RequireRole } from '../auth/RequireRole';
 import { RequireUser } from '../auth/RequireUser';
 import { SessionBoundary } from '../auth/SessionBoundary';
 import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
@@ -40,6 +41,16 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           errorElement: <RouteErrorBoundary />,
         },
         {
+          path: 'signup',
+          lazy: lazyPage(() => import('../pages/account/Signup').then((m) => m.Signup)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: 'verify-email',
+          lazy: lazyPage(() => import('../pages/account/VerifyEmail').then((m) => m.VerifyEmail)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
           path: 'reset-password',
           lazy: lazyPage(() =>
             import('../pages/account/ResetPassword').then((m) => m.ResetPassword),
@@ -51,8 +62,24 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           children: [
             {
               element: <Shell />,
-              // Each page has its own boundary, so a failing page keeps the shell working.
-              children: pages.map((page) => ({ ...page, errorElement: <RouteErrorBoundary /> })),
+              children: [
+                // A verified user with no role waits here (ADR-0018).
+                {
+                  path: 'access-pending',
+                  lazy: lazyPage(() =>
+                    import('../pages/AccessPending').then((m) => m.AccessPending),
+                  ),
+                  errorElement: <RouteErrorBoundary />,
+                },
+                {
+                  element: <RequireRole />,
+                  // Each page has its own boundary, so a failing page keeps the shell working.
+                  children: pages.map((page) => ({
+                    ...page,
+                    errorElement: <RouteErrorBoundary />,
+                  })),
+                },
+              ],
             },
           ],
         },

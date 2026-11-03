@@ -97,6 +97,8 @@ export function expiredAccessMiddleware(options: {
   refresher: Refresher;
   fetch: Fetch;
   onSessionEnded: (problem: ProblemLike) => void;
+  /** A call answered NO_ROLE_ASSIGNED: the user belongs on Access pending. */
+  onNoRoleAssigned: () => void;
 }): Middleware {
   // A copy of each call as sent, so its body can be sent again.
   const sent = new Map<string, Request>();
@@ -113,7 +115,12 @@ export function expiredAccessMiddleware(options: {
     async onResponse({ response, id }) {
       const original = sent.get(id);
       sent.delete(id);
-      if (response.status !== 401 || !original) return undefined;
+      if (!original) return undefined;
+      if (response.status === 403) {
+        if ((await problemIn(response)).code === 'NO_ROLE_ASSIGNED') options.onNoRoleAssigned();
+        return undefined;
+      }
+      if (response.status !== 401) return undefined;
       const problem = await problemIn(response);
       if (ANY_CALL_ENDS.has(problem.code)) {
         options.onSessionEnded(problem);

@@ -14,3 +14,16 @@ export function onSessionEnded(listener: Listener): () => void {
 export function endSession(problem: ProblemLike): void {
   for (const listener of listeners) listener(problem);
 }
+
+// A call answered NO_ROLE_ASSIGNED: the user has no role yet, and belongs on Access pending.
+
+const noRoleListeners = new Set<() => void>();
+
+export function onNoRoleAssigned(listener: () => void): () => void {
+  noRoleListeners.add(listener);
+  return () => noRoleListeners.delete(listener);
+}
+
+export function noRoleAssigned(): void {
+  for (const listener of noRoleListeners) listener();
+}

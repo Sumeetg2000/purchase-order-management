@@ -20,7 +20,8 @@ describe('[NFR-FE-08] verify-email page', () => {
   it('[NFR-FE-08] posts the token once, clears it from the address bar, and offers login', async () => {
     const seen = fakeApi({ 'POST /auth/verify-email': () => new Response(null, { status: 204 }) });
     renderApp(`/verify-email#token=${TOKEN}`);
-    expect(await screen.findByRole('status')).toHaveTextContent('Your email is confirmed.');
+    // Waits past the loading indicator, which is a status too.
+    expect(await screen.findByText(/Your email is confirmed\./)).toHaveAttribute('role', 'status');
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
     expect(window.location.hash).toBe('');
     expect(seen).toHaveLength(1);

@@ -1,5 +1,5 @@
 import { createRefresher, expiredAccessMiddleware } from '../auth/refresh';
-import { endSession } from '../auth/session-events';
+import { endSession, noRoleAssigned } from '../auth/session-events';
 import { createApiClient } from './client';
 
 /**
@@ -12,6 +12,7 @@ export const api = createApiClient({
       refresher: createRefresher({ baseUrl, fetch: send, cookies }),
       fetch: fetchOnce,
       onSessionEnded: endSession,
+      onNoRoleAssigned: noRoleAssigned,
     }),
   ],
 });

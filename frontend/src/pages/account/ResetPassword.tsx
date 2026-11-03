@@ -1,10 +1,10 @@
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
-import { Link, useLocation } from 'react-router';
+import { Link } from 'react-router';
+import { useFragmentToken } from '../../auth/fragment-token';
 import { api } from '../../api/app-client';
-import { parseProblem } from '../../api/client';
-import { fieldMessages, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
-import { problemFrom } from '../../errors/problem';
+import { failureMessage, fieldFailure, submit } from '../../api/submit';
+import { PASSWORD_RULE, sentenceFor } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -14,57 +14,35 @@ const controls = classes(controlsCss, 'primary');
 
 const PASSWORD_PATH = 'body.newPassword';
 
-/** The token in a link's fragment (#token=…): browsers never send it to a server. */
-function tokenFrom(hash: string): string | undefined {
-  return new URLSearchParams(hash.replace(/^#/, '')).get('token') ?? undefined;
-}
-
 /**
  * Reset or set a password from a one-time link (ADR-0017). The token is read once, then
  * removed from the address bar, so it stays out of history and any shared screenshot.
  */
 export function ResetPassword() {
-  const location = useLocation();
-  const [token] = useState(() => tokenFrom(location.hash));
+  const token = useFragmentToken();
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
   const [failure, setFailure] = useState<string>();
   const [fieldError, setFieldError] = useState<string>();
 
-  useEffect(() => {
-    if (window.location.hash) {
-      window.history.replaceState(window.history.state, '', window.location.pathname);
-    }
-  }, []);
-
-  async function submit(event: SyntheticEvent<HTMLFormElement>) {
+  async function setNewPassword(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
     setPending(true);
     setFailure(undefined);
     setFieldError(undefined);
-    let result;
-    try {
-      result = await api.POST('/auth/reset-password', {
-        body: { token, newPassword: password },
-      });
-    } catch (thrown) {
-      // The API couldn't be reached: say so, and let the form be sent again.
-      setFailure(sentenceFor(problemFrom(thrown)));
-      return;
-    } finally {
-      setPending(false);
-    }
-    const { error, response } = result;
-    if (error === undefined) {
+    const outcome = await submit(() =>
+      api.POST('/auth/reset-password', { body: { token, newPassword: password } }),
+    );
+    setPending(false);
+    if (outcome.ok) {
       setDone(true);
       return;
     }
-    const problem = parseProblem(response, error);
-    const field = problem.details?.find((detail) => detail.path === PASSWORD_PATH);
-    if (field) setFieldError(fieldMessages[field.code]);
-    else setFailure(sentenceFor(problem));
+    const field = fieldFailure(outcome, PASSWORD_PATH);
+    if (field) setFieldError(field);
+    else setFailure(failureMessage(outcome));
   }
 
   return (
@@ -80,7 +58,7 @@ export function ResetPassword() {
           {sentenceFor({ code: 'INVALID_TOKEN' })}
         </p>
       ) : (
-        <form className={styles.form} onSubmit={(event) => void submit(event)}>
+        <form className={styles.form} onSubmit={(event) => void setNewPassword(event)}>
           <TextField
             className={styles.field}
             type="password"
