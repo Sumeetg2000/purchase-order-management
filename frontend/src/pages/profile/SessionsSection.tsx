@@ -61,6 +61,9 @@ export function SessionsSection() {
     close();
     setDone(true);
     await queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+    // The last session on a later page: show the page before instead of an empty one.
+    const shown = queryClient.getQueryData<{ items: unknown[] }>([...SESSIONS_KEY, page]);
+    if (page > 1 && shown?.items.length === 0) setPage(page - 1);
   }
 
   async function logOutEverywhere() {

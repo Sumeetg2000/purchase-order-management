@@ -163,7 +163,7 @@ describe('[NFR-FE-09] change password', () => {
     expect(await screen.findByText(/This password is too common/)).toBeInTheDocument();
   });
 
-  it('[FR-ACC-04] a field error is cleared when the form is sent again', async () => {
+  it('[FR-ACC-04] a field error clears once its field is edited', async () => {
     let answers = 0;
     const seen = profileApi({
       'POST /auth/change-password': () => {
@@ -185,9 +185,17 @@ describe('[NFR-FE-09] change password', () => {
       }),
     );
     expect(await screen.findByText('Incorrect password.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    await user.type(screen.getByLabelText('Current password'), '2');
     expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument();
-    expect(seen.length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Change password',
+      }),
+    );
+    expect(await screen.findByText(/Too many attempts/)).toBeInTheDocument();
+    expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument();
+    expect(seen.filter((r) => r.url.endsWith('/change-password'))).toHaveLength(2);
   });
 
   it('[FR-ACC-04] a lockout is shown inside the dialog, in minutes', async () => {

@@ -53,6 +53,7 @@ import {
   insertSession,
   listLiveSessions,
   lockLiveSession,
+  lockPasswordChange,
   lockRefreshToken,
   markRotated,
   revokeOtherUserSessions,
@@ -201,6 +202,13 @@ function refreshTokenExpiry(now: Date, absoluteExpiresAt: Date): Date {
   return earlier(plus(now, REFRESH_TOKEN_IDLE_SECONDS), absoluteExpiresAt);
 }
 
+/** A change-password whose current password is wrong: a field error, not a 401 (ADR-0017). */
+function wrongCurrentPassword(): AppError {
+  return new AppError('VALIDATION_FAILED', {
+    details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
+  });
+}
+
 /** 423 ACCOUNT_LOCKED, saying when to try again. */
 function lockedError(lockedUntil: Date, now: Date): AppError {
   return new AppError('ACCOUNT_LOCKED', { retryAfterSeconds: secondsUntil(lockedUntil, now) });
@@ -278,7 +286,6 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     return { refreshToken, expiresAt };
   }
 
-  /** The refresh token locked, or 401 SESSION_EXPIRED when it is unknown or purged. */
   /**
    * A wrong password, at login or a password change: it counts toward the lockout. The
    * attempt that reaches the threshold locks the account and gets the lockout error.
@@ -307,6 +314,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     return lockedError(outcome.lockedUntil, now);
   }
 
+  /** The refresh token locked, or 401 SESSION_EXPIRED when it is unknown or purged. */
   async function locked(tx: AuditedTransaction, session: RefreshSession) {
     const token = await lockRefreshToken(tx, hashToken(session.refreshToken));
     if (!token) throw new AppError('SESSION_EXPIRED');
@@ -512,15 +520,26 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
           ...event,
           reason: 'wrong_password',
         });
-        throw new AppError('VALIDATION_FAILED', {
-          details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
-        });
+        throw wrongCurrentPassword();
       }
 
       const passwordHash = await hashPassword(input.newPassword);
       const outcome = await transactions.run(
         { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
+          // Checked again under the locks: a reset, a logout-all or another change may have
+          // landed while the passwords were hashed (research R9).
+          const state = await lockPasswordChange(tx, {
+            userId: account.id,
+            sessionId: user.sessionId,
+          });
+          if (!state) throw new Error(`password change from a session not ${account.id}'s`);
+          const refused = refusal(state, now);
+          if (refused) throw refused;
+          if (state.passwordHash !== account.passwordHash) {
+            // Changed meanwhile: the password this request proved is no longer the current one.
+            throw wrongCurrentPassword();
+          }
           const written = await setChangedPassword(tx, { id: account.id, passwordHash, now });
           if (!written.ok) return written;
           const revoked = await revokeOtherUserSessions(tx, {

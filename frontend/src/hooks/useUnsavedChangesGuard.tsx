@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useBlocker } from 'react-router';
+import { LOGIN_PATH } from '../auth/return-to';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export interface UnsavedChangesGuard {
@@ -28,6 +29,9 @@ export function useUnsavedChangesGuard(isDirty: boolean): UnsavedChangesGuard {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       guarding.current &&
+      // Going to login means the session ended (a logout, or the API said so): the edits
+      // can't be saved any more, so there is nothing to ask.
+      nextLocation.pathname !== LOGIN_PATH &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   );

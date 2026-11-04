@@ -281,3 +281,51 @@ export async function lockLiveSession(
        FOR UPDATE`;
   return rows.length === 1;
 }
+
+/** What a password change re-checks under its locks before it writes. */
+export interface PasswordChangeState {
+  passwordHash: string | null;
+  lockedUntil: Date | null;
+  userStatus: UserStatus;
+  revokedAt: Date | null;
+  revokeReason: SessionRevokeReason | null;
+  /** The session's end: its idle expiry or its absolute end, whichever comes first. */
+  endsAt: Date;
+}
+
+/**
+ * Locks the user's row, then the calling session's (the order a reset takes: user, then
+ * its sessions), and returns their state, or null if the session isn't the user's.
+ */
+export async function lockPasswordChange(
+  tx: AuditedTransaction,
+  change: { userId: string; sessionId: string },
+): Promise<PasswordChangeState | null> {
+  const [user] = await tx.$queryRaw<
+    { password_hash: string | null; locked_until: Date | null; status: string; id: string }[]
+  >`
+    SELECT id::text, password_hash, locked_until, status FROM users
+     WHERE id = ${change.userId}::uuid FOR UPDATE`;
+  const [session] = await tx.$queryRaw<
+    {
+      revoked_at: Date | null;
+      revoke_reason: string | null;
+      expires_at: Date;
+      absolute_expires_at: Date;
+    }[]
+  >`
+    SELECT revoked_at, revoke_reason, expires_at, absolute_expires_at FROM sessions
+     WHERE id = ${change.sessionId}::uuid AND user_id = ${change.userId}::uuid FOR UPDATE`;
+  if (!user || !session) return null;
+  return {
+    passwordHash: user.password_hash,
+    lockedUntil: user.locked_until,
+    userStatus: userStatusOf(user),
+    revokedAt: session.revoked_at,
+    revokeReason: revokeReasonOf(session.revoke_reason),
+    endsAt:
+      session.expires_at < session.absolute_expires_at
+        ? session.expires_at
+        : session.absolute_expires_at,
+  };
+}

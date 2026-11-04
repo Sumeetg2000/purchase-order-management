@@ -29,6 +29,7 @@ export function PasswordSection() {
     event.preventDefault();
     setChanged(false);
     setFailure(undefined);
+    setFieldErrors({});
     setConfirming(true);
   }
 
@@ -73,7 +74,10 @@ export function PasswordSection() {
           className={styles.field}
           type="password"
           value={current}
-          onChange={setCurrent}
+          onChange={(value) => {
+            setCurrent(value);
+            setFieldErrors((errors) => ({ ...errors, current: undefined }));
+          }}
           maxLength={PASSWORD_MAX_LENGTH}
           isInvalid={fieldErrors.current !== undefined}
           isRequired
@@ -86,7 +90,10 @@ export function PasswordSection() {
           className={styles.field}
           type="password"
           value={next}
-          onChange={setNext}
+          onChange={(value) => {
+            setNext(value);
+            setFieldErrors((errors) => ({ ...errors, next: undefined }));
+          }}
           isInvalid={fieldErrors.next !== undefined}
           isRequired
         >

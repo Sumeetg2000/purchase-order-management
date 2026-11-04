@@ -386,12 +386,16 @@ export async function setChangedPassword(
   return { ok: false, lockedUntil: current.lockedUntil };
 }
 
-/** The user's own name edit (PATCH /me). Version unchanged: admins don't edit names. */
+/** The user's own name edit (PATCH /me), bumping the version as every profile change does. */
 export async function updateUserName(
   tx: AuditedTransaction,
   id: string,
   name: string,
 ): Promise<ProfileUser> {
-  const user = await tx.user.update({ where: { id }, data: { name }, select: PROFILE });
+  const user = await tx.user.update({
+    where: { id },
+    data: { name, version: { increment: 1 } },
+    select: PROFILE,
+  });
   return parsed(user);
 }

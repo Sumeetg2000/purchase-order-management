@@ -1,13 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, type SyntheticEvent } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Input, Label, TextField } from 'react-aria-components';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api/app-client';
 import { failureMessage, submit } from '../../api/submit';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
-import { safeReturnTo } from '../../auth/return-to';
+import { safeReturnTo, type LoginState } from '../../auth/return-to';
 import { clearEndedSession } from '../../auth/session-events';
-import { messageForProblem, type ProblemLike } from '../../errors/messages';
+import { messageForProblem } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -15,18 +15,20 @@ import css from './account.module.css';
 const styles = classes(css, 'page', 'form', 'field', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
 
-interface LoginState {
-  /** Why the session ended, when a refresh failed and sent the user here. */
-  ended?: ProblemLike;
-}
-
 /** Login: each failure says exactly what went wrong (ADR-0017, ADR-0018). */
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   const queryClient = useQueryClient();
-  const ended = (location.state as LoginState | null)?.ended;
+  const state = location.state as LoginState | null;
+  const ended = state?.ended;
+  const loggedOut = state?.loggedOut === true;
+  useEffect(() => {
+    // Only now that the page behind the login has gone: earlier, its guard would send it
+    // to login again by itself, with a page to return to.
+    if (loggedOut) queryClient.setQueryData(CURRENT_USER_KEY, null);
+  }, [loggedOut, queryClient]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
