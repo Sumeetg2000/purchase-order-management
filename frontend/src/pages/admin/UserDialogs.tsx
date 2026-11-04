@@ -70,17 +70,15 @@ export function ActivationDialog({
           : []
       }
     >
-      {isActive ? (
+      {detail.isError ? (
+        <ErrorState problem={problemFrom(detail.error)} />
+      ) : !current ? (
+        <Loading label="Loading the user" />
+      ) : isActive ? (
         <p>They&apos;ll be able to log in again.</p>
       ) : (
         <>
-          {detail.isError ? (
-            <ErrorState problem={problemFrom(detail.error)} />
-          ) : current ? (
-            <p>{openOrdersSentence(current)}</p>
-          ) : (
-            <Loading label="Loading the user" />
-          )}
+          <p>{openOrdersSentence(current)}</p>
           <p>They&apos;ll be logged out everywhere and can&apos;t log in.</p>
         </>
       )}

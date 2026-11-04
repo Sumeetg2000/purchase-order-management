@@ -145,6 +145,15 @@ export async function listAccessRequests(
   return { requests: rows.map(withUser), total };
 }
 
+/** The user a request belongs to, or null if there is no such request. */
+export async function findAccessRequestUserId(
+  tx: AuditedTransaction,
+  id: string,
+): Promise<string | null> {
+  const row = await tx.accessRequest.findUnique({ where: { id }, select: { userId: true } });
+  return row?.userId ?? null;
+}
+
 /** Locks a request's row and returns its status, or null if there is no such request. */
 export async function lockAccessRequest(
   tx: AuditedTransaction,

@@ -1,4 +1,4 @@
-import { AppError, type Me, type OwnAccessRequest } from '@po/contracts';
+import { AppError, USER_STATUS, type Me, type OwnAccessRequest } from '@po/contracts';
 import {
   findLatestAccessRequest,
   openOrUpdateAccessRequest,
@@ -67,11 +67,13 @@ export function createProfileService(deps: {
           logger: ctx.logger,
         },
         async (tx) => {
-          // One send at a time per user, so two can't both open a request; and the role is
-          // checked again under the lock, since an admin may have granted one since the
-          // authorize step read the user.
+          // One send at a time per user, so two can't both open a request; and the user is
+          // checked again under the lock, since an admin may have granted a role or
+          // deactivated them since the authorize step read the user.
           const locked = await lockUser(tx, user.userId);
-          if (!locked || locked.roles.length > 0) throw new AppError('FORBIDDEN');
+          if (!locked || locked.roles.length > 0 || locked.status !== USER_STATUS.ACTIVE) {
+            throw new AppError('FORBIDDEN');
+          }
           const saved = await openOrUpdateAccessRequest(tx, { userId: user.userId, message });
           await writeAudit(tx, {
             action: 'ACCESS_REQUESTED',

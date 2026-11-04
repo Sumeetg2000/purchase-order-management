@@ -449,7 +449,6 @@ describe('[FR-ADM-02] admin user update: changes', () => {
       'SELECT deactivated_at FROM users WHERE id = $1',
       [bea.id],
     );
-    h.clock.advance(24 * 60 * 60 * 1_000);
     const res = await patchUser(h, jar, bea.id, { roles: ['APPROVER'] });
     expect(res.body).toMatchObject({ roles: ['APPROVER'], status: 'DEACTIVATED' });
     expect(await h.query('SELECT deactivated_at FROM users WHERE id = $1', [bea.id])).toEqual([

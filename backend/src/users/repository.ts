@@ -324,19 +324,26 @@ export async function lockManagedUser(
 
 /**
  * An admin's change of role set or activation, under the row lock: one version bump,
- * and deactivated_at kept in step with the status (users_deactivated_at_matches_status).
+ * and deactivated_at kept in step with the status (users_deactivated_at_matches_status):
+ * set when the user is deactivated, cleared on reactivation, otherwise left as it is.
  */
 export async function updateManagedUser(
   tx: AuditedTransaction,
   id: string,
-  change: { roles: readonly UserRole[]; status: UserStatus; now: Date },
+  change: { roles: readonly UserRole[]; status: UserStatus; previousStatus: UserStatus; now: Date },
 ): Promise<ManagedUser> {
+  const deactivatedAt =
+    change.status !== USER_STATUS.DEACTIVATED
+      ? null
+      : change.previousStatus === USER_STATUS.DEACTIVATED
+        ? undefined
+        : change.now;
   const user = await tx.user.update({
     where: { id },
     data: {
       roles: [...change.roles],
       status: change.status,
-      deactivatedAt: change.status === USER_STATUS.DEACTIVATED ? change.now : null,
+      ...(deactivatedAt === undefined ? {} : { deactivatedAt }),
       version: { increment: 1 },
     },
     select: MANAGED,

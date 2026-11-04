@@ -1,7 +1,7 @@
 import {
   ROLE,
   ROLE_FILTERS,
-  USER_NAME_MAX_LENGTH,
+  USER_SEARCH_MAX_LENGTH,
   USER_STATUS,
   USER_STATUSES,
   type AdminUserItem,
@@ -50,7 +50,6 @@ export function Users() {
     isEmpty: (page) => page.items.length === 0,
     empty: { title: 'No users match', description: 'Try other filters or another search.' },
   });
-  const [search, setSearch] = useState(filters.q ?? '');
   const [dialog, setDialog] = useState<Dialog>();
   const [done, setDone] = useState<string>();
 
@@ -67,7 +66,8 @@ export function Users() {
 
   function applySearch(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    show({ q: search.trim() || undefined });
+    const q = new FormData(event.currentTarget).get('q');
+    show({ q: typeof q === 'string' ? q.trim() || undefined : undefined });
   }
 
   return (
@@ -115,13 +115,14 @@ export function Users() {
         </label>
         <label className={styles.filter}>
           Name or email starts with
+          {/* Uncontrolled and keyed by the URL's search, so it follows Back and Forward;
+              the URL changes only when the form is sent. */}
           <input
+            key={filters.q ?? ''}
             type="search"
-            value={search}
-            maxLength={USER_NAME_MAX_LENGTH}
-            onChange={(event) => {
-              setSearch(event.target.value);
-            }}
+            name="q"
+            defaultValue={filters.q ?? ''}
+            maxLength={USER_SEARCH_MAX_LENGTH}
           />
         </label>
         <button type="submit" className={controls.button}>

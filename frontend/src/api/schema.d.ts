@@ -4,1924 +4,1924 @@
  */
 
 export interface paths {
-  '/healthz': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/healthz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liveness. The process is up and serving. */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Liveness. The process is up and serving. */
-    get: operations['getHealth'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/readyz': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/readyz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness. The database is reachable and migrations are complete. */
+        get: operations["getReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Readiness. The database is reachable and migrations are complete. */
-    get: operations['getReadiness'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/login': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log in with email and password; sets the session cookies. */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Log in with email and password; sets the session cookies. */
-    post: operations['login'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/refresh': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate the refresh token and issue a new access token. */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Rotate the refresh token and issue a new access token. */
-    post: operations['refreshSession'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/logout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End this browser's session, whatever its state, and clear its cookies. */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** End this browser's session, whatever its state, and clear its cookies. */
-    post: operations['logout'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/logout-all': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/logout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End every one of the user's sessions and clear this browser's cookies. */
+        post: operations["logoutAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** End every one of the user's sessions and clear this browser's cookies. */
-    post: operations['logoutAll'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/reset-password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password from a reset or set-password link. */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Set a new password from a reset or set-password link. */
-    post: operations['resetPassword'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's own profile. */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** The caller's own profile. */
-    get: operations['getMe'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/signup': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an unverified account with no role, and email a verification link. */
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Create an unverified account with no role, and email a verification link. */
-    post: operations['signup'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/verify-email': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate an account from its verification link; doesn't log in. */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Activate an account from its verification link; doesn't log in. */
-    post: operations['verifyEmail'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/auth/resend-verification': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email a new verification link; the earlier one stops working. */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Email a new verification link; the earlier one stops working. */
-    post: operations['resendVerification'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/me/access-request': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/me/access-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's latest access request; 404 if they never sent one. */
+        get: operations["getOwnAccessRequest"];
+        put?: never;
+        /** Ask for a role: opens a request, or updates the open one. */
+        post: operations["sendAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** The caller's latest access request; 404 if they never sent one. */
-    get: operations['getOwnAccessRequest'];
-    put?: never;
-    /** Ask for a role: opens a request, or updates the open one. */
-    post: operations['sendAccessRequest'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/admin/users': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users, filtered by role, status and a name or email prefix, by name then id. */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Users, filtered by role, status and a name or email prefix, by name then id. */
-    get: operations['listUsers'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/admin/users/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One user, with their version and open-order counts. */
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a user's role set or activation; their sessions end. */
+        patch: operations["updateUser"];
+        trace?: never;
     };
-    /** One user, with their version and open-order counts. */
-    get: operations['getUser'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** Change a user's role set or activation; their sessions end. */
-    patch: operations['updateUser'];
-    trace?: never;
-  };
-  '/admin/users/{id}/reset-password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email the user the standard password reset link. */
+        post: operations["sendUserPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Email the user the standard password reset link. */
-    post: operations['sendUserPasswordReset'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/admin/access-requests': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/admin/access-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Access requests, optionally by status, newest activity first. */
+        get: operations["listAccessRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Access requests, optionally by status, newest activity first. */
-    get: operations['listAccessRequests'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/admin/access-requests/{id}/dismiss': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/admin/access-requests/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss an open access request, with an optional note for the user. */
+        post: operations["dismissAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Dismiss an open access request, with an optional note for the user. */
-    post: operations['dismissAccessRequest'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    Problem: {
-      type: string;
-      title: string;
-      status: number;
-      detail?: string;
-      code: components['schemas']['ErrorCode'];
-      correlationId: string;
-      details?: components['schemas']['FieldError'][];
-      /** @enum {string} */
-      reason?: 'PASSWORD_CHANGED' | 'PASSWORD_RESET' | 'ROLES_CHANGED';
+    schemas: {
+        Problem: {
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            code: components["schemas"]["ErrorCode"];
+            correlationId: string;
+            details?: components["schemas"]["FieldError"][];
+            /** @enum {string} */
+            reason?: "PASSWORD_CHANGED" | "PASSWORD_RESET" | "ROLES_CHANGED";
+        };
+        /** @description Every code in the registry (packages/contracts/src/errors.ts). */
+        ErrorCode: string;
+        FieldError: {
+            path: string;
+            code: string;
+        };
+        Readiness: {
+            /** @constant */
+            status: "ready";
+            checks: {
+                /** @constant */
+                database: "ok";
+                /** @constant */
+                migrations: "ok";
+            };
+        };
+        Me: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            roles: ("BUYER" | "APPROVER" | "ADMIN")[];
+            /** @enum {string} */
+            status: "UNVERIFIED" | "ACTIVE" | "DEACTIVATED";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        OwnAccessRequest: {
+            /** @enum {string} */
+            status: "OPEN" | "RESOLVED" | "DISMISSED";
+            message: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            decidedAt: string | null;
+            adminNote: string | null;
+        };
+        AdminUserItem: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            roles: ("BUYER" | "APPROVER" | "ADMIN")[];
+            /** @enum {string} */
+            status: "UNVERIFIED" | "ACTIVE" | "DEACTIVATED";
+            lastLoginAt: string | null;
+        };
+        AdminUserDetail: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            roles: ("BUYER" | "APPROVER" | "ADMIN")[];
+            /** @enum {string} */
+            status: "UNVERIFIED" | "ACTIVE" | "DEACTIVATED";
+            lastLoginAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            version: number;
+            openOrders: {
+                draft: number;
+                pending: number;
+                approvedWithOpenLines: number;
+            };
+        };
+        AdminAccessRequest: {
+            /** @enum {string} */
+            status: "OPEN" | "RESOLVED" | "DISMISSED";
+            message: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            decidedAt: string | null;
+            adminNote: string | null;
+            /** Format: uuid */
+            id: string;
+            user: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                email: string;
+                /** Format: date-time */
+                signedUpAt: string;
+            };
+        };
     };
-    /** @description Every code in the registry (packages/contracts/src/errors.ts). */
-    ErrorCode: string;
-    FieldError: {
-      path: string;
-      code: string;
+    responses: {
+        /** @description Any error, in RFC 9457 format. */
+        Problem: {
+            headers: {
+                "X-Request-Id": components["headers"]["XRequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
     };
-    Readiness: {
-      /** @constant */
-      status: 'ready';
-      checks: {
-        /** @constant */
-        database: 'ok';
-        /** @constant */
-        migrations: 'ok';
-      };
+    parameters: never;
+    requestBodies: never;
+    headers: {
+        /** @description Correlation id. If the client sends a value matching ^[A-Za-z0-9._-]{8,36}$ (room for a UUID), it is echoed back; otherwise a generated UUIDv7 is returned. */
+        XRequestId: string;
     };
-    Me: {
-      /** Format: uuid */
-      id: string;
-      name: string;
-      email: string;
-      roles: ('BUYER' | 'APPROVER' | 'ADMIN')[];
-      /** @enum {string} */
-      status: 'UNVERIFIED' | 'ACTIVE' | 'DEACTIVATED';
-      /** Format: date-time */
-      createdAt: string;
-    };
-    OwnAccessRequest: {
-      /** @enum {string} */
-      status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
-      message: string;
-      /** Format: date-time */
-      createdAt: string;
-      /** Format: date-time */
-      updatedAt: string;
-      decidedAt: string | null;
-      adminNote: string | null;
-    };
-    AdminUserItem: {
-      /** Format: uuid */
-      id: string;
-      name: string;
-      email: string;
-      roles: ('BUYER' | 'APPROVER' | 'ADMIN')[];
-      /** @enum {string} */
-      status: 'UNVERIFIED' | 'ACTIVE' | 'DEACTIVATED';
-      lastLoginAt: string | null;
-    };
-    AdminUserDetail: {
-      /** Format: uuid */
-      id: string;
-      name: string;
-      email: string;
-      roles: ('BUYER' | 'APPROVER' | 'ADMIN')[];
-      /** @enum {string} */
-      status: 'UNVERIFIED' | 'ACTIVE' | 'DEACTIVATED';
-      lastLoginAt: string | null;
-      /** Format: date-time */
-      createdAt: string;
-      version: number;
-      openOrders: {
-        draft: number;
-        pending: number;
-        approvedWithOpenLines: number;
-      };
-    };
-    AdminAccessRequest: {
-      /** @enum {string} */
-      status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
-      message: string;
-      /** Format: date-time */
-      createdAt: string;
-      /** Format: date-time */
-      updatedAt: string;
-      decidedAt: string | null;
-      adminNote: string | null;
-      /** Format: uuid */
-      id: string;
-      user: {
-        /** Format: uuid */
-        id: string;
-        name: string;
-        email: string;
-        /** Format: date-time */
-        signedUpAt: string;
-      };
-    };
-  };
-  responses: {
-    /** @description Any error, in RFC 9457 format. */
-    Problem: {
-      headers: {
-        'X-Request-Id': components['headers']['XRequestId'];
-        [name: string]: unknown;
-      };
-      content: {
-        'application/problem+json': components['schemas']['Problem'];
-      };
-    };
-  };
-  parameters: never;
-  requestBodies: never;
-  headers: {
-    /** @description Correlation id. If the client sends a value matching ^[A-Za-z0-9._-]{8,36}$ (room for a UUID), it is echoed back; otherwise a generated UUIDv7 is returned. */
-    XRequestId: string;
-  };
-  pathItems: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  getHealth: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        status: "ok";
+                    };
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': {
-            /** @constant */
-            status: 'ok';
-          };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SERVICE_UNAVAILABLE. */
+            503: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  getReadiness: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
+                    "Set-Cookie": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PASSWORD_NOT_SET or INCORRECT_PASSWORD or ACCOUNT_NOT_VERIFIED or ACCOUNT_DEACTIVATED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_LOCKED. */
+            423: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code RATE_LIMITED. */
+            429: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['Readiness'];
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
+                    "Set-Cookie": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED or ACCOUNT_DEACTIVATED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code SERVICE_UNAVAILABLE. */
-      503: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
+                    "Set-Cookie": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: {
-      content: {
-        'application/json': {
-          /** Format: email */
-          email: string;
-          password: string;
+    logoutAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-      };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
+                    "Set-Cookie": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
-          'Set-Cookie': string;
-          [name: string]: unknown;
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['Me'];
+        requestBody?: {
+            content: {
+                "application/json": {
+                    token: string;
+                    newPassword: string;
+                };
+            };
         };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PASSWORD_NOT_SET or INCORRECT_PASSWORD or ACCOUNT_NOT_VERIFIED or ACCOUNT_DEACTIVATED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_LOCKED. */
-      423: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description Seconds to wait. */
-          'Retry-After': string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code RATE_LIMITED. */
-      429: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description Seconds to wait. */
-          'Retry-After': string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  refreshSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description No content */
-      204: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
-          'Set-Cookie': string;
-          [name: string]: unknown;
+    signup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: email */
+                    email: string;
+                    password: string;
+                };
+            };
         };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED or SIGNUP_DOMAIN_NOT_ALLOWED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code EMAIL_IN_USE. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code RATE_LIMITED. */
+            429: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED or SESSION_REVOKED or ACCOUNT_DEACTIVATED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_DEACTIVATED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description No content */
-      204: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
-          'Set-Cookie': string;
-          [name: string]: unknown;
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
         };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_DEACTIVATED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_ALREADY_VERIFIED. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code RATE_LIMITED. */
+            429: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  logoutAll: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    getOwnAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnAccessRequest"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description No content */
-      204: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
-          'Set-Cookie': string;
-          [name: string]: unknown;
+    sendAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    message: string;
+                };
+            };
         };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnAccessRequest"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code RATE_LIMITED. */
+            429: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  resetPassword: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    listUsers: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                role?: "BUYER" | "APPROVER" | "ADMIN" | "NONE";
+                status?: "UNVERIFIED" | "ACTIVE" | "DEACTIVATED";
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AdminUserItem"][];
+                        page: number;
+                        pageSize: number;
+                        total: number;
+                    };
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: {
-      content: {
-        'application/json': {
-          token: string;
-          newPassword: string;
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
         };
-      };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The resource's version; send it back in If-Match to update it. */
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDetail"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    responses: {
-      /** @description No content */
-      204: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+    updateUser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The ETag from the last read; a missing or stale one is refused. */
+                "If-Match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    roles?: ("BUYER" | "APPROVER" | "ADMIN")[];
+                    isActive?: boolean;
+                };
+            };
         };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The resource's version; send it back in If-Match to update it. */
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDetail"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE or USER_UNVERIFIED or VERSION_CONFLICT. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  getMe: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    sendUserPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
+    listAccessRequests: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: "OPEN" | "RESOLVED" | "DISMISSED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['Me'];
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AdminAccessRequest"][];
+                        page: number;
+                        pageSize: number;
+                        total: number;
+                    };
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
         };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
     };
-  };
-  signup: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    dismissAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccessRequest"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCESS_REQUEST_NOT_OPEN. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: {
-      content: {
-        'application/json': {
-          name: string;
-          /** Format: email */
-          email: string;
-          password: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Accepted */
-      202: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED or SIGNUP_DOMAIN_NOT_ALLOWED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code EMAIL_IN_USE. */
-      409: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code RATE_LIMITED. */
-      429: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description Seconds to wait. */
-          'Retry-After': string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  verifyEmail: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': {
-          token: string;
-        };
-      };
-    };
-    responses: {
-      /** @description No content */
-      204: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_DEACTIVATED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  resendVerification: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': {
-          /** Format: email */
-          email: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Accepted */
-      202: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_DEACTIVATED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCOUNT_ALREADY_VERIFIED. */
-      409: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code RATE_LIMITED. */
-      429: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description Seconds to wait. */
-          'Retry-After': string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  getOwnAccessRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OwnAccessRequest'];
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  sendAccessRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': {
-          message: string;
-        };
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['OwnAccessRequest'];
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code RATE_LIMITED. */
-      429: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description Seconds to wait. */
-          'Retry-After': string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  listUsers: {
-    parameters: {
-      query?: {
-        page?: number;
-        pageSize?: number;
-        role?: 'BUYER' | 'APPROVER' | 'ADMIN' | 'NONE';
-        status?: 'UNVERIFIED' | 'ACTIVE' | 'DEACTIVATED';
-        q?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['AdminUserItem'][];
-            page: number;
-            pageSize: number;
-            total: number;
-          };
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  getUser: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The resource's version; send it back in If-Match to update it. */
-          ETag: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AdminUserDetail'];
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  updateUser: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description The ETag from the last read; a missing or stale one is refused. */
-        'If-Match': string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': {
-          roles?: ('BUYER' | 'APPROVER' | 'ADMIN')[];
-          isActive?: boolean;
-        };
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          /** @description The resource's version; send it back in If-Match to update it. */
-          ETag: string;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AdminUserDetail'];
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE or USER_UNVERIFIED or VERSION_CONFLICT. */
-      409: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  sendUserPasswordReset: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Accepted */
-      202: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE. */
-      409: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  listAccessRequests: {
-    parameters: {
-      query?: {
-        page?: number;
-        pageSize?: number;
-        status?: 'OPEN' | 'RESOLVED' | 'DISMISSED';
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            items: components['schemas']['AdminAccessRequest'][];
-            page: number;
-            pageSize: number;
-            total: number;
-          };
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
-  dismissAccessRequest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': {
-          note?: string;
-        };
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['AdminAccessRequest'];
-        };
-      };
-      /** @description Problem document with code VALIDATION_FAILED. */
-      400: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-      401: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
-      403: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code NOT_FOUND. */
-      404: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code ACCESS_REQUEST_NOT_OPEN. */
-      409: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-      413: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      /** @description Problem document with code INTERNAL_ERROR. */
-      500: {
-        headers: {
-          'X-Request-Id': components['headers']['XRequestId'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-      default: components['responses']['Problem'];
-    };
-  };
 }

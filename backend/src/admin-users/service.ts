@@ -1,4 +1,5 @@
 import {
+  ACCESS_REQUEST_STATUS,
   AppError,
   assignableRoleSet,
   DEACTIVATION_DISMISSAL_NOTE,
@@ -134,7 +135,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
     if (user.status === USER_STATUS.DEACTIVATED) {
       const requestId = await closeOpenAccessRequest(tx, {
         userId: user.id,
-        status: 'DISMISSED',
+        status: ACCESS_REQUEST_STATUS.DISMISSED,
         decidedBy: null,
         note: DEACTIVATION_DISMISSAL_NOTE,
         now,
@@ -151,7 +152,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
     }
     const requestId = await closeOpenAccessRequest(tx, {
       userId: user.id,
-      status: 'RESOLVED',
+      status: ACCESS_REQUEST_STATUS.RESOLVED,
       decidedBy: admin.userId,
       note: null,
       now,
@@ -207,7 +208,12 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
         const statusChanged = status !== target.status;
         if (!rolesChanged && !statusChanged) return { user: target, revoked: null };
 
-        const updated = await updateManagedUser(tx, id, { roles, status, now });
+        const updated = await updateManagedUser(tx, id, {
+          roles,
+          status,
+          previousStatus: target.status,
+          now,
+        });
         const reason: SessionRevokeReason | null =
           statusChanged && status === USER_STATUS.DEACTIVATED
             ? 'DEACTIVATED'

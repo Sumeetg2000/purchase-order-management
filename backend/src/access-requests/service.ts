@@ -12,8 +12,10 @@ import { withDatabase, type TransactionRunner } from '../db/transaction.js';
 import type { Clock } from '../lib/clock.js';
 import type { RequestContext } from '../lib/request-context.js';
 import { adminActor } from '../users/actor.js';
+import { lockUser } from '../users/repository.js';
 import {
   dismissAccessRequest,
+  findAccessRequestUserId,
   listAccessRequests,
   lockAccessRequest,
   type AdminAccessRequestRow,
@@ -81,6 +83,11 @@ export function createAccessRequestsService(deps: {
           logger: ctx.logger,
         },
         async (tx) => {
+          // The user's row first, then the request's: the order a send and a role change
+          // take, so a send can't write to the request while it is being dismissed.
+          const userId = await findAccessRequestUserId(tx, id);
+          if (!userId) throw new AppError('NOT_FOUND');
+          await lockUser(tx, userId);
           const status = await lockAccessRequest(tx, id);
           if (!status) throw new AppError('NOT_FOUND');
           if (status !== ACCESS_REQUEST_STATUS.OPEN) throw new AppError('ACCESS_REQUEST_NOT_OPEN');

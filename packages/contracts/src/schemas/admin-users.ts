@@ -1,8 +1,12 @@
 import { z } from 'zod';
+import { EMAIL_MAX_LENGTH } from '../email.js';
 import { assignableRoleSet, USER_NAME_MAX_LENGTH, USER_ROLES, USER_STATUSES } from '../users.js';
 import { pageQueryShape } from './pagination.js';
 
 // Admin user management (ADR-0016).
+
+/** The longest user search: a whole name or email address. */
+export const USER_SEARCH_MAX_LENGTH = Math.max(USER_NAME_MAX_LENGTH, EMAIL_MAX_LENGTH);
 
 /** The role filter of the user list: a role, or NONE for users with no role. */
 export const ROLE_FILTERS = [...USER_ROLES, 'NONE'] as const;
@@ -20,8 +24,8 @@ export const userListQuery = z.strictObject({
   ...pageQueryShape,
   role: z.enum(ROLE_FILTERS).optional(),
   status: z.enum(USER_STATUSES).optional(),
-  /** A case-insensitive prefix of the name or email. */
-  q: z.string().trim().min(1).max(USER_NAME_MAX_LENGTH).optional(),
+  /** A case-insensitive prefix of the name or email: as long as either can be. */
+  q: z.string().trim().min(1).max(USER_SEARCH_MAX_LENGTH).optional(),
 });
 
 export const adminUserItem = z
