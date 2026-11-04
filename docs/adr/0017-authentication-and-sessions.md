@@ -16,7 +16,8 @@
   `SESSION_REVOKED` names only the three public revoke reasons) · amended 2026-11-03
   (**owner decision**: revocation takes effect on the next request, since every request
   reads its session with its user; the access cookie lives as long as the refresh cookie,
-  and the JWT inside it still expires after 15 minutes)
+  and the JWT inside it still expires after 15 minutes) · amended 2026-11-04 (**owner
+  decision**: a new password equal to the current one → `PASSWORD_UNCHANGED`)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -108,6 +109,9 @@ answer to an in-app access request (ADR-0016).
 - `POST /api/auth/change-password { currentPassword, newPassword }`:
   - A wrong current password → `400 VALIDATION_FAILED` with field code
     `INCORRECT_PASSWORD`. It is rate-limited like login and counts toward the lockout.
+  - Once the current password is verified, a new password equal to it → `400
+    VALIDATION_FAILED` with field code `PASSWORD_UNCHANGED` on `newPassword`, found by
+    comparing the two inputs (no extra hash). Nothing is written and no session is revoked.
   - On success, every **other** session of the user is revoked and the current one is kept.
 - `POST /api/auth/forgot-password { email }`:
   - an `UNVERIFIED` or `ACTIVE` user → `202`, and a reset email is sent
@@ -374,6 +378,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - policy field codes
   - change-password revokes the other sessions and keeps the current one
   - a wrong current password → 400 `INCORRECT_PASSWORD`
+  - a new password equal to the current one → 400 `PASSWORD_UNCHANGED`, nothing written
   - forgot-password: an unknown email → 404 `ACCOUNT_NOT_FOUND`; a deactivated account →
     401 `ACCOUNT_DEACTIVATED`; nothing is sent in either
   - reset-password revokes all sessions, clears a lockout and activates an `UNVERIFIED`

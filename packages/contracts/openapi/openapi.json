@@ -3657,7 +3657,8 @@
               "PASSWORD_TOO_SHORT",
               "PASSWORD_TOO_LONG",
               "PASSWORD_TOO_COMMON",
-              "INCORRECT_PASSWORD"
+              "INCORRECT_PASSWORD",
+              "PASSWORD_UNCHANGED"
             ]
           }
         },

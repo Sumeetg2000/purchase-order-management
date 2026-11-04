@@ -104,7 +104,7 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 | `refreshSession` | `POST /auth/refresh` | refresh | none | `204` + 3 cookies | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logout` | `POST /auth/logout` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logoutAll` | `POST /auth/logout-all` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
-| `changePassword` | `POST /auth/change-password` | user | `changePasswordBody` | `204` | `ACCOUNT_LOCKED`, `RATE_LIMITED` (field `INCORRECT_PASSWORD`) |
+| `changePassword` | `POST /auth/change-password` | user | `changePasswordBody` | `204` | `ACCOUNT_LOCKED`, `RATE_LIMITED` (fields `INCORRECT_PASSWORD`, `PASSWORD_UNCHANGED`) |
 | `listSessions` | `GET /auth/sessions` | user | `pageQuery` | `200 pageOf(sessionItem)` | |
 | `revokeSession` | `DELETE /auth/sessions/:id` | user | `idParams` | `204` (cookies cleared if current) | `NOT_FOUND` |
 | `getMe` | `GET /me` | user | none | `200 me` | |

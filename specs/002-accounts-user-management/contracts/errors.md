@@ -58,7 +58,11 @@ deactivated user gets `ACCOUNT_DEACTIVATED` first. `reason` is a new optional me
 
 Field codes added to `FIELD_CODES` (inside `400 VALIDATION_FAILED`): `VERSION_REQUIRED`,
 `INVALID_ROLE_SET`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`,
-`PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`.
+`PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`, `PASSWORD_UNCHANGED`.
+
+`PASSWORD_UNCHANGED` ("Your new password must be different from your current one.") is
+change-password's, on `body.newPassword`: checked after the current password is
+verified, by comparing the two inputs, and nothing is written.
 
 Operator CLI codes added to `backend/src/lib/operator-codes.ts`: `LAST_ADMIN`,
 `NOT_AN_ADMIN`.

@@ -522,6 +522,12 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         });
         throw wrongCurrentPassword();
       }
+      // The verified current password, so a plain comparison needs no hash (ADR-0017).
+      if (input.newPassword === input.currentPassword) {
+        throw new AppError('VALIDATION_FAILED', {
+          details: [{ path: 'body.newPassword', code: 'PASSWORD_UNCHANGED' }],
+        });
+      }
 
       const passwordHash = await hashPassword(input.newPassword);
       const outcome = await transactions.run(

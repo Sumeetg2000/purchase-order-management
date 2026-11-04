@@ -170,6 +170,7 @@ export const fieldMessages = {
   PASSWORD_TOO_LONG: `Use at most ${String(PASSWORD_MAX_LENGTH)} characters.`,
   PASSWORD_TOO_COMMON: 'This password is too common. Choose another.',
   INCORRECT_PASSWORD: 'Incorrect password.',
+  PASSWORD_UNCHANGED: 'Your new password must be different from your current one.',
 } as const satisfies Record<FieldCode, string>;
 
 /** The password rule, as account pages state it next to a new-password field. */

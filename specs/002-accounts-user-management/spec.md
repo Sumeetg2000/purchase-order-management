@@ -249,7 +249,10 @@ and log out everywhere.
 3. **Given** a password change, **When** the current password is wrong, **Then** it gets
    `400` with field code `INCORRECT_PASSWORD` and counts toward the lockout. A new
    password shorter than 12, longer than 128 or on the common-password list gets
-   `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG` or `PASSWORD_TOO_COMMON`.
+   `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG` or `PASSWORD_TOO_COMMON`. Once the current
+   password is verified, a new password equal to it gets `400` with field code
+   `PASSWORD_UNCHANGED` on `newPassword` ("Your new password must be different from your
+   current one."); nothing is written and no session ends.
 4. **Given** a successful password change, **Then** every other session of the user ends
    and the current one stays.
 5. **Given** the sessions list, **When** the user opens it, **Then** it shows only their

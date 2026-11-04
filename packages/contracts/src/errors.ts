@@ -104,6 +104,7 @@ export const FIELD_CODES = [
   'PASSWORD_TOO_LONG',
   'PASSWORD_TOO_COMMON',
   'INCORRECT_PASSWORD',
+  'PASSWORD_UNCHANGED',
 ] as const;
 
 export type FieldCode = (typeof FIELD_CODES)[number];

@@ -12,7 +12,8 @@
   one-time-link codes `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`; `SESSION_REVOKED`
   carries its `reason`, **owner decision**) · amended 2026-11-03 (POC scope, owner
   decision: no `phone` field, so no `INVALID_PHONE`; `SESSION_REVOKED`'s `reason` only
-  for the three public revoke reasons)
+  for the three public revoke reasons) · amended 2026-11-04 (field code
+  `PASSWORD_UNCHANGED`, **owner decision**)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -68,7 +69,8 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`, `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`
   - `VERSION_REQUIRED`
   - `INVALID_ROLE_SET`
-  - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`
+  - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`,
+    `PASSWORD_UNCHANGED`
 - Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and one code per failed one-time token
   (ADR-0017): `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, and `INVALID_TOKEN` for
   an unknown one.
