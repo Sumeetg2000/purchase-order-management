@@ -57,11 +57,14 @@ describe('[NFR-FE-08] signup page', () => {
     fakeApi({ 'POST /auth/signup': () => problem(409, 'EMAIL_IN_USE') });
     const { user } = renderApp('/signup');
     await fill(user);
-    await screen.findByRole('alert');
-    expect(screen.getByRole('link', { name: 'Reset your password' })).toHaveAttribute(
-      'href',
-      '/forgot-password',
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^An account with this email already exists\. Reset your password$/,
     );
+    await user.click(screen.getByRole('link', { name: 'Reset your password' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Reset your password' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toHaveValue('ravi@example.local');
   });
 
   it('[FR-ACC-04] a refused password shows the field message from its code', async () => {

@@ -148,6 +148,8 @@ describe('[NFR-SEC-08] forgot-password rate limit', () => {
     expect(Number(over.get('Retry-After'))).toBeGreaterThan(0);
     expect(Number(over.get('Retry-After'))).toBeLessThanOrEqual(HOUR_SECONDS);
     expect(await h.sentMail()).toHaveLength(FORGOT_LIMIT);
+    // The refused request issued nothing: the last link sent still works.
+    expect((await reset(h, await resetTokenFor(h, user.email))).status).toBe(204);
     // The window passes: the email may ask again.
     h.clock.advance(HOUR_SECONDS * SECOND_MS);
     expect((await forgot(h, user.email)).status).toBe(202);

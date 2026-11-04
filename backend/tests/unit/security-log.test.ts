@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   logSecurityEvent,
+  SECURITY_ACTORS,
   SECURITY_EVENTS,
   SECURITY_FIELDS,
 } from '../../src/observability/security-log.js';
@@ -81,5 +82,12 @@ describe('[NFR-SEC-06] security log', () => {
       ['login_succeeded', 30],
       ['refresh_reuse_detected', 40],
     ]);
+  });
+
+  it('[NFR-SEC-06] names who acted with one typed list of actors', () => {
+    expect(SECURITY_ACTORS).toEqual(['USER', 'ADMIN', 'SYSTEM']);
+    const capture = createCapture();
+    // @ts-expect-error: `by` takes only a security actor.
+    logSecurityEvent(capture.logger, 'session_revoked', { by: 'someone' });
   });
 });

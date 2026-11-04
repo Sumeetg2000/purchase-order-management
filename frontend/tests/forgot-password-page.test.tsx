@@ -33,8 +33,19 @@ describe('[FR-ACC-05] forgot-password page', () => {
     fakeApi({ 'POST /auth/forgot-password': () => problem(404, 'ACCOUNT_NOT_FOUND') });
     const { user } = renderApp('/forgot-password');
     await ask(user);
-    expect(await screen.findByRole('alert')).toHaveTextContent('No account found with this email.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^No account found with this email\. Sign up$/,
+    );
     expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/signup');
+  });
+
+  it('[FR-ACC-05] a refusal clears once the email is edited', async () => {
+    fakeApi({ 'POST /auth/forgot-password': () => problem(404, 'ACCOUNT_NOT_FOUND') });
+    const { user } = renderApp('/forgot-password');
+    await ask(user);
+    await screen.findByRole('alert');
+    await user.type(screen.getByLabelText('Email'), 'x');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('[FR-ACC-05] a deactivated account says so, with its next step', async () => {
