@@ -1,6 +1,6 @@
-import { OPERATIONS, type LoginBody } from '@po/contracts';
-import { defineRoute, type RouteDefinition } from '../http/define-route.js';
-import { refreshSessionOf } from '../http/middleware/authorize.js';
+import { OPERATIONS, type ChangePasswordBody, type LoginBody, type PageQuery } from '@po/contracts';
+import { defineRoute, idParamOf, type RouteDefinition } from '../http/define-route.js';
+import { authOf, refreshSessionOf } from '../http/middleware/authorize.js';
 import { requestContext } from '../http/request-context.js';
 import { clearSessionCookies, setSessionCookies } from './cookies.js';
 import type { SessionService } from './service.js';
@@ -41,6 +41,33 @@ export function authRoutes(sessions: SessionService): RouteDefinition[] {
       handler: async (req, res) => {
         await sessions.logoutAll(refreshSessionOf(res), requestContext(req, res));
         clearSessionCookies(res);
+        res.status(204).end();
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.changePassword,
+      handler: async (req, res) => {
+        const body = req.body as ChangePasswordBody;
+        await sessions.changePassword(authOf(res), body, requestContext(req, res));
+        res.status(204).end();
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.listSessions,
+      handler: async (req, res) => {
+        res.json(await sessions.listSessions(authOf(res), req.query as unknown as PageQuery));
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.revokeSession,
+      handler: async (req, res) => {
+        const { current } = await sessions.revokeSession(
+          authOf(res),
+          idParamOf(req),
+          requestContext(req, res),
+        );
+        // Ending the calling session logs this browser out, like logout.
+        if (current) clearSessionCookies(res);
         res.status(204).end();
       },
     }),

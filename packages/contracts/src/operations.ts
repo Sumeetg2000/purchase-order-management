@@ -13,11 +13,19 @@ import {
   updateUserBody,
   userListQuery,
 } from './schemas/admin-users.js';
-import { emailBody, loginBody, resetPasswordBody, signupBody, tokenBody } from './schemas/auth.js';
+import {
+  changePasswordBody,
+  emailBody,
+  loginBody,
+  resetPasswordBody,
+  signupBody,
+  tokenBody,
+} from './schemas/auth.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
 import { idParams } from './schemas/ids.js';
-import { me } from './schemas/me.js';
-import { pageOf } from './schemas/pagination.js';
+import { me, updateMeBody } from './schemas/me.js';
+import { pageOf, pageQuery } from './schemas/pagination.js';
+import { sessionItem } from './schemas/sessions.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -283,5 +291,46 @@ export const OPERATIONS = {
     request: { params: idParams, body: dismissBody },
     responses: { 200: adminAccessRequest },
     errors: ['NOT_FOUND', 'ACCESS_REQUEST_NOT_OPEN'],
+  },
+
+  // Slice 1, US4: profile, password and sessions (ADR-0016, ADR-0017).
+  updateMe: {
+    method: 'patch',
+    path: '/me',
+    operationId: 'updateMe',
+    summary: "Change the caller's own name, the only field they can edit.",
+    access: 'user',
+    request: { body: updateMeBody },
+    responses: { 200: me },
+  },
+  changePassword: {
+    method: 'post',
+    path: '/auth/change-password',
+    operationId: 'changePassword',
+    summary: "Change the caller's password; their other sessions end.",
+    access: 'user',
+    request: { body: changePasswordBody },
+    responses: { 204: z.void() },
+    errors: ['ACCOUNT_LOCKED', 'RATE_LIMITED'],
+  },
+  listSessions: {
+    method: 'get',
+    path: '/auth/sessions',
+    operationId: 'listSessions',
+    summary: "The caller's active sessions, most recently used first.",
+    access: 'user',
+    request: { query: pageQuery },
+    responses: { 200: pageOf(sessionItem) },
+  },
+  revokeSession: {
+    method: 'delete',
+    path: '/auth/sessions/:id',
+    operationId: 'revokeSession',
+    summary: "End one of the caller's sessions; ending this one clears its cookies.",
+    access: 'user',
+    setsCookies: true,
+    request: { params: idParams },
+    responses: { 204: z.void() },
+    errors: ['NOT_FOUND'],
   },
 } as const satisfies Record<string, OperationContract>;

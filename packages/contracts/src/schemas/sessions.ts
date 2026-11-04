@@ -12,3 +12,5 @@ export const sessionItem = z
     current: z.boolean(),
   })
   .meta({ id: 'SessionItem' });
+
+export type SessionItem = z.infer<typeof sessionItem>;

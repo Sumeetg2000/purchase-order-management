@@ -75,6 +75,7 @@ export const changePasswordBody = z.strictObject({
 
 export type LoginBody = z.infer<typeof loginBody>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordBody>;
+export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
 export type SignupBody = z.infer<typeof signupBody>;
 export type TokenBody = z.infer<typeof tokenBody>;
 export type EmailBody = z.infer<typeof emailBody>;

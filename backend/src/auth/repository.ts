@@ -218,3 +218,66 @@ export async function findAuthSession(
     absoluteExpiresAt: row.absolute_expires_at,
   };
 }
+
+/** Revokes every live session of a user but one (the caller's); returns how many. */
+export async function revokeOtherUserSessions(
+  tx: AuditedTransaction,
+  user: { id: string; keepSessionId: string; reason: SessionRevokeReason; now: Date },
+): Promise<number> {
+  return tx.$executeRaw`
+    UPDATE sessions SET revoked_at = ${user.now}, revoke_reason = ${user.reason}
+     WHERE user_id = ${user.id}::uuid AND revoked_at IS NULL
+       AND id <> ${user.keepSessionId}::uuid`;
+}
+
+/** A session as its user's list shows it. */
+export interface LiveSession {
+  id: string;
+  createdAt: Date;
+  lastUsedAt: Date;
+  userAgent: string;
+  ip: string;
+}
+
+/** Not revoked, and within both its idle and its absolute expiry. */
+function liveSessionsOf(userId: string, now: Date) {
+  return {
+    userId,
+    revokedAt: null,
+    expiresAt: { gt: now },
+    absoluteExpiresAt: { gt: now },
+  } as const;
+}
+
+/** A page of a user's live sessions, most recently used first, and how many there are. */
+export async function listLiveSessions(
+  prisma: AppPrismaClient,
+  filter: { userId: string; now: Date; offset: number; limit: number },
+): Promise<{ sessions: LiveSession[]; total: number }> {
+  const where = liveSessionsOf(filter.userId, filter.now);
+  const [sessions, total] = await Promise.all([
+    prisma.session.findMany({
+      where,
+      orderBy: [{ lastUsedAt: 'desc' }, { id: 'desc' }],
+      skip: filter.offset,
+      take: filter.limit,
+      select: { id: true, createdAt: true, lastUsedAt: true, userAgent: true, ip: true },
+    }),
+    prisma.session.count({ where }),
+  ]);
+  return { sessions, total };
+}
+
+/** Locks one of a user's live sessions; false if it isn't theirs or has ended. */
+export async function lockLiveSession(
+  tx: AuditedTransaction,
+  session: { id: string; userId: string; now: Date },
+): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM sessions
+     WHERE id = ${session.id}::uuid AND user_id = ${session.userId}::uuid
+       AND revoked_at IS NULL AND expires_at > ${session.now}
+       AND absolute_expires_at > ${session.now}
+       FOR UPDATE`;
+  return rows.length === 1;
+}

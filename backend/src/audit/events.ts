@@ -20,6 +20,11 @@ export interface AuditEventCatalogue {
     entityType: 'user';
     details: { via: 'link' | 'reset' };
   };
+  /** A user changed their own name. */
+  USER_PROFILE_UPDATED: {
+    entityType: 'user';
+    details: { before: string; after: string };
+  };
   /** An admin changed a user's role set; every session of theirs ended. */
   USER_ROLES_CHANGED: {
     entityType: 'user';

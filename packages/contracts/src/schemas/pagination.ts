@@ -30,3 +30,5 @@ export interface Page<T> {
   pageSize: number;
   total: number;
 }
+
+export type PageQuery = z.infer<typeof pageQuery>;

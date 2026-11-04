@@ -18,3 +18,4 @@ export const me = z
 export const updateMeBody = z.strictObject({ name: userName });
 
 export type Me = z.infer<typeof me>;
+export type UpdateMeBody = z.infer<typeof updateMeBody>;

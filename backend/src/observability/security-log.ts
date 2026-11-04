@@ -22,6 +22,7 @@ export const SECURITY_EVENTS = [
   'password_reset_requested',
   'password_reset_completed',
   'password_changed',
+  'password_change_failed',
 ] as const;
 export type SecurityEvent = (typeof SECURITY_EVENTS)[number];
 
@@ -32,6 +33,7 @@ const WARNING_EVENTS: ReadonlySet<SecurityEvent> = new Set([
   'login_failed',
   'account_locked',
   'refresh_reuse_detected',
+  'password_change_failed',
 ]);
 
 /** The only fields a security line may carry. */

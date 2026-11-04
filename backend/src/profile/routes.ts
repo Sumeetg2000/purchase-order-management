@@ -1,4 +1,4 @@
-import { OPERATIONS, type AccessRequestBody } from '@po/contracts';
+import { OPERATIONS, type AccessRequestBody, type UpdateMeBody } from '@po/contracts';
 import { defineRoute, type RouteDefinition } from '../http/define-route.js';
 import { authOf } from '../http/middleware/authorize.js';
 import { requestContext } from '../http/request-context.js';
@@ -10,6 +10,13 @@ export function profileRoutes(profile: ProfileService): RouteDefinition[] {
       ...OPERATIONS.getMe,
       handler: async (_req, res) => {
         res.json(await profile.getMe(authOf(res).userId));
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.updateMe,
+      handler: async (req, res) => {
+        const { name } = req.body as UpdateMeBody;
+        res.json(await profile.updateMe(authOf(res), name, requestContext(req, res)));
       },
     }),
     defineRoute({

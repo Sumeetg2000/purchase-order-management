@@ -12,12 +12,14 @@ import type { RequestContext } from '../lib/request-context.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { toMe } from '../users/me.js';
 import { selfActor } from '../users/actor.js';
-import { findProfile, lockUser } from '../users/repository.js';
+import { findProfile, lockUser, updateUserName } from '../users/repository.js';
 
 // The caller's own profile and access request (ADR-0016). Slice 1 US4 adds the edit.
 
 export interface ProfileService {
   getMe(userId: string): Promise<Me>;
+  /** Sets the caller's name; the same name writes nothing. */
+  updateMe(user: AuthenticatedUser, name: string, ctx: RequestContext): Promise<Me>;
   /** The caller's latest access request; 404 NOT_FOUND if they never sent one. */
   getOwnAccessRequest(userId: string): Promise<OwnAccessRequest>;
   /** Opens an access request, or updates the open one's message. */
@@ -50,6 +52,31 @@ export function createProfileService(deps: {
       // The authorize step has just read this user, and users are never deleted.
       if (!user) throw new Error(`authenticated user ${userId} not found`);
       return toMe(user);
+    },
+
+    updateMe: async (user, name, ctx) => {
+      const saved = await deps.transactions.run(
+        {
+          actor: selfActor({ id: user.userId, name: user.name, email: user.email }),
+          requestId: ctx.requestId,
+          logger: ctx.logger,
+        },
+        async (tx) => {
+          // Locked, so the name audited as "before" is the one this edit replaces.
+          const current = await lockUser(tx, user.userId);
+          if (!current) throw new Error(`authenticated user ${user.userId} not found`);
+          if (current.name === name) return current;
+          const updated = await updateUserName(tx, user.userId, name);
+          await writeAudit(tx, {
+            action: 'USER_PROFILE_UPDATED',
+            entityType: 'user',
+            entityId: user.userId,
+            details: { before: current.name, after: updated.name },
+          });
+          return updated;
+        },
+      );
+      return toMe(saved);
     },
 
     getOwnAccessRequest: async (userId) => {

@@ -363,3 +363,35 @@ export async function insertUserIfAbsent(
     ON CONFLICT ON CONSTRAINT users_email_key DO NOTHING`;
   return created === 1;
 }
+
+/**
+ * A changed password: the new hash, and the lockout cleared. The lock is checked again
+ * under the row lock the UPDATE takes, as recordSuccessfulLogin does: wrong guesses
+ * running alongside may have locked the account meanwhile. Version unchanged.
+ */
+export async function setChangedPassword(
+  tx: AuditedTransaction,
+  user: { id: string; passwordHash: string; now: Date },
+): Promise<SuccessfulLogin> {
+  const updated = await tx.$executeRaw`
+    UPDATE users SET password_hash = ${user.passwordHash}, failed_login_count = 0,
+                     locked_until = NULL
+     WHERE id = ${user.id}::uuid AND (locked_until IS NULL OR locked_until <= ${user.now})`;
+  if (updated === 1) return { ok: true };
+  const current = await tx.user.findUnique({
+    where: { id: user.id },
+    select: { lockedUntil: true },
+  });
+  if (!current?.lockedUntil) throw new Error(`password change for a missing user: ${user.id}`);
+  return { ok: false, lockedUntil: current.lockedUntil };
+}
+
+/** The user's own name edit (PATCH /me). Version unchanged: admins don't edit names. */
+export async function updateUserName(
+  tx: AuditedTransaction,
+  id: string,
+  name: string,
+): Promise<ProfileUser> {
+  const user = await tx.user.update({ where: { id }, data: { name }, select: PROFILE });
+  return parsed(user);
+}

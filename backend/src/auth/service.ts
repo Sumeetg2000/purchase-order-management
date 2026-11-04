@@ -3,8 +3,12 @@ import {
   AppError,
   PUBLIC_REVOKE_REASONS,
   USER_STATUS,
+  type ChangePasswordBody,
   type Me,
+  type Page,
+  type PageQuery,
   type PublicRevokeReason,
+  type SessionItem,
   type UserRole,
   type UserStatus,
 } from '@po/contracts';
@@ -22,7 +26,12 @@ import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { hashToken } from '../tokens/one-time.js';
 import { toMe } from '../users/me.js';
-import { findLoginUser, recordFailedLogin, recordSuccessfulLogin } from '../users/repository.js';
+import {
+  findLoginUser,
+  recordFailedLogin,
+  recordSuccessfulLogin,
+  setChangedPassword,
+} from '../users/repository.js';
 import type { AccessTokens } from './access-token.js';
 import {
   LOCKOUT_DURATION_SECONDS,
@@ -36,14 +45,17 @@ import {
 } from './constants.js';
 import type { SessionCookies } from './cookies.js';
 import { csrfTokenFor } from './csrf.js';
-import { hashPassword, needsRehash, verifyPassword } from './passwords.js';
+import { commonPasswordError, hashPassword, needsRehash, verifyPassword } from './passwords.js';
 import {
   findAuthSession,
   findSessionIdByRefreshToken,
   insertRefreshToken,
   insertSession,
+  listLiveSessions,
+  lockLiveSession,
   lockRefreshToken,
   markRotated,
+  revokeOtherUserSessions,
   revokeSession,
   revokeUserSessions,
   touchSession,
@@ -140,6 +152,23 @@ export interface SessionService {
   logout(session: RefreshSession, ctx: RequestContext): Promise<void>;
   /** Revokes every session of the session's user. */
   logoutAll(session: RefreshSession, ctx: RequestContext): Promise<void>;
+  /**
+   * Changes the caller's password after checking the current one like login (lockout and
+   * rate limits); every other session of theirs ends, the calling one stays.
+   */
+  changePassword(
+    user: AuthenticatedUser,
+    input: ChangePasswordBody,
+    ctx: RequestContext,
+  ): Promise<void>;
+  /** The caller's live sessions, most recently used first. */
+  listSessions(user: AuthenticatedUser, query: PageQuery): Promise<Page<SessionItem>>;
+  /** Ends one of the caller's live sessions; `current` when it was the calling one. */
+  revokeSession(
+    user: AuthenticatedUser,
+    sessionId: string,
+    ctx: RequestContext,
+  ): Promise<{ current: boolean }>;
 }
 
 export interface SessionServiceDependencies {
@@ -170,6 +199,11 @@ function secondsUntil(time: Date, now: Date): number {
 /** A new refresh token's expiry: 7 days on, never past the session's absolute end. */
 function refreshTokenExpiry(now: Date, absoluteExpiresAt: Date): Date {
   return earlier(plus(now, REFRESH_TOKEN_IDLE_SECONDS), absoluteExpiresAt);
+}
+
+/** 423 ACCOUNT_LOCKED, saying when to try again. */
+function lockedError(lockedUntil: Date, now: Date): AppError {
+  return new AppError('ACCOUNT_LOCKED', { retryAfterSeconds: secondsUntil(lockedUntil, now) });
 }
 
 function isPublicRevokeReason(reason: string | null): reason is PublicRevokeReason {
@@ -245,6 +279,34 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
   }
 
   /** The refresh token locked, or 401 SESSION_EXPIRED when it is unknown or purged. */
+  /**
+   * A wrong password, at login or a password change: it counts toward the lockout. The
+   * attempt that reaches the threshold locks the account and gets the lockout error.
+   */
+  async function countWrongPassword(
+    userId: string,
+    now: Date,
+    ctx: RequestContext,
+  ): Promise<AppError | undefined> {
+    const outcome = await transactions.run(
+      { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+      (tx) =>
+        recordFailedLogin(tx, {
+          id: userId,
+          threshold: LOCKOUT_THRESHOLD,
+          now,
+          lockUntil: plus(now, LOCKOUT_DURATION_SECONDS),
+        }),
+    );
+    if (!outcome.locked) return undefined;
+    logSecurityEvent(ctx.logger, 'account_locked', {
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+      userId,
+    });
+    return lockedError(outcome.lockedUntil, now);
+  }
+
   async function locked(tx: AuditedTransaction, session: RefreshSession) {
     const token = await lockRefreshToken(tx, hashToken(session.refreshToken));
     if (!token) throw new AppError('SESSION_EXPIRED');
@@ -270,31 +332,15 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       const now = clock.now();
       if (user.lockedUntil && user.lockedUntil > now) {
         failed('locked', user.id);
-        throw new AppError('ACCOUNT_LOCKED', {
-          retryAfterSeconds: secondsUntil(user.lockedUntil, now),
-        });
+        throw lockedError(user.lockedUntil, now);
       }
       if (!user.passwordHash) {
         failed('password_not_set', user.id);
         throw new AppError('PASSWORD_NOT_SET');
       }
       if (!(await verifyPassword(user.passwordHash, input.password))) {
-        const outcome = await transactions.run(
-          { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
-          (tx) =>
-            recordFailedLogin(tx, {
-              id: user.id,
-              threshold: LOCKOUT_THRESHOLD,
-              now,
-              lockUntil: plus(now, LOCKOUT_DURATION_SECONDS),
-            }),
-        );
-        if (outcome.locked) {
-          logSecurityEvent(ctx.logger, 'account_locked', { ...event, userId: user.id });
-          throw new AppError('ACCOUNT_LOCKED', {
-            retryAfterSeconds: secondsUntil(outcome.lockedUntil, now),
-          });
-        }
+        const locked = await countWrongPassword(user.id, now, ctx);
+        if (locked) throw locked;
         failed('wrong_password', user.id);
         throw new AppError('INCORRECT_PASSWORD');
       }
@@ -330,9 +376,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       if (!issued.ok) {
         // Concurrent wrong guesses locked the account while this password was checked.
         failed('locked', user.id);
-        throw new AppError('ACCOUNT_LOCKED', {
-          retryAfterSeconds: secondsUntil(issued.lockedUntil, now),
-        });
+        throw lockedError(issued.lockedUntil, now);
       }
       logSecurityEvent(ctx.logger, 'login_succeeded', {
         ...event,
@@ -442,6 +486,112 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         ip: ctx.ip,
         userAgent: ctx.userAgent,
       });
+    },
+
+    changePassword: async (user, input, ctx) => {
+      const event = { userId: user.userId, ip: ctx.ip, userAgent: ctx.userAgent };
+      // Rate-limited like login, in the same buckets (ADR-0017).
+      await deps.rateLimiter.hit('login-ip', ctx.ip);
+      await deps.rateLimiter.hit('login-account', user.email);
+      const common = commonPasswordError('body.newPassword', input.newPassword);
+      if (common) throw new AppError('VALIDATION_FAILED', { details: [common] });
+
+      const account = await withDatabase(() => findLoginUser(deps.prisma, user.email));
+      // The authorize step has just read this user, and a logged-in user has a password.
+      if (!account?.passwordHash)
+        throw new Error(`password change for ${user.userId}: no password`);
+      const now = clock.now();
+      if (account.lockedUntil && account.lockedUntil > now) {
+        logSecurityEvent(ctx.logger, 'password_change_failed', { ...event, reason: 'locked' });
+        throw lockedError(account.lockedUntil, now);
+      }
+      if (!(await verifyPassword(account.passwordHash, input.currentPassword))) {
+        const lockout = await countWrongPassword(account.id, now, ctx);
+        if (lockout) throw lockout;
+        logSecurityEvent(ctx.logger, 'password_change_failed', {
+          ...event,
+          reason: 'wrong_password',
+        });
+        throw new AppError('VALIDATION_FAILED', {
+          details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
+        });
+      }
+
+      const passwordHash = await hashPassword(input.newPassword);
+      const outcome = await transactions.run(
+        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        async (tx) => {
+          const written = await setChangedPassword(tx, { id: account.id, passwordHash, now });
+          if (!written.ok) return written;
+          const revoked = await revokeOtherUserSessions(tx, {
+            id: account.id,
+            keepSessionId: user.sessionId,
+            reason: 'PASSWORD_CHANGED',
+            now,
+          });
+          return { ok: true as const, revoked };
+        },
+      );
+      if (!outcome.ok) {
+        // Concurrent wrong guesses locked the account while this password was checked.
+        logSecurityEvent(ctx.logger, 'password_change_failed', { ...event, reason: 'locked' });
+        throw lockedError(outcome.lockedUntil, now);
+      }
+      logSecurityEvent(ctx.logger, 'password_changed', { ...event, sessionId: user.sessionId });
+      if (outcome.revoked > 0) {
+        logSecurityEvent(ctx.logger, 'session_revoked', {
+          userId: user.userId,
+          reason: 'PASSWORD_CHANGED',
+          by: 'USER',
+        });
+      }
+    },
+
+    listSessions: async (user, query) => {
+      const { sessions, total } = await withDatabase(() =>
+        listLiveSessions(deps.prisma, {
+          userId: user.userId,
+          now: clock.now(),
+          offset: (query.page - 1) * query.pageSize,
+          limit: query.pageSize,
+        }),
+      );
+      return {
+        items: sessions.map((session) => ({
+          id: session.id,
+          createdAt: session.createdAt.toISOString(),
+          lastUsedAt: session.lastUsedAt.toISOString(),
+          userAgent: session.userAgent,
+          ip: session.ip,
+          current: session.id === user.sessionId,
+        })),
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+      };
+    },
+
+    revokeSession: async (user, sessionId, ctx) => {
+      const now = clock.now();
+      await transactions.run(
+        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        async (tx) => {
+          // Someone else's session, or one that has ended, is not the caller's to see.
+          if (!(await lockLiveSession(tx, { id: sessionId, userId: user.userId, now }))) {
+            throw new AppError('NOT_FOUND');
+          }
+          await revokeSession(tx, { id: sessionId, reason: 'USER_REVOKED', now });
+        },
+      );
+      logSecurityEvent(ctx.logger, 'session_revoked', {
+        userId: user.userId,
+        sessionId,
+        reason: 'USER_REVOKED',
+        by: 'USER',
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+      });
+      return { current: sessionId === user.sessionId };
     },
   };
 }
