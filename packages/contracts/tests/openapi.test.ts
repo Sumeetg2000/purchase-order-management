@@ -59,6 +59,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'changePassword post /auth/change-password',
         'listSessions get /auth/sessions',
         'revokeSession delete /auth/sessions/{id}',
+        'forgotPassword post /auth/forgot-password',
       ].sort(),
     );
   });

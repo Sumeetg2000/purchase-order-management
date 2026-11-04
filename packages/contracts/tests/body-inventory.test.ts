@@ -54,6 +54,7 @@ const EXPECTED: BodyInventory = {
   updateMe: { name: 'required' },
   changePassword: { currentPassword: 'required', newPassword: 'required' },
   revokeSession: 'no body',
+  forgotPassword: { email: 'required' },
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {
