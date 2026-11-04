@@ -128,6 +128,48 @@ describe('[FR-ACC-04] change password', () => {
     },
   );
 
+  it('[FR-ACC-04] a new password equal to the current one is 400 PASSWORD_UNCHANGED, and nothing is written', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const here = await h.loggedIn(user);
+    const there = await h.loggedIn(user);
+    // An earlier wrong guess stays counted: an unchanged password writes nothing.
+    await changePassword(h, here, { currentPassword: 'not my password', newPassword: PASSWORD });
+    const before = await h.query(
+      'SELECT password_hash, updated_at, version, failed_login_count FROM users WHERE id = $1',
+      [user.id],
+    );
+    const res = await changePassword(h, here, { currentPassword: PASSWORD, newPassword: PASSWORD });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: [{ path: 'body.newPassword', code: 'PASSWORD_UNCHANGED' }],
+    });
+    expect(
+      await h.query(
+        'SELECT password_hash, updated_at, version, failed_login_count FROM users WHERE id = $1',
+        [user.id],
+      ),
+    ).toEqual(before);
+    expect(
+      await h.query('SELECT count(*)::int AS n FROM sessions WHERE revoked_at IS NOT NULL'),
+    ).toEqual([{ n: 0 }]);
+    expect((await h.get('/me', there)).status).toBe(200);
+  });
+
+  it('[FR-ACC-04] a wrong current password with an equal new one is still INCORRECT_PASSWORD', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user);
+    const res = await changePassword(h, jar, {
+      currentPassword: 'not my password',
+      newPassword: 'not my password',
+    });
+    expect(res.body).toMatchObject({
+      details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
+    });
+  });
+
   it('[FR-ACC-04] shares the per-account rate limit with login: the next call is 429', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser();

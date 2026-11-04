@@ -163,6 +163,22 @@ describe('[NFR-FE-09] change password', () => {
     expect(await screen.findByText(/This password is too common/)).toBeInTheDocument();
   });
 
+  it('[FR-ACC-04] a new password equal to the current one is shown on the new-password field', async () => {
+    await fillAndConfirm({
+      'POST /auth/change-password': () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.newPassword', code: 'PASSWORD_UNCHANGED' }],
+        }),
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('New password')).toHaveAccessibleDescription(
+        expect.stringContaining(
+          'Your new password must be different from your current one.',
+        ) as string,
+      );
+    });
+  });
+
   it('[FR-ACC-04] a field error clears once its field is edited', async () => {
     let answers = 0;
     const seen = profileApi({

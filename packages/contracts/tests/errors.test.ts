@@ -95,6 +95,7 @@ describe('[NFR-API-02] error code registry', () => {
         'PASSWORD_TOO_LONG',
         'PASSWORD_TOO_COMMON',
         'INCORRECT_PASSWORD',
+        'PASSWORD_UNCHANGED',
       ].sort(),
     );
   });
