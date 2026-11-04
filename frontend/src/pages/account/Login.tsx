@@ -6,6 +6,7 @@ import { api } from '../../api/app-client';
 import { failureMessage, submit } from '../../api/submit';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
 import { safeReturnTo } from '../../auth/return-to';
+import { clearEndedSession } from '../../auth/session-events';
 import { messageForProblem, type ProblemLike } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -42,6 +43,7 @@ export function Login() {
       return;
     }
     const data = outcome.data;
+    clearEndedSession();
     queryClient.setQueryData(CURRENT_USER_KEY, data);
     await navigate(safeReturnTo(params.get('returnTo')), { replace: true });
   }

@@ -4,6 +4,7 @@ import { Loading } from '../components/Loading';
 import { problemFrom } from '../errors/problem';
 import { useCurrentUser } from './current-user';
 import { loginPath } from './return-to';
+import { endedSession } from './session-events';
 
 /** Pages behind a login: no user goes to login, keeping the page to return to. */
 export function RequireUser() {
@@ -12,7 +13,14 @@ export function RequireUser() {
   if (user.isPending) return <Loading label="Loading your account" />;
   if (user.isError) return <ErrorState problem={problemFrom(user.error)} />;
   if (user.data === null) {
-    return <Navigate to={loginPath(`${location.pathname}${location.search}`)} replace />;
+    const ended = endedSession();
+    return (
+      <Navigate
+        to={loginPath(`${location.pathname}${location.search}`)}
+        replace
+        state={ended ? { ended } : undefined}
+      />
+    );
   }
   return <Outlet />;
 }

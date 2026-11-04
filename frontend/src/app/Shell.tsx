@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { api } from '../api/app-client';
 import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
+import { clearEndedSession } from '../auth/session-events';
 import { ROLE } from '@po/contracts';
 import { useOpenRequestCount } from '../pages/admin/queries';
 import { classes } from '../styles/classes';
@@ -20,6 +21,8 @@ export function Shell() {
   async function logOut() {
     // Whatever the API answers, this browser is logged out: its cookies are cleared or dead.
     await api.POST('/auth/logout').catch(() => undefined);
+    // Logged out on purpose: no earlier reason applies any more.
+    clearEndedSession();
     queryClient.setQueryData(CURRENT_USER_KEY, null);
     await navigate('/login', { replace: true });
   }
