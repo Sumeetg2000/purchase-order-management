@@ -152,42 +152,51 @@ describe('[FR-ACC-08] what a no-role user may use', () => {
   });
 });
 
-describe('[FR-ACC-09] a role granted while a request is being sent', () => {
-  it('[FR-ACC-09] the send re-checks the role under the user lock: 403 FORBIDDEN, nothing opened', async () => {
-    const h = await accountsHarness();
-    const user = await h.seedUser({ roles: '{}' });
-    // As if an admin assigned a role after the authorize step read the user.
-    await h.query('SET session_replication_role = replica');
-    await h.query(`UPDATE users SET roles = '{BUYER}' WHERE id = $1`, [user.id]);
-    const prisma = createPrismaClient({
-      url: h.db.url('po_app'),
-      poolSize: 2,
-      connectionTimeoutMs: 2_000,
-    });
-    try {
-      const profile = createProfileService({
-        prisma,
-        transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
-        rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
+describe('[FR-ACC-09] an admin change while a request is being sent', () => {
+  it.each([
+    ['a role was granted', `UPDATE users SET roles = '{BUYER}' WHERE id = $1`],
+    [
+      'the user was deactivated',
+      `UPDATE users SET status = 'DEACTIVATED', deactivated_at = now() WHERE id = $1`,
+    ],
+  ])(
+    '[FR-ACC-09] %s: the send re-checks under the user lock, 403 FORBIDDEN, nothing opened',
+    async (_change, sql) => {
+      const h = await accountsHarness();
+      const user = await h.seedUser({ roles: '{}' });
+      // As if an admin changed the user after the authorize step read them.
+      await h.query('SET session_replication_role = replica');
+      await h.query(sql, [user.id]);
+      const prisma = createPrismaClient({
+        url: h.db.url('po_app'),
+        poolSize: 2,
+        connectionTimeoutMs: 2_000,
       });
-      const stale = {
-        userId: user.id,
-        sessionId: user.id,
-        name: user.name,
-        email: user.email,
-        roles: [],
-      };
-      await expect(
-        profile.sendAccessRequest(stale, 'hi', {
-          requestId: 'req-race',
-          logger: testLogger(),
-          ip: '10.0.0.1',
-          userAgent: 'test',
-        }),
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    } finally {
-      await prisma.$disconnect();
-    }
-    expect(await h.query('SELECT 1 FROM access_requests')).toEqual([]);
-  });
+      try {
+        const profile = createProfileService({
+          prisma,
+          transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
+          rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
+        });
+        const stale = {
+          userId: user.id,
+          sessionId: user.id,
+          name: user.name,
+          email: user.email,
+          roles: [],
+        };
+        await expect(
+          profile.sendAccessRequest(stale, 'hi', {
+            requestId: 'req-race',
+            logger: testLogger(),
+            ip: '10.0.0.1',
+            userAgent: 'test',
+          }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      } finally {
+        await prisma.$disconnect();
+      }
+      expect(await h.query('SELECT 1 FROM access_requests')).toEqual([]);
+    },
+  );
 });

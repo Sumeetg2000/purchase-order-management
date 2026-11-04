@@ -220,6 +220,23 @@ describe('[FR-ADM-06] dismiss an access request', () => {
     expect(again.body).toMatchObject({ code: 'ACCESS_REQUEST_NOT_OPEN' });
   });
 
+  it("[FR-ADM-06] a dismissal waits for the user's row lock, so it can't interleave with their send", async () => {
+    const { h, jar } = await asAdmin();
+    const request = await openRequest(h);
+    // Holds the lock a send takes first, as a send in progress would.
+    await h.query('BEGIN');
+    await h.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [request.user.id]);
+    let finished = false;
+    const dismissal = dismiss(h, jar, request.id).then((res) => {
+      finished = true;
+      return res;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(finished).toBe(false);
+    await h.query('COMMIT');
+    expect((await dismissal).status).toBe(200);
+  });
+
   it('[FR-ADM-06] after a dismissal the user can open a new request', async () => {
     const { h, jar } = await asAdmin();
     const request = await openRequest(h);

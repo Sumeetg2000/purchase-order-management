@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import {
+  EMAIL_MAX_LENGTH,
   ACCESS_LEVELS,
   ACCESS_REQUEST_MESSAGE_MAX_LENGTH,
   ACCESS_REQUEST_NOTE_MAX_LENGTH,
@@ -162,6 +163,12 @@ describe('[NFR-VAL-01] slice 1 bodies are strict', () => {
     expect(
       dismissBody.safeParse({ note: 'n'.repeat(ACCESS_REQUEST_NOTE_MAX_LENGTH + 1) }).success,
     ).toBe(false);
+  });
+
+  it('[FR-ADM-01] the user search takes a prefix as long as a whole email address', () => {
+    const q = `${'a'.repeat(EMAIL_MAX_LENGTH - '@example.local'.length)}@example.local`;
+    expect(userListQuery.safeParse({ q }).success).toBe(true);
+    expect(userListQuery.safeParse({ q: `${q}x` }).success).toBe(false);
   });
 
   it('[FR-ADM-02] an admin user update needs roles or isActive', () => {

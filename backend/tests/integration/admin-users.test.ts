@@ -288,6 +288,13 @@ describe('[FR-ADM-02] admin user update: guards, in order', () => {
     },
   );
 
+  it('[FR-ADM-02] USER_UNVERIFIED comes before a stale version', async () => {
+    const { h, jar } = await asAdmin();
+    const fresh = await h.seedUser({ roles: '{}', status: 'UNVERIFIED' });
+    const res = await patchUser(h, jar, fresh.id, { isActive: true }, '"8"');
+    expect(res.body).toMatchObject({ code: 'USER_UNVERIFIED' });
+  });
+
   it('[FR-ADM-02] a guard comes before a stale version', async () => {
     const { h, admin, jar } = await asAdmin();
     const res = await patchUser(h, jar, admin.id, { roles: ['BUYER'] }, '"7"');
@@ -433,6 +440,21 @@ describe('[FR-ADM-02] admin user update: changes', () => {
     expect(res.body).toMatchObject({ roles: ['APPROVER'], status: 'ACTIVE', version: 2 });
     expect(await auditOf(h, 'USER_ROLES_CHANGED')).toHaveLength(1);
     expect(await auditOf(h, 'USER_REACTIVATED')).toHaveLength(1);
+  });
+
+  it('[FR-ADM-02] a role change on a deactivated user keeps when they were deactivated', async () => {
+    const { h, jar } = await asAdmin();
+    const bea = await h.seedUser({ status: 'DEACTIVATED' });
+    const [before] = await h.query<{ deactivated_at: Date }>(
+      'SELECT deactivated_at FROM users WHERE id = $1',
+      [bea.id],
+    );
+    h.clock.advance(24 * 60 * 60 * 1_000);
+    const res = await patchUser(h, jar, bea.id, { roles: ['APPROVER'] });
+    expect(res.body).toMatchObject({ roles: ['APPROVER'], status: 'DEACTIVATED' });
+    expect(await h.query('SELECT deactivated_at FROM users WHERE id = $1', [bea.id])).toEqual([
+      { deactivated_at: before?.deactivated_at },
+    ]);
   });
 
   it('[FR-ADM-02] a no-op writes nothing: same version, no audit entry, no session ends', async () => {

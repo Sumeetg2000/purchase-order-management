@@ -120,18 +120,28 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
     expect(await screen.findByRole('heading', { name: 'No access requests' })).toBeInTheDocument();
   });
 
-  it('[FR-ADM-06] a request already handled says so inside the dialog', async () => {
+  it('[FR-ADM-06] a request already handled says so inside the dialog, and the list is read again', async () => {
+    let lists = 0;
     adminApi({
+      'GET /admin/access-requests': (r) => {
+        // The list itself, not the badge's count.
+        if (new URL(r.url).searchParams.get('pageSize') !== '1') lists += 1;
+        return json(200, page([request()]));
+      },
       [`POST /admin/access-requests/${request().id}/dismiss`]: () =>
         problem(409, 'ACCESS_REQUEST_NOT_OPEN'),
     });
     const { user } = renderApp('/admin/users/access-requests');
     await user.click(await screen.findByRole('button', { name: 'Dismiss request from Nia New' }));
+    const before = lists;
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Dismiss request' }));
     expect(
       await within(dialog).findByText('This request has already been handled.'),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(lists).toBeGreaterThan(before);
+    });
   });
 
   it('[FR-ADM-06] assign role opens the role dialog for the requester', async () => {
@@ -189,6 +199,51 @@ describe('[NFR-FE-08] open access-request badge', () => {
     ).toBe(true);
   });
 
+  it('[FR-ADM-06] the count updates after a dismissal', async () => {
+    let open = 1;
+    adminApi({
+      'GET /admin/access-requests': (r) =>
+        new URL(r.url).searchParams.get('pageSize') === '1'
+          ? json(200, page([], { pageSize: 1, total: open }))
+          : json(200, page(open > 0 ? [request()] : [])),
+      [`POST /admin/access-requests/${request().id}/dismiss`]: () => {
+        open = 0;
+        return json(200, request({ status: 'DISMISSED' }));
+      },
+    });
+    const { user } = renderApp('/admin/users/access-requests');
+    expect(
+      await screen.findByRole('link', { name: 'Users, 1 open access request' }),
+    ).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Dismiss request from Nia New' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Dismiss request',
+      }),
+    );
+    const main = screen.getByRole('navigation', { name: 'Main' });
+    expect(await within(main).findByRole('link', { name: 'Users' })).toBeInTheDocument();
+  });
+
+  it('[FR-ADM-06] the count is read again when the window regains focus', async () => {
+    let open = 1;
+    adminApi({
+      'GET /admin/access-requests': () => json(200, page([], { pageSize: 1, total: open })),
+    });
+    renderApp('/');
+    expect(
+      await screen.findByRole('link', { name: 'Users, 1 open access request' }),
+    ).toBeInTheDocument();
+    open = 2;
+    act(() => {
+      window.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(
+      await screen.findByRole('link', { name: 'Users, 2 open access requests' }),
+    ).toBeInTheDocument();
+  });
+
   it('[FR-ADM-06] the count refreshes every 60 seconds', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let count = 1;
@@ -206,7 +261,7 @@ describe('[NFR-FE-08] open access-request badge', () => {
     ).toBeInTheDocument();
   });
 
-  it('[FR-ADM-06] with no open request the link is just Users; non-admins have no link', async () => {
+  it('[FR-ADM-06] with no open request the link is just Users', async () => {
     badgeApi(() => 0);
     renderApp('/');
     expect(await screen.findByRole('link', { name: 'Users' })).toBeInTheDocument();

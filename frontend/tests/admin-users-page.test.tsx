@@ -1,5 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem, type Handler } from './support/fake-api';
 import { renderApp } from './support/render-app';
@@ -65,6 +66,8 @@ function adminApi(handlers: Record<string, Handler> = {}) {
   });
 }
 
+const NOT_FOUND_MESSAGE = errorMessages.NOT_FOUND.message;
+
 const rowOf = async (name: string) =>
   (await screen.findByRole('cell', { name })).closest('tr') as HTMLElement;
 
@@ -104,6 +107,21 @@ describe('[NFR-FE-08] admin Users list', () => {
     });
     await u.selectOptions(screen.getByLabelText('Role'), 'APPROVER');
     expect(router.state.location.search).toBe('?role=APPROVER&status=ACTIVE&q=pri');
+  });
+
+  it('[FR-ADM-01] the search box follows the URL, e.g. after going back', async () => {
+    adminApi();
+    const { user: u, router } = renderApp('/admin/users');
+    await u.type(await screen.findByLabelText('Name or email starts with'), 'pri');
+    await u.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?q=pri');
+    });
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.search).toBe('');
+    expect(screen.getByLabelText('Name or email starts with')).toHaveValue('');
   });
 
   it('[FR-ADM-01] pages through the results', async () => {
@@ -207,14 +225,20 @@ describe('[NFR-FE-09] change role dialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('[FR-ADM-02] a version conflict is shown inside the dialog with a reload', async () => {
+  it('[FR-ADM-02] a version conflict is shown inside the dialog; after a reload the new version is sent', async () => {
     let reads = 0;
-    adminApi({
+    let patches = 0;
+    const seen = adminApi({
       [`GET /admin/users/${user().id}`]: () => {
         reads += 1;
         return json(200, detail({ version: 3 + reads }), { ETag: `"${String(3 + reads)}"` });
       },
-      [`PATCH /admin/users/${user().id}`]: () => problem(409, 'VERSION_CONFLICT'),
+      [`PATCH /admin/users/${user().id}`]: () => {
+        patches += 1;
+        return patches === 1
+          ? problem(409, 'VERSION_CONFLICT')
+          : json(200, detail({ roles: ['APPROVER'], version: 6 }), { ETag: '"6"' });
+      },
     });
     const { user: u } = renderApp('/admin/users');
     await u.click(await screen.findByRole('button', { name: 'Change role for Bea Buyer' }));
@@ -227,6 +251,12 @@ describe('[NFR-FE-09] change role dialog', () => {
       expect(reads).toBe(2);
     });
     expect(within(dialog).queryByText('Someone else changed this.')).not.toBeInTheDocument();
+    await u.click(within(dialog).getByRole('button', { name: 'Change role' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      "Bea Buyer's role is now Approver.",
+    );
+    const sent = seen.filter((r) => r.method === 'PATCH').map((r) => r.headers.get('If-Match'));
+    expect(sent).toEqual(['"4"', '"5"']);
   });
 
   it('[NFR-FE-09] the dialog has no axe violations', async () => {
@@ -259,7 +289,7 @@ describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
   });
 
   it('[FR-ADM-02] a deactivated user can be reactivated; an unverified one has neither action', async () => {
-    adminApi({
+    const seen = adminApi({
       'GET /admin/users': () =>
         json(
           200,
@@ -284,6 +314,20 @@ describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
     const dialog = await screen.findByRole('alertdialog', { name: 'Reactivate Bea Buyer?' });
     await u.click(within(dialog).getByRole('button', { name: 'Reactivate user' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Bea Buyer is active again.');
+    const patch = seen.find((r) => r.method === 'PATCH');
+    expect(await patch?.json()).toEqual({ isActive: true });
+  });
+
+  it("[FR-ADM-02] the reactivate dialog says when the user can't be read, instead of waiting", async () => {
+    adminApi({
+      'GET /admin/users': () => json(200, page([user({ status: 'DEACTIVATED' })])),
+      [`GET /admin/users/${user().id}`]: () => problem(404, 'NOT_FOUND'),
+    });
+    const { user: u } = renderApp('/admin/users');
+    await u.click(await screen.findByRole('button', { name: 'Reactivate Bea Buyer' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(await within(dialog).findByText(NOT_FOUND_MESSAGE)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Reactivate user' })).toBeDisabled();
   });
 
   it('[FR-ADM-03] sending a reset names the email and says the current password keeps working', async () => {
