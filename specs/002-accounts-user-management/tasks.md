@@ -346,14 +346,14 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 **Goal**: a user who forgot their password gets a link and sets a new one.
 **Independent test**: quickstart step 7.
 
-- [ ] T055 [P] [US5] Tests: forgot-password (`202` and email; `ACCOUNT_NOT_FOUND`,
+- [x] T055 [P] [US5] Tests: forgot-password (`202` and email; `ACCOUNT_NOT_FOUND`,
   `ACCOUNT_DEACTIVATED`, nothing sent; new link supersedes, old → `TOKEN_SUPERSEDED`);
   resend/forgot rate limits per email with `Retry-After` (no per-IP limit); mail failure logged,
   request still succeeds — `backend/tests/integration/forgot-password.test.ts` — FR-015,
   FR-ACC-05, NFR-SEC-08.
-- [ ] T056 [US5] Forgot-password service, route and template —
+- [x] T056 [US5] Forgot-password service, route and template —
   `backend/src/accounts/`, `backend/src/mail/template.ts` — T055 green.
-- [ ] T057 [P] [US5] Frontend tests then ForgotPassword page; ResetPassword links
+- [x] T057 [P] [US5] Frontend tests then ForgotPassword page; ResetPassword links
   forgot-password on `TOKEN_EXPIRED`; E2E forgot → Mailpit → reset → login —
   `frontend/src/pages/account/`, `frontend/e2e/forgot-reset.spec.ts` — FR-034, FR-036.
 - [ ] T058 [US5] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.

@@ -7,11 +7,11 @@ error states, axe checks, and lazy loading (one chunk each, ≤ 150 KB gzip).
 
 | Path | Who | Page |
 |---|---|---|
-| `/login?returnTo=` | anonymous | Login: each login code's message; `ACCOUNT_NOT_VERIFIED` offers resend, `PASSWORD_NOT_SET` links forgot-password, `ACCOUNT_LOCKED` shows N minutes |
-| `/signup` | anonymous | Signup: password policy shown; field codes from the API; success → "Check your email" |
+| `/login?returnTo=` | anonymous | Login: each login code's message; `ACCOUNT_NOT_VERIFIED` offers resend, `PASSWORD_NOT_SET` links forgot-password, `ACCOUNT_LOCKED` shows N minutes; "Forgot your password?" carries the typed email |
+| `/signup` | anonymous | Signup: password policy shown; field codes from the API; success → "Check your email"; `EMAIL_IN_USE` links forgot-password |
 | `/verify-email#token=` | anyone | Verify: posts once, clears the hash; success → login link; each token code's message (`TOKEN_EXPIRED` offers resend) |
-| `/forgot-password` | anyone | Forgot: specific outcome per code |
-| `/reset-password#token=` | anyone | Reset / set password: posts once with the new password, clears the hash; each token code's message (`TOKEN_EXPIRED` links forgot-password) |
+| `/forgot-password` | anyone | Forgot: success → "We sent a password reset link to …"; specific outcome per code (`ACCOUNT_NOT_FOUND` links signup, `RATE_LIMITED` shows N minutes) |
+| `/reset-password#token=` | anyone | Reset / set password: posts once with the new password, clears the hash; each token code's message (`TOKEN_EXPIRED` and `INVALID_TOKEN` link forgot-password) |
 | `/access-pending` | no-role user | Access pending: signup date, message form (1–500), request status, admin note as text |
 | `/profile` | any logged-in user | Profile (name), Change password, Sessions (revoke one, log out everywhere) |
 | `/admin/users?role=&status=&q=&page=` | Admin | Users list, filters in the URL; row actions |

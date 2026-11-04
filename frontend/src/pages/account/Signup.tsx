@@ -7,6 +7,7 @@ import { PASSWORD_RULE } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
+import { FORGOT_PASSWORD_PATH } from './forgot-password-link';
 
 const styles = classes(css, 'page', 'form', 'field', 'hint', 'fieldError', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
@@ -95,6 +96,12 @@ export function Signup() {
           {formError && (
             <p role="alert" className={styles.alert}>
               {formError}
+              {failure?.problem.code === 'EMAIL_IN_USE' && (
+                <>
+                  {' '}
+                  <Link to={FORGOT_PASSWORD_PATH}>Reset your password</Link>
+                </>
+              )}
             </p>
           )}
           <button type="submit" className={controls.primary} disabled={pending}>

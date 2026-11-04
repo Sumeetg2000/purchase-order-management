@@ -1,18 +1,30 @@
+import type { ErrorCode } from '@po/contracts';
 import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
 import { Link } from 'react-router';
 import { useFragmentToken } from '../../auth/fragment-token';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit } from '../../api/submit';
+import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
 import { PASSWORD_RULE, sentenceFor } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
+import { FORGOT_PASSWORD_PATH } from './forgot-password-link';
 
 const styles = classes(css, 'page', 'form', 'field', 'hint', 'fieldError', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
 
 const PASSWORD_PATH = 'body.newPassword';
+
+/** Failures a new link fixes. A superseded link points to the latest email instead. */
+const NEW_LINK_CODES: readonly string[] = [
+  'TOKEN_EXPIRED',
+  'INVALID_TOKEN',
+] satisfies readonly ErrorCode[];
+
+function RequestNewLink() {
+  return <Link to={FORGOT_PASSWORD_PATH}>Request a new link</Link>;
+}
 
 /**
  * Reset or set a password from a one-time link (ADR-0017). The token is read once, then
@@ -23,7 +35,7 @@ export function ResetPassword() {
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<ApiFailure>();
   const [fieldError, setFieldError] = useState<string>();
 
   async function setNewPassword(event: SyntheticEvent<HTMLFormElement>) {
@@ -42,7 +54,7 @@ export function ResetPassword() {
     }
     const field = fieldFailure(outcome, PASSWORD_PATH);
     if (field) setFieldError(field);
-    else setFailure(failureMessage(outcome));
+    else setFailure(outcome);
   }
 
   return (
@@ -55,7 +67,7 @@ export function ResetPassword() {
         </p>
       ) : !token ? (
         <p role="alert" className={styles.alert}>
-          {sentenceFor({ code: 'INVALID_TOKEN' })}
+          {sentenceFor({ code: 'INVALID_TOKEN' })} <RequestNewLink />
         </p>
       ) : (
         <form className={styles.form} onSubmit={(event) => void setNewPassword(event)}>
@@ -77,7 +89,13 @@ export function ResetPassword() {
           </TextField>
           {failure && (
             <p role="alert" className={styles.alert}>
-              {failure}
+              {failureMessage(failure)}
+              {NEW_LINK_CODES.includes(failure.problem.code) && (
+                <>
+                  {' '}
+                  <RequestNewLink />
+                </>
+              )}
             </p>
           )}
           <button type="submit" className={controls.primary} disabled={pending}>

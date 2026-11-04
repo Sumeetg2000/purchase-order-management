@@ -11,6 +11,7 @@ import { messageForProblem } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
+import { FORGOT_PASSWORD_PATH, type ForgotPasswordState } from './forgot-password-link';
 
 const styles = classes(css, 'page', 'form', 'field', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
@@ -91,6 +92,11 @@ export function Login() {
           Log in
         </button>
       </form>
+      <p>
+        <Link to={FORGOT_PASSWORD_PATH} state={{ email } satisfies ForgotPasswordState}>
+          Forgot your password?
+        </Link>
+      </p>
       <p>
         New here? <Link to="/signup">Sign up</Link>
       </p>

@@ -69,6 +69,13 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           errorElement: <RouteErrorBoundary />,
         },
         {
+          path: 'forgot-password',
+          lazy: lazyPage(() =>
+            import('../pages/account/ForgotPassword').then((m) => m.ForgotPassword),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
           path: 'reset-password',
           lazy: lazyPage(() =>
             import('../pages/account/ResetPassword').then((m) => m.ResetPassword),
