@@ -2246,8 +2246,8 @@ export interface operations {
             204: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
-                    /** @description The session cookies: po_access, po_refresh and po_csrf (ADR-0017). */
-                    "Set-Cookie": string;
+                    /** @description When the session ended is the calling one: its cookies, cleared (ADR-0017). */
+                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;

@@ -58,8 +58,11 @@ export interface OperationContract {
   access: Access;
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
-  /** Its success response sets (or clears) the session cookies (ADR-0017). */
-  setsCookies?: true;
+  /**
+   * Its success response sets (or clears) the session cookies (ADR-0017): always, or only
+   * sometimes (revoking a session clears them only when it is the caller's own).
+   */
+  setsCookies?: true | 'sometimes';
   /** Its success response carries the resource's version as `ETag` (ADR-0016). */
   etag?: true;
   request?: OperationRequestSchemas;
@@ -328,7 +331,7 @@ export const OPERATIONS = {
     operationId: 'revokeSession',
     summary: "End one of the caller's sessions; ending this one clears its cookies.",
     access: 'user',
-    setsCookies: true,
+    setsCookies: 'sometimes',
     request: { params: idParams },
     responses: { 204: z.void() },
     errors: ['NOT_FOUND'],

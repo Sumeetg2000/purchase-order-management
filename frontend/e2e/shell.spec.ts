@@ -1,10 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/shared-admin';
 import { SECURITY_HEADERS } from '../../deploy/security-headers.mjs';
-import { loggedInAdmin } from './support/accounts';
 
 // The production shell, served by nginx from the compose stack. Its pages need a login
-// (slice 1), so each test logs in as a fresh admin first.
+// (slice 1): the tests share one logged-in admin per worker (support/shared-admin.ts).
 
 const SHELL_PAGES = ['/', '/no/such/page'];
 
@@ -12,7 +11,6 @@ test.describe('[NFR-FE-07] app shell', () => {
   test('[NFR-FE-07] the home page renders in the shell, and navigation reaches not-found and back', async ({
     page,
   }) => {
-    await loggedInAdmin(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
     await page.goto('/no/such/page');
@@ -25,7 +23,6 @@ test.describe('[NFR-FE-07] app shell', () => {
   test('[NFR-FE-07] the development demo route is not in the production build', async ({
     page,
   }) => {
-    await loggedInAdmin(page);
     await page.goto('/__demo');
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
   });
@@ -34,7 +31,6 @@ test.describe('[NFR-FE-07] app shell', () => {
 test.describe('[NFR-FE-05] accessibility and content security', () => {
   for (const path of SHELL_PAGES) {
     test(`[NFR-FE-05] ${path} has no axe violations (WCAG 2.1 AA)`, async ({ page }) => {
-      await loggedInAdmin(page);
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       const results = await new AxeBuilder({ page })
@@ -61,7 +57,6 @@ test.describe('[NFR-FE-05] accessibility and content security', () => {
   test('[NFR-FE-05] the HTML has no inline script and runs with no CSP violation', async ({
     page,
   }) => {
-    await loggedInAdmin(page);
     // Every violation fires securitypolicyviolation, even one the page's code catches (a
     // library probing eval, say), in every engine; console messages vary by engine.
     await page.addInitScript(() => {

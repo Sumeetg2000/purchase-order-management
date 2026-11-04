@@ -74,9 +74,15 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'Set-Cookie',
       );
     }
+    // Revoking a session clears cookies only when it is the caller's own: optional.
+    const revoke = at(doc, 'paths', '/auth/sessions/{id}', 'delete', 'responses', '204', 'headers');
+    expect(revoke).toHaveProperty('Set-Cookie');
+    expect((revoke['Set-Cookie'] as Json)['required']).not.toBe(true);
     expect(
-      at(doc, 'paths', '/auth/sessions/{id}', 'delete', 'responses', '204', 'headers'),
-    ).toHaveProperty('Set-Cookie');
+      (
+        at(doc, 'paths', '/auth/login', 'post', 'responses', '200', 'headers')['Set-Cookie'] as Json
+      )['required'],
+    ).toBe(true);
     expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
       'Set-Cookie',
     );

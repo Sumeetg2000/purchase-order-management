@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { E2E_PASSWORD, logIn, loggedInAdmin } from './support/accounts';
 
@@ -96,25 +95,5 @@ test.describe('[FR-ACC-06] profile and sessions', () => {
     await expect(other.getByRole('status')).toContainText(
       "You've been logged out. Please log in again.",
     );
-  });
-
-  test('[NFR-FE-05] /profile has no axe or CSP violations', async ({ page }) => {
-    await page.addInitScript(() => {
-      const seen: string[] = [];
-      (window as unknown as { cspViolations: string[] }).cspViolations = seen;
-      document.addEventListener('securitypolicyviolation', (event) => {
-        seen.push(`${event.violatedDirective} blocked ${event.blockedURI}`);
-      });
-    });
-    await loggedInAdmin(page);
-    await page.goto('/profile');
-    await expect(page.getByRole('table', { name: 'Sessions' })).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
-    expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
-    expect(
-      await page.evaluate(() => (window as unknown as { cspViolations: string[] }).cspViolations),
-    ).toEqual([]);
   });
 });

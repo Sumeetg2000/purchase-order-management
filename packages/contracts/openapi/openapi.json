@@ -3420,11 +3420,10 @@
                 "$ref": "#/components/headers/XRequestId"
               },
               "Set-Cookie": {
-                "required": true,
-                "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017).",
+                "description": "When the session ended is the calling one: its cookies, cleared (ADR-0017).",
                 "schema": {
-                  "type": "string",
-                  "description": "The session cookies: po_access, po_refresh and po_csrf (ADR-0017)."
+                  "description": "When the session ended is the calling one: its cookies, cleared (ADR-0017).",
+                  "type": "string"
                 }
               }
             }
