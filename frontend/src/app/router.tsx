@@ -22,6 +22,24 @@ const demoRoutes: RouteObject[] = import.meta.env.DEV
 export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObject[] {
   const pages: RouteObject[] = [
     { index: true, lazy: lazyPage(() => import('../pages/Home').then((m) => m.Home)) },
+    {
+      path: 'admin/users',
+      element: <RequireRole requires="ADMIN" />,
+      children: [
+        {
+          index: true,
+          lazy: lazyPage(() => import('../pages/admin/Users').then((m) => m.Users)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: 'access-requests',
+          lazy: lazyPage(() =>
+            import('../pages/admin/AccessRequests').then((m) => m.AccessRequests),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+      ],
+    },
     ...(includeDemo ? demoRoutes : []),
     {
       path: '*',
