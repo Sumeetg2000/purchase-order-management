@@ -112,8 +112,13 @@ describe('[NFR-OPS-01] local end-to-end stack', () => {
     assert.equal(exported('MAILPIT_URL'), 'http://127.0.0.1:${MAILPIT_PORT}');
   });
 
-  it('[NFR-OPS-01] removes only its own stack when it ends', () => {
-    assert.match(script, /^trap 'docker compose down -v' EXIT$/m);
+  it('[NFR-OPS-01] removes only its own stack and env file when it ends', () => {
+    assert.match(script, /^trap 'docker compose down -v; rm -f "\$COMPOSE_ENV_FILES"' EXIT$/m);
+  });
+
+  it("[NFR-OPS-01] reads a throwaway env file with random secrets, never the owner's .env", () => {
+    assert.equal(exported('COMPOSE_ENV_FILES'), '"$(mktemp)"');
+    assert.match(script, /^CI_ENV_FILE="\$COMPOSE_ENV_FILES" scripts\/ci-env.sh --force$/m);
   });
 });
 

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Writes .env from .env.example, replacing every change-me-… placeholder with a random
-# throwaway value, so CI (including pull requests from forks) needs no secrets.
+# Writes .env (or CI_ENV_FILE) from .env.example, replacing every change-me-… placeholder
+# with a random throwaway value, so CI (including pull requests from forks) needs no
+# secrets. scripts/e2e-local.sh uses CI_ENV_FILE for a stack of its own.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if [[ -e .env && "${1:-}" != "--force" ]]; then
-  echo "ci-env: .env already exists; pass --force to overwrite it" >&2
+target="${CI_ENV_FILE:-.env}"
+
+if [[ -e "$target" && "${1:-}" != "--force" ]]; then
+  echo "ci-env: $target already exists; pass --force to overwrite it" >&2
   exit 1
 fi
 
@@ -22,6 +25,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done <.env.example
 
 chmod 600 "$tmp"
-mv "$tmp" .env
+mv "$tmp" "$target"
 trap - EXIT
-echo "ci-env: wrote .env with random secrets"
+echo "ci-env: wrote $target with random secrets"
