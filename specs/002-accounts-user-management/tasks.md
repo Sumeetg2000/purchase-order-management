@@ -283,7 +283,7 @@ request. **Independent test**: quickstart step 4 up to the Access pending screen
 **Goal**: an admin lists users, assigns roles, deactivates and reactivates, sends a
 reset, and handles access requests. **Independent test**: quickstart step 5.
 
-- [ ] T043 [P] [US3] Tests: list (role incl. none, status, `q` prefix on name/email
+- [X] T043 [P] [US3] Tests: list (role incl. none, status, `q` prefix on name/email
   case-insensitive, page boundaries, `name, id` stability, `lastLoginAt`); detail with
   `ETag` and open-order counts; update guards (`SELF_MODIFICATION`,
   `ADMIN_NOT_MODIFIABLE`, `USER_UNVERIFIED`, `INVALID_ROLE_SET`, other fields → 400,
@@ -292,21 +292,21 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   `SESSION_REVOKED` with `reason: ROLES_CHANGED`, or `ACCOUNT_DEACTIVATED`; deactivation dismisses the open request; role assignment resolves it in the
   same transaction; audit payloads — `backend/tests/integration/admin-users.test.ts` —
   FR-013, FR-023, FR-024, FR-ACC-07, FR-ADM-01, FR-ADM-02, NFR-AUD-04, NFR-SEC-03.
-- [ ] T044 [P] [US3] Tests: admin reset (any status → 202, standard email,
+- [X] T044 [P] [US3] Tests: admin reset (any status → 202, standard email,
   `USER_PASSWORD_RESET_SENT`, never a token in the response); access-request list
   (status filter, `updatedAt DESC, id DESC`) and dismiss (note, `ACCESS_REQUEST_NOT_OPEN`)
   — `backend/tests/integration/admin-access.test.ts` — FR-025, FR-026, FR-ADM-03,
   FR-ADM-06.
-- [ ] T045 [US3] Users repository list/detail/update queries; admin-users service and
+- [X] T045 [US3] Users repository list/detail/update queries; admin-users service and
   routes; admin-reset template — `backend/src/users/repository.ts`,
   `backend/src/admin-users/`, `backend/src/mail/template.ts` — T043, T044 green.
-- [ ] T046 [US3] Demo seed: two Buyers and one Approver with `DEMO_PASSWORD`, never in
+- [X] T046 [US3] Demo seed: two Buyers and one Approver with `DEMO_PASSWORD`, never in
   production; test first — `backend/src/migrate/seed-demo.ts` — FR-037.
-- [ ] T047 [P] [US3] Frontend tests then Users list (filters in URL), AccessRequests tab,
+- [X] T047 [P] [US3] Frontend tests then Users list (filters in URL), AccessRequests tab,
   RoleDialog and user action dialogs (ADR-0018 wording), nav badge (60 s, focus, after
   actions), `RequireRole`; axe — `frontend/src/pages/admin/`, `frontend/src/app/Shell.tsx`
   — FR-034, FR-035, NFR-FE-08.
-- [ ] T048 [US3] E2E: assign a role from a request (second half of signup-to-buyer),
+- [X] T048 [US3] E2E: assign a role from a request (second half of signup-to-buyer),
   dismissal shown to the user, admin users actions —
   `frontend/e2e/{signup-to-buyer,dismissal,admin-users}.spec.ts` — FR-036, SC-002.
 - [ ] T049 [US3] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
