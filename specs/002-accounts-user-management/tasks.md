@@ -319,7 +319,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 **Goal**: a user edits their name, changes password and manages sessions.
 **Independent test**: quickstart step 6.
 
-- [ ] T050 [P] [US4] Tests: `PATCH /me` (name only; `phone` or any other field →
+- [X] T050 [P] [US4] Tests: `PATCH /me` (name only; `phone` or any other field →
   `UNKNOWN_FIELD`; `USER_PROFILE_UPDATED` with name before and after); change
   password (policy codes, wrong current → field `INCORRECT_PASSWORD`, counted and locked
   like login, revokes other sessions with `PASSWORD_CHANGED`, keeps the current one);
@@ -327,13 +327,13 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   stored, the revoked session's refresh gets no `reason`; another user's id → 404, current → cookies cleared) —
   `backend/tests/integration/profile.test.ts`, `sessions.test.ts` — FR-012, FR-014,
   FR-020, FR-USR-01, FR-ACC-04, FR-ACC-06.
-- [ ] T051 [US4] Profile service update; auth service change-password,
+- [X] T051 [US4] Profile service update; auth service change-password,
   list and revoke sessions; routes — `backend/src/profile/`, `backend/src/auth/` — T050
   green.
-- [ ] T052 [P] [US4] Frontend tests then Profile, ChangePasswordForm, SessionsList,
+- [X] T052 [P] [US4] Frontend tests then Profile, ChangePasswordForm, SessionsList,
   revoke and log-out-everywhere dialogs, unsaved-changes guard; axe —
   `frontend/src/pages/profile/` — FR-034, FR-035.
-- [ ] T053 [US4] E2E: profile save, change password, revoke another session, which then
+- [X] T053 [US4] E2E: profile save, change password, revoke another session, which then
   sees "You've been logged out. Please log in again."; after a password change in
   another browser, "You were logged out because your password was changed." —
   `frontend/e2e/profile-sessions.spec.ts` — FR-036.
