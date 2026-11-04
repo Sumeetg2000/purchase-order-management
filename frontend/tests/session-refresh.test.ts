@@ -81,6 +81,22 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
     expect(t.calls).toEqual(['POST /api/orders', 'POST /api/auth/refresh', 'POST /api/orders']);
   });
 
+  it.each([
+    '/auth/sessions',
+    '/auth/change-password',
+    '/auth/sessions/0190a6a0-0000-7000-8000-000000000000',
+  ])(
+    "[NFR-FE-02] a logged-in user's own call under /auth (%s) is refreshed and retried too",
+    async (path) => {
+      const t = setup({
+        answers: [() => problem(401, 'ACCESS_TOKEN_EXPIRED'), () => new Response('{}')],
+      });
+      const res = await t.call(path, '1');
+      expect(res.status).toBe(200);
+      expect(t.calls).toEqual([`POST /api${path}`, 'POST /api/auth/refresh', `POST /api${path}`]);
+    },
+  );
+
   it('[NFR-FE-02] the retried call keeps its body', async () => {
     const t = setup({
       answers: [() => problem(401, 'ACCESS_TOKEN_EXPIRED'), () => new Response('{}')],
