@@ -123,6 +123,17 @@ describe('[NFR-FE-08] login page', () => {
     );
   });
 
+  it('[NFR-FE-02] a page load whose first call ends the session still says why', async () => {
+    fakeApi({
+      'GET /me': () => problem(401, 'SESSION_REVOKED', { reason: 'ROLES_CHANGED' }),
+    });
+    renderAt('/admin/users');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Log in' })).toBeInTheDocument();
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'You were logged out because your roles were changed. Please log in again.',
+    );
+  });
+
   it('[NFR-FE-01] an unreachable API says so, and the form can be sent again', async () => {
     fakeApi({
       'GET /me': () => problem(401, 'UNAUTHENTICATED'),
