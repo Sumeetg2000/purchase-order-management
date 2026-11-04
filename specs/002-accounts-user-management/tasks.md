@@ -309,7 +309,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 - [X] T048 [US3] E2E: assign a role from a request (second half of signup-to-buyer),
   dismissal shown to the user, admin users actions —
   `frontend/e2e/{signup-to-buyer,dismissal,admin-users}.spec.ts` — FR-036, SC-002.
-- [ ] T049 [US3] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [X] T049 [US3] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
