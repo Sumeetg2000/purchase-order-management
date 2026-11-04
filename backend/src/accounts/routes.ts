@@ -33,6 +33,13 @@ export function accountsRoutes(accounts: AccountsService): RouteDefinition[] {
       },
     }),
     defineRoute({
+      ...OPERATIONS.forgotPassword,
+      handler: async (req, res) => {
+        await accounts.forgotPassword(req.body as EmailBody, requestContext(req, res));
+        res.status(202).end();
+      },
+    }),
+    defineRoute({
       ...OPERATIONS.resetPassword,
       handler: async (req, res) => {
         await accounts.resetPassword(req.body as ResetPasswordBody, requestContext(req, res));

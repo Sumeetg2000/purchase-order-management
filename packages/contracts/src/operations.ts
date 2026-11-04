@@ -336,4 +336,14 @@ export const OPERATIONS = {
     responses: { 204: z.void() },
     errors: ['NOT_FOUND'],
   },
+  forgotPassword: {
+    method: 'post',
+    path: '/auth/forgot-password',
+    operationId: 'forgotPassword',
+    summary: 'Email a password reset link; earlier reset links stop working.',
+    access: 'public',
+    request: { body: emailBody },
+    responses: { 202: z.void() },
+    errors: ['ACCOUNT_NOT_FOUND', 'ACCOUNT_DEACTIVATED', 'RATE_LIMITED'],
+  },
 } as const satisfies Record<string, OperationContract>;

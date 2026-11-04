@@ -27,11 +27,8 @@ import {
 import type { Clock } from '../lib/clock.js';
 import type { RequestContext } from '../lib/request-context.js';
 import type { MailDispatcher } from '../mail/dispatcher.js';
-import { sendAfterCommit } from '../mail/send-after-commit.js';
-import { resetPasswordTemplate } from '../mail/templates.js';
 import { logSecurityEvent } from '../observability/security-log.js';
-import { setPasswordLink } from '../tokens/links.js';
-import { issueToken } from '../tokens/one-time.js';
+import { emailOneTimeLink } from '../tokens/email-link.js';
 import { adminActor } from '../users/actor.js';
 import {
   findManagedUser,
@@ -253,21 +250,16 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
         const target = guardTarget(admin, await lockManagedUser(tx, id));
         // A deactivated account can't use a reset, so none is sent (owner decision).
         if (target.status === USER_STATUS.DEACTIVATED) throw new AppError('USER_DEACTIVATED');
-        const { token } = await issueToken(tx, target.id, 'RESET');
         await writeAudit(tx, {
           action: 'USER_PASSWORD_RESET_SENT',
           entityType: 'user',
           entityId: target.id,
           details: {},
         });
-        sendAfterCommit(hooks, {
+        await emailOneTimeLink(tx, hooks, 'RESET', target, {
           mail: deps.mail,
+          appOrigin: deps.appOrigin,
           logger: ctx.logger,
-          message: {
-            template: resetPasswordTemplate,
-            to: target.email,
-            variables: { name: target.name, link: setPasswordLink(deps.appOrigin, token) },
-          },
         });
       });
       logSecurityEvent(ctx.logger, 'password_reset_requested', { userId: id, by: ROLE.ADMIN });

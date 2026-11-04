@@ -30,7 +30,7 @@ export const verifyEmailTemplate = defineTemplate<{ name: string; link: string }
 
 const RESET_MINUTES = String(RESET_TOKEN_LIFETIME_MINUTES);
 
-/** The standard reset email: sent by an admin, and by forgot-password (US5). */
+/** The reset email: sent by an admin, and by forgot-password. */
 export const resetPasswordTemplate = defineTemplate<{ name: string; link: string }>({
   name: 'reset_password',
   subject: () => 'Reset your password',

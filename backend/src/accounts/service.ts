@@ -14,13 +14,11 @@ import {
 import type { Clock } from '../lib/clock.js';
 import type { RequestContext } from '../lib/request-context.js';
 import type { MailDispatcher } from '../mail/dispatcher.js';
-import { sendAfterCommit } from '../mail/send-after-commit.js';
-import { verifyEmailTemplate } from '../mail/templates.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
-import { verifyEmailLink } from '../tokens/links.js';
+import { emailOneTimeLink } from '../tokens/email-link.js';
 import { selfActor } from '../users/actor.js';
-import { consumeToken, issueToken } from '../tokens/one-time.js';
+import { consumeToken, type TokenPurpose } from '../tokens/one-time.js';
 import {
   activateUser,
   createSignupUser,
@@ -30,8 +28,8 @@ import {
   type ProfileUser,
 } from '../users/repository.js';
 
-// Account self-service (ADR-0017): signup, verification by link, and setting a password
-// by link. Slice 1 US5 adds forgot-password.
+// Account self-service (ADR-0017): signup, verification by link, forgot-password, and
+// setting a password by link.
 
 export interface ResetPasswordInput {
   token: string;
@@ -51,6 +49,11 @@ export interface AccountsService {
   verifyEmail(token: string, ctx: RequestContext): Promise<void>;
   /** Emails a new verification link to an unverified account; the old one stops working. */
   resendVerification(input: EmailBody, ctx: RequestContext): Promise<void>;
+  /**
+   * Emails a reset link to an unverified or active account; earlier reset links stop
+   * working. Nothing else changes until the link is used.
+   */
+  forgotPassword(input: EmailBody, ctx: RequestContext): Promise<void>;
 }
 
 export interface AccountsServiceDependencies {
@@ -66,22 +69,18 @@ export interface AccountsServiceDependencies {
 }
 
 export function createAccountsService(deps: AccountsServiceDependencies): AccountsService {
-  /** Issues a verification token and emails its link once the transaction commits. */
-  async function sendVerification(
+  /** Issues a one-time token and emails its link once the transaction commits. */
+  function emailLink(
     tx: AuditedTransaction,
     hooks: TransactionHooks,
+    purpose: TokenPurpose,
     user: ProfileUser,
     ctx: RequestContext,
   ) {
-    const { token } = await issueToken(tx, user.id, 'VERIFY_EMAIL');
-    sendAfterCommit(hooks, {
+    return emailOneTimeLink(tx, hooks, purpose, user, {
       mail: deps.mail,
+      appOrigin: deps.appOrigin,
       logger: ctx.logger,
-      message: {
-        template: verifyEmailTemplate,
-        to: user.email,
-        variables: { name: user.name, link: verifyEmailLink(deps.appOrigin, token) },
-      },
     });
   }
 
@@ -121,7 +120,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
             entityId: user.id,
             details: { emailDomain: domain, roles: [] },
           });
-          await sendVerification(tx, hooks, user, ctx);
+          await emailLink(tx, hooks, 'VERIFY_EMAIL', user, ctx);
           return user.id;
         },
       );
@@ -174,9 +173,34 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
           if (!user) throw new Error(`user ${found.id} disappeared`);
           if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
           if (user.status === USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_ALREADY_VERIFIED');
-          await sendVerification(tx, hooks, user, ctx);
+          await emailLink(tx, hooks, 'VERIFY_EMAIL', user, ctx);
         },
       );
+    },
+
+    forgotPassword: async (input, ctx) => {
+      const email = input.email.toLowerCase();
+      // Per email only (ADR-0017), counted before the lookup so unknown emails count too.
+      await deps.rateLimiter.hit('forgot-email', email);
+      const found = await withDatabase(() => findLoginUser(deps.prisma, email));
+      if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
+      await deps.transactions.run(
+        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+        async (tx, hooks) => {
+          // Checked under the user's lock, so a deactivation running at the same time can't
+          // be followed by a link the account can't use.
+          const user = await lockUser(tx, found.id);
+          if (!user) throw new Error(`user ${found.id} disappeared`);
+          if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
+          await emailLink(tx, hooks, 'RESET', user, ctx);
+        },
+      );
+      logSecurityEvent(ctx.logger, 'password_reset_requested', {
+        userId: found.id,
+        by: 'USER',
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+      });
     },
 
     resetPassword: async (input, ctx) => {
