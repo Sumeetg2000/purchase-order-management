@@ -26,6 +26,7 @@ describe('[NFR-SEC-06] security log', () => {
       'password_reset_requested',
       'password_reset_completed',
       'password_changed',
+      'password_change_failed',
     ]);
   });
 

@@ -26,7 +26,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents the health operations and the slice 1 US1 to US3 ones, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations and the slice 1 US1 to US4 ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
     const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
@@ -55,6 +55,10 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'sendUserPasswordReset post /admin/users/{id}/reset-password',
         'listAccessRequests get /admin/access-requests',
         'dismissAccessRequest post /admin/access-requests/{id}/dismiss',
+        'updateMe patch /me',
+        'changePassword post /auth/change-password',
+        'listSessions get /auth/sessions',
+        'revokeSession delete /auth/sessions/{id}',
       ].sort(),
     );
   });
@@ -70,6 +74,9 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'Set-Cookie',
       );
     }
+    expect(
+      at(doc, 'paths', '/auth/sessions/{id}', 'delete', 'responses', '204', 'headers'),
+    ).toHaveProperty('Set-Cookie');
     expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
       'Set-Cookie',
     );
