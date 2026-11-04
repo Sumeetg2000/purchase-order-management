@@ -356,7 +356,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 - [x] T057 [P] [US5] Frontend tests then ForgotPassword page; ResetPassword links
   forgot-password on `TOKEN_EXPIRED`; E2E forgot → Mailpit → reset → login —
   `frontend/src/pages/account/`, `frontend/e2e/forgot-reset.spec.ts` — FR-034, FR-036.
-- [ ] T058 [US5] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [x] T058 [US5] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
