@@ -47,10 +47,21 @@ describe('[FR-USR-01] profile edit', () => {
     ]);
   });
 
-  it('[FR-USR-01] the same name writes nothing', async () => {
-    const { h, patch } = await loggedInUser();
+  it('[FR-USR-01] the same name writes nothing, version included', async () => {
+    const { h, user, patch } = await loggedInUser();
     expect((await patch({ name: 'Asha Rao' })).status).toBe(200);
     expect(await h.query('SELECT 1 FROM audit_entries')).toEqual([]);
+    expect(await h.query('SELECT version FROM users WHERE id = $1', [user.id])).toEqual([
+      { version: 1 },
+    ]);
+  });
+
+  it("[FR-ADM-02] a new name bumps the user's version, so an admin's older ETag is stale", async () => {
+    const { h, user, patch } = await loggedInUser();
+    await patch({ name: 'Asha R. Rao' });
+    expect(await h.query('SELECT version FROM users WHERE id = $1', [user.id])).toEqual([
+      { version: 2 },
+    ]);
   });
 
   it.each([

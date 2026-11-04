@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LOCKOUT_THRESHOLD } from '../../src/auth/constants.js';
+import { createAccessTokens } from '../../src/auth/access-token.js';
+import { LOCKOUT_THRESHOLD, REFRESH_TOKEN_IDLE_SECONDS } from '../../src/auth/constants.js';
+import { createSessionService } from '../../src/auth/service.js';
+import { createPrismaClient } from '../../src/db/client.js';
+import { createTransactionRunner } from '../../src/db/transaction.js';
+import { SECOND_MS } from '../../src/lib/time.js';
+import { RATE_LIMIT_BUCKETS } from '../../src/rate-limit/buckets.js';
+import { createRateLimiter } from '../../src/rate-limit/service.js';
+import { testLogger } from '../support/log-capture.js';
 import {
   accountsHarness,
   PASSWORD,
@@ -120,6 +128,74 @@ describe('[FR-ACC-04] change password', () => {
     },
   );
 
+  it('[FR-ACC-04] shares the per-account rate limit with login: the next call is 429', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const jar = await h.loggedIn(user); // one login-account hit
+    const limit = RATE_LIMIT_BUCKETS.find((b) => b.name === 'login-account')?.limit ?? 0;
+    const wrong = { currentPassword: 'not my password', newPassword: NEW_PASSWORD };
+    // Each wrong guess is forgotten (as the superuser, outside the audit), so only the rate
+    // limit can refuse.
+    await h.query('SET session_replication_role = replica');
+    for (let hit = 2; hit <= limit; hit += 1) {
+      const res = await changePassword(h, jar, wrong);
+      expect(res.status, `hit ${String(hit)}`).not.toBe(429);
+      await h.query('UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = $1', [
+        user.id,
+      ]);
+    }
+    const over = await changePassword(h, jar, wrong);
+    expect(over.status).toBe(429);
+    expect(over.body).toMatchObject({ code: 'RATE_LIMITED' });
+    expect(Number(over.get('Retry-After'))).toBeGreaterThan(0);
+    expect((await h.login(user.email, PASSWORD)).status).toBe(429);
+  });
+
+  it('[FR-ACC-04] a session revoked while the change runs is refused, and the password stays', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    await h.loggedIn(user);
+    const [row] = await h.query<{ id: string }>('SELECT id::text FROM sessions');
+    // As if a reset or logout-all landed after the authorize step read the session.
+    await h.query(`UPDATE sessions SET revoked_at = now(), revoke_reason = 'PASSWORD_RESET'`);
+    const prisma = createPrismaClient({
+      url: h.db.url('po_app'),
+      poolSize: 2,
+      connectionTimeoutMs: 2_000,
+    });
+    try {
+      const sessions = createSessionService({
+        prisma,
+        transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
+        accessTokens: createAccessTokens({
+          signingKey: Buffer.alloc(32, 1).toString('base64url'),
+          keyId: 'test-1',
+          clock: h.clock,
+        }),
+        rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
+        clock: h.clock,
+        csrfSecret: Buffer.alloc(32, 2).toString('base64url'),
+      });
+      const stale = {
+        userId: user.id,
+        sessionId: row?.id ?? '',
+        name: user.name,
+        email: user.email,
+        roles: ['BUYER' as const],
+      };
+      await expect(
+        sessions.changePassword(
+          stale,
+          { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+          { requestId: 'req-race', logger: testLogger(), ip: '10.0.0.1', userAgent: 'test' },
+        ),
+      ).rejects.toMatchObject({ code: 'SESSION_REVOKED', reason: 'PASSWORD_RESET' });
+    } finally {
+      await prisma.$disconnect();
+    }
+    expect((await h.login(user.email, PASSWORD)).status).toBe(200);
+  });
+
   it('[FR-ACC-04] needs the CSRF header', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser();
@@ -182,6 +258,20 @@ describe('[FR-ACC-06] session list', () => {
     });
   });
 
+  it('[FR-ACC-06] leaves out a session past its expiry, and revoking it is 404', async () => {
+    // A session's idle expiry never passes its absolute one (sessions_expiry_within_absolute),
+    // so an expired session is past expires_at either way.
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    const expired = (await sessionIds(h, await h.loggedIn(user)))[0];
+    expect(expired?.id).toEqual(expect.any(String));
+    h.clock.advance((REFRESH_TOKEN_IDLE_SECONDS + 60) * SECOND_MS);
+    const jar = await h.loggedIn(user);
+    expect(await sessionIds(h, jar)).toEqual([expect.objectContaining({ current: true })]);
+    const res = await h.send('delete', `/auth/sessions/${expired?.id ?? ''}`, jar);
+    expect(res.status).toBe(404);
+  });
+
   it('[FR-ACC-06] is paginated', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser();
@@ -241,6 +331,8 @@ describe('[FR-ACC-06] revoke a session', () => {
     const mine = await h.loggedIn(user);
     const endedEntry = (await sessionIds(h, mine)).find((s) => s.current);
     await h.withRefresh('/auth/logout', mine);
+    expect(theirs?.id).toEqual(expect.any(String));
+    expect(endedEntry?.id).toEqual(expect.any(String));
     for (const id of [theirs?.id, endedEntry?.id, UNKNOWN_ID]) {
       const res = await h.send('delete', `/auth/sessions/${id ?? ''}`, jar);
       expect(res.status, String(id)).toBe(404);

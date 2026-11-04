@@ -80,6 +80,24 @@ test.describe('[FR-ACC-06] profile and sessions', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible();
   });
 
+  test('[NFR-SEC-03] log out everywhere ends this browser and the other one', async ({
+    page,
+    browser,
+  }) => {
+    const admin = await loggedInAdmin(page);
+    const other = await secondBrowser(browser, admin.email);
+    await page.goto('/profile');
+    await page.getByRole('button', { name: 'Log out everywhere' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Log out everywhere?' });
+    await dialog.getByRole('button', { name: 'Log out everywhere' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Log in' })).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+    await other.reload();
+    await expect(other.getByRole('status')).toContainText(
+      "You've been logged out. Please log in again.",
+    );
+  });
+
   test('[NFR-FE-05] /profile has no axe or CSP violations', async ({ page }) => {
     await page.addInitScript(() => {
       const seen: string[] = [];

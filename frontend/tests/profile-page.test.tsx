@@ -86,6 +86,19 @@ describe('[NFR-FE-08] profile details', () => {
     ).toBeInTheDocument();
   });
 
+  it('[NFR-FE-09] logging out everywhere with an unsaved name goes straight to login', async () => {
+    profileApi({ 'POST /auth/logout-all': () => new Response(null, { status: 204 }) });
+    const { user, router } = renderApp('/profile');
+    await user.type(await screen.findByLabelText('Name'), ' Jr');
+    await user.click(screen.getByRole('button', { name: 'Log out everywhere' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Log out everywhere?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Log out everywhere' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Log in' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/login');
+    expect(router.state.location.search).toBe('');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
   it('[NFR-FE-08] a user with no role reaches their profile from Access pending', async () => {
     profileApi({
       'GET /me': () => json(200, { ...ME, roles: [] }),
@@ -148,6 +161,33 @@ describe('[NFR-FE-09] change password', () => {
         }),
     });
     expect(await screen.findByText(/This password is too common/)).toBeInTheDocument();
+  });
+
+  it('[FR-ACC-04] a field error is cleared when the form is sent again', async () => {
+    let answers = 0;
+    const seen = profileApi({
+      'POST /auth/change-password': () => {
+        answers += 1;
+        return answers === 1
+          ? problem(400, 'VALIDATION_FAILED', {
+              details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
+            })
+          : problem(429, 'RATE_LIMITED', { headers: { 'Retry-After': '60' } });
+      },
+    });
+    const { user } = renderApp('/profile');
+    await user.type(await screen.findByLabelText('Current password'), 'wrong one');
+    await user.type(screen.getByLabelText('New password'), 'a brand new passphrase');
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Change password',
+      }),
+    );
+    expect(await screen.findByText('Incorrect password.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+    expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument();
+    expect(seen.length).toBeGreaterThan(0);
   });
 
   it('[FR-ACC-04] a lockout is shown inside the dialog, in minutes', async () => {
@@ -217,6 +257,52 @@ describe('[NFR-FE-08] sessions', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Revoke session' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Log in' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/login');
+  });
+
+  it('[FR-ACC-06] a session that already ended says so inside the dialog', async () => {
+    profileApi({
+      [`DELETE /auth/sessions/${OTHER.id}`]: () => problem(404, 'NOT_FOUND'),
+    });
+    const { user } = renderApp('/profile');
+    await user.click(
+      await screen.findByRole('button', { name: 'Revoke Firefox on Windows (10.0.0.2)' }),
+    );
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Revoke session' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/couldn't find/);
+  });
+
+  it('[FR-ACC-06] revoking the only session on a later page goes back a page', async () => {
+    let revoked = false;
+    profileApi({
+      'GET /auth/sessions': (request) => {
+        const pageNo = Number(new URL(request.url).searchParams.get('page') ?? '1');
+        const total = revoked ? 20 : 21;
+        return json(
+          200,
+          pageNo === 1
+            ? page([session()], { total })
+            : page(revoked ? [] : [OTHER], { page: pageNo, total }),
+        );
+      },
+      [`DELETE /auth/sessions/${OTHER.id}`]: () => {
+        revoked = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    const { user } = renderApp('/profile');
+    await user.click(await screen.findByRole('button', { name: 'Next page' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Revoke Firefox on Windows (10.0.0.2)' }),
+    );
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Revoke session',
+      }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Revoke Chrome on Linux (10.0.0.1)' }),
+    ).toBeInTheDocument();
   });
 
   it('[NFR-SEC-03] log out everywhere confirms, ends every session and goes to login', async () => {
