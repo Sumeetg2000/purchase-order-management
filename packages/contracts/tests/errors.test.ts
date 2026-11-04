@@ -50,6 +50,7 @@ describe('[NFR-API-02] error code registry', () => {
       SELF_MODIFICATION: 409,
       ADMIN_NOT_MODIFIABLE: 409,
       USER_UNVERIFIED: 409,
+      USER_DEACTIVATED: 409,
       ACCESS_REQUEST_NOT_OPEN: 409,
       ACCOUNT_LOCKED: 423,
       RATE_LIMITED: 429,

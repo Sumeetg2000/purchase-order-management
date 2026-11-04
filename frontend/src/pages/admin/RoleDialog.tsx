@@ -17,7 +17,6 @@ import { roleSetLabel } from '../../format/roles';
 import { classes } from '../../styles/classes';
 import css from './admin.module.css';
 import { useDialogAction } from './dialog-action';
-import { openOrdersSentence } from './open-orders';
 import { useActiveApproverCount, useUserDetail } from './queries';
 
 const styles = classes(css, 'radios', 'warning');
@@ -112,7 +111,6 @@ export function RoleDialog({ user, onDone, onClose }: RoleDialogProps) {
               {roleSetLabel(current.roles)} → {roleSetLabel(choice)}
             </p>
           )}
-          <p>{openOrdersSentence(current)}</p>
           <p>Their sessions will end and they&apos;ll need to log in again.</p>
           {current.roles.length === 0 && <p>This also resolves their access request.</p>}
           {onlyApproverWarning && (

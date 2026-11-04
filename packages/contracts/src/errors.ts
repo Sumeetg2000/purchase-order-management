@@ -59,6 +59,7 @@ export const ERROR_REGISTRY = {
   SELF_MODIFICATION: { status: 409, title: 'Own account', fieldDetails: false },
   ADMIN_NOT_MODIFIABLE: { status: 409, title: 'Admin account', fieldDetails: false },
   USER_UNVERIFIED: { status: 409, title: 'User not verified', fieldDetails: false },
+  USER_DEACTIVATED: { status: 409, title: 'User deactivated', fieldDetails: false },
   ACCESS_REQUEST_NOT_OPEN: {
     status: 409,
     title: 'Access request not open',

@@ -82,8 +82,6 @@ function toDetail(user: ManagedUser): AdminUserDetail {
     ...toItem(user),
     createdAt: user.createdAt.toISOString(),
     version: user.version,
-    // Orders arrive in slice 3; until then no user has any.
-    openOrders: { draft: 0, pending: 0, approvedWithOpenLines: 0 },
   };
 }
 
@@ -253,6 +251,8 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
     sendPasswordReset: async (admin, id, ctx) => {
       await transaction(admin, ctx, async (tx, hooks) => {
         const target = guardTarget(admin, await lockManagedUser(tx, id));
+        // A deactivated account can't use a reset, so none is sent (owner decision).
+        if (target.status === USER_STATUS.DEACTIVATED) throw new AppError('USER_DEACTIVATED');
         const { token } = await issueToken(tx, target.id, 'RESET');
         await writeAudit(tx, {
           action: 'USER_PASSWORD_RESET_SENT',

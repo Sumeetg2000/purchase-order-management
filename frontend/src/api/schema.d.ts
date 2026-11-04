@@ -233,7 +233,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One user, with their version and open-order counts. */
+        /** One user, with their version. */
         get: operations["getUser"];
         put?: never;
         post?: never;
@@ -370,11 +370,6 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             version: number;
-            openOrders: {
-                draft: number;
-                pending: number;
-                approvedWithOpenLines: number;
-            };
         };
         AdminAccessRequest: {
             /** @enum {string} */
@@ -875,6 +870,16 @@ export interface operations {
             };
             /** @description Problem document with code VALIDATION_FAILED or TOKEN_EXPIRED or TOKEN_USED or TOKEN_SUPERSEDED or INVALID_TOKEN. */
             400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_DEACTIVATED. */
+            401: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
                     [name: string]: unknown;
@@ -1720,7 +1725,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE. */
+            /** @description Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE or USER_DEACTIVATED. */
             409: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];

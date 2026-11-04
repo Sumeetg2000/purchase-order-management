@@ -95,6 +95,10 @@ export const errorMessages = {
     message: "This user hasn't verified their email.",
     action: 'Send them a password reset instead.',
   },
+  USER_DEACTIVATED: {
+    message: 'This user is deactivated.',
+    action: 'Reactivate them first.',
+  },
   ACCESS_REQUEST_NOT_OPEN: {
     message: 'This request has already been handled.',
     action: 'Reload to see its status.',

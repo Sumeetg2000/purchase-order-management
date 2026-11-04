@@ -230,16 +230,19 @@ function RowActions({ user, onOpen }: { user: AdminUserItem; onOpen: (dialog: Di
           {user.status === USER_STATUS.ACTIVE ? 'Deactivate' : 'Reactivate'}
         </button>
       )}
-      <button
-        type="button"
-        className={controls.button}
-        aria-label={`Send password reset to ${user.name}`}
-        onClick={() => {
-          onOpen({ kind: 'reset', user });
-        }}
-      >
-        Send reset
-      </button>
+      {/* A deactivated account can't use a reset; the API refuses to send one. */}
+      {user.status !== USER_STATUS.DEACTIVATED && (
+        <button
+          type="button"
+          className={controls.button}
+          aria-label={`Send password reset to ${user.name}`}
+          onClick={() => {
+            onOpen({ kind: 'reset', user });
+          }}
+        >
+          Send reset
+        </button>
+      )}
     </div>
   );
 }

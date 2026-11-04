@@ -831,6 +831,24 @@
               }
             }
           },
+          "401": {
+            "description": "Problem document with code ACCOUNT_DEACTIVATED.",
+            "x-error-codes": [
+              "ACCOUNT_DEACTIVATED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Problem document with code CSRF_REJECTED.",
             "x-error-codes": [
@@ -1977,7 +1995,7 @@
     "/admin/users/{id}": {
       "get": {
         "operationId": "getUser",
-        "summary": "One user, with their version and open-order counts.",
+        "summary": "One user, with their version.",
         "x-access": "admin",
         "security": [
           {
@@ -2457,10 +2475,11 @@
             }
           },
           "409": {
-            "description": "Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE.",
+            "description": "Problem document with code SELF_MODIFICATION or ADMIN_NOT_MODIFIABLE or USER_DEACTIVATED.",
             "x-error-codes": [
               "SELF_MODIFICATION",
-              "ADMIN_NOT_MODIFIABLE"
+              "ADMIN_NOT_MODIFIABLE",
+              "USER_DEACTIVATED"
             ],
             "headers": {
               "X-Request-Id": {
@@ -2966,6 +2985,7 @@
           "SELF_MODIFICATION",
           "ADMIN_NOT_MODIFIABLE",
           "USER_UNVERIFIED",
+          "USER_DEACTIVATED",
           "ACCESS_REQUEST_NOT_OPEN",
           "ACCOUNT_LOCKED",
           "RATE_LIMITED"
@@ -3247,32 +3267,6 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
-          },
-          "openOrders": {
-            "type": "object",
-            "properties": {
-              "draft": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "pending": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "approvedWithOpenLines": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": [
-              "draft",
-              "pending",
-              "approvedWithOpenLines"
-            ],
-            "additionalProperties": false
           }
         },
         "required": [
@@ -3283,8 +3277,7 @@
           "status",
           "lastLoginAt",
           "createdAt",
-          "version",
-          "openOrders"
+          "version"
         ],
         "additionalProperties": false
       },

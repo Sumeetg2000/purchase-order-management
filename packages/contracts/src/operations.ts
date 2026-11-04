@@ -137,7 +137,13 @@ export const OPERATIONS = {
     access: 'public',
     request: { body: resetPasswordBody },
     responses: { 204: z.void() },
-    errors: ['TOKEN_EXPIRED', 'TOKEN_USED', 'TOKEN_SUPERSEDED', 'INVALID_TOKEN'],
+    errors: [
+      'TOKEN_EXPIRED',
+      'TOKEN_USED',
+      'TOKEN_SUPERSEDED',
+      'INVALID_TOKEN',
+      'ACCOUNT_DEACTIVATED',
+    ],
   },
   getMe: {
     method: 'get',
@@ -224,7 +230,7 @@ export const OPERATIONS = {
     method: 'get',
     path: '/admin/users/:id',
     operationId: 'getUser',
-    summary: 'One user, with their version and open-order counts.',
+    summary: 'One user, with their version.',
     access: 'admin',
     etag: true,
     request: { params: idParams },
@@ -257,7 +263,7 @@ export const OPERATIONS = {
     access: 'admin',
     request: { params: idParams },
     responses: { 202: z.void() },
-    errors: ['NOT_FOUND', 'SELF_MODIFICATION', 'ADMIN_NOT_MODIFIABLE'],
+    errors: ['NOT_FOUND', 'SELF_MODIFICATION', 'ADMIN_NOT_MODIFIABLE', 'USER_DEACTIVATED'],
   },
   listAccessRequests: {
     method: 'get',

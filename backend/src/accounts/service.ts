@@ -195,6 +195,9 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
           const passwordHash = await hashPassword(input.newPassword);
           const user = await lockUser(tx, consumed.userId);
           if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
+          // Deactivated since the link was sent: refused, and the rollback leaves it unused,
+          // as verify-email does.
+          if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
           await actAs(tx, selfActor(user), ctx.requestId);
           await setPasswordAfterReset(tx, user.id, passwordHash);
           if (user.status === USER_STATUS.UNVERIFIED) {

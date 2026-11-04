@@ -43,11 +43,7 @@ export const adminUserDetail = adminUserItem
   .extend({
     createdAt: z.iso.datetime(),
     version: z.int(),
-    openOrders: z.strictObject({
-      draft: z.int(),
-      pending: z.int(),
-      approvedWithOpenLines: z.int(),
-    }),
+    // Open-order counts join with orders (slice 3, ADR-0019): an added response field.
   })
   .meta({ id: 'AdminUserDetail' });
 

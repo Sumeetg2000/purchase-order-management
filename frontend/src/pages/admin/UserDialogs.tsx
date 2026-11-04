@@ -5,7 +5,6 @@ import { ErrorState } from '../../components/ErrorState';
 import { Loading } from '../../components/Loading';
 import { problemFrom } from '../../errors/problem';
 import { useDialogAction } from './dialog-action';
-import { openOrdersSentence } from './open-orders';
 import { useUserDetail } from './queries';
 
 // Deactivate, reactivate and send a reset (ADR-0018's admin dialogs).
@@ -77,10 +76,7 @@ export function ActivationDialog({
       ) : isActive ? (
         <p>They&apos;ll be able to log in again.</p>
       ) : (
-        <>
-          <p>{openOrdersSentence(current)}</p>
-          <p>They&apos;ll be logged out everywhere and can&apos;t log in.</p>
-        </>
+        <p>They&apos;ll be logged out everywhere and can&apos;t log in.</p>
       )}
     </ConfirmDialog>
   );
