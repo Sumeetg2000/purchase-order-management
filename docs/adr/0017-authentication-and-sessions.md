@@ -114,6 +114,9 @@ answer to an in-app access request (ADR-0016).
   - no account → `404 ACCOUNT_NOT_FOUND`
   - a `DEACTIVATED` account → `401 ACCOUNT_DEACTIVATED`
 - `POST /api/auth/reset-password { token, newPassword }`:
+  - a link for an account `DEACTIVATED` since it was sent → `401 ACCOUNT_DEACTIVATED`,
+    rolled back so the link stays unused, as verify-email does (amended 2026-11-04, owner
+    decision: a deactivated account can't reset its password)
   - sets the password
   - revokes **all** of the user's sessions
   - clears any lockout

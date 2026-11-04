@@ -71,7 +71,8 @@ a separate power and does not touch any order.
     - Their open orders follow the "reassignment not adopted" process (ADR-0004): an
       Approver rejects pending ones and cancels approved ones, and a new order is raised.
     - Their drafts remain and are harmless.
-    - The admin confirm dialog shows the user's open-order counts before the change.
+    - The admin confirm dialog shows the user's open-order counts before the change
+      (from the orders slice; deferred until orders exist, ADR-0019, 2026-11-04).
   - **Removing APPROVER**: takes effect on the next request. Steps they already approved
     stay valid.
   - **Dual role**: `SELF_APPROVAL` still applies (ADR-0004).
@@ -108,9 +109,9 @@ email: notifications stay deferred (ADR-0019).
 | Endpoint | Behaviour |
 |---|---|
 | `GET /api/admin/users` | Paginated (ADR-0007). Filters: `role` (including `NONE` for no-role users), `status`, `q` (case-insensitive prefix of name or email). Sort: `name`, then `id`. Each item includes `lastLoginAt`. |
-| `GET /api/admin/users/:id` | Profile, including `lastLoginAt`, `version`, and open-order counts (draft, pending, approved with open lines) |
+| `GET /api/admin/users/:id` | Profile, including `lastLoginAt`, `version`, and open-order counts (draft, pending, approved with open lines). *Amended 2026-11-04:* the open-order counts are deferred to the orders slice (ADR-0019, 2026-11-04). |
 | `PATCH /api/admin/users/:id` | `{ roles, isActive }`, both optional. Requires `If-Match`: missing → `400 VERSION_REQUIRED`, stale → `409 VERSION_CONFLICT`. `roles` must be one of the three assignable sets; anything else → `400 VALIDATION_FAILED` (`INVALID_ROLE_SET`). Any other field → `400`. |
-| `POST /api/admin/users/:id/reset-password` | Sends the standard reset email (ADR-0017). Returns `202`. |
+| `POST /api/admin/users/:id/reset-password` | Sends the standard reset email (ADR-0017). Returns `202`. *Amended 2026-11-04 (owner decision):* a `DEACTIVATED` user → `409 USER_DEACTIVATED`, after the guards below, and nothing is sent: a deactivated account can't reset its password. |
 
 - **Guards** (checked in this order, after `404`):
   1. Target is the caller → `409 SELF_MODIFICATION`. An admin can't deactivate or change

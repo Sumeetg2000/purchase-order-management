@@ -29,10 +29,11 @@ logged-out message for `SESSION_REVOKED`, with or without a `reason`), `RequireU
 `useFragmentToken()`.
 
 ## Dialogs (ADR-0018 wording)
-Change role (old → new, open-order counts, sessions end, resolves the access request,
-only-Approver warning), Deactivate user, Reactivate user, Send password reset, Dismiss
+Change role (old → new, sessions end, resolves the access request,
+only-Approver warning), Deactivate user, Reactivate user, Send password reset (not offered for a deactivated user), Dismiss
 access request (optional note), Log out everywhere, Revoke a session (current one says it
-logs you out), Change password. No dialog on profile save. The unsaved-changes guard
+logs you out), Change password. Open-order counts join the change-role and deactivate
+dialogs with orders (ADR-0019, 2026-11-04). No dialog on profile save. The unsaved-changes guard
 covers the profile form.
 
 ## Nav

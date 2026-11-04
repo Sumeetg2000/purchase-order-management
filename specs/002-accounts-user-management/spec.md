@@ -214,7 +214,9 @@ the user and confirm they can't log in and their next request is refused.
    written: no audit entry and no session ends.
 7. **Given** a user, **When** the admin sends a password reset, **Then** the standard
    reset email goes out (`202`), a `USER_PASSWORD_RESET_SENT` audit entry is written, and
-   the admin never sees a password or token.
+   the admin never sees a password or token. A deactivated user gets `409
+   USER_DEACTIVATED` and no email; a reset link used after its account was deactivated
+   gets `401 ACCOUNT_DEACTIVATED` and stays unused (owner decision 2026-11-04).
 8. **Given** the Access requests tab, **When** the admin dismisses an open request with a
    note, **Then** the user sees the note. Dismissing a request that isn't open → `409
    ACCESS_REQUEST_NOT_OPEN`. Admins see an open-request count badge on Users.
@@ -482,7 +484,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   deactivating dismisses it with "Account deactivated". *(FR-ADM-02, FR-ACC-07 part —
   the order-level effects of removing a role land with orders in slices 3–6)*
 - **FR-025**: Admins MUST be able to send a user the standard reset email (`202`,
-  audited `USER_PASSWORD_RESET_SENT`). *(FR-ADM-03)*
+  audited `USER_PASSWORD_RESET_SENT`), except a deactivated one (`409 USER_DEACTIVATED`,
+  nothing sent). *(FR-ADM-03)*
 - **FR-026**: Admins MUST be able to list access requests (paginated, status filter,
   committed query plan) and dismiss an open one with an optional note (0–500 characters).
   A request that isn't open → `409 ACCESS_REQUEST_NOT_OPEN`. *(FR-ADM-06)*
@@ -589,7 +592,8 @@ Each requirement traces to a row in [docs/traceability.md](../../docs/traceabili
   domain, case-insensitive). The access-token signing key and the CSRF secret are new
   required secrets, refused in production when they hold a placeholder.
 - **Admin user detail**: the open-order counts (draft, pending, approved with open lines)
-  are 0 until orders exist in slices 3–6; the fields exist from this slice.
+  are added by the orders slice with real counts, an additive response field; this slice
+  returns none (owner decision 2026-11-04, ADR-0019).
 - **Order-level effects of role changes** (removing Buyer blocks order actions, removing
   Approver keeps earlier steps, dual-role self-approval) are tested in the slices that
   add those actions.

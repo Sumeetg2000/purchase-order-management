@@ -285,14 +285,15 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 
 - [X] T043 [P] [US3] Tests: list (role incl. none, status, `q` prefix on name/email
   case-insensitive, page boundaries, `name, id` stability, `lastLoginAt`); detail with
-  `ETag` and open-order counts; update guards (`SELF_MODIFICATION`,
+  `ETag` (open-order counts deferred to the orders slice, ADR-0019, 2026-11-04); update guards (`SELF_MODIFICATION`,
   `ADMIN_NOT_MODIFIABLE`, `USER_UNVERIFIED`, `INVALID_ROLE_SET`, other fields → 400,
   missing/stale `If-Match`), no-op writes nothing; role change and deactivation revoke
   sessions with `ROLES_CHANGED` / `DEACTIVATED`; the user's next refresh gets
   `SESSION_REVOKED` with `reason: ROLES_CHANGED`, or `ACCOUNT_DEACTIVATED`; deactivation dismisses the open request; role assignment resolves it in the
   same transaction; audit payloads — `backend/tests/integration/admin-users.test.ts` —
   FR-013, FR-023, FR-024, FR-ACC-07, FR-ADM-01, FR-ADM-02, NFR-AUD-04, NFR-SEC-03.
-- [X] T044 [P] [US3] Tests: admin reset (any status → 202, standard email,
+- [X] T044 [P] [US3] Tests: admin reset (unverified or active → 202, deactivated → 409
+  `USER_DEACTIVATED` with nothing sent, 2026-11-04; standard email,
   `USER_PASSWORD_RESET_SENT`, never a token in the response); access-request list
   (status filter, `updatedAt DESC, id DESC`) and dismiss (note, `ACCESS_REQUEST_NOT_OPEN`)
   — `backend/tests/integration/admin-access.test.ts` — FR-025, FR-026, FR-ADM-03,

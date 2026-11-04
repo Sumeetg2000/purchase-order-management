@@ -131,6 +131,8 @@ Approver:
   receipts can be recorded"]
 
 Admin:
+- (Amended 2026-11-04: the open-order counts in the change-role and deactivate dialogs
+  arrive with orders, ADR-0019.)
 - **Change role** [old → new role set; the user's open-order counts; "Their sessions will
   end and they'll need to log in again"]
   - Assigning a first role to a no-role user also says it resolves their access request.

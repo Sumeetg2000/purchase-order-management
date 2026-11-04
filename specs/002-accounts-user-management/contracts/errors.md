@@ -28,6 +28,7 @@ ADR-0007's and ADR-0017's (amended 2026-11-02 and 2026-11-03).
 | `SELF_MODIFICATION` | 409 | "You can't change your own account here." |
 | `ADMIN_NOT_MODIFIABLE` | 409 | "Admin accounts are managed by the operator." |
 | `USER_UNVERIFIED` | 409 | "This user hasn't verified their email. Send them a password reset instead." |
+| `USER_DEACTIVATED` | 409 | "This user is deactivated." → reactivate them first. A deactivated account gets no reset email (added 2026-11-04) |
 | `ACCESS_REQUEST_NOT_OPEN` | 409 | "This request has already been handled." → reload |
 | `ACCOUNT_LOCKED` | 423 | "Too many failed attempts. Try again in N minutes." (N from `Retry-After`) |
 | `RATE_LIMITED` | 429 | "Too many attempts. Try again in N minutes." |

@@ -79,7 +79,7 @@ export const adminUserItem = z.strictObject({
 });
 export const adminUserDetail = adminUserItem.extend({
   createdAt: z.iso.datetime(), version: z.int(),
-  openOrders: z.strictObject({ draft: z.int(), pending: z.int(), approvedWithOpenLines: z.int() }),
+  // openOrders { draft, pending, approvedWithOpenLines } joins with orders (ADR-0019, 2026-11-04)
 });
 export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActive: z.boolean().optional() })
   .refine((b) => b.roles !== undefined || b.isActive !== undefined);
@@ -100,7 +100,7 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 | `verifyEmail` | `POST /auth/verify-email` | public | `tokenBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN` |
 | `resendVerification` | `POST /auth/resend-verification` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `forgotPassword` | `POST /auth/forgot-password` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
-| `resetPassword` | `POST /auth/reset-password` | public | `resetPasswordBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN` |
+| `resetPassword` | `POST /auth/reset-password` | public | `resetPasswordBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN`, `ACCOUNT_DEACTIVATED` |
 | `refreshSession` | `POST /auth/refresh` | refresh | none | `204` + 3 cookies | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logout` | `POST /auth/logout` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
 | `logoutAll` | `POST /auth/logout-all` | refresh | none | `204`, cookies cleared | `SESSION_EXPIRED`, `SESSION_REVOKED` |
@@ -114,7 +114,7 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 | `listUsers` | `GET /admin/users` | admin | `userListQuery` | `200 pageOf(adminUserItem)` | `NO_ROLE_ASSIGNED`, `FORBIDDEN` |
 | `getUser` | `GET /admin/users/:id` | admin | `idParams` | `200 adminUserDetail` + `ETag` | `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `NOT_FOUND` |
 | `updateUser` | `PATCH /admin/users/:id` | admin, `If-Match` | `idParams`, `updateUserBody` | `200 adminUserDetail` + `ETag` | `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `NOT_FOUND`, `SELF_MODIFICATION`, `ADMIN_NOT_MODIFIABLE`, `USER_UNVERIFIED`, `VERSION_CONFLICT` (fields `VERSION_REQUIRED`, `INVALID_ROLE_SET`) |
-| `sendUserPasswordReset` | `POST /admin/users/:id/reset-password` | admin | `idParams` | `202` | `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `NOT_FOUND`, `SELF_MODIFICATION`, `ADMIN_NOT_MODIFIABLE` |
+| `sendUserPasswordReset` | `POST /admin/users/:id/reset-password` | admin | `idParams` | `202` | `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `NOT_FOUND`, `SELF_MODIFICATION`, `ADMIN_NOT_MODIFIABLE`, `USER_DEACTIVATED` |
 | `listAccessRequests` | `GET /admin/access-requests` | admin | `accessRequestListQuery` | `200 pageOf(adminAccessRequest)` | `NO_ROLE_ASSIGNED`, `FORBIDDEN` |
 | `dismissAccessRequest` | `POST /admin/access-requests/:id/dismiss` | admin | `idParams`, `dismissBody` | `200 adminAccessRequest` | `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `NOT_FOUND`, `ACCESS_REQUEST_NOT_OPEN` |
 
@@ -122,9 +122,9 @@ Notes:
 - **Sorts**: users `name, id`; access requests `updatedAt DESC, id DESC`; sessions
   `lastUsedAt DESC, id DESC`.
 - **Admin reset**: ADR-0004's matrix gives it `PATCH`'s first two guards (themself →
-  `409 SELF_MODIFICATION`, an Admin → `409 ADMIN_NOT_MODIFIABLE`). Any status gets the
-  email (ADR-0016 sets no status rule); a deactivated user still can't log in after
-  resetting. A `401 ACCOUNT_DEACTIVATED` here would send the *admin* to login (ADR-0018),
+  `409 SELF_MODIFICATION`, an Admin → `409 ADMIN_NOT_MODIFIABLE`), then a deactivated
+  user → `409 USER_DEACTIVATED` with nothing sent (amended 2026-11-04, owner decision).
+  `UNVERIFIED` and `ACTIVE` users get the email. A `401 ACCOUNT_DEACTIVATED` here would send the *admin* to login (ADR-0018),
   so the target's status never produces a `401`.
 - **Login body password** is checked only for presence and the 128 maximum; the policy
   applies when a password is set, never at login (an old password may predate a policy
