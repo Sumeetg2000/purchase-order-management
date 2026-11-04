@@ -1,6 +1,12 @@
-import { CSRF_COOKIE, CSRF_HEADER, type ErrorCode } from '@po/contracts';
+import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
+  OPERATIONS,
+  type ErrorCode,
+  type OperationContract,
+} from '@po/contracts';
 import type { Middleware } from 'openapi-fetch';
-import { NetworkError, parseProblem } from '../api/client';
+import { API_BASE_URL, NetworkError, parseProblem } from '../api/client';
 import { readCookie } from '../api/cookies';
 import type { ProblemLike } from '../errors/messages';
 
@@ -83,9 +89,21 @@ export function createRefresher(options: {
   };
 }
 
-/** Account calls (login, reset, refresh) answer for themselves; the page shows the code. */
+/**
+ * The calls made without a logged-in session (login, signup, reset, refresh, logout…):
+ * they answer for themselves and the page shows the code. A logged-in user's own calls
+ * under /auth (change password, sessions) refresh and retry like any other.
+ */
+const ACCOUNT_CALL_PATHS: ReadonlySet<string> = new Set(
+  Object.values(OPERATIONS as Readonly<Record<string, OperationContract>>)
+    .filter((op) => op.access === 'public' || op.access === 'refresh')
+    .map((op) => op.path),
+);
+
 function isAccountCall(request: Request): boolean {
-  return new URL(request.url).pathname.includes('/auth/');
+  const { pathname } = new URL(request.url);
+  const path = pathname.startsWith(API_BASE_URL) ? pathname.slice(API_BASE_URL.length) : pathname;
+  return ACCOUNT_CALL_PATHS.has(path);
 }
 
 /**

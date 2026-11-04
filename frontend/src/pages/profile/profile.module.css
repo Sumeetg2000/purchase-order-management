@@ -1,0 +1,106 @@
+.page {
+  display: grid;
+  gap: 2rem;
+  max-width: 48rem;
+}
+
+.section {
+  display: grid;
+  gap: 1rem;
+}
+
+.section h2 {
+  margin: 0;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field input {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.375rem;
+}
+
+.field input[data-focused] {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.details li {
+  display: contents;
+}
+
+.term {
+  color: var(--color-muted);
+}
+
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.375rem;
+}
+
+.alert {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+}
+
+.table caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.current {
+  margin-left: 0.5rem;
+  color: var(--color-muted);
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}

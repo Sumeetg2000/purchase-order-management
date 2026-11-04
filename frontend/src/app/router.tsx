@@ -82,6 +82,12 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
               element: <Shell />,
               children: [
                 // A verified user with no role waits here (ADR-0018).
+                // Every logged-in user, with or without a role (ADR-0018).
+                {
+                  path: 'profile',
+                  lazy: lazyPage(() => import('../pages/profile/Profile').then((m) => m.Profile)),
+                  errorElement: <RouteErrorBoundary />,
+                },
                 {
                   path: 'access-pending',
                   lazy: lazyPage(() =>
