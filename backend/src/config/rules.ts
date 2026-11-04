@@ -5,6 +5,7 @@ import { z } from 'zod';
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'] as const;
 
 export const appEnv = z.enum(['local', 'test', 'production']);
+export type AppEnv = z.infer<typeof appEnv>;
 export const logLevel = z.enum(LOG_LEVELS).default('info');
 export const port = z.coerce.number().int().min(1).max(65_535);
 export const positiveInt = z.coerce.number().int().positive();

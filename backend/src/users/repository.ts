@@ -343,3 +343,16 @@ export async function updateManagedUser(
   });
   return parsed(user);
 }
+
+/** Creates an ACTIVE user unless the email is taken; true if it was created. */
+export async function insertUserIfAbsent(
+  tx: AuditedTransaction,
+  user: { name: string; email: string; roles: readonly UserRole[]; passwordHash: string },
+): Promise<boolean> {
+  const created = await tx.$executeRaw`
+    INSERT INTO users (id, name, email, roles, status, password_hash)
+    VALUES (${uuidv7()}::uuid, ${user.name}, ${user.email}, ${[...user.roles]}::text[],
+            ${USER_STATUS.ACTIVE}, ${user.passwordHash})
+    ON CONFLICT ON CONSTRAINT users_email_key DO NOTHING`;
+  return created === 1;
+}

@@ -50,7 +50,11 @@ describe('[NFR-OPS-01] demo users', () => {
   it('[NFR-OPS-01] runs again without creating or changing anyone', async () => {
     const { h, seed } = await setup();
     await seed();
+    // A change since the first run, made as the superuser outside the audit.
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
     await h.query(`UPDATE users SET roles = '{APPROVER}' WHERE email = 'buyer1@example.com'`);
+    await h.query('COMMIT');
     expect(await seed()).toBe(0);
     expect(await h.query('SELECT count(*)::int AS n FROM users')).toEqual([{ n: 3 }]);
     expect(await h.query(`SELECT roles FROM users WHERE email = 'buyer1@example.com'`)).toEqual([
