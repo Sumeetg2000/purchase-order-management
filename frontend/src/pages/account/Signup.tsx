@@ -3,11 +3,11 @@ import { FieldError, Input, Label, Text, TextField } from 'react-aria-components
 import { Link } from 'react-router';
 import { api } from '../../api/app-client';
 import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
-import { PASSWORD_RULE } from '../../errors/messages';
+import { messageForProblem, PASSWORD_RULE } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
-import { FORGOT_PASSWORD_PATH } from './forgot-password-link';
+import { FORGOT_PASSWORD_PATH, type ForgotPasswordState } from './forgot-password-link';
 
 const styles = classes(css, 'page', 'form', 'field', 'hint', 'fieldError', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
@@ -95,12 +95,16 @@ export function Signup() {
           </TextField>
           {formError && (
             <p role="alert" className={styles.alert}>
-              {formError}
-              {failure?.problem.code === 'EMAIL_IN_USE' && (
+              {failure?.problem.code === 'EMAIL_IN_USE' ? (
+                // The link is the next step, in place of the message's own.
                 <>
-                  {' '}
-                  <Link to={FORGOT_PASSWORD_PATH}>Reset your password</Link>
+                  {messageForProblem(failure.problem).message}{' '}
+                  <Link to={FORGOT_PASSWORD_PATH} state={{ email } satisfies ForgotPasswordState}>
+                    Reset your password
+                  </Link>
                 </>
+              ) : (
+                formError
               )}
             </p>
           )}

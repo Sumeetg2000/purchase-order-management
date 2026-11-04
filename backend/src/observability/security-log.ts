@@ -36,6 +36,10 @@ const WARNING_EVENTS: ReadonlySet<SecurityEvent> = new Set([
   'password_change_failed',
 ]);
 
+/** Who acted: the user themself, an admin, or the system (a refresh-token reuse). */
+export const SECURITY_ACTORS = ['USER', 'ADMIN', 'SYSTEM'] as const;
+export type SecurityActor = (typeof SECURITY_ACTORS)[number];
+
 /** The only fields a security line may carry. */
 export const SECURITY_FIELDS = [
   'userId',
@@ -44,7 +48,7 @@ export const SECURITY_FIELDS = [
   'userAgent',
   /** Why: a login failure's cause, or a session's revoke reason. */
   'reason',
-  /** Who revoked a session: the user, an admin, the operator or the system. */
+  /** Who revoked a session or asked for a reset link: a SecurityActor. */
   'by',
   // Mail failures: which template, and what identifies the error (never its text).
   'template',
@@ -54,7 +58,9 @@ export const SECURITY_FIELDS = [
 ] as const;
 export type SecurityField = (typeof SECURITY_FIELDS)[number];
 
-export type SecurityEventFields = Partial<Record<SecurityField, unknown>>;
+export type SecurityEventFields = Partial<
+  Record<Exclude<SecurityField, 'by'>, unknown> & { by: SecurityActor }
+>;
 
 export function logSecurityEvent(
   logger: Logger,

@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { api } from '../../api/app-client';
 import { failureMessage, submit, type ApiFailure } from '../../api/submit';
 import { LOGIN_PATH } from '../../auth/return-to';
+import { messageForProblem } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -51,7 +52,10 @@ export function ForgotPassword() {
             type="email"
             autoComplete="email"
             value={email}
-            onChange={setEmail}
+            onChange={(value) => {
+              setEmail(value);
+              setFailure(undefined);
+            }}
             isRequired
           >
             <Label>Email</Label>
@@ -59,12 +63,13 @@ export function ForgotPassword() {
           </TextField>
           {failure && (
             <p role="alert" className={styles.alert}>
-              {failureMessage(failure)}
-              {failure.problem.code === 'ACCOUNT_NOT_FOUND' && (
+              {failure.problem.code === 'ACCOUNT_NOT_FOUND' ? (
+                // The link is the next step, in place of the message's own.
                 <>
-                  {' '}
-                  <Link to="/signup">Sign up</Link>
+                  {messageForProblem(failure.problem).message} <Link to="/signup">Sign up</Link>
                 </>
+              ) : (
+                failureMessage(failure)
               )}
             </p>
           )}

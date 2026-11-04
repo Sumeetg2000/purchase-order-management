@@ -239,7 +239,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
         logSecurityEvent(ctx.logger, 'session_revoked', {
           userId: id,
           reason: result.revoked.reason,
-          by: ROLE.ADMIN,
+          by: 'ADMIN',
         });
       }
       return toDetail(result.user);
@@ -262,7 +262,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
           logger: ctx.logger,
         });
       });
-      logSecurityEvent(ctx.logger, 'password_reset_requested', { userId: id, by: ROLE.ADMIN });
+      logSecurityEvent(ctx.logger, 'password_reset_requested', { userId: id, by: 'ADMIN' });
     },
   };
 }
