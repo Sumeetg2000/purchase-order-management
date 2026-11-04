@@ -158,7 +158,6 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
             lastLoginAt: null,
             createdAt: '2026-11-01T06:30:00.000Z',
             version: 2,
-            openOrders: { draft: 0, pending: 0, approvedWithOpenLines: 0 },
           },
           { ETag: '"2"' },
         ),

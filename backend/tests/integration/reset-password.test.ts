@@ -98,11 +98,18 @@ describe('[FR-ACC-05] reset-password', () => {
     expect(await h.query('SELECT 1 FROM audit_entries')).toEqual([]);
   });
 
-  it('[FR-ACC-05] a deactivated user can reset, and still cannot log in', async () => {
+  it('[FR-ACC-05] a link for an account deactivated since is 401 ACCOUNT_DEACTIVATED, and stays unused', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser({ status: 'DEACTIVATED' });
-    expect((await reset(h, await h.issue(user.id))).status).toBe(204);
-    expect((await h.login(user.email, NEW_PASSWORD)).body).toMatchObject({
+    const token = await h.issue(user.id);
+    const res = await reset(h, token);
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'ACCOUNT_DEACTIVATED' });
+    expect(
+      await h.query('SELECT used_at FROM one_time_tokens WHERE user_id = $1', [user.id]),
+    ).toEqual([{ used_at: null }]);
+    expect(await h.query('SELECT 1 FROM audit_entries')).toEqual([]);
+    expect((await h.login(user.email, PASSWORD)).body).toMatchObject({
       code: 'ACCOUNT_DEACTIVATED',
     });
   });

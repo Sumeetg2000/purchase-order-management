@@ -14,7 +14,7 @@ async function asAdmin() {
 const UNKNOWN_ID = '0190a6a0-0000-7000-8000-000000000000';
 
 describe('[FR-ADM-03] admin-initiated password reset', () => {
-  it.each(['ACTIVE', 'UNVERIFIED', 'DEACTIVATED'])(
+  it.each(['ACTIVE', 'UNVERIFIED'])(
     '[FR-ADM-03] a %s user gets the standard reset email; the admin gets 202 and no token',
     async (status) => {
       const { h, jar } = await asAdmin();
@@ -28,6 +28,28 @@ describe('[FR-ADM-03] admin-initiated password reset', () => {
       expect(mail[0]?.text).toMatch(/\/reset-password#token=[A-Za-z0-9_-]+/);
     },
   );
+
+  it('[FR-ADM-03] a deactivated user is 409 USER_DEACTIVATED, and nothing is sent or issued', async () => {
+    const { h, jar } = await asAdmin();
+    const user = await h.seedUser({ status: 'DEACTIVATED' });
+    const res = await h.send('post', `/admin/users/${user.id}/reset-password`, jar);
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: 'USER_DEACTIVATED' });
+    expect(await h.sentMail()).toEqual([]);
+    expect(await h.query('SELECT 1 FROM one_time_tokens WHERE user_id = $1', [user.id])).toEqual(
+      [],
+    );
+    expect(
+      await h.query(`SELECT 1 FROM audit_entries WHERE action = 'USER_PASSWORD_RESET_SENT'`),
+    ).toEqual([]);
+  });
+
+  it('[FR-ADM-03] the admin guards come before USER_DEACTIVATED', async () => {
+    const { h, jar } = await asAdmin();
+    const other = await h.seedUser({ roles: '{ADMIN}', status: 'DEACTIVATED' });
+    const res = await h.send('post', `/admin/users/${other.id}/reset-password`, jar);
+    expect(res.body).toMatchObject({ code: 'ADMIN_NOT_MODIFIABLE' });
+  });
 
   it('[FR-ADM-03] the emailed link sets a new password', async () => {
     const { h, jar } = await asAdmin();

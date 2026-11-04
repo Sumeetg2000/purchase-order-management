@@ -32,7 +32,6 @@ const detail = (extra: Record<string, unknown> = {}) => ({
   ...user(extra),
   createdAt: '2026-10-01T06:30:00.000Z',
   version: 3,
-  openOrders: { draft: 2, pending: 1, approvedWithOpenLines: 0 },
   ...extra,
 });
 
@@ -162,7 +161,7 @@ describe('[NFR-FE-08] admin Users list', () => {
 });
 
 describe('[NFR-FE-09] change role dialog', () => {
-  it('[FR-ADM-02] shows old and new role, open orders and that sessions end; sends the version', async () => {
+  it('[FR-ADM-02] shows old and new role and that sessions end; sends the version', async () => {
     const seen = adminApi({
       [`PATCH /admin/users/${user().id}`]: () =>
         json(200, detail({ roles: ['APPROVER'], version: 4 }), { ETag: '"4"' }),
@@ -170,11 +169,9 @@ describe('[NFR-FE-09] change role dialog', () => {
     const { user: u } = renderApp('/admin/users');
     await u.click(await screen.findByRole('button', { name: 'Change role for Bea Buyer' }));
     const dialog = await screen.findByRole('alertdialog', { name: 'Change role for Bea Buyer?' });
-    expect(
-      await within(dialog).findByText(
-        'Open orders: 2 drafts, 1 pending, 0 approved with lines to receive.',
-      ),
-    ).toBeInTheDocument();
+    // Open-order counts arrive with orders (ADR-0019); until then the dialog states none.
+    expect(await within(dialog).findByRole('radio', { name: 'Approver' })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Open orders/)).not.toBeInTheDocument();
     expect(
       within(dialog).getByText("Their sessions will end and they'll need to log in again."),
     ).toBeInTheDocument();
@@ -264,13 +261,13 @@ describe('[NFR-FE-09] change role dialog', () => {
     const { user: u } = renderApp('/admin/users');
     await u.click(await screen.findByRole('button', { name: 'Change role for Bea Buyer' }));
     const dialog = await screen.findByRole('alertdialog');
-    await within(dialog).findByText(/Open orders/);
+    await within(dialog).findByRole('radio', { name: 'Approver' });
     expect(await axeViolations(document.body)).toEqual([]);
   });
 });
 
 describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
-  it('[FR-ADM-02] deactivating shows open orders and that they are logged out everywhere', async () => {
+  it("[FR-ADM-02] deactivating says they are logged out everywhere and can't log in", async () => {
     const seen = adminApi({
       [`PATCH /admin/users/${user().id}`]: () =>
         json(200, detail({ status: 'DEACTIVATED', version: 4 }), { ETag: '"4"' }),
@@ -278,7 +275,6 @@ describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
     const { user: u } = renderApp('/admin/users');
     await u.click(await screen.findByRole('button', { name: 'Deactivate Bea Buyer' }));
     const dialog = await screen.findByRole('alertdialog', { name: 'Deactivate Bea Buyer?' });
-    expect(await within(dialog).findByText(/Open orders: 2 drafts/)).toBeInTheDocument();
     expect(
       within(dialog).getByText("They'll be logged out everywhere and can't log in."),
     ).toBeInTheDocument();
@@ -328,6 +324,16 @@ describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(await within(dialog).findByText(NOT_FOUND_MESSAGE)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Reactivate user' })).toBeDisabled();
+  });
+
+  it('[FR-ADM-03] a deactivated user is offered no reset, since the API refuses one', async () => {
+    adminApi({ 'GET /admin/users': () => json(200, page([user({ status: 'DEACTIVATED' })])) });
+    renderApp('/admin/users');
+    const bea = await rowOf('Bea Buyer');
+    expect(within(bea).getByRole('button', { name: 'Reactivate Bea Buyer' })).toBeInTheDocument();
+    expect(
+      within(bea).queryByRole('button', { name: 'Send password reset to Bea Buyer' }),
+    ).not.toBeInTheDocument();
   });
 
   it('[FR-ADM-03] sending a reset names the email and says the current password keeps working', async () => {

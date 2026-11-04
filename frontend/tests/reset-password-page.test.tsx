@@ -76,6 +76,15 @@ describe('[NFR-FE-08] reset-password page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it('[FR-ACC-05] a link for a deactivated account says so, with its next step', async () => {
+    fakeApi({ 'POST /auth/reset-password': () => problem(401, 'ACCOUNT_DEACTIVATED') });
+    const { user } = renderPage();
+    await choose(user, 'a brand new passphrase');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This account has been deactivated. Contact an admin.',
+    );
+  });
+
   it('[FR-ACC-04] a refused password shows the field message from its code', async () => {
     fakeApi({
       'POST /auth/reset-password': () =>
