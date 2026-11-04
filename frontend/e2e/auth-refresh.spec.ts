@@ -96,7 +96,7 @@ test.describe('[NFR-FE-02] silent refresh', () => {
 });
 
 test.describe('[NFR-FE-05] account pages accessibility and content security', () => {
-  for (const path of ['/login', '/reset-password']) {
+  for (const path of ['/login', '/forgot-password', '/reset-password']) {
     test(`[NFR-FE-05] ${path} has no axe or CSP violations`, async ({ page }) => {
       await page.addInitScript(() => {
         const seen: string[] = [];

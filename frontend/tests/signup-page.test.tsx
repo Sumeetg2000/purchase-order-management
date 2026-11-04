@@ -53,6 +53,17 @@ describe('[NFR-FE-08] signup page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it('[FR-ACC-05] EMAIL_IN_USE offers a password reset', async () => {
+    fakeApi({ 'POST /auth/signup': () => problem(409, 'EMAIL_IN_USE') });
+    const { user } = renderApp('/signup');
+    await fill(user);
+    await screen.findByRole('alert');
+    expect(screen.getByRole('link', { name: 'Reset your password' })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
+  });
+
   it('[FR-ACC-04] a refused password shows the field message from its code', async () => {
     fakeApi({
       'POST /auth/signup': () =>

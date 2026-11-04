@@ -155,4 +155,15 @@ describe('[NFR-FE-08] login page', () => {
     await screen.findByRole('heading', { level: 1, name: 'Log in' });
     expect(await axeViolations(document.body)).toEqual([]);
   });
+
+  it('[FR-ACC-05] links to forgot-password, which starts with the email typed so far', async () => {
+    fakeApi({ 'GET /me': () => problem(401, 'UNAUTHENTICATED') });
+    const { user } = renderAt('/login');
+    await user.type(await screen.findByLabelText('Email'), 'asha@example.local');
+    await user.click(screen.getByRole('link', { name: 'Forgot your password?' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Reset your password' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toHaveValue('asha@example.local');
+  });
 });

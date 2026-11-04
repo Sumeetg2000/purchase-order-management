@@ -76,6 +76,28 @@ describe('[NFR-FE-08] reset-password page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it.each(['TOKEN_EXPIRED', 'INVALID_TOKEN'])(
+    '[FR-ACC-05] %s links to forgot-password for a new link',
+    async (code) => {
+      fakeApi({ 'POST /auth/reset-password': () => problem(400, code) });
+      const { user } = renderPage();
+      await choose(user, 'a brand new passphrase');
+      await screen.findByRole('alert');
+      expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
+        'href',
+        '/forgot-password',
+      );
+    },
+  );
+
+  it('[FR-ACC-05] a superseded link points to the latest email, not to a new link', async () => {
+    fakeApi({ 'POST /auth/reset-password': () => problem(400, 'TOKEN_SUPERSEDED') });
+    const { user } = renderPage();
+    await choose(user, 'a brand new passphrase');
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('link', { name: 'Request a new link' })).not.toBeInTheDocument();
+  });
+
   it('[FR-ACC-05] a link for a deactivated account says so, with its next step', async () => {
     fakeApi({ 'POST /auth/reset-password': () => problem(401, 'ACCOUNT_DEACTIVATED') });
     const { user } = renderPage();
@@ -111,6 +133,10 @@ describe('[NFR-FE-08] reset-password page', () => {
       </AppProviders>,
     );
     expect(await screen.findByRole('alert')).toHaveTextContent("This link isn't valid.");
+    expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
   });
 
   it('[NFR-FE-01] an unreachable API says so, and the form can be sent again', async () => {
