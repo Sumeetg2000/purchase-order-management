@@ -5,6 +5,7 @@ import { plus, secondsUntil } from '../lib/time.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import { recordFailedLogin } from '../users/repository.js';
 import { LOCKOUT_DURATION_SECONDS, LOCKOUT_THRESHOLD } from './constants.js';
+import { SYSTEM_ACTOR } from '../users/actor.js';
 
 // The account lockout (ADR-0017 "Lockout"), shared by every check of a password the user
 // already has: login, change-password and verify-email.
@@ -25,7 +26,7 @@ export async function countWrongPassword(
   ctx: RequestContext,
 ): Promise<AppError | undefined> {
   const outcome = await transactions.run(
-    { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+    { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
     (tx) =>
       recordFailedLogin(tx, {
         id: userId,

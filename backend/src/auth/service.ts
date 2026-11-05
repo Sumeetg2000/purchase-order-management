@@ -55,6 +55,7 @@ import {
   revokeUserSessions,
   touchSession,
 } from './repository.js';
+import { SYSTEM_ACTOR } from '../users/actor.js';
 
 // Who is calling (ADR-0017, research R1). The authorize step calls these; it never touches
 // a repository itself.
@@ -175,8 +176,6 @@ export interface SessionServiceDependencies {
   /** CSRF_SECRET, for the CSRF cookie bound to each session. */
   csrfSecret: string;
 }
-
-const SYSTEM = { type: 'SYSTEM' } as const;
 
 function earlier(a: Date, b: Date): Date {
   return a.getTime() <= b.getTime() ? a : b;
@@ -321,7 +320,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         absoluteExpiresAt: plus(now, SESSION_ABSOLUTE_LIFETIME_SECONDS),
       };
       const issued = await transactions.run(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const recorded = await recordSuccessfulLogin(tx, { id: user.id, now, upgradedHash });
           if (!recorded.ok) return recorded;
@@ -358,7 +357,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     refresh: async (session, ctx) => {
       const now = clock.now();
       const outcome = await transactions.run<RefreshOutcome>(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const token = await locked(tx, session);
           const refused = refusal(
@@ -413,7 +412,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     logout: async (session, ctx) => {
       const now = clock.now();
       const userId = await transactions.run(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         // Logging out always succeeds for a known token, whatever the session's state:
         // the cookies are cleared either way, and a revoked session keeps its first reason.
         async (tx) => {
@@ -433,7 +432,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     logoutAll: async (session, ctx) => {
       const now = clock.now();
       const userId = await transactions.run(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const token = await locked(tx, session);
           await revokeUserSessions(tx, { id: token.userId, reason: 'LOGOUT_ALL', now });
@@ -483,7 +482,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
 
       const passwordHash = await hashPassword(input.newPassword);
       const outcome = await transactions.run(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           // Checked again under the locks: a reset, a logout-all or another change may have
           // landed while the passwords were hashed (research R9).
@@ -553,7 +552,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     revokeSession: async (user, sessionId, ctx) => {
       const now = clock.now();
       await transactions.run(
-        { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           // Someone else's session, or one that has ended, is not the caller's to see.
           if (!(await lockLiveSession(tx, { id: sessionId, userId: user.userId, now }))) {

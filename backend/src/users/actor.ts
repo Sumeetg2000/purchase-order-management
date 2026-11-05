@@ -1,6 +1,9 @@
 import { ROLE, SELF_ACTING_ROLE } from '@po/contracts';
 import type { ActorContext } from '../db/transaction.js';
 
+/** The system acting on its own: a token consumed, a login counted, a seed or bootstrap. */
+export const SYSTEM_ACTOR = { type: 'SYSTEM' } as const satisfies ActorContext;
+
 /** A user acting on their own account, as the audit records it (research R12). */
 export function selfActor(user: { id: string; name: string; email: string }): ActorContext {
   return {

@@ -7,6 +7,7 @@ import { ONE_SHOT } from '../db/one-shot.js';
 import { withTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { insertUserIfAbsent } from '../users/repository.js';
+import { SYSTEM_ACTOR } from '../users/actor.js';
 
 // Demo users for local stacks (migrate step 4 with SEED_DEMO_DATA=true, FR-037): two
 // Buyers and one Approver, never an admin. Users that exist are left as they are, so a
@@ -35,7 +36,7 @@ export async function seedDemoUsers(options: {
   return withTransaction(
     {
       prisma: options.prisma,
-      actor: { type: 'SYSTEM' },
+      actor: SYSTEM_ACTOR,
       requestId: uuidv7(),
       timeoutMs: ONE_SHOT.transactionTimeoutMs,
       maxWaitMs: ONE_SHOT.transactionMaxWaitMs,

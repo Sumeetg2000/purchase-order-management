@@ -24,7 +24,7 @@ import type { MailDispatcher } from '../mail/dispatcher.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { emailOneTimeLink } from '../tokens/email-link.js';
-import { selfActor } from '../users/actor.js';
+import { selfActor, SYSTEM_ACTOR } from '../users/actor.js';
 import { consumeToken, type TokenPurpose } from '../tokens/one-time.js';
 import {
   activateUser,
@@ -153,7 +153,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
 
       const userId = await deps.transactions.run(
         // The system creates the account; then the new user acts for their own audit.
-        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx, hooks) => {
           let user: ProfileUser;
           try {
@@ -184,7 +184,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       let userId: string | undefined;
       try {
         userId = await deps.transactions.run(
-          { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+          { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
           async (tx) => {
             const consumed = await consumeToken(tx, 'VERIFY_EMAIL', input.token);
             if (!consumed.ok) throw new AppError(consumed.code);
@@ -230,7 +230,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       const found = await withDatabase(() => findLoginUser(deps.prisma, email));
       if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
       await deps.transactions.run(
-        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx, hooks) => {
           // Checked under the user's lock, so a verification, reset or deactivation running
           // at the same time can't be followed by a link the account no longer needs.
@@ -250,7 +250,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       const found = await withDatabase(() => findLoginUser(deps.prisma, email));
       if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
       await deps.transactions.run(
-        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx, hooks) => {
           // Checked under the user's lock, so a deactivation running at the same time can't
           // be followed by a link the account can't use.
@@ -275,7 +275,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
 
       const userId = await deps.transactions.run(
         // The system consumes the token; from then on the user it names acts.
-        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+        { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx) => {
           const consumed = await consumeToken(tx, 'RESET', input.token);
           if (!consumed.ok) throw new AppError(consumed.code);
