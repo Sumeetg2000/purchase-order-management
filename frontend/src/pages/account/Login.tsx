@@ -47,6 +47,9 @@ export function Login() {
     }
     const data = outcome.data;
     clearEndedSession();
+    // Logging in is the only way another user arrives in this tab: nothing cached for the
+    // previous one (their sessions, access request, admin lists) may show, even briefly.
+    queryClient.clear();
     queryClient.setQueryData(CURRENT_USER_KEY, data);
     await navigate(safeReturnTo(params.get('returnTo')), { replace: true });
   }
