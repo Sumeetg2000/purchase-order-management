@@ -4,7 +4,7 @@ import { secretsIn } from './secrets.js';
 
 // Databases created through trackDatabase() are dropped after each test, once their audit
 // rows are checked for secrets: no entry may hold a token, a password hash or the test
-// password (SC-007).
+// password.
 const created: TestDatabase[] = [];
 
 export function trackDatabase(db: TestDatabase): TestDatabase {

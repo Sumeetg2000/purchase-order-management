@@ -1,6 +1,5 @@
-// What the suite-wide checks treat as a secret (SC-003, SC-007, NFR-SEC-06): a token, a
-// password hash, or the password the account tests use. Log lines, API response bodies
-// and audit rows must hold none of them.
+// What the suite-wide checks treat as a secret: a token, a password hash, or the password
+// the account tests use. Log lines, API response bodies and audit rows must hold none.
 
 /** The password the account harness gives every seeded user. */
 export const PASSWORD = 'correct horse battery staple';

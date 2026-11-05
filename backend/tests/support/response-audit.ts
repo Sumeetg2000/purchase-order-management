@@ -11,7 +11,7 @@ import { secretsIn } from './secrets.js';
 // log lines. Every error response, and every response from a documented path, must also
 // match the committed OpenAPI document; success responses from test-only routes
 // have no documentation to match. No response body may hold a token, a password hash or
-// the test password (SC-007): cookies carry the session tokens. Supertest is hooked once per test file; the metrics
+// the test password: cookies carry the session tokens. Supertest is hooked once per test file; the metrics
 // listener (a plain http.Server, not an Express app) is not the API and is skipped.
 
 interface SeenResponse {

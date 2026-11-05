@@ -37,7 +37,7 @@ export function createCapture({ leaksExpected = false }: { leaksExpected?: boole
 
 /**
  * Lines with a secret (a token-shaped value, a password hash or the test password),
- * except a token on the one-time link channel (SC-003, SC-007).
+ * except a token on the one-time link channel.
  */
 export function findTokenLeaks(lines: readonly LogLine[]): LogLine[] {
   return lines.filter((line) => {
