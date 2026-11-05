@@ -14,6 +14,7 @@ import {
   idParams,
   loginBody,
   PAGE_SIZE_DEFAULT,
+  PAGE_MAX,
   PAGE_SIZE_MAX,
   pageQuery,
   PASSWORD_MAX_LENGTH,
@@ -59,7 +60,16 @@ describe('[NFR-VAL-01] slice 1 shared request schemas', () => {
       page: 3,
       pageSize: PAGE_SIZE_MAX,
     });
-    for (const bad of [{ page: '0' }, { pageSize: String(PAGE_SIZE_MAX + 1) }, { page: '1.5' }]) {
+    expect(pageQuery.parse({ page: String(PAGE_MAX) })).toMatchObject({ page: PAGE_MAX });
+    // Every offset a page can ask for fits PostgreSQL's and Prisma's 32-bit integers.
+    expect((PAGE_MAX - 1) * PAGE_SIZE_MAX).toBeLessThanOrEqual(2 ** 31 - 1);
+    for (const bad of [
+      { page: '0' },
+      { page: String(PAGE_MAX + 1) },
+      { page: '9007199254740991' },
+      { pageSize: String(PAGE_SIZE_MAX + 1) },
+      { page: '1.5' },
+    ]) {
       expect(pageQuery.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
     }
     expect(pageQuery.safeParse({ sort: 'name' }).success).toBe(false);

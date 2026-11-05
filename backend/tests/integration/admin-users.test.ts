@@ -1,3 +1,4 @@
+import { PAGE_MAX } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import { accountsHarness, type AccountsHarness, type CookieJar } from '../support/accounts.js';
 
@@ -165,6 +166,23 @@ describe('[FR-ADM-01] admin user list', () => {
     for (const query of ['role=OWNER', 'status=LOCKED', 'pageSize=51', 'sort=email']) {
       const res = await h.get(`/admin/users?${query}`, jar);
       expect(res.status, query).toBe(400);
+    }
+  });
+
+  it('[NFR-VAL-01] a page past PAGE_MAX is 400 on every list, and the last page is empty', async () => {
+    const { h, jar } = await asAdmin();
+    for (const list of ['/admin/users', '/admin/access-requests', '/auth/sessions']) {
+      for (const page of [PAGE_MAX + 1, Number.MAX_SAFE_INTEGER]) {
+        const res = await h.get(`${list}?page=${String(page)}&pageSize=50`, jar);
+        expect(res.status, `${list} page ${String(page)}`).toBe(400);
+        expect(res.body).toMatchObject({
+          code: 'VALIDATION_FAILED',
+          details: [{ path: 'query.page', code: 'OUT_OF_RANGE' }],
+        });
+      }
+      const last = await h.get(`${list}?page=${String(PAGE_MAX)}&pageSize=50`, jar);
+      expect(last.status, list).toBe(200);
+      expect(last.body).toMatchObject({ items: [], page: PAGE_MAX });
     }
   });
 
