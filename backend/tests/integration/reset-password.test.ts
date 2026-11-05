@@ -183,3 +183,52 @@ describe('[FR-ACC-04] reset-password policy', () => {
     expect((await reset(h, token)).status).toBe(204);
   });
 });
+
+describe('[FR-ACC-03] using a link locks in the order issuing one does', () => {
+  // Issuing a link locks the user, then supersedes their open tokens. Using one must lock
+  // the user before the token too, or a reset and a forgot-password for the same user
+  // deadlock. Holding the user's row elsewhere proves it: a use waiting there holds no lock
+  // on the token yet.
+  it.each([
+    ['reset-password', 'RESET', (token: string) => ({ token, newPassword: NEW_PASSWORD })],
+    ['verify-email', 'VERIFY_EMAIL', (token: string) => ({ token, password: PASSWORD })],
+  ] as const)(
+    '[FR-ACC-03] %s waits for the user before it locks the token',
+    async (path, purpose, body) => {
+      const h = await accountsHarness();
+      const user = await h.seedUser({ status: purpose === 'RESET' ? 'ACTIVE' : 'UNVERIFIED' });
+      const token = await h.issue(user.id, purpose);
+      const holder = await h.db.client('postgres');
+      const probe = await h.db.client('postgres');
+      await holder.query('BEGIN');
+      await holder.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+
+      const using = request(h.app)
+        .post(`/auth/${path}`)
+        .set('Origin', APP_ORIGIN)
+        .send(body(token))
+        .then((res) => res);
+      // Until the request is queued behind the held row.
+      for (let i = 0; ; i++) {
+        const { rows } = await probe.query<{ n: string }>(
+          `SELECT count(*) AS n FROM pg_stat_activity
+            WHERE wait_event_type = 'Lock' AND usename = 'po_app'`,
+        );
+        if (Number(rows[0]?.n) > 0) break;
+        if (i > 200) throw new Error('the request never waited for the user row');
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      const free = await probe
+        .query('SELECT 1 FROM one_time_tokens WHERE token_hash = $1 FOR UPDATE NOWAIT', [
+          hashToken(token),
+        ])
+        .then(
+          () => true,
+          () => false,
+        );
+      await holder.query('COMMIT');
+      expect(free).toBe(true);
+      expect((await using).status).toBe(204);
+    },
+  );
+});
