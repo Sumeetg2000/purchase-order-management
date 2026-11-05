@@ -390,7 +390,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   NFR-SEC-06.
 - [x] T064 [US7] Purge tasks and registry entries — `backend/src/maintenance/purge.ts`,
   `registry.ts` — T062, T063 green.
-- [ ] T065 [US7] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [x] T065 [US7] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
