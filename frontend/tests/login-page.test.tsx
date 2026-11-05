@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppProviders } from '../src/app/providers';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { AppProviders, createQueryClient } from '../src/app/providers';
 import { buildRoutes } from '../src/app/router';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem } from './support/fake-api';
@@ -69,6 +70,35 @@ describe('[NFR-FE-08] login page', () => {
       email: 'asha@example.local',
       password: 'correct horse battery',
     });
+  });
+
+  it('[NFR-FE-08] a login forgets everything cached for the previous user in this tab', async () => {
+    fakeApi({
+      'GET /me': () => json(200, ME),
+      'POST /auth/login': () => json(200, ME),
+    });
+    const client = createQueryClient();
+    // What the previous user's pages left behind: their sessions, request and admin lists.
+    for (const key of [['own-sessions', 1], ['own-access-request'], ['admin', 'users', {}]]) {
+      client.setQueryData(key, { previousUser: true });
+    }
+    const router = createMemoryRouter(buildRoutes({ includeDemo: false }), {
+      initialEntries: ['/login'],
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    await submit(userEvent.setup());
+    await screen.findByRole('heading', { level: 1, name: 'Welcome' });
+    const leftovers = client
+      .getQueryCache()
+      .findAll()
+      .filter(
+        (query) => (query.state.data as { previousUser?: boolean } | undefined)?.previousUser,
+      );
+    expect(leftovers.map((query) => query.queryKey)).toEqual([]);
   });
 
   it('[NFR-FE-08] a returnTo outside the app is ignored', async () => {
