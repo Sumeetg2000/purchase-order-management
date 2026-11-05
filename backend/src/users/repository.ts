@@ -68,6 +68,28 @@ function parsed<T extends { id: string; roles: string[]; status: string }>(
   return { ...user, roles: userRolesOf(user), status: userStatusOf(user) };
 }
 
+// The columns each locked read returns, named as the matching Prisma select names them.
+const PROFILE_COLUMNS = Prisma.sql`id::text, name, email, roles, status, created_at AS "createdAt"`;
+const LOGIN_COLUMNS = Prisma.sql`${PROFILE_COLUMNS}, password_hash AS "passwordHash",
+  locked_until AS "lockedUntil"`;
+const MANAGED_COLUMNS = Prisma.sql`${PROFILE_COLUMNS}, last_login_at AS "lastLoginAt", version`;
+
+type RawUser<T extends { roles: UserRole[]; status: UserStatus }> = Omit<T, 'roles' | 'status'> & {
+  roles: string[];
+  status: string;
+};
+
+/** Locks the user row that matches and reads it in the same statement, or null. */
+async function lockOne<T extends { id: string; roles: UserRole[]; status: UserStatus }>(
+  tx: AuditedTransaction,
+  columns: Prisma.Sql,
+  where: Prisma.Sql,
+): Promise<T | null> {
+  const [row] = await tx.$queryRaw<RawUser<T>[]>`
+    SELECT ${columns} FROM users WHERE ${where} FOR UPDATE`;
+  return row ? (parsed(row) as unknown as T) : null;
+}
+
 /** What a password check needs about a user: login, change-password, verify-email. */
 export interface LoginUser {
   id: string;
@@ -101,9 +123,7 @@ export async function findLoginUser(
 
 /** Locks a user's row and returns it with its password and lockout, or null. */
 export async function lockLoginUser(tx: AuditedTransaction, id: string): Promise<LoginUser | null> {
-  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
-  const user = await tx.user.findUnique({ where: { id }, select: LOGIN });
-  return user && parsed(user);
+  return lockOne<LoginUser>(tx, LOGIN_COLUMNS, Prisma.sql`id = ${id}::uuid`);
 }
 
 /** `justLocked`: this attempt locked the account, not one before it. */
@@ -196,9 +216,15 @@ export async function findProfile(
 
 /** Locks a user's row for a change and returns it, or null. */
 export async function lockUser(tx: AuditedTransaction, id: string): Promise<ProfileUser | null> {
-  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
-  const user = await tx.user.findUnique({ where: { id }, select: PROFILE });
-  return user && parsed(user);
+  return lockOne<ProfileUser>(tx, PROFILE_COLUMNS, Prisma.sql`id = ${id}::uuid`);
+}
+
+/** Locks the user with this (lower-cased) email for a change and returns it, or null. */
+export async function lockUserByEmail(
+  tx: AuditedTransaction,
+  email: string,
+): Promise<ProfileUser | null> {
+  return lockOne<ProfileUser>(tx, PROFILE_COLUMNS, Prisma.sql`email = ${email}`);
 }
 
 /** A completed reset: the new password, and any lockout cleared. Version unchanged. */
@@ -326,9 +352,7 @@ export async function lockManagedUser(
   tx: AuditedTransaction,
   id: string,
 ): Promise<ManagedUser | null> {
-  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
-  const user = await tx.user.findUnique({ where: { id }, select: MANAGED });
-  return user && parsed(user);
+  return lockOne<ManagedUser>(tx, MANAGED_COLUMNS, Prisma.sql`id = ${id}::uuid`);
 }
 
 /** Locks the user with this (lower-cased) email for a status change and returns it, or null. */
@@ -336,9 +360,7 @@ export async function lockManagedUserByEmail(
   tx: AuditedTransaction,
   email: string,
 ): Promise<ManagedUser | null> {
-  await tx.$executeRaw`SELECT 1 FROM users WHERE email = ${email} FOR UPDATE`;
-  const user = await tx.user.findUnique({ where: { email }, select: MANAGED });
-  return user && parsed(user);
+  return lockOne<ManagedUser>(tx, MANAGED_COLUMNS, Prisma.sql`email = ${email}`);
 }
 
 /** The administrator test: the role set has ADMIN (users_roles_valid allows only {ADMIN}). */

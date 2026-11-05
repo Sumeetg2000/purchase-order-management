@@ -289,8 +289,8 @@ export interface PasswordChangeState {
   userStatus: UserStatus;
   revokedAt: Date | null;
   revokeReason: SessionRevokeReason | null;
-  /** The session's end: its idle expiry or its absolute end, whichever comes first. */
-  endsAt: Date;
+  expiresAt: Date;
+  absoluteExpiresAt: Date;
 }
 
 /**
@@ -323,9 +323,7 @@ export async function lockPasswordChange(
     userStatus: userStatusOf(user),
     revokedAt: session.revoked_at,
     revokeReason: revokeReasonOf(session.revoke_reason),
-    endsAt:
-      session.expires_at < session.absolute_expires_at
-        ? session.expires_at
-        : session.absolute_expires_at,
+    expiresAt: session.expires_at,
+    absoluteExpiresAt: session.absolute_expires_at,
   };
 }

@@ -79,11 +79,12 @@ export async function consumeToken(
   purpose: TokenPurpose,
   token: string,
 ): Promise<ConsumedToken> {
-  const [owner] = await tx.$queryRaw<{ user_id: string }[]>`
-    SELECT user_id::text FROM one_time_tokens
-     WHERE token_hash = ${hashToken(token)} AND purpose = ${purpose}`;
+  const [owner] = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text FROM users
+     WHERE id = (SELECT user_id FROM one_time_tokens
+                  WHERE token_hash = ${hashToken(token)} AND purpose = ${purpose})
+       FOR UPDATE`;
   if (!owner) return { ok: false, code: 'INVALID_TOKEN' };
-  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${owner.user_id}::uuid FOR UPDATE`;
   const [row] = await tx.$queryRaw<
     { id: string; user_id: string; used: boolean; superseded: boolean; expired: boolean }[]
   >`

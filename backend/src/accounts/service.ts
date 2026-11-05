@@ -32,6 +32,7 @@ import {
   findLoginUser,
   lockLoginUser,
   lockUser,
+  lockUserByEmail,
   setPasswordAfterReset,
   type ProfileUser,
 } from '../users/repository.js';
@@ -140,8 +141,10 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
     signup: async (input, ctx) => {
       const email = input.email.toLowerCase();
       // Counted before anything else, so refused attempts count too (research R8).
-      await deps.rateLimiter.hit('signup-ip', ctx.ip);
-      await deps.rateLimiter.hit('signup-email', email);
+      await deps.rateLimiter.hitAll([
+        ['signup-ip', ctx.ip],
+        ['signup-email', email],
+      ]);
       const domain = email.slice(email.lastIndexOf('@') + 1);
       if (!deps.signupDomains.includes(domain)) throw new AppError('SIGNUP_DOMAIN_NOT_ALLOWED');
       const common = commonPasswordError('body.password', input.password);
@@ -227,15 +230,13 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
     resendVerification: async (input, ctx) => {
       const email = input.email.toLowerCase();
       await deps.rateLimiter.hit('resend-email', email);
-      const found = await withDatabase(() => findLoginUser(deps.prisma, email));
-      if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
       await deps.transactions.run(
         { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx, hooks) => {
           // Checked under the user's lock, so a verification, reset or deactivation running
           // at the same time can't be followed by a link the account no longer needs.
-          const user = await lockUser(tx, found.id);
-          if (!user) throw new Error(`user ${found.id} disappeared`);
+          const user = await lockUserByEmail(tx, email);
+          if (!user) throw new AppError('ACCOUNT_NOT_FOUND');
           if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
           if (user.status === USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_ALREADY_VERIFIED');
           await emailLink(tx, hooks, 'VERIFY_EMAIL', user, ctx);
@@ -247,21 +248,20 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       const email = input.email.toLowerCase();
       // Per email only (ADR-0017), counted before the lookup so unknown emails count too.
       await deps.rateLimiter.hit('forgot-email', email);
-      const found = await withDatabase(() => findLoginUser(deps.prisma, email));
-      if (!found) throw new AppError('ACCOUNT_NOT_FOUND');
-      await deps.transactions.run(
+      const userId = await deps.transactions.run(
         { actor: SYSTEM_ACTOR, requestId: ctx.requestId, logger: ctx.logger },
         async (tx, hooks) => {
           // Checked under the user's lock, so a deactivation running at the same time can't
           // be followed by a link the account can't use.
-          const user = await lockUser(tx, found.id);
-          if (!user) throw new Error(`user ${found.id} disappeared`);
+          const user = await lockUserByEmail(tx, email);
+          if (!user) throw new AppError('ACCOUNT_NOT_FOUND');
           if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
           await emailLink(tx, hooks, 'RESET', user, ctx);
+          return user.id;
         },
       );
       logSecurityEvent(ctx.logger, 'password_reset_requested', {
-        userId: found.id,
+        userId,
         by: 'USER',
         ip: ctx.ip,
         userAgent: ctx.userAgent,

@@ -277,8 +277,10 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
       const email = input.email.toLowerCase();
       const event = { ip: ctx.ip, userAgent: ctx.userAgent };
       // Counted before any lookup, so unknown emails count too (research R8).
-      await deps.rateLimiter.hit('login-ip', ctx.ip);
-      await deps.rateLimiter.hit('login-account', email);
+      await deps.rateLimiter.hitAll([
+        ['login-ip', ctx.ip],
+        ['login-account', email],
+      ]);
 
       const user = await withDatabase(() => findLoginUser(deps.prisma, email));
       const failed = (reason: LoginFailureReason, userId?: string) => {
@@ -450,8 +452,10 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     changePassword: async (user, input, ctx) => {
       const event = { userId: user.userId, ip: ctx.ip, userAgent: ctx.userAgent };
       // Rate-limited like login, in the same buckets (ADR-0017).
-      await deps.rateLimiter.hit('login-ip', ctx.ip);
-      await deps.rateLimiter.hit('login-account', user.email);
+      await deps.rateLimiter.hitAll([
+        ['login-ip', ctx.ip],
+        ['login-account', user.email],
+      ]);
       const common = commonPasswordError('body.newPassword', input.newPassword);
       if (common) throw new AppError('VALIDATION_FAILED', { details: [common] });
 
@@ -491,7 +495,8 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
             sessionId: user.sessionId,
           });
           if (!state) throw new Error(`password change from a session not ${account.id}'s`);
-          const refused = refusal(state, now);
+          const endsAt = earlier(state.expiresAt, state.absoluteExpiresAt);
+          const refused = refusal({ ...state, endsAt }, now);
           if (refused) throw refused;
           if (state.passwordHash !== account.passwordHash) {
             // Changed meanwhile: the password this request proved is no longer the current one.
