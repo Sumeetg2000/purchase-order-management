@@ -68,7 +68,7 @@ function parsed<T extends { id: string; roles: string[]; status: string }>(
   return { ...user, roles: userRolesOf(user), status: userStatusOf(user) };
 }
 
-/** What login needs about a user, read outside any transaction. */
+/** What a password check needs about a user: login, change-password, verify-email. */
 export interface LoginUser {
   id: string;
   name: string;
@@ -80,23 +80,29 @@ export interface LoginUser {
   lockedUntil: Date | null;
 }
 
+const LOGIN = {
+  id: true,
+  name: true,
+  email: true,
+  roles: true,
+  status: true,
+  createdAt: true,
+  passwordHash: true,
+  lockedUntil: true,
+} as const;
+
 export async function findLoginUser(
   prisma: AppPrismaClient,
   email: string,
 ): Promise<LoginUser | null> {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      roles: true,
-      status: true,
-      createdAt: true,
-      passwordHash: true,
-      lockedUntil: true,
-    },
-  });
+  const user = await prisma.user.findUnique({ where: { email }, select: LOGIN });
+  return user && parsed(user);
+}
+
+/** Locks a user's row and returns it with its password and lockout, or null. */
+export async function lockLoginUser(tx: AuditedTransaction, id: string): Promise<LoginUser | null> {
+  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${id}::uuid FOR UPDATE`;
+  const user = await tx.user.findUnique({ where: { id }, select: LOGIN });
   return user && parsed(user);
 }
 

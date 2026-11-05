@@ -157,10 +157,20 @@ feature is refused with `NO_ROLE_ASSIGNED`, and send an access request.
    forgot-password, and nothing is created or sent.
 4. **Given** a signup body containing roles, status or any other unknown field, **When**
    it is sent, **Then** it gets `400` and nothing is created.
-5. **Given** a valid verification link, **When** the user opens it, **Then** the account
-   becomes active, the page removes the token from the address bar, and it does not log
-   the user in. An expired link → `400 TOKEN_EXPIRED`, a used one → `400 TOKEN_USED`, a
-   superseded one → `400 TOKEN_SUPERSEDED`, an unknown one → `400 INVALID_TOKEN`.
+5. **Given** a valid verification link, **When** the user opens it, **Then** the page
+   removes the token from the address bar and asks "Enter the password you chose to
+   confirm your email"; with the signup password the account becomes active, and it does
+   not log the user in. An expired link → `400 TOKEN_EXPIRED`, a used one →
+   `400 TOKEN_USED`, a superseded one → `400 TOKEN_SUPERSEDED`, an unknown one →
+   `400 INVALID_TOKEN`; then a deactivated account → `401 ACCOUNT_DEACTIVATED`, a locked
+   one → `423 ACCOUNT_LOCKED`. A wrong password → `400 VALIDATION_FAILED` with
+   `INCORRECT_PASSWORD` on `body.password`: nothing is activated, it counts toward the
+   lockout like login, and the link stays usable. *Amended 2026-11-05 (owner decision,
+   ADR-0017 "Squatting").*
+5a. **Given** someone signed up first with another person's address, **When** the
+   address's owner uses forgot-password and the reset link, **Then** the account becomes
+   active with the owner's password, and the squatter's password no longer works. The
+   verification email tells the owner they can do this. *Added 2026-11-05.*
 6. **Given** resend-verification, **When** it is asked for an unverified account, **Then**
    a new link is sent (`202`) and the earlier one stops working. Unknown email →
    `404 ACCOUNT_NOT_FOUND`; verified account → `409 ACCOUNT_ALREADY_VERIFIED`; deactivated

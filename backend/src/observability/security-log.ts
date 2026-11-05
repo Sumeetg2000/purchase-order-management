@@ -12,6 +12,7 @@ export const SECURITY_EVENTS = [
   // Accounts and sessions (slice 1).
   'signup',
   'email_verified',
+  'email_verification_failed',
   'login_succeeded',
   'login_failed',
   'account_locked',
@@ -30,6 +31,7 @@ export type SecurityEvent = (typeof SECURITY_EVENTS)[number];
 const WARNING_EVENTS: ReadonlySet<SecurityEvent> = new Set([
   'mail_send_failed',
   'mail_send_abandoned',
+  'email_verification_failed',
   'login_failed',
   'account_locked',
   'refresh_reuse_detected',

@@ -20,23 +20,16 @@ import {
 } from '../db/transaction.js';
 import type { Clock } from '../lib/clock.js';
 import type { RequestContext } from '../lib/request-context.js';
-import { SECOND_MS } from '../lib/time.js';
+import { plus, SECOND_MS } from '../lib/time.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { hashToken } from '../tokens/one-time.js';
 import { toMe } from '../users/me.js';
-import {
-  findLoginUser,
-  recordFailedLogin,
-  recordSuccessfulLogin,
-  setChangedPassword,
-} from '../users/repository.js';
+import { findLoginUser, recordSuccessfulLogin, setChangedPassword } from '../users/repository.js';
 import type { AccessTokens } from './access-token.js';
 import {
-  LOCKOUT_DURATION_SECONDS,
   type LoginFailureReason,
-  LOCKOUT_THRESHOLD,
   REFRESH_SIBLING_GRACE_SECONDS,
   REFRESH_TOKEN_BYTES,
   REFRESH_TOKEN_IDLE_SECONDS,
@@ -45,6 +38,7 @@ import {
 } from './constants.js';
 import type { SessionCookies } from './cookies.js';
 import { csrfTokenFor } from './csrf.js';
+import { countWrongPassword, lockedError } from './lockout.js';
 import { commonPasswordError, hashPassword, needsRehash, verifyPassword } from './passwords.js';
 import {
   findAuthSession,
@@ -184,17 +178,8 @@ export interface SessionServiceDependencies {
 
 const SYSTEM = { type: 'SYSTEM' } as const;
 
-function plus(date: Date, seconds: number): Date {
-  return new Date(date.getTime() + seconds * SECOND_MS);
-}
-
 function earlier(a: Date, b: Date): Date {
   return a.getTime() <= b.getTime() ? a : b;
-}
-
-/** Whole seconds from now until a time, never less than one. */
-function secondsUntil(time: Date, now: Date): number {
-  return Math.max(1, Math.ceil((time.getTime() - now.getTime()) / SECOND_MS));
 }
 
 /** A new refresh token's expiry: 7 days on, never past the session's absolute end. */
@@ -207,11 +192,6 @@ function wrongCurrentPassword(): AppError {
   return new AppError('VALIDATION_FAILED', {
     details: [{ path: 'body.currentPassword', code: 'INCORRECT_PASSWORD' }],
   });
-}
-
-/** 423 ACCOUNT_LOCKED, saying when to try again. */
-function lockedError(lockedUntil: Date, now: Date): AppError {
-  return new AppError('ACCOUNT_LOCKED', { retryAfterSeconds: secondsUntil(lockedUntil, now) });
 }
 
 function isPublicRevokeReason(reason: string | null): reason is PublicRevokeReason {
@@ -286,34 +266,6 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     return { refreshToken, expiresAt };
   }
 
-  /**
-   * A wrong password, at login or a password change: it counts toward the lockout. The
-   * attempt that reaches the threshold locks the account and gets the lockout error.
-   */
-  async function countWrongPassword(
-    userId: string,
-    now: Date,
-    ctx: RequestContext,
-  ): Promise<AppError | undefined> {
-    const outcome = await transactions.run(
-      { actor: SYSTEM, requestId: ctx.requestId, logger: ctx.logger },
-      (tx) =>
-        recordFailedLogin(tx, {
-          id: userId,
-          threshold: LOCKOUT_THRESHOLD,
-          now,
-          lockUntil: plus(now, LOCKOUT_DURATION_SECONDS),
-        }),
-    );
-    if (!outcome.locked) return undefined;
-    logSecurityEvent(ctx.logger, 'account_locked', {
-      ip: ctx.ip,
-      userAgent: ctx.userAgent,
-      userId,
-    });
-    return lockedError(outcome.lockedUntil, now);
-  }
-
   /** The refresh token locked, or 401 SESSION_EXPIRED when it is unknown or purged. */
   async function locked(tx: AuditedTransaction, session: RefreshSession) {
     const token = await lockRefreshToken(tx, hashToken(session.refreshToken));
@@ -347,7 +299,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         throw new AppError('PASSWORD_NOT_SET');
       }
       if (!(await verifyPassword(user.passwordHash, input.password))) {
-        const locked = await countWrongPassword(user.id, now, ctx);
+        const locked = await countWrongPassword(transactions, user.id, now, ctx);
         if (locked) throw locked;
         failed('wrong_password', user.id);
         throw new AppError('INCORRECT_PASSWORD');
@@ -514,7 +466,7 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
         throw lockedError(account.lockedUntil, now);
       }
       if (!(await verifyPassword(account.passwordHash, input.currentPassword))) {
-        const lockout = await countWrongPassword(account.id, now, ctx);
+        const lockout = await countWrongPassword(transactions, account.id, now, ctx);
         if (lockout) throw lockout;
         logSecurityEvent(ctx.logger, 'password_change_failed', {
           ...event,

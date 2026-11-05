@@ -167,7 +167,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Activate an account from its verification link; doesn't log in. */
+        /** Activate an account from its verification link and the signup password; doesn't log in. */
         post: operations["verifyEmail"];
         delete?: never;
         options?: never;
@@ -1233,6 +1233,7 @@ export interface operations {
             content: {
                 "application/json": {
                     token: string;
+                    password: string;
                 };
             };
         };
@@ -1279,6 +1280,18 @@ export interface operations {
             413: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code ACCOUNT_LOCKED. */
+            423: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description Seconds to wait. */
+                    "Retry-After": string;
                     [name: string]: unknown;
                 };
                 content: {

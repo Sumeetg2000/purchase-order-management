@@ -58,6 +58,7 @@ describe('[NFR-SEC-06] security events for each account event', () => {
     const covered: SecurityEvent[] = [
       'signup',
       'email_verified',
+      'email_verification_failed',
       'login_succeeded',
       'login_failed',
       'account_locked',
@@ -71,6 +72,21 @@ describe('[NFR-SEC-06] security events for each account event', () => {
       'password_change_failed',
     ];
     expect([...covered, ...MAIL_EVENTS].sort()).toEqual([...SECURITY_EVENTS].sort());
+  });
+
+  it('[NFR-SEC-06] email_verification_failed names the user and the reason, never the password', async () => {
+    const h = await accountsHarness();
+    const email = 'ravi@example.local';
+    await h.post('/auth/signup', { name: 'Ravi Kumar', email, password: NEW_PASSWORD });
+    const [user] = await h.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [email]);
+    const token = await tokenFrom(h, email, 'verify-email');
+    const guess = 'a wrong verification guess';
+    expect((await h.post('/auth/verify-email', { token, password: guess })).status).toBe(400);
+    expect(eventLine(h, 'email_verification_failed')).toMatchObject({
+      userId: user?.id,
+      reason: 'wrong_password',
+    });
+    expect(JSON.stringify(h.logs)).not.toContain(guess);
   });
 
   it('[NFR-SEC-06] signup and email_verified carry the new user id', async () => {

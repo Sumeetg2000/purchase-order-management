@@ -97,7 +97,7 @@ export const updateUserBody = z.strictObject({ roles: roleSet.optional(), isActi
 |---|---|---|---|---|---|
 | `login` | `POST /auth/login` | public | `loginBody` | `200 me` + 3 cookies | `ACCOUNT_NOT_FOUND`, `ACCOUNT_LOCKED`, `PASSWORD_NOT_SET`, `INCORRECT_PASSWORD`, `ACCOUNT_NOT_VERIFIED`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `signup` | `POST /auth/signup` | public | `signupBody` | `202` | `SIGNUP_DOMAIN_NOT_ALLOWED`, `EMAIL_IN_USE`, `RATE_LIMITED` |
-| `verifyEmail` | `POST /auth/verify-email` | public | `tokenBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN` |
+| `verifyEmail` | `POST /auth/verify-email` | public | `verifyEmailBody` (`token`, `password`) | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN`, `ACCOUNT_DEACTIVATED`, `ACCOUNT_LOCKED`; `VALIDATION_FAILED` with `INCORRECT_PASSWORD` on `body.password` (amended 2026-11-05, owner decision: breaking for this operation before merge, so the baseline is regenerated) |
 | `resendVerification` | `POST /auth/resend-verification` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_ALREADY_VERIFIED`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `forgotPassword` | `POST /auth/forgot-password` | public | `emailBody` | `202` | `ACCOUNT_NOT_FOUND`, `ACCOUNT_DEACTIVATED`, `RATE_LIMITED` |
 | `resetPassword` | `POST /auth/reset-password` | public | `resetPasswordBody` | `204` | `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, `INVALID_TOKEN`, `ACCOUNT_DEACTIVATED` |

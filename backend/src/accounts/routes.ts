@@ -3,7 +3,7 @@ import {
   type EmailBody,
   type ResetPasswordBody,
   type SignupBody,
-  type TokenBody,
+  type VerifyEmailBody,
 } from '@po/contracts';
 import { defineRoute, type RouteDefinition } from '../http/define-route.js';
 import { requestContext } from '../http/request-context.js';
@@ -21,7 +21,7 @@ export function accountsRoutes(accounts: AccountsService): RouteDefinition[] {
     defineRoute({
       ...OPERATIONS.verifyEmail,
       handler: async (req, res) => {
-        await accounts.verifyEmail((req.body as TokenBody).token, requestContext(req, res));
+        await accounts.verifyEmail(req.body as VerifyEmailBody, requestContext(req, res));
         res.status(204).end();
       },
     }),

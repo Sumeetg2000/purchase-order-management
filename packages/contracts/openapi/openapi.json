@@ -1318,7 +1318,7 @@
     "/auth/verify-email": {
       "post": {
         "operationId": "verifyEmail",
-        "summary": "Activate an account from its verification link; doesn't log in.",
+        "summary": "Activate an account from its verification link and the signup password; doesn't log in.",
         "x-access": "public",
         "requestBody": {
           "content": {
@@ -1330,10 +1330,16 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 },
                 "required": [
-                  "token"
+                  "token",
+                  "password"
                 ],
                 "additionalProperties": false
               }
@@ -1415,6 +1421,33 @@
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Problem document with code ACCOUNT_LOCKED.",
+            "x-error-codes": [
+              "ACCOUNT_LOCKED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$",
+                  "description": "Seconds to wait."
+                }
               }
             },
             "content": {

@@ -1,8 +1,15 @@
-import { AppError, USER_STATUS, type EmailBody, type SignupBody } from '@po/contracts';
+import {
+  AppError,
+  USER_STATUS,
+  type EmailBody,
+  type SignupBody,
+  type VerifyEmailBody,
+} from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import { violatedConstraint } from '../db/errors.js';
 import { revokeUserSessions } from '../auth/repository.js';
-import { commonPasswordError, hashPassword } from '../auth/passwords.js';
+import { countWrongPassword, lockedError } from '../auth/lockout.js';
+import { commonPasswordError, hashPassword, verifyPassword } from '../auth/passwords.js';
 import { writeAudit } from '../audit/write.js';
 import {
   actAs,
@@ -23,6 +30,7 @@ import {
   activateUser,
   createSignupUser,
   findLoginUser,
+  lockLoginUser,
   lockUser,
   setPasswordAfterReset,
   type ProfileUser,
@@ -45,8 +53,12 @@ export interface AccountsService {
   resetPassword(input: ResetPasswordInput, ctx: RequestContext): Promise<void>;
   /** Creates an UNVERIFIED account with no role and emails a verification link. */
   signup(input: SignupBody, ctx: RequestContext): Promise<void>;
-  /** Activates an account from its verification link. Doesn't log the user in. */
-  verifyEmail(token: string, ctx: RequestContext): Promise<void>;
+  /**
+   * Activates an account from its verification link and the password chosen at signup,
+   * so a squatter's password never opens an account its mailbox owner verified. A wrong
+   * password counts toward the lockout and leaves the link unused. Doesn't log in.
+   */
+  verifyEmail(input: VerifyEmailBody, ctx: RequestContext): Promise<void>;
   /** Emails a new verification link to an unverified account; the old one stops working. */
   resendVerification(input: EmailBody, ctx: RequestContext): Promise<void>;
   /**
@@ -54,6 +66,21 @@ export interface AccountsService {
    * working. Nothing else changes until the link is used.
    */
   forgotPassword(input: EmailBody, ctx: RequestContext): Promise<void>;
+}
+
+/**
+ * Verify-email refused on the password, thrown inside its transaction so the token stays
+ * unused; the wrong guess is counted after the rollback.
+ */
+class PasswordRefused extends Error {
+  override readonly name = 'PasswordRefused';
+
+  constructor(
+    readonly userId: string,
+    readonly lockedUntil?: Date,
+  ) {
+    super('verify-email refused on the password');
+  }
 }
 
 export interface AccountsServiceDependencies {
@@ -81,6 +108,31 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       mail: deps.mail,
       appOrigin: deps.appOrigin,
       logger: ctx.logger,
+    });
+  }
+
+  /**
+   * The error for a verification refused on the password: locked, or a wrong password
+   * that counts toward the lockout, like login's.
+   */
+  async function refusedVerification(
+    refused: PasswordRefused,
+    now: Date,
+    ctx: RequestContext,
+  ): Promise<AppError> {
+    const event = { userId: refused.userId, ip: ctx.ip, userAgent: ctx.userAgent };
+    if (refused.lockedUntil) {
+      logSecurityEvent(ctx.logger, 'email_verification_failed', { ...event, reason: 'locked' });
+      return lockedError(refused.lockedUntil, now);
+    }
+    const lockout = await countWrongPassword(deps.transactions, refused.userId, now, ctx);
+    if (lockout) return lockout;
+    logSecurityEvent(ctx.logger, 'email_verification_failed', {
+      ...event,
+      reason: 'wrong_password',
+    });
+    return new AppError('VALIDATION_FAILED', {
+      details: [{ path: 'body.password', code: 'INCORRECT_PASSWORD' }],
     });
   }
 
@@ -127,29 +179,42 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
       logSecurityEvent(ctx.logger, 'signup', { userId, ip: ctx.ip, userAgent: ctx.userAgent });
     },
 
-    verifyEmail: async (token, ctx) => {
-      const userId = await deps.transactions.run(
-        { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
-        async (tx) => {
-          const consumed = await consumeToken(tx, 'VERIFY_EMAIL', token);
-          if (!consumed.ok) throw new AppError(consumed.code);
-          const user = await lockUser(tx, consumed.userId);
-          if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
-          // Deactivated since the link was sent: refused, and the rollback leaves it unused.
-          if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
-          // Already active (a reset verified it first): the link has nothing left to do.
-          if (user.status !== USER_STATUS.UNVERIFIED) return undefined;
-          await actAs(tx, selfActor(user), ctx.requestId);
-          await activateUser(tx, user.id);
-          await writeAudit(tx, {
-            action: 'USER_EMAIL_VERIFIED',
-            entityType: 'user',
-            entityId: user.id,
-            details: { via: 'link' },
-          });
-          return user.id;
-        },
-      );
+    verifyEmail: async (input, ctx) => {
+      const now = deps.clock.now();
+      let userId: string | undefined;
+      try {
+        userId = await deps.transactions.run(
+          { actor: { type: 'SYSTEM' }, requestId: ctx.requestId, logger: ctx.logger },
+          async (tx) => {
+            const consumed = await consumeToken(tx, 'VERIFY_EMAIL', input.token);
+            if (!consumed.ok) throw new AppError(consumed.code);
+            const user = await lockLoginUser(tx, consumed.userId);
+            if (!user) throw new Error(`token for a user that does not exist: ${consumed.userId}`);
+            // Each refusal below rolls back, so the link stays unused for the owner's retry.
+            if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
+            if (user.lockedUntil && user.lockedUntil > now) {
+              throw new PasswordRefused(user.id, user.lockedUntil);
+            }
+            if (!user.passwordHash || !(await verifyPassword(user.passwordHash, input.password))) {
+              throw new PasswordRefused(user.id);
+            }
+            // Already active (a reset verified it first): the link has nothing left to do.
+            if (user.status !== USER_STATUS.UNVERIFIED) return undefined;
+            await actAs(tx, selfActor(user), ctx.requestId);
+            await activateUser(tx, user.id);
+            await writeAudit(tx, {
+              action: 'USER_EMAIL_VERIFIED',
+              entityType: 'user',
+              entityId: user.id,
+              details: { via: 'link' },
+            });
+            return user.id;
+          },
+        );
+      } catch (error) {
+        if (!(error instanceof PasswordRefused)) throw error;
+        throw await refusedVerification(error, now, ctx);
+      }
       if (userId) {
         logSecurityEvent(ctx.logger, 'email_verified', {
           userId,

@@ -1,37 +1,50 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
-import { Input, Label, TextField } from 'react-aria-components';
+import { useState, type SyntheticEvent } from 'react';
+import { FieldError, Input, Label, TextField } from 'react-aria-components';
 import { Link } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, submit, type ApiFailure } from '../../api/submit';
+import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
 import { useFragmentToken } from '../../auth/fragment-token';
-import { Loading } from '../../components/Loading';
 import { sentenceFor } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
 
-const styles = classes(css, 'page', 'form', 'field', 'notice', 'alert');
+const styles = classes(css, 'page', 'form', 'field', 'fieldError', 'notice', 'alert');
 const controls = classes(controlsCss, 'primary');
 
-type Verification = { state: 'pending' } | { state: 'done' } | ({ state: 'failed' } & ApiFailure);
+const PASSWORD_PATH = 'body.password';
 
 /**
- * Confirms an email address from its link (ADR-0017): posts the token once, as soon as the
- * page opens. An expired link offers a new one.
+ * Confirms an email address from its link with the password chosen at signup (ADR-0017
+ * "Squatting"). The token is read once and removed from the address bar; a wrong password
+ * leaves the link usable. An expired link offers a new one.
  */
 export function VerifyEmail() {
   const token = useFragmentToken();
-  const [verification, setVerification] = useState<Verification>({ state: 'pending' });
-  // React runs effects twice in development: the token must be posted once.
-  const posted = useRef(false);
+  const [password, setPassword] = useState('');
+  const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+  const [failure, setFailure] = useState<ApiFailure>();
+  const [fieldError, setFieldError] = useState<string>();
 
-  useEffect(() => {
-    if (!token || posted.current) return;
-    posted.current = true;
-    void submit(() => api.POST('/auth/verify-email', { body: { token } })).then((outcome) => {
-      setVerification(outcome.ok ? { state: 'done' } : { state: 'failed', ...outcome });
-    });
-  }, [token]);
+  async function confirm(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+    setPending(true);
+    setFailure(undefined);
+    setFieldError(undefined);
+    const outcome = await submit(() =>
+      api.POST('/auth/verify-email', { body: { token, password } }),
+    );
+    setPending(false);
+    if (outcome.ok) {
+      setDone(true);
+      return;
+    }
+    const field = fieldFailure(outcome, PASSWORD_PATH);
+    if (field) setFieldError(field);
+    else setFailure(outcome);
+  }
 
   return (
     <div className={styles.page}>
@@ -41,18 +54,40 @@ export function VerifyEmail() {
         <p role="alert" className={styles.alert}>
           {sentenceFor({ code: 'INVALID_TOKEN' })}
         </p>
-      ) : verification.state === 'pending' ? (
-        <Loading label="Confirming your email" />
-      ) : verification.state === 'done' ? (
+      ) : done ? (
         <p role="status" className={styles.notice}>
           Your email is confirmed. <Link to="/login">Log in</Link>
         </p>
       ) : (
         <>
-          <p role="alert" className={styles.alert}>
-            {failureMessage(verification)}
-          </p>
-          {verification.problem.code === 'TOKEN_EXPIRED' && <ResendForm />}
+          <form className={styles.form} onSubmit={(event) => void confirm(event)}>
+            <p>Enter the password you chose to confirm your email</p>
+            <TextField
+              className={styles.field}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(value) => {
+                setPassword(value);
+                setFieldError(undefined);
+              }}
+              isInvalid={fieldError !== undefined}
+              isRequired
+            >
+              <Label>Password</Label>
+              <Input />
+              <FieldError className={styles.fieldError}>{fieldError}</FieldError>
+            </TextField>
+            {failure && (
+              <p role="alert" className={styles.alert}>
+                {failureMessage(failure)}
+              </p>
+            )}
+            <button type="submit" className={controls.primary} disabled={pending}>
+              Confirm email
+            </button>
+          </form>
+          {failure?.problem.code === 'TOKEN_EXPIRED' && <ResendForm />}
         </>
       )}
     </div>

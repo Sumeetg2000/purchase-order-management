@@ -17,7 +17,9 @@
   (**owner decision**: revocation takes effect on the next request, since every request
   reads its session with its user; the access cookie lives as long as the refresh cookie,
   and the JWT inside it still expires after 15 minutes) · amended 2026-11-04 (**owner
-  decision**: a new password equal to the current one → `PASSWORD_UNCHANGED`)
+  decision**: a new password equal to the current one → `PASSWORD_UNCHANGED`) · amended
+  2026-11-05 (**owner decision**: verify-email requires the password chosen at signup, so
+  a squatter's password never opens an account its mailbox owner verified)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -89,8 +91,12 @@ answer to an in-app access request (ADR-0016).
 - After verification and login, a no-role user sees the "Access pending" screen
   (ADR-0018). Every endpoint except `/me`, password, sessions, logout and their access
   request → `403 NO_ROLE_ASSIGNED`.
-- `POST /api/auth/verify-email { token }` → the user becomes `ACTIVE`. It doesn't log the
-  user in.
+- `POST /api/auth/verify-email { token, password }` → the user becomes `ACTIVE` only if
+  `password` matches the one chosen at signup. It doesn't log the user in. Checks, in
+  order: the token (its four codes) → `ACCOUNT_DEACTIVATED` → `ACCOUNT_LOCKED` → the
+  password. A wrong password → `400 VALIDATION_FAILED` with `INCORRECT_PASSWORD` on
+  `body.password`; it counts toward the lockout like login's, and the token stays unused
+  so the owner can retry. *Amended 2026-11-05 (owner decision).*
 - `POST /api/auth/resend-verification { email }`:
   - an `UNVERIFIED` user → `202`, and a new verification email is sent
   - no account → `404 ACCOUNT_NOT_FOUND`
@@ -100,6 +106,13 @@ answer to an in-app access request (ADR-0016).
   `UNVERIFIED` and can't log in. When the real owner signs up, they get
   `409 EMAIL_IN_USE`, whose message points to forgot-password. Completing the reset sets
   their own password and verifies the account.
+  - *Amended 2026-11-05 (owner decision):* the verification email reaches the real owner,
+    and opening it used to activate the account with the squatter's password, which the
+    squatter could then log in with. Verify-email now requires the password chosen at
+    signup, which the owner doesn't know, so the squatted account stays `UNVERIFIED`
+    until the owner resets it. The email says: "If you didn't sign up, ignore this email.
+    To use this address yourself, reset your password from the login page."
+
 
 ### Passwords
 - **Policy**: 12–128 characters, and not on a bundled common-password list (checked
@@ -180,7 +193,9 @@ answer to an in-app access request (ADR-0016).
   - A locked account's password isn't checked.
   - The status is checked after the password.
   - The web app computes N from `Retry-After`, rounded up to whole minutes.
-- **Per-account lockout**: 5 consecutive failed logins → locked for 15 minutes.
+- **Per-account lockout**: 5 consecutive failed logins → locked for 15 minutes. A wrong
+  password at change-password or verify-email counts the same way, through one shared
+  helper.
   - Only check 4 (a wrong password) counts as a failure. The attempt that reaches 5
     returns `423 ACCOUNT_LOCKED` instead of `INCORRECT_PASSWORD`.
   - The counter and `lockedUntil` live on the user row (PostgreSQL), so they hold across
@@ -311,7 +326,7 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
 These events are written as structured `security` log entries, separate from the business
 audit:
 - signup
-- email verification
+- email verification, and a verification refused on the password (locked or wrong)
 - login success and failure, with the reason: unknown email, locked, no password set,
   wrong password, unverified, deactivated
 - lockout

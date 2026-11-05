@@ -60,6 +60,11 @@ Field codes added to `FIELD_CODES` (inside `400 VALIDATION_FAILED`): `VERSION_RE
 `INVALID_ROLE_SET`, `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`,
 `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`, `PASSWORD_UNCHANGED`.
 
+`INCORRECT_PASSWORD` as a field code is change-password's on `body.currentPassword` and,
+since 2026-11-05 (owner decision), verify-email's on `body.password`: the password chosen
+at signup is wrong. Verify-email checks the token, then `ACCOUNT_DEACTIVATED`, then
+`ACCOUNT_LOCKED`, then the password; a wrong one counts toward the lockout like login's.
+
 `PASSWORD_UNCHANGED` ("Your new password must be different from your current one.") is
 change-password's, on `body.newPassword`: checked after the current password is
 verified, by comparing the two inputs, and nothing is written.

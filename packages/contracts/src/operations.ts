@@ -19,7 +19,7 @@ import {
   loginBody,
   resetPasswordBody,
   signupBody,
-  tokenBody,
+  verifyEmailBody,
 } from './schemas/auth.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
 import { idParams } from './schemas/ids.js';
@@ -180,9 +180,10 @@ export const OPERATIONS = {
     method: 'post',
     path: '/auth/verify-email',
     operationId: 'verifyEmail',
-    summary: "Activate an account from its verification link; doesn't log in.",
+    summary:
+      "Activate an account from its verification link and the signup password; doesn't log in.",
     access: 'public',
-    request: { body: tokenBody },
+    request: { body: verifyEmailBody },
     responses: { 204: z.void() },
     errors: [
       'TOKEN_EXPIRED',
@@ -190,6 +191,7 @@ export const OPERATIONS = {
       'TOKEN_SUPERSEDED',
       'INVALID_TOKEN',
       'ACCOUNT_DEACTIVATED',
+      'ACCOUNT_LOCKED',
     ],
   },
   resendVerification: {
