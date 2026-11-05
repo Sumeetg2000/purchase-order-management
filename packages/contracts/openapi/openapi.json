@@ -1993,7 +1993,7 @@
               "default": 1,
               "type": "integer",
               "minimum": 1,
-              "maximum": 9007199254740991
+              "maximum": 100000
             }
           },
           {
@@ -2732,7 +2732,7 @@
               "default": 1,
               "type": "integer",
               "minimum": 1,
-              "maximum": 9007199254740991
+              "maximum": 100000
             }
           },
           {
@@ -3298,7 +3298,7 @@
               "default": 1,
               "type": "integer",
               "minimum": 1,
-              "maximum": 9007199254740991
+              "maximum": 100000
             }
           },
           {

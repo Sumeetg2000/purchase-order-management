@@ -13,13 +13,14 @@
   carries its `reason`, **owner decision**) · amended 2026-11-03 (POC scope, owner
   decision: no `phone` field, so no `INVALID_PHONE`; `SESSION_REVOKED`'s `reason` only
   for the three public revoke reasons) · amended 2026-11-04 (field code
-  `PASSWORD_UNCHANGED`, **owner decision**)
+  `PASSWORD_UNCHANGED`, **owner decision**) · amended 2026-11-05 (`page` max 100,000, from
+  the slice 1 code review: a deeper offset overflowed Prisma's integer and answered 500)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
 ## Decision
-- **Offset pagination** on every collection: `page` (1-based, default 1) and `pageSize`
-  (default 20, max 50). Invalid values → `400 VALIDATION_FAILED`. Envelope
+- **Offset pagination** on every collection: `page` (1-based, default 1, max 100,000) and
+  `pageSize` (default 20, max 50). Invalid values → `400 VALIDATION_FAILED`. Envelope
   `{ items, page, pageSize, total }`. Every list has a stable sort ending in `id`, backed by
   a matching index.
   - Why: simplicity and page-number navigation. If deep pages get slow (measured at page
