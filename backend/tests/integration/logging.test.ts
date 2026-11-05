@@ -265,7 +265,7 @@ describe('[NFR-PRIV-01] objects that are not plain data', () => {
 
 describe('[NFR-PRIV-01] one-time link channel', () => {
   it('[NFR-PRIV-01] only the oneTimeLink path may print a token-shaped value', () => {
-    const { logger, lines } = createCapture();
+    const { logger, lines } = createCapture({ leaksExpected: true });
     logOneTimeLink(logger, `http://localhost:8080/set-password#${FAKE_TOKEN}`, 'admin created');
     expect(findTokenLeaks(lines)).toEqual([]);
     expect(JSON.stringify(lines)).toContain(FAKE_TOKEN);

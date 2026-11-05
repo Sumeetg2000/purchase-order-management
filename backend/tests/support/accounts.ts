@@ -12,13 +12,14 @@ import { testApiConfig } from './api-config.js';
 import { testClock, type TestClock } from './clock.js';
 import { createTestDatabase, type TestDatabase } from './db.js';
 import { createCapture } from './log-capture.js';
+import { PASSWORD } from './secrets.js';
 import { trackDatabase } from './setup.js';
 
 // The real API app on a fresh database with a test clock, plus helpers to seed users and
 // carry session cookies between requests (slice 1 account tests).
 
 export const APP_ORIGIN = 'http://localhost:8080';
-export const PASSWORD = 'correct horse battery staple';
+export { PASSWORD } from './secrets.js';
 
 const clients: AppPrismaClient[] = [];
 afterEach(async () => {
