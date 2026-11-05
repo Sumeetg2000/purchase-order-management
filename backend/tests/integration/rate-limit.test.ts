@@ -100,6 +100,54 @@ describe('[NFR-SEC-05] rate limiter', () => {
     expect(results.filter((r) => r === 'ok')).toHaveLength(10);
   });
 
+  it('[NFR-SEC-05] hitAll counts every bucket, even when an earlier one refuses', async () => {
+    const { db, limiter } = await setup();
+    for (let i = 0; i < 30; i += 1) await limiter.hit('login-ip', '10.0.0.1');
+    await expect(
+      limiter.hitAll([
+        ['login-ip', '10.0.0.1'],
+        ['login-account', 'a@example.local'],
+      ]),
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 40 });
+    const admin = await db.client('postgres');
+    const { rows } = await admin.query<{ bucket: string; hits: number }>(
+      'SELECT bucket, hits FROM rate_limit_counters ORDER BY bucket',
+    );
+    expect(rows).toEqual([
+      { bucket: 'login-account', hits: 1 },
+      { bucket: 'login-ip', hits: 31 },
+    ]);
+  });
+
+  it('[NFR-SEC-05] hitAll refuses with the first bucket over its limit, in the order given', async () => {
+    const { limiter } = await setup();
+    for (let i = 0; i < 30; i += 1) await limiter.hit('login-ip', 'k');
+    for (let i = 0; i < 3; i += 1) await limiter.hit('access-request-user', 'k');
+    // 09:00:20: 40 seconds left in the minute, 53,980 in the day.
+    await expect(
+      limiter.hitAll([
+        ['login-ip', 'k'],
+        ['access-request-user', 'k'],
+      ]),
+    ).rejects.toMatchObject({ retryAfterSeconds: 40 });
+    await expect(
+      limiter.hitAll([
+        ['access-request-user', 'k'],
+        ['login-ip', 'k'],
+      ]),
+    ).rejects.toMatchObject({ retryAfterSeconds: 53_980 });
+  });
+
+  it('[NFR-SEC-05] hitAll passes when every bucket is under its limit', async () => {
+    const { limiter } = await setup();
+    await expect(
+      limiter.hitAll([
+        ['login-ip', '10.0.0.1'],
+        ['login-account', 'a@example.local'],
+      ]),
+    ).resolves.toBeUndefined();
+  });
+
   it('[NFR-SEC-05] keeps one row per bucket, key and window, with its end', async () => {
     const { db, limiter } = await setup();
     await hits(limiter, 3);

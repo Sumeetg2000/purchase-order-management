@@ -17,32 +17,50 @@ export interface RateLimiter {
    * command's transaction and before any lookup.
    */
   hit(bucket: RateLimitBucket, key: string): Promise<void>;
+  /**
+   * Counts a hit in every bucket at once, then refuses with the first one, in the order
+   * given, whose limit is used up. Every bucket counts, even when an earlier one refuses.
+   */
+  hitAll(hits: readonly (readonly [RateLimitBucket, string])[]): Promise<void>;
 }
 
 const BUCKETS = new Map(RATE_LIMIT_BUCKETS.map((bucket) => [bucket.name, bucket]));
 
+/** A counted hit: the refusal it earns, or null while the bucket is under its limit. */
+type Counted = AppError | null;
+
 export function createRateLimiter(deps: { prisma: AppPrismaClient; clock: Clock }): RateLimiter {
+  async function count(bucket: RateLimitBucket, key: string): Promise<Counted> {
+    const definition = BUCKETS.get(bucket);
+    if (!definition) throw new Error(`Unknown rate-limit bucket ${bucket}`);
+    const now = deps.clock.now().getTime();
+    const windowMs = definition.windowSeconds * SECOND_MS;
+    const windowStart = Math.floor(now / windowMs) * windowMs;
+    const windowEnd = windowStart + windowMs;
+    const hits = await withDatabase(() =>
+      countHit(deps.prisma, {
+        bucket,
+        key,
+        windowStart: new Date(windowStart),
+        windowEnd: new Date(windowEnd),
+      }),
+    );
+    return hits > definition.limit
+      ? new AppError('RATE_LIMITED', {
+          retryAfterSeconds: Math.ceil((windowEnd - now) / SECOND_MS),
+        })
+      : null;
+  }
+
   return {
     hit: async (bucket, key) => {
-      const definition = BUCKETS.get(bucket);
-      if (!definition) throw new Error(`Unknown rate-limit bucket ${bucket}`);
-      const now = deps.clock.now().getTime();
-      const windowMs = definition.windowSeconds * SECOND_MS;
-      const windowStart = Math.floor(now / windowMs) * windowMs;
-      const windowEnd = windowStart + windowMs;
-      const hits = await withDatabase(() =>
-        countHit(deps.prisma, {
-          bucket,
-          key,
-          windowStart: new Date(windowStart),
-          windowEnd: new Date(windowEnd),
-        }),
-      );
-      if (hits > definition.limit) {
-        throw new AppError('RATE_LIMITED', {
-          retryAfterSeconds: Math.ceil((windowEnd - now) / SECOND_MS),
-        });
-      }
+      const refused = await count(bucket, key);
+      if (refused) throw refused;
+    },
+    hitAll: async (hits) => {
+      const counted = await Promise.all(hits.map(([bucket, key]) => count(bucket, key)));
+      const refused = counted.find((result) => result !== null);
+      if (refused) throw refused;
     },
   };
 }
