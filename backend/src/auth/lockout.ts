@@ -35,10 +35,13 @@ export async function countWrongPassword(
       }),
   );
   if (!outcome.locked) return undefined;
-  logSecurityEvent(ctx.logger, 'account_locked', {
-    ip: ctx.ip,
-    userAgent: ctx.userAgent,
-    userId,
-  });
+  // One event per lock: attempts queued behind the one that locked it are refused quietly.
+  if (outcome.justLocked) {
+    logSecurityEvent(ctx.logger, 'account_locked', {
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+      userId,
+    });
+  }
   return lockedError(outcome.lockedUntil, now);
 }

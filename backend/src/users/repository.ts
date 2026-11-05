@@ -106,7 +106,9 @@ export async function lockLoginUser(tx: AuditedTransaction, id: string): Promise
   return user && parsed(user);
 }
 
-export type FailedLogin = { locked: true; lockedUntil: Date } | { locked: false };
+/** `justLocked`: this attempt locked the account, not one before it. */
+export type FailedLogin =
+  { locked: true; lockedUntil: Date; justLocked: boolean } | { locked: false };
 
 /**
  * Counts a wrong password in one atomic statement (research R9): the attempt that
@@ -129,14 +131,15 @@ export async function recordFailedLogin(
               AS just_locked`;
   if (row) {
     return row.just_locked && row.locked_until
-      ? { locked: true, lockedUntil: row.locked_until }
+      ? { locked: true, lockedUntil: row.locked_until, justLocked: true }
       : { locked: false };
   }
   const current = await tx.user.findUnique({
     where: { id: user.id },
     select: { lockedUntil: true },
   });
-  return { locked: true, lockedUntil: current?.lockedUntil ?? user.lockUntil };
+  // Already locked by an attempt that ran alongside this one: that one reports the lock.
+  return { locked: true, lockedUntil: current?.lockedUntil ?? user.lockUntil, justLocked: false };
 }
 
 export type SuccessfulLogin = { ok: true } | { ok: false; lockedUntil: Date };
