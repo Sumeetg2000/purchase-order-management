@@ -240,6 +240,8 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
           userId: id,
           reason: result.revoked.reason,
           by: 'ADMIN',
+          ip: ctx.ip,
+          userAgent: ctx.userAgent,
         });
       }
       return toDetail(result.user);
@@ -262,7 +264,12 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
           logger: ctx.logger,
         });
       });
-      logSecurityEvent(ctx.logger, 'password_reset_requested', { userId: id, by: 'ADMIN' });
+      logSecurityEvent(ctx.logger, 'password_reset_requested', {
+        userId: id,
+        by: 'ADMIN',
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+      });
     },
   };
 }

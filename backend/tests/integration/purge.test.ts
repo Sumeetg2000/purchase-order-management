@@ -204,6 +204,8 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     expect(perTable.map((line) => [line['table'], line['deleted']])).toEqual([
       ['audit_entries', 0],
       ['one_time_tokens', 0],
+      ['sessions', 0],
+      ['rate_limit_counters', 0],
     ]);
     // Table names are values, not keys: a key like one_time_tokens matches the logger's
     // redaction of anything named like a token, and the count would read [Redacted].
@@ -212,6 +214,8 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       [
         { table: 'audit_entries', deleted: 0 },
         { table: 'one_time_tokens', deleted: 0 },
+        { table: 'sessions', deleted: 0 },
+        { table: 'rate_limit_counters', deleted: 0 },
       ],
     ]);
   });

@@ -8,14 +8,19 @@ import { ONE_SHOT } from '../db/one-shot.js';
 /** How long one-time tokens are kept after use, supersession or expiry (ADR-0020). */
 export const TOKEN_RETENTION_DAYS = 7;
 
+/** How long a session and its refresh tokens are kept after it ends (ADR-0017). */
+export const SESSION_RETENTION_DAYS = 90;
+
 /** Rows deleted per statement, so no single delete holds locks on a large set. */
 export const PURGE_BATCH_SIZE = 1_000;
 
-/**
- * The tables the purge covers so far; slice 1 adds sessions and rate-limit windows, and
- * slice 3 idempotency keys.
- */
-export const PURGE_TABLES = ['audit_entries', 'one_time_tokens'] as const;
+/** The tables the purge covers so far; slice 3 adds idempotency keys. */
+export const PURGE_TABLES = [
+  'audit_entries',
+  'one_time_tokens',
+  'sessions',
+  'rate_limit_counters',
+] as const;
 export type PurgeTable = (typeof PURGE_TABLES)[number];
 
 export interface PurgeContext {
@@ -83,6 +88,38 @@ export const oneTimeTokensTask: PurgeTask = {
           SELECT id FROM one_time_tokens
           WHERE COALESCE(used_at, superseded_at, expires_at)
             < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(days => ${TOKEN_RETENTION_DAYS})
+          LIMIT ${batchSize})`,
+    ),
+};
+
+// Ended means revoked, or past the latest refresh token's expiry: the same COALESCE as
+// sessions_ended_idx (migration 0008), so the index serves the purge. Refresh tokens go
+// with their session (ON DELETE CASCADE).
+export const sessionsTask: PurgeTask = {
+  name: 'sessions',
+  run: ({ db, asOf, batchSize, signal }) =>
+    deleteInBatches(
+      { batchSize, signal },
+      () => db.$executeRaw`
+        DELETE FROM sessions WHERE id IN (
+          SELECT id FROM sessions
+          WHERE COALESCE(revoked_at, expires_at)
+            < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(days => ${SESSION_RETENTION_DAYS})
+          LIMIT ${batchSize})`,
+    ),
+};
+
+// A window has ended once its end is reached; rate_limit_counters_window_end_idx
+// (migration 0010) serves the range. The counters are keyed (bucket, key, window_start).
+export const rateLimitCountersTask: PurgeTask = {
+  name: 'rate_limit_counters',
+  run: ({ db, asOf, batchSize, signal }) =>
+    deleteInBatches(
+      { batchSize, signal },
+      () => db.$executeRaw`
+        DELETE FROM rate_limit_counters WHERE (bucket, key, window_start) IN (
+          SELECT bucket, key, window_start FROM rate_limit_counters
+          WHERE window_end <= COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now())
           LIMIT ${batchSize})`,
     ),
 };

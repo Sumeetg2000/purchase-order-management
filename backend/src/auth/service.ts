@@ -568,6 +568,8 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
           userId: user.userId,
           reason: 'PASSWORD_CHANGED',
           by: 'USER',
+          ip: ctx.ip,
+          userAgent: ctx.userAgent,
         });
       }
     },

@@ -381,14 +381,14 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 
 **Goal**: ended sessions and old rate-limit windows are purged; no secret leaks. **Independent test**: quickstart step 9.
 
-- [ ] T062 [P] [US7] Tests: purge deletes sessions ended > 90 days with their refresh
+- [x] T062 [P] [US7] Tests: purge deletes sessions ended > 90 days with their refresh
   tokens (newer kept); deletes ended rate-limit windows (current kept); runs only as
   `po_maintenance` — `backend/tests/integration/purge.test.ts` — FR-030, NFR-OPS-05.
-- [ ] T063 [P] [US7] Tests: across the suite's captured logs, audit rows and responses,
+- [x] T063 [P] [US7] Tests: across the suite's captured logs, audit rows and responses,
   no token or password hash outside the allowed places; security events emitted for each
   FR-029 case — `backend/tests/integration/security-log.test.ts` — FR-029, SC-007,
   NFR-SEC-06.
-- [ ] T064 [US7] Purge tasks and registry entries — `backend/src/maintenance/purge.ts`,
+- [x] T064 [US7] Purge tasks and registry entries — `backend/src/maintenance/purge.ts`,
   `registry.ts` — T062, T063 green.
 - [ ] T065 [US7] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
