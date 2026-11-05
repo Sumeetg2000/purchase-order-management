@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./frontend/src/api/schema.d.ts)",
+      "Read(./packages/contracts/openapi/openapi.json)",
+      "Read(./package-lock.json)"
+    ]
+  }
+}
