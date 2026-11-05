@@ -160,7 +160,7 @@ modify Admin accounts (`409 ADMIN_NOT_MODIFIABLE`). A deployment can have severa
 | Command | Behaviour |
 |---|---|
 | `admin:create --email --name` | Creates an `ACTIVE` `{ADMIN}` user with no password and prints a one-time set-password link (a `RESET` token), like bootstrap. The email may be outside `SIGNUP_ALLOWED_DOMAINS`. An email that belongs to an existing user → error `EMAIL_IN_USE`; a non-admin is never promoted. |
-| `admin:deactivate --email` | Deactivates an admin and revokes all their sessions. It refuses to deactivate the last `ACTIVE` admin → error `LAST_ADMIN`. A non-admin email → error `NOT_AN_ADMIN`. |
+| `admin:deactivate --email` | Deactivates an admin and revokes all their sessions. It refuses to deactivate the last `ACTIVE` admin → error `LAST_ADMIN`. A non-admin email → error `NOT_AN_ADMIN`. *Amended 2026-11-05 (owner decision):* an email no account has → error `USER_NOT_FOUND`, for this command and `admin:reactivate`. |
 | `admin:reactivate --email` | Reactivates a deactivated admin. A non-admin email → error `NOT_AN_ADMIN`. |
 | `policy:set --tier1 <amount>`, `policy:show` | Approval policy changes and display (ADR-0002) |
 
@@ -292,7 +292,8 @@ Authentication events (logins, lockouts, password changes, session revocations) 
   - `admin:deactivate` deactivates one of two admins and revokes their sessions
   - deactivating the last active admin → `LAST_ADMIN`, and nothing changes
   - two concurrent deactivations of the last two admins leave one active
-  - `admin:reactivate` works; a non-admin email → `NOT_AN_ADMIN`
+  - `admin:reactivate` works; a non-admin email → `NOT_AN_ADMIN`; an email no account has
+    → `USER_NOT_FOUND`
   - each change is audited with `actorType` `OPERATOR`, `osUser` and `host`
   - the audit `CHECK` rejects an `OPERATOR` entry without `osUser` or `host`, and a `USER`
     entry without `actorUserId`

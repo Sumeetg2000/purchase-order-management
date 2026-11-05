@@ -207,14 +207,14 @@ describe('[FR-ADM-05] admin:reactivate', () => {
 
 describe('[FR-ADM-05] admin:deactivate and admin:reactivate refusals', () => {
   it.each(['admin:deactivate', 'admin:reactivate'])(
-    '[FR-ADM-05] %s on a non-admin or unknown email is NOT_AN_ADMIN, exit 2, and nothing changes',
+    '[FR-ADM-05] %s on a non-admin account is NOT_AN_ADMIN, exit 2, and nothing changes',
     async (command) => {
       const h = await accountsHarness();
       await h.seedUser({ roles: '{ADMIN}' });
       const buyer = await h.seedUser({ roles: '{BUYER}' });
       const deactivatedBuyer = await h.seedUser({ roles: '{BUYER}', status: 'DEACTIVATED' });
 
-      for (const email of [buyer.email, deactivatedBuyer.email, 'nobody@example.local']) {
+      for (const email of [buyer.email, deactivatedBuyer.email]) {
         const result = await cli(h, [command, '--email', email]);
         expect(result.code, email).toBe(2);
         expect(result.stdout).toBe('');
@@ -222,6 +222,24 @@ describe('[FR-ADM-05] admin:deactivate and admin:reactivate refusals', () => {
         // The message doesn't echo the email: error output isn't redacted.
         expect(result.stderr).not.toContain(email);
       }
+      expect(await h.query('SELECT version FROM users WHERE version <> 1')).toEqual([]);
+      expect(await audits(h)).toEqual([]);
+    },
+  );
+
+  it.each(['admin:deactivate', 'admin:reactivate'])(
+    '[FR-ADM-05] %s on an email no account has is USER_NOT_FOUND, exit 2, and nothing changes',
+    async (command) => {
+      const h = await accountsHarness();
+      await h.seedUser({ roles: '{ADMIN}' });
+      await h.seedUser({ roles: '{ADMIN}' });
+
+      const result = await cli(h, [command, '--email', 'Nobody@Example.local']);
+      expect(result).toEqual({
+        code: 2,
+        stdout: '',
+        stderr: 'ERROR USER_NOT_FOUND: no account has that email; nothing was changed\n',
+      });
       expect(await h.query('SELECT version FROM users WHERE version <> 1')).toEqual([]);
       expect(await audits(h)).toEqual([]);
     },

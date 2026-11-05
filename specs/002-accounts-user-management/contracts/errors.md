@@ -65,4 +65,4 @@ change-password's, on `body.newPassword`: checked after the current password is
 verified, by comparing the two inputs, and nothing is written.
 
 Operator CLI codes added to `backend/src/lib/operator-codes.ts`: `LAST_ADMIN`,
-`NOT_AN_ADMIN`.
+`NOT_AN_ADMIN`, `USER_NOT_FOUND`.
