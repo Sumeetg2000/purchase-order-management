@@ -126,6 +126,18 @@ describe('[NFR-SEC-07] per-account lockout', () => {
     expect(h.logs.some((line) => line['event'] === 'account_locked')).toBe(true);
   });
 
+  it('[NFR-SEC-06] wrong passwords racing past the threshold log one account_locked, for the one lock', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser();
+    // Under the per-account rate limit, all checking the password at once.
+    const attempts = LOCKOUT_THRESHOLD + 4;
+    const results = await Promise.all(
+      Array.from({ length: attempts }, () => h.login(user.email, WRONG)),
+    );
+    expect(results.filter((res) => res.status === 423).length).toBeGreaterThan(1);
+    expect(h.logs.filter((line) => line['event'] === 'account_locked')).toHaveLength(1);
+  });
+
   it('[NFR-SEC-07] while locked, even the right password gets 423; after 15 minutes it works', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser();
