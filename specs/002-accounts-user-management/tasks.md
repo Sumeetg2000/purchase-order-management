@@ -404,7 +404,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   all new screens — `scripts/check-bundle-budget.mjs`, `frontend/e2e/` — SC-009.
 - [X] T068 Traceability: every row this slice touches names its passing tests and moves
   to `Done` — `docs/traceability.md`.
-- [ ] T069 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
+- [X] T069 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
   the results; `.env.example` and `README` notes — `specs/002-accounts-user-management/quickstart.md`.
 - [ ] T070 Whole-PR `/code-review` and `/security-review`, `/speckit-analyze` re-run,
   CI green, PR #13 ready for owner review and merge.
