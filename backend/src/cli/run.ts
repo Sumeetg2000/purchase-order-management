@@ -139,7 +139,8 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
 
 // Messages never name the email: the operator typed it, and error output isn't redacted.
 const REFUSAL_MESSAGES: Record<AdminStatusRefusedError['code'], string> = {
-  NOT_AN_ADMIN: 'that email is not an administrator; nothing was changed',
+  USER_NOT_FOUND: 'no account has that email; nothing was changed',
+  NOT_AN_ADMIN: 'that account is not an administrator; nothing was changed',
   LAST_ADMIN:
     'that is the last active administrator, who is never deactivated; nothing was changed',
 };

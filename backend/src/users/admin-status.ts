@@ -1,10 +1,15 @@
-import { ROLE, USER_STATUS, type UserStatus } from '@po/contracts';
+import { USER_STATUS, type UserStatus } from '@po/contracts';
 import { revokeUserSessions } from '../auth/repository.js';
 import { writeAudit } from '../audit/write.js';
 import { lockAdmins } from '../db/locks.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import type { CliErrorCode } from '../lib/operator-codes.js';
-import { countActiveAdmins, lockManagedUserByEmail, updateManagedUser } from './repository.js';
+import {
+  countActiveAdmins,
+  isAdmin,
+  lockManagedUserByEmail,
+  updateManagedUser,
+} from './repository.js';
 
 // Deactivating and reactivating an administrator, for admin:deactivate and
 // admin:reactivate (ADR-0016, contracts/cli.md), inside the caller's OPERATOR transaction.
@@ -14,7 +19,9 @@ import { countActiveAdmins, lockManagedUserByEmail, updateManagedUser } from './
 export class AdminStatusRefusedError extends Error {
   override readonly name = 'AdminStatusRefusedError';
 
-  constructor(readonly code: Extract<CliErrorCode, 'LAST_ADMIN' | 'NOT_AN_ADMIN'>) {
+  constructor(
+    readonly code: Extract<CliErrorCode, 'LAST_ADMIN' | 'NOT_AN_ADMIN' | 'USER_NOT_FOUND'>,
+  ) {
     super(`admin status change refused: ${code}`);
   }
 }
@@ -24,8 +31,8 @@ export type AdminStatusChange =
 
 /**
  * Sets an admin's status to ACTIVE or DEACTIVATED under ADMIN_LOCK. Deactivating ends
- * every session of theirs and refuses to leave no ACTIVE admin (LAST_ADMIN); a user who
- * isn't an admin, or no user, is NOT_AN_ADMIN. Already in that status: nothing changes.
+ * every session of theirs and refuses to leave no ACTIVE admin (LAST_ADMIN). No account with
+ * the email is USER_NOT_FOUND; an account that isn't an admin is NOT_AN_ADMIN. Already in that status: nothing changes.
  */
 export async function setAdminStatus(
   tx: AuditedTransaction,
@@ -34,9 +41,8 @@ export async function setAdminStatus(
   await lockAdmins(tx);
   const email = change.email.toLowerCase();
   const admin = await lockManagedUserByEmail(tx, email);
-  if (!admin?.roles.includes(ROLE.ADMIN)) {
-    throw new AdminStatusRefusedError('NOT_AN_ADMIN');
-  }
+  if (!admin) throw new AdminStatusRefusedError('USER_NOT_FOUND');
+  if (!isAdmin(admin.roles)) throw new AdminStatusRefusedError('NOT_AN_ADMIN');
   if (admin.status === change.status) return { changed: false, email };
 
   const deactivating = change.status === USER_STATUS.DEACTIVATED;

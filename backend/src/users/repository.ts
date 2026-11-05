@@ -332,9 +332,17 @@ export async function lockManagedUserByEmail(
   return user && parsed(user);
 }
 
-/** How many administrators are ACTIVE; callers hold ADMIN_LOCK so the count stays true. */
+/** The administrator test: the role set has ADMIN (users_roles_valid allows only {ADMIN}). */
+export function isAdmin(roles: readonly UserRole[]): boolean {
+  return roles.includes(ROLE.ADMIN);
+}
+
+/**
+ * How many administrators are ACTIVE, by the same test as isAdmin (roles has ADMIN);
+ * callers hold ADMIN_LOCK so the count stays true.
+ */
 export function countActiveAdmins(tx: AuditedTransaction): Promise<number> {
-  return tx.user.count({ where: { roles: { equals: [ROLE.ADMIN] }, status: USER_STATUS.ACTIVE } });
+  return tx.user.count({ where: { roles: { has: ROLE.ADMIN }, status: USER_STATUS.ACTIVE } });
 }
 
 /**

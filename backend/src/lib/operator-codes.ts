@@ -11,6 +11,7 @@ export const CLI_ERROR_CODES = [
   'EMAIL_IN_USE',
   'LAST_ADMIN',
   'NOT_AN_ADMIN',
+  'USER_NOT_FOUND',
   'UNAVAILABLE',
   'INTERNAL_ERROR',
 ] as const;
