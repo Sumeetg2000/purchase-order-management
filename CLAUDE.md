@@ -34,8 +34,9 @@ when the slice is done.
 3. `/speckit-tasks`, then `/speckit-analyze`
 4. `/speckit-implement`: tests first, seen failing against real PostgreSQL, then code
    until green. Never weaken, skip or delete a test to pass.
-5. Review at slice end: `/security-review` plus the owner's review (no per-story
-   `/code-review`; see "Token budget"), then CI green
+5. Review at slice end: `/code-review` and `/security-review` once at slice end (and
+   `/security-review` on auth, sessions, tokens or permissions stories); no per-story
+   reviews. Then the owner's review and CI green
 6. Update `docs/traceability.md`: every row the slice touches has a passing test
 7. Merge
 
@@ -45,9 +46,9 @@ when the slice is done.
 - While working, run only the affected test files. For the full gate and e2e, print only
   a summary and the failures, keeping the exit code:
   `set -o pipefail; npm test 2>&1 | tail -40`.
-- Per story: no `/code-review` or `/security-review` (the owner reviews separately). Run
-  `/security-review` once per slice, before the PR is marked ready, and on any story that
-  touches auth, sessions, tokens or permissions.
+- `/code-review` and `/security-review` once at slice end, before the PR is marked ready
+  (and `/security-review` on auth, sessions, tokens or permissions stories); no per-story
+  reviews.
 - Short commit bodies and short summaries: what changed, test counts, CI status.
 
 ## Commands (Node 24, see `.nvmrc`; `.npmrc` refuses other versions)
