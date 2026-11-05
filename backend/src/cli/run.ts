@@ -3,12 +3,28 @@ import { loadConfig } from '../config/load.js';
 import { createPrismaClient } from '../db/client.js';
 import { classifyDbError, DatabaseUnavailableError } from '../db/errors.js';
 import { ONE_SHOT } from '../db/one-shot.js';
-import { withTransaction } from '../db/transaction.js';
+import { withTransaction, type AuditedTransaction } from '../db/transaction.js';
+import { systemClock } from '../lib/clock.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { createLogger } from '../observability/logger.js';
 import { RESET_TOKEN_LIFETIME_MINUTES } from '../tokens/one-time.js';
+import { AdminStatusRefusedError } from '../users/admin-status.js';
 import { EmailInUseError } from '../users/create-admin.js';
-import { adminCreate, parseAdminCreateArgs, USAGE_LINE } from './commands/admin-create.js';
+import {
+  adminCreate,
+  parseAdminCreateArgs,
+  USAGE_LINE as CREATE_USAGE,
+} from './commands/admin-create.js';
+import {
+  adminDeactivate,
+  parseAdminDeactivateArgs,
+  USAGE_LINE as DEACTIVATE_USAGE,
+} from './commands/admin-deactivate.js';
+import {
+  adminReactivate,
+  parseAdminReactivateArgs,
+  USAGE_LINE as REACTIVATE_USAGE,
+} from './commands/admin-reactivate.js';
 import { CliError, EXIT } from './errors.js';
 
 // The operator CLI (contracts/cli.md, research R13). Server only: no HTTP route reaches
@@ -18,9 +34,14 @@ import { CliError, EXIT } from './errors.js';
 const USAGE = `Usage: npm run admin -- <command> [flags]
 
 Commands:
-  ${USAGE_LINE}
+  ${CREATE_USAGE}
       Create an active administrator with no password and print a one-time
       set-password link (valid ${String(RESET_TOKEN_LIFETIME_MINUTES)} minutes, shown once).
+  ${DEACTIVATE_USAGE}
+      Deactivate an administrator and end their sessions. The last active
+      administrator is never deactivated.
+  ${REACTIVATE_USAGE}
+      Reactivate a deactivated administrator.
 
 Options:
   --help    Show this message
@@ -38,9 +59,26 @@ export interface CliDeps {
   host: string;
 }
 
-function parseCommand(argv: readonly string[]) {
+/** A parsed command: the work it does inside the OPERATOR transaction. */
+type CommandWork = (
+  tx: AuditedTransaction,
+  context: { appOrigin: string; now: Date },
+) => Promise<string[]>;
+
+function parseCommand(argv: readonly string[]): CommandWork {
   const [command, ...rest] = argv;
-  if (command === 'admin:create') return { args: parseAdminCreateArgs(rest) };
+  if (command === 'admin:create') {
+    const args = parseAdminCreateArgs(rest);
+    return (tx, { appOrigin }) => adminCreate(tx, args, appOrigin);
+  }
+  if (command === 'admin:deactivate') {
+    const args = parseAdminDeactivateArgs(rest);
+    return (tx, { now }) => adminDeactivate(tx, args, now);
+  }
+  if (command === 'admin:reactivate') {
+    const args = parseAdminReactivateArgs(rest);
+    return (tx, { now }) => adminReactivate(tx, args, now);
+  }
   // The typed value is not echoed: with arguments out of order it can be an email or name.
   throw new CliError(
     'USAGE',
@@ -59,7 +97,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
     return EXIT.OK;
   }
   try {
-    const { args } = parseCommand(argv);
+    const work = parseCommand(argv);
 
     const configErrors: string[] = [];
     const config = loadConfig(cliConfig.schema, deps.env, {
@@ -85,7 +123,7 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
           maxWaitMs: ONE_SHOT.transactionMaxWaitMs,
           logger: createLogger(config.LOG_LEVEL, { write: deps.stderr }),
         },
-        (tx) => adminCreate(tx, args, config.APP_ORIGIN),
+        (tx) => work(tx, { appOrigin: config.APP_ORIGIN, now: systemClock.now() }),
       );
       deps.stdout(`${lines.join('\n')}\n`);
       return EXIT.OK;
@@ -99,6 +137,13 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<nu
   }
 }
 
+// Messages never name the email: the operator typed it, and error output isn't redacted.
+const REFUSAL_MESSAGES: Record<AdminStatusRefusedError['code'], string> = {
+  NOT_AN_ADMIN: 'that email is not an administrator; nothing was changed',
+  LAST_ADMIN:
+    'that is the last active administrator, who is never deactivated; nothing was changed',
+};
+
 function toCliError(error: unknown): CliError {
   if (error instanceof CliError) return error;
   if (error instanceof EmailInUseError) {
@@ -107,6 +152,9 @@ function toCliError(error: unknown): CliError {
       EXIT.REFUSED,
       'that email already belongs to a user, who is never promoted; nothing was changed',
     );
+  }
+  if (error instanceof AdminStatusRefusedError) {
+    return new CliError(error.code, EXIT.REFUSED, REFUSAL_MESSAGES[error.code]);
   }
   if (error instanceof DatabaseUnavailableError || classifyDbError(error) === 'unavailable') {
     return new CliError(

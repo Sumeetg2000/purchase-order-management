@@ -322,6 +322,21 @@ export async function lockManagedUser(
   return user && parsed(user);
 }
 
+/** Locks the user with this (lower-cased) email for a status change and returns it, or null. */
+export async function lockManagedUserByEmail(
+  tx: AuditedTransaction,
+  email: string,
+): Promise<ManagedUser | null> {
+  await tx.$executeRaw`SELECT 1 FROM users WHERE email = ${email} FOR UPDATE`;
+  const user = await tx.user.findUnique({ where: { email }, select: MANAGED });
+  return user && parsed(user);
+}
+
+/** How many administrators are ACTIVE; callers hold ADMIN_LOCK so the count stays true. */
+export function countActiveAdmins(tx: AuditedTransaction): Promise<number> {
+  return tx.user.count({ where: { roles: { equals: [ROLE.ADMIN] }, status: USER_STATUS.ACTIVE } });
+}
+
 /**
  * An admin's change of role set or activation, under the row lock: one version bump,
  * and deactivated_at kept in step with the status (users_deactivated_at_matches_status):

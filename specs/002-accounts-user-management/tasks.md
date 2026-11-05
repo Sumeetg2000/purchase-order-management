@@ -365,12 +365,12 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 **Goal**: the operator deactivates and reactivates admins from the command line.
 **Independent test**: quickstart step 8.
 
-- [ ] T059 [US6] Tests: `admin:deactivate` / `admin:reactivate` per
+- [x] T059 [US6] Tests: `admin:deactivate` / `admin:reactivate` per
   [contracts/cli.md](contracts/cli.md) — exit codes `EXIT.OK/USAGE/REFUSED/UNAVAILABLE`,
   `LAST_ADMIN`, `NOT_AN_ADMIN`, sessions revoked with `DEACTIVATED`, `OPERATOR` audit,
   two concurrent deactivations of the last two admins under `ADMIN_LOCK` leave one —
   `backend/tests/integration/cli-admin-status.test.ts` — FR-027.
-- [ ] T060 [US6] Both commands and their registration —
+- [x] T060 [US6] Both commands and their registration —
   `backend/src/cli/commands/admin-{deactivate,reactivate}.ts`,
   `backend/src/lib/operator-codes.ts` — T059 green.
 - [ ] T061 [US6] Checkpoint: `/code-review`, fixes, CI green, stop.
