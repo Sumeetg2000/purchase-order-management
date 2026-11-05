@@ -396,13 +396,13 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 
 ## Phase 10: Polish
 
-- [ ] T066 Authorization matrix generated from the route table: 22 operations × 6
+- [X] T066 Authorization matrix generated from the route table: 22 operations × 6
   caller kinds (anonymous, no role, Buyer, Approver, Buyer+Approver, Admin), each cell
   asserted, public list pinned — `backend/tests/integration/authorization-matrix.test.ts`
   — FR-019, SC-005, NFR-AUTH-02.
-- [ ] T067 [P] Bundle budget for every new route chunk (≤ 150 KB gzip) and axe across
+- [X] T067 [P] Bundle budget for every new route chunk (≤ 150 KB gzip) and axe across
   all new screens — `scripts/check-bundle-budget.mjs`, `frontend/e2e/` — SC-009.
-- [ ] T068 Traceability: every row this slice touches names its passing tests and moves
+- [X] T068 Traceability: every row this slice touches names its passing tests and moves
   to `Done` — `docs/traceability.md`.
 - [ ] T069 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
   the results; `.env.example` and `README` notes — `specs/002-accounts-user-management/quickstart.md`.
