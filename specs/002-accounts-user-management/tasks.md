@@ -337,7 +337,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   sees "You've been logged out. Please log in again."; after a password change in
   another browser, "You were logged out because your password was changed." —
   `frontend/e2e/profile-sessions.spec.ts` — FR-036.
-- [ ] T054 [US4] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
+- [X] T054 [US4] Checkpoint: `/code-review` + `/security-review`, fixes, CI green, stop.
 
 ---
 
@@ -373,7 +373,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
 - [x] T060 [US6] Both commands and their registration —
   `backend/src/cli/commands/admin-{deactivate,reactivate}.ts`,
   `backend/src/lib/operator-codes.ts` — T059 green.
-- [ ] T061 [US6] Checkpoint: `/code-review`, fixes, CI green, stop.
+- [X] T061 [US6] Checkpoint: `/code-review`, fixes, CI green, stop.
 
 ---
 
@@ -406,7 +406,7 @@ reset, and handles access requests. **Independent test**: quickstart step 5.
   to `Done` — `docs/traceability.md`.
 - [X] T069 Run [quickstart.md](quickstart.md) on a clean `docker compose up` and record
   the results; `.env.example` and `README` notes — `specs/002-accounts-user-management/quickstart.md`.
-- [ ] T070 Whole-PR `/code-review` and `/security-review`, `/speckit-analyze` re-run,
+- [X] T070 Whole-PR `/code-review` and `/security-review`, `/speckit-analyze` re-run,
   CI green, PR #13 ready for owner review and merge.
 
 ---
