@@ -45,7 +45,7 @@ const EXPECTED: BodyInventory = {
   logoutAll: 'no body',
   resetPassword: { token: 'required', newPassword: 'required' },
   signup: { name: 'required', email: 'required', password: 'required' },
-  verifyEmail: { token: 'required' },
+  verifyEmail: { token: 'required', password: 'required' },
   resendVerification: { email: 'required' },
   sendAccessRequest: { message: 'required' },
   updateUser: { roles: 'optional', isActive: 'optional' },

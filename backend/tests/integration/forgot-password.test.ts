@@ -99,7 +99,38 @@ describe('[FR-ACC-05] forgot-password', () => {
     const user = await h.seedUser({ status: 'UNVERIFIED' });
     const verification = await h.issue(user.id, 'VERIFY_EMAIL');
     await forgot(h, user.email);
-    expect((await h.post('/auth/verify-email', { token: verification })).status).toBe(204);
+    expect(
+      (await h.post('/auth/verify-email', { token: verification, password: PASSWORD })).status,
+    ).toBe(204);
+  });
+
+  it("[FR-ACC-02] a squatted signup is claimed by its owner through forgot-password: the reset activates it with the owner's password", async () => {
+    const h = await accountsHarness();
+    const email = 'ravi@example.local';
+    const squatterPassword = 'the squatter passphrase';
+    await h.post('/auth/signup', { name: 'Not Ravi', email, password: squatterPassword });
+    const verifyMail = (await h.sentMail()).find((m) => m.to === email);
+    const verification = /\/verify-email#token=([A-Za-z0-9_-]+)/.exec(verifyMail?.text ?? '')?.[1];
+    expect(verification).toBeDefined();
+    expect(
+      (await h.post('/auth/signup', { name: 'Ravi Kumar', email, password: NEW_PASSWORD })).body,
+    ).toMatchObject({ code: 'EMAIL_IN_USE' });
+
+    await forgot(h, email);
+    expect((await reset(h, await resetTokenFor(h, email))).status).toBe(204);
+    expect(await h.query('SELECT status FROM users')).toEqual([{ status: 'ACTIVE' }]);
+    expect((await h.login(email, NEW_PASSWORD)).status).toBe(200);
+    expect((await h.login(email, squatterPassword)).body).toMatchObject({
+      code: 'INCORRECT_PASSWORD',
+    });
+    // The squatter's own verification link no longer opens the account with their password.
+    expect(
+      (await h.post('/auth/verify-email', { token: verification, password: squatterPassword }))
+        .body,
+    ).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: [{ path: 'body.password', code: 'INCORRECT_PASSWORD' }],
+    });
   });
 
   it('[NFR-SEC-06] logs the request as a security event, without the address', async () => {

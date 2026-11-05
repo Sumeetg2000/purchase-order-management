@@ -83,7 +83,9 @@ describe('[NFR-SEC-06] security events for each account event', () => {
     expect(eventLine(h, 'signup')).toMatchObject({ userId: user?.id });
 
     const token = await tokenFrom(h, email, 'verify-email');
-    expect((await h.post('/auth/verify-email', { token })).status).toBe(204);
+    expect((await h.post('/auth/verify-email', { token, password: NEW_PASSWORD })).status).toBe(
+      204,
+    );
     expect(eventLine(h, 'email_verified')).toMatchObject({ userId: user?.id });
     expect(JSON.stringify(h.logs)).not.toContain(token);
     expect(JSON.stringify(h.logs)).not.toContain(NEW_PASSWORD);

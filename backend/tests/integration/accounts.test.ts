@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LOCKOUT_THRESHOLD } from '../../src/auth/constants.js';
 import { hashToken } from '../../src/tokens/one-time.js';
 import { accountsHarness, type AccountsHarness } from '../support/accounts.js';
 
@@ -23,7 +24,12 @@ async function linkTokenFor(h: AccountsHarness, email: string): Promise<string> 
   return token;
 }
 
-const verify = (h: AccountsHarness, token: string) => h.post('/auth/verify-email', { token });
+const verify = (h: AccountsHarness, token: string, password = NEW_PASSWORD) =>
+  h.post('/auth/verify-email', { token, password });
+
+const WRONG_PASSWORD = 'not the signup passphrase';
+
+const wrongPasswordDetails = [{ path: 'body.password', code: 'INCORRECT_PASSWORD' }];
 
 describe('[FR-ACC-01] signup', () => {
   it('[FR-ACC-01] creates an unverified account with no role and sends a verification link', async () => {
@@ -41,6 +47,16 @@ describe('[FR-ACC-01] signup', () => {
     const [mail] = await h.sentMail();
     expect(mail).toMatchObject({ template: 'verify_email', to: 'ravi@example.local' });
     expect(mail?.text).toMatch(/^http:\/\/localhost:8080\/verify-email#token=[A-Za-z0-9_-]{43}$/m);
+  });
+
+  it("[FR-ACC-02] the verification email tells someone who didn't sign up how to claim the address", async () => {
+    const h = await accountsHarness();
+    await signup(h, 'ravi@example.local');
+    const [mail] = await h.sentMail();
+    const advice =
+      "If you didn't sign up, ignore this email. To use this address yourself, reset your password from the login page.";
+    expect(mail?.text).toContain(advice);
+    expect(mail?.html).toContain(advice);
   });
 
   it('[FR-ACC-01] audits the signup as the user themself, with the email domain and no role', async () => {
@@ -205,6 +221,97 @@ describe('[FR-ACC-02] email verification', () => {
     expect((await verify(h, await h.issue(user.id, 'RESET'))).body).toMatchObject({
       code: 'INVALID_TOKEN',
     });
+  });
+});
+
+describe('[FR-ACC-02] verification asks for the password chosen at signup', () => {
+  it('[FR-ACC-02] a wrong password activates nothing: 400 INCORRECT_PASSWORD on body.password, and the link stays unused', async () => {
+    const h = await accountsHarness();
+    await signup(h, 'ravi@example.local');
+    const res = await verify(h, await linkTokenFor(h, 'ravi@example.local'), WRONG_PASSWORD);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED', details: wrongPasswordDetails });
+    expect(await h.query('SELECT status, failed_login_count FROM users')).toEqual([
+      { status: 'UNVERIFIED', failed_login_count: 1 },
+    ]);
+    expect(await h.query('SELECT used_at FROM one_time_tokens')).toEqual([{ used_at: null }]);
+    expect(
+      await h.query(
+        `SELECT count(*)::int AS n FROM audit_entries WHERE action = 'USER_EMAIL_VERIFIED'`,
+      ),
+    ).toEqual([{ n: 0 }]);
+    expect(h.logs.filter((line) => line['event'] === 'email_verification_failed')).toEqual([
+      expect.objectContaining({ reason: 'wrong_password' }),
+    ]);
+    expect(h.logs.some((line) => line['event'] === 'email_verified')).toBe(false);
+  });
+
+  it('[FR-ACC-02] after a wrong password, the right one activates the account with the same link', async () => {
+    const h = await accountsHarness();
+    await signup(h, 'ravi@example.local');
+    const token = await linkTokenFor(h, 'ravi@example.local');
+    expect((await verify(h, token, WRONG_PASSWORD)).status).toBe(400);
+    expect((await verify(h, token)).status).toBe(204);
+    expect(await h.query('SELECT status FROM users')).toEqual([{ status: 'ACTIVE' }]);
+    expect((await h.login('ravi@example.local', NEW_PASSWORD)).status).toBe(200);
+  });
+
+  it('[NFR-SEC-07] wrong passwords count toward the lockout like login; once locked, the right one is 423 too', async () => {
+    const h = await accountsHarness();
+    await signup(h, 'ravi@example.local');
+    const token = await linkTokenFor(h, 'ravi@example.local');
+    for (let attempt = 1; attempt < LOCKOUT_THRESHOLD; attempt++) {
+      expect((await verify(h, token, WRONG_PASSWORD)).status).toBe(400);
+    }
+    const locking = await verify(h, token, WRONG_PASSWORD);
+    expect(locking.status).toBe(423);
+    expect(locking.body).toMatchObject({ code: 'ACCOUNT_LOCKED' });
+    expect(locking.get('Retry-After')).toMatch(/^\d+$/);
+    expect(h.logs.some((line) => line['event'] === 'account_locked')).toBe(true);
+
+    const right = await verify(h, token);
+    expect(right.status).toBe(423);
+    expect(right.body).toMatchObject({ code: 'ACCOUNT_LOCKED' });
+    expect(await h.query('SELECT status FROM users')).toEqual([{ status: 'UNVERIFIED' }]);
+    expect(await h.query('SELECT used_at FROM one_time_tokens')).toEqual([{ used_at: null }]);
+  });
+
+  it('[FR-ACC-02] checks the link first, then deactivation, then the lockout, then the password', async () => {
+    const h = await accountsHarness();
+    const user = await h.seedUser({ status: 'UNVERIFIED' });
+    const token = await h.issue(user.id, 'VERIFY_EMAIL');
+    await h.query('SET session_replication_role = replica');
+    await h.query(
+      `UPDATE users SET status = 'DEACTIVATED', deactivated_at = now(),
+                        locked_until = now() + interval '10 minutes' WHERE id = $1`,
+      [user.id],
+    );
+    expect((await verify(h, 'not-a-real-token', WRONG_PASSWORD)).body).toMatchObject({
+      code: 'INVALID_TOKEN',
+    });
+    expect((await verify(h, token, WRONG_PASSWORD)).body).toMatchObject({
+      code: 'ACCOUNT_DEACTIVATED',
+    });
+    await h.query(`UPDATE users SET status = 'UNVERIFIED', deactivated_at = NULL WHERE id = $1`, [
+      user.id,
+    ]);
+    expect((await verify(h, token, WRONG_PASSWORD)).body).toMatchObject({
+      code: 'ACCOUNT_LOCKED',
+    });
+    await h.query('UPDATE users SET locked_until = NULL WHERE id = $1', [user.id]);
+    expect((await verify(h, token, WRONG_PASSWORD)).body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: wrongPasswordDetails,
+    });
+    expect((await verify(h, token, user.password)).status).toBe(204);
+  });
+
+  it('[FR-ACC-02] a password is required: a body without one is 400 and activates nothing', async () => {
+    const h = await accountsHarness();
+    await signup(h, 'ravi@example.local');
+    const token = await linkTokenFor(h, 'ravi@example.local');
+    expect((await h.post('/auth/verify-email', { token })).status).toBe(400);
+    expect(await h.query('SELECT status FROM users')).toEqual([{ status: 'UNVERIFIED' }]);
   });
 });
 

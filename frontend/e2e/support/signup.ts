@@ -3,8 +3,8 @@ import { expect, type Browser, type Locator, type Page } from '@playwright/test'
 import { E2E_PASSWORD, loggedInAdmin } from './accounts';
 import { linkEmailedTo } from './mailpit';
 
-// Self-signup users for end-to-end tests: each signs up, verifies from Mailpit and logs in
-// to Access pending.
+// Self-signup users for end-to-end tests: each signs up, verifies from Mailpit with the
+// signup password and logs in to Access pending.
 
 export interface SignedUpUser {
   name: string;
@@ -20,6 +20,9 @@ export async function signUpAndVerify(page: Page, name: string): Promise<SignedU
   await page.getByRole('button', { name: 'Sign up' }).click();
   await expect(page.getByRole('status')).toContainText(`We sent a verification link to ${email}`);
   await page.goto(await linkEmailedTo(email, '/verify-email'));
+  await expect(page.getByText('Enter the password you chose to confirm your email')).toBeVisible();
+  await page.getByLabel('Password').fill(E2E_PASSWORD);
+  await page.getByRole('button', { name: 'Confirm email' }).click();
   await expect(page.getByText('Your email is confirmed.')).toBeVisible();
   return { name, email };
 }

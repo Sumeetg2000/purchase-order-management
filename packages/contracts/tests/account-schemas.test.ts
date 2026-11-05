@@ -23,6 +23,7 @@ import {
   ROLE_SETS,
   signupBody,
   tokenBody,
+  verifyEmailBody,
   updateMeBody,
   updateUserBody,
   USER_NAME_MAX_LENGTH,
@@ -130,6 +131,7 @@ describe('[NFR-VAL-01] slice 1 bodies are strict', () => {
     ['signup with roles', signupBody, { name: 'A', email, password, roles: ['ADMIN'] }],
     ['signup with status', signupBody, { name: 'A', email, password, status: 'ACTIVE' }],
     ['token', tokenBody, { token: 't', email }],
+    ['verify email', verifyEmailBody, { token: 't', password, email }],
     ['email', emailBody, { email, name: 'A' }],
     ['profile with a phone', updateMeBody, { name: 'A', phone: '+919876543210' }],
     ['profile with an email', updateMeBody, { name: 'A', email }],
@@ -202,5 +204,17 @@ describe('[FR-ADM-01] list queries', () => {
   it('[FR-ADM-06] the access-request list filters by status', () => {
     expect(accessRequestListQuery.parse({ status: 'OPEN' })).toMatchObject({ status: 'OPEN' });
     expect(accessRequestListQuery.safeParse({ status: 'CLOSED' }).success).toBe(false);
+  });
+});
+
+describe('[FR-ACC-02] verify-email body', () => {
+  it('[FR-ACC-02] takes the link token and the password chosen at signup, both required', () => {
+    expect(verifyEmailBody.parse({ token: 't', password })).toEqual({ token: 't', password });
+    expect(verifyEmailBody.safeParse({ token: 't' }).success).toBe(false);
+    expect(verifyEmailBody.safeParse({ token: 't', password: '' }).success).toBe(false);
+    expect(
+      verifyEmailBody.safeParse({ token: 't', password: 'a'.repeat(PASSWORD_MAX_LENGTH + 1) })
+        .success,
+    ).toBe(false);
   });
 });

@@ -63,6 +63,8 @@ export const signupBody = z.strictObject({
   password: passwordSchema,
 });
 export const tokenBody = z.strictObject({ token: oneTimeToken });
+/** A verification link, with the password chosen at signup (ADR-0017 "Squatting"). */
+export const verifyEmailBody = z.strictObject({ token: oneTimeToken, password: presentedPassword });
 export const emailBody = z.strictObject({ email: emailAddressSchema });
 export const resetPasswordBody = z.strictObject({
   token: oneTimeToken,
@@ -78,4 +80,5 @@ export type ResetPasswordBody = z.infer<typeof resetPasswordBody>;
 export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
 export type SignupBody = z.infer<typeof signupBody>;
 export type TokenBody = z.infer<typeof tokenBody>;
+export type VerifyEmailBody = z.infer<typeof verifyEmailBody>;
 export type EmailBody = z.infer<typeof emailBody>;

@@ -17,6 +17,7 @@ describe('[NFR-SEC-06] security log', () => {
       'mail_send_abandoned',
       'signup',
       'email_verified',
+      'email_verification_failed',
       'login_succeeded',
       'login_failed',
       'account_locked',
