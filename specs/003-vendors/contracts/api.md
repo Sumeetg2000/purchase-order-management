@@ -15,6 +15,7 @@ export const ADVANCE_PERCENT_MIN = 1;
 export const ADVANCE_PERCENT_MAX = 99;
 export const PAYMENT_TERM_TYPES = ['NET', 'ADVANCE', 'PARTIAL_ADVANCE'] as const;
 export const VENDOR_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
+/** Filter values for the list; ALL is a filter only, never a vendor status. */
 export const VENDOR_STATUS_FILTERS = ['ACTIVE', 'INACTIVE', 'ALL'] as const;
 export const VENDOR_STATUS_FILTER_DEFAULT = 'ACTIVE';
 /** Same rule as the generated name_key column; a test pins the two together. */

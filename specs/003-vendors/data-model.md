@@ -27,7 +27,7 @@ Terms check `vendors_payment_terms_valid`:
 - `PARTIAL_ADVANCE`: `advance_percent BETWEEN 1 AND 99 AND net_days BETWEEN 0 AND 180`
 
 Indexes:
-- `vendors_name_key_key` (unique, from the constraint): `status = ALL` sort and prefix.
+- `vendors_name_key_key` (unique, from the constraint): the `ALL` filter's sort and prefix.
 - `vendors_status_name_key_idx (status, name_key, id)`: the default `ACTIVE` list, the
   `INACTIVE` filter, prefix within a status, and their counts.
 

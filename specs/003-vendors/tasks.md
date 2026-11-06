@@ -33,9 +33,9 @@ short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add the `plans:vendors` script entry (runs `backend/scripts/plans-vendors.ts`,
-  written in T046) and create `docs/query-plans/vendors/.gitkeep` — `backend/package.json`,
-  `docs/query-plans/vendors/` — R11.
+- [ ] T001 Add a separate Vitest project for plan tests (`backend/tests/plans/**`,
+  excluded from the default `npm test`) and the `test:plans` script —
+  `backend/vitest.config.ts`, `backend/package.json`, root `package.json` — R11.
 
 ---
 
@@ -78,11 +78,13 @@ short summary stop.
 - [ ] T006 Constants and `normaliseVendorName` (`VENDOR_NAME_MAX = 200`, `CONTACT_NAME_MAX
   = 200`, `CONTACT_PHONE_MAX = 30`, `CONTACT_PHONE_PATTERN`, `NET_DAYS_MAX = 180`,
   `ADVANCE_PERCENT_MIN = 1`, `ADVANCE_PERCENT_MAX = 99`, `PAYMENT_TERM_TYPES`,
-  `VENDOR_STATUSES`, `VENDOR_STATUS_FILTERS`, default `ACTIVE`) and the schemas of
+  `VENDOR_STATUSES = ['ACTIVE', 'INACTIVE']`, `VENDOR_STATUS_FILTERS = ['ACTIVE',
+  'INACTIVE', 'ALL']` (`ALL` a filter value only), default `ACTIVE`) and the schemas of
   [contracts/api.md](contracts/api.md) — `packages/contracts/src/vendors.ts`,
   `packages/contracts/src/schemas/vendors.ts`, `index.ts` — T004 green.
 - [ ] T007 Registry: `DUPLICATE_VENDOR_NAME` (409, `clash: 'existingVendor'`),
-  `INVALID_STATE_TRANSITION` (409), `VENDOR_INACTIVE` (409), field code `VENDOR_NOT_FOUND`;
+  `INVALID_STATE_TRANSITION` (409), `VENDOR_INACTIVE` (409, registry comment: "first
+  route: order create, slice 3"), field code `VENDOR_NOT_FOUND`;
   `problemSchema.existingVendor`; `AppError` `existingVendor` option; `ACCESS_LEVELS`
   `'role'` + `roles`; the seven operations of the contract — `packages/contracts/src/
   errors.ts`, `schemas/problem.ts`, `app-error.ts`, `operations.ts`, `openapi.ts` — T005
@@ -129,7 +131,8 @@ under the default active filter.
 - [ ] T014 [P] [US1] Concurrent creates of one normalised name behind a barrier: exactly
   one 201, the other 409 naming the winner, never 500 — `backend/tests/integration/
   vendors-concurrency.test.ts` — R3, SC-002 (FR-VEN-01).
-- [ ] T015 [P] [US1] List and read: default `ACTIVE`; `INACTIVE`, `ALL`; `q` prefix
+- [ ] T015 [P] [US1] List and read: default `ACTIVE`; `INACTIVE`, `ALL`; lowercase
+  `active` → 400; `q` prefix
   case- and space-insensitive with `%`/`_` taken literally; sort `name_key, id`;
   pagination envelope and a page past the end; `GET /vendors/:id` 200 with `ETag`, unknown
   id 404, non-UUID 400 — `backend/tests/integration/vendors-list.test.ts` — FR-009.
@@ -271,21 +274,34 @@ role and anonymous.
   phone) as `SYSTEM`, refused in production; test extended —
   `backend/src/migrate/seed-demo.ts`, `backend/tests/integration/seed-demo.test.ts` —
   FR-018.
-- [ ] T045 [P] Plan test, seen failing: fixed-seed 2,000 vendors (10 % inactive), 10,000
-  vendor audit entries among 200,000 others, `VACUUM ANALYZE`; list page per status with
-  and without `q`, history page: no `Seq Scan` on `vendors`/`audit_entries`, no `Sort` over
-  more than page + offset rows; counts captured — `backend/tests/plans/
-  vendors.plan.test.ts` — R11, SC-006.
-- [ ] T046 Plan writer and committed plans — `backend/scripts/plans-vendors.ts`,
+- [ ] T045 [P] Plan test, seen failing, at the ADR-0012 sizes: 2,000 vendors (10 %
+  inactive) and about 2M audit entries (10,000 vendor entries), each table seeded by one
+  `INSERT … SELECT … FROM generate_series(…)` statement with values derived from the series
+  number (no ORM loops); `VACUUM ANALYZE`; list page per status filter with and without
+  `q`, history page: no `Seq Scan` on `vendors`/`audit_entries`, no `Sort` over more than
+  page + offset rows; counts captured. Record the seed and run time —
+  `backend/tests/plans/vendors.plan.test.ts` — R11, SC-006.
+- [ ] T046 Plan writer, the `plans:vendors` script entry, and committed plans —
+  `backend/scripts/plans-vendors.ts`, `backend/package.json`,
   `docs/query-plans/vendors/*.txt` — T045 green.
-- [ ] T047 [P] E2E: two Buyers share a vendor; duplicate link; version conflict and
-  reload; deactivate via dialog and reactivate; Approver read-only; axe on each screen —
-  `frontend/e2e/vendors.spec.ts` — FR-017, SC-007. Run `npm run e2e:local`.
-- [ ] T048 Traceability: FR-VEN-01 → Tested; FR-ACT-01 and NFR-AUD-03 note the vendor
-  cells passing (rows stay partial until the order slices); FR-VEN-02/03 stay Todo —
-  `docs/traceability.md`.
-- [ ] T049 Quickstart run and results — `specs/003-vendors/quickstart-results.md`.
-- [ ] T050 Slice-end review: `/code-review`, `/security-review`, constitution pass; fix
+- [ ] T047 CI: run `npm run test:plans` in the nightly workflow and in a CI job limited to
+  pull requests changing `backend/src/vendors/**`, `backend/src/audit/**`,
+  `backend/prisma/migrations/**` or `backend/tests/plans/**`; record the measured CI time
+  in R11 (move it into the default run if under about 1 minute) —
+  `.github/workflows/nightly.yml`, `.github/workflows/ci.yml`,
+  `specs/003-vendors/research.md` — R11.
+- [ ] T048 [P] E2E: two Buyers share a vendor; duplicate link; version conflict and
+  reload; deactivate via dialog and reactivate (no dialog); Approver read-only; axe on each
+  screen. Add the deactivate dialog to the Playwright dialog checks (content and
+  consequence, safe button focused, Escape closes, disabled while pending so a double
+  click sends one request) — `frontend/e2e/vendors.spec.ts` — FR-017, SC-007, NFR-FE-09.
+  Run `npm run e2e:local`.
+- [ ] T049 Traceability: FR-VEN-01 → Tested; FR-ACT-01 and NFR-AUD-03 note the vendor
+  cells passing (rows stay partial until the order slices); NFR-FE-09 lists the
+  deactivate-vendor dialog among its Playwright dialogs and stays Tested; FR-VEN-02/03 stay
+  Todo — `docs/traceability.md`.
+- [ ] T050 Quickstart run and results — `specs/003-vendors/quickstart-results.md`.
+- [ ] T051 Slice-end review: `/code-review`, `/security-review`, constitution pass; fix
   findings; full gate `set -o pipefail; npm test 2>&1 | tail -40`, lint, typecheck green.
 
 ---
@@ -297,14 +313,14 @@ role and anonymous.
   T009 → T010.
 - US2–US5 build on US1's repository, service and routes; US4 needs every route; US5 needs
   the audit events written by US1–US3.
-- T046 after T045; T048–T050 last.
+- T046 after T045; T047 after T046; T049–T051 last.
 
 ## Parallel examples
 
 - Foundational: T004, T005 together; then T008, T011, T012 together.
 - US1: T013, T014, T015, T016 together; then T017 and T018.
 - US3: T029, T030, T031 together.
-- Polish: T044, T045, T047 together.
+- Polish: T044, T045, T048 together.
 
 ## Implementation strategy
 

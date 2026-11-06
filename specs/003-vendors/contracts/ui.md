@@ -5,7 +5,7 @@ WCAG 2.1 AA, no double submit, strict CSP. Nav item "Vendors" for every role hol
 
 | Route | Who | Content |
 |---|---|---|
-| `/vendors` | all roles | Table: name, contact, payment terms (e.g. "Net 30", "Advance", "30 % advance, balance net 45"), status. Filters in URL: status (Active default / Inactive / All), name prefix search (debounced). Pagination. "Add vendor" button for Buyers. Empty state names the active filter. |
+| `/vendors` | all roles | Table: name, contact, payment terms (e.g. "Net 30", "Advance", "30 % advance, balance net 45"), status. Filters in URL: `status` (`ACTIVE` default / `INACTIVE` / `ALL`), name prefix search (debounced). Pagination. "Add vendor" button for Buyers. Empty state names the active filter. |
 | `/vendors/new` | Buyer | `VendorForm`. Payment terms: type radio group; fields shown for the chosen type only. Save → detail page. No confirmation. |
 | `/vendors/:id` | all roles | Details, status badge. Buyers: Edit, Deactivate (dialog) or Reactivate (no dialog). Tabs: Details, History (Buyers and Admins). |
 | `/vendors/:id/edit` | Buyer | `VendorForm` prefilled; sends `If-Match`. Clearing the phone field sends `null`. |

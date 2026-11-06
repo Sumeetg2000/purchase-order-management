@@ -50,8 +50,9 @@ FR-VEN-02; §6 → NFR-AUD-03 (vendor history), NFR-VAL-01 (vendor inputs).
   after? → A: Yes. Vendor contact details are business data, kept in full in vendor
   audit entries; the exception is recorded in an ADR-0016 update (2026-11-06). Principle
   IV still applies to users' personal data.
-- Q: Which vendors does the list show by default? → A: Active only (`status=active`);
-  inactive and all are filter choices (owner override).
+- Q: Which vendors does the list show by default? → A: Active only (`status=ACTIVE`);
+  `INACTIVE` and `ALL` are filter choices (owner override; uppercase like slice 1's
+  filters).
 - Q: What does a duplicate-name refusal tell the caller? → A: `409
   DUPLICATE_VENDOR_NAME` includes the existing vendor's id and name, so the UI can link to
   it; this also covers a retried create (owner override).
@@ -92,8 +93,8 @@ Buyer B and find it in the list by name, filtered to active vendors.
    version, timestamps) or malformed JSON, **When** it is sent, **Then** it is refused
    with `400` before any business rule runs.
 5. **Given** many vendors, **When** any reader lists them, **Then** results are paginated,
-   sorted by name then id, showing active vendors by default, with inactive and all as
-   filter choices, and a case-insensitive name prefix filter.
+   sorted by name then id, showing active vendors by default (`status=ACTIVE`), with `INACTIVE`
+   and `ALL` as filter choices, and a case-insensitive name prefix filter.
 
 ---
 
@@ -140,7 +141,7 @@ order-side active check reports it inactive, and reactivation restores it.
 
 1. **Given** an active vendor, **When** a Buyer deactivates it with the current version,
    **Then** it becomes inactive, the version increments, it leaves the default (active)
-   list, and it still appears under the inactive and all filters and by direct lookup.
+   list, and it still appears under the `INACTIVE` and `ALL` filters and by direct lookup.
 2. **Given** an inactive vendor, **When** a Buyer reactivates it, **Then** it becomes
    active again with no confirmation dialog.
 3. **Given** the web app, **When** a Buyer deactivates a vendor, **Then** a confirmation
@@ -258,7 +259,8 @@ four entries, newest first, each with actor, time and before → after.
   any business logic: unknown, system-assigned or type-irrelevant fields are refused with
   `400`. The new mutating endpoints MUST be added to the reviewed body-schema inventory.
 - **FR-009**: Vendors MUST be listable by any role holder: paginated per ADR-0007, sorted
-  by name then id, filterable by status (active/inactive/all, default active) and by a
+  by name then id, filterable by status (`ACTIVE`, `INACTIVE` or `ALL`, default `ACTIVE`;
+  `ALL` is a filter value only) and by a
   case-insensitive name prefix, each filter backed by an index with a committed query
   plan, page and count.
 - **FR-010** (FR-ACT-01): Access MUST follow ADR-0004's vendor rows: Buyer read and
@@ -296,7 +298,7 @@ four entries, newest first, each with actor, time and before → after.
 ### Key Entities
 
 - **Vendor**: a company the organisation buys from. Name (unique after normalisation),
-  one contact person (name, email, optional phone), payment terms, active/inactive status, version, created/updated
+  one contact person (name, email, optional phone), payment terms, `ACTIVE`/`INACTIVE` status, version, created/updated
   timestamps. Never deleted. Referenced by orders from slice 3.
 - **Payment terms**: a structured value of one of three types (NET, ADVANCE,
   PARTIAL_ADVANCE) with the type's fields; part of the vendor and of the order's vendor
@@ -320,8 +322,10 @@ four entries, newest first, each with actor, time and before → after.
   anonymous) is covered by a passing test.
 - **SC-005**: Every successful vendor change has exactly one history entry, and every
   refused one has none, across the whole test suite.
-- **SC-006**: Vendor list pages return within the project's list targets (ADR-0012) at
-  the production dataset size of 2,000 vendors, shown by the committed query plans.
+- **SC-006**: At the ADR-0012 dataset sizes (2,000 vendors, about 2M audit entries), the
+  committed plans for every vendor list and history page read through an index, with no
+  sequential scan of the vendor or audit table and no sort of more rows than the page
+  needs; each page and count plan is committed.
 - **SC-007**: The vendors screen and its dialog have zero automated accessibility
   violations.
 

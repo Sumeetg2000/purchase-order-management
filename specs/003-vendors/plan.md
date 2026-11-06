@@ -40,7 +40,8 @@ test with a fixed-seed dataset, Testing Library + vitest-axe + MSW, Playwright +
 **Project Type**: web application (API + SPA), npm workspaces.
 
 **Performance Goals**: list and history pages served by index scans at 2,000 vendors and
-200,000 audit entries, plans committed (R11); route chunk ≤ 150 KB gzip.
+about 2M audit entries (ADR-0012, amended 2026-11-06), plans committed (R11); plan tests
+run nightly and on vendor/audit-query PRs; route chunk ≤ 150 KB gzip.
 
 **Constraints**: strict bodies; deny by default; no vendor delete on any path; `""` never
 stored for an optional field; vendor contact details kept in full in audit (ADR-0016).
@@ -72,7 +73,7 @@ events, 4 screens, 1 dialog.
 
 **Re-check after Phase 1 design**: PASS, no deviation. ADR updates made with this plan:
 ADR-0005 (contact person, list default, clash member, state actions), ADR-0006 (vendor
-`version`, no idempotency key), ADR-0007 (one `existing<Entity>` clash member, first
+`version`, no idempotency key), ADR-0012 (about 2M audit entries), ADR-0007 (one `existing<Entity>` clash member, first
 `existingVendor`; one form for "no value"; vendor field rules). ADR-0016 was updated with
 the spec.
 
@@ -117,7 +118,8 @@ backend/src/
 backend/tests/
 ├── integration/vendors*.test.ts, vendor-history.test.ts, vendor-active-check.test.ts,
 │   vendor-constants.test.ts (SQL ↔ constants, normalisation), authorization-matrix (rows)
-└── plans/vendors.plan.test.ts     # + scripts/plans-vendors.ts, docs/query-plans/vendors/
+└── plans/vendors.plan.test.ts     # own Vitest project; + scripts/plans-vendors.ts, docs/query-plans/vendors/
+.github/workflows/nightly.yml, ci.yml   # plan job: nightly + PRs touching vendor/audit queries
 
 frontend/src/
 ├── pages/vendors/  # VendorsList, VendorDetail, VendorForm, VendorHistory, DeactivateVendorDialog, queries, payment-terms format

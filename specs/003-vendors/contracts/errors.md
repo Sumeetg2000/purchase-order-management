@@ -7,7 +7,7 @@ Added to the single registry (`packages/contracts/src/errors.ts`), each with a m
 |---|---|---|---|
 | `DUPLICATE_VENDOR_NAME` | 409 | create or rename to a name whose normalised form an active or inactive vendor already has; also a retried create | `existingVendor: { id, name }` |
 | `INVALID_STATE_TRANSITION` | 409 | deactivate an inactive vendor, reactivate an active one (orders reuse it from slice 4) | — |
-| `VENDOR_INACTIVE` | 409 | `requireActiveVendor` on an inactive vendor (first API use: order create, slice 3) | — |
+| `VENDOR_INACTIVE` | 409 | `requireActiveVendor` on an inactive vendor. Registered now because this slice's tests use it; its registry entry carries the comment "first route: order create, slice 3" | — |
 
 Field code (inside `VALIDATION_FAILED.details`):
 
