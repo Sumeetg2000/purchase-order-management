@@ -11,6 +11,8 @@ build/
 .vite/
 
 # Test output and reports
+# The end-to-end TLS edge's throwaway certificate and key (scripts/e2e-tls-cert.sh)
+.e2e-tls/
 coverage/
 reports/
 playwright-report/

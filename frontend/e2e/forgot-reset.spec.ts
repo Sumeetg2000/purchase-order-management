@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { logIn, loggedInAdmin } from './support/accounts';
 import { linkEmailedTo } from './support/mailpit';
 

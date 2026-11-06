@@ -1,4 +1,5 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
+import { expect, test } from './support/test';
 import { E2E_PASSWORD, logIn, loggedInAdmin } from './support/accounts';
 
 // Spec US4's independent test (FR-036): edit the name, change the password from one

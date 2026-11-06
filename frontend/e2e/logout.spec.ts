@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { loggedInAdmin } from './support/accounts';
 
 // Logout (ADR-0017 "Logout and revocation"; spec US1 scenario 9).

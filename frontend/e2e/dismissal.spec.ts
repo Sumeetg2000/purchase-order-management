@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { adminPage, askForAccess, logInAs, signUpAndVerify } from './support/signup';
 
 // An admin dismisses an access request with a note, and the user reads it (FR-036).

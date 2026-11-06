@@ -19,7 +19,9 @@
   and the JWT inside it still expires after 15 minutes) · amended 2026-11-04 (**owner
   decision**: a new password equal to the current one → `PASSWORD_UNCHANGED`) · amended
   2026-11-05 (**owner decision**: verify-email requires the password chosen at signup, so
-  a squatter's password never opens an account its mailbox owner verified)
+  a squatter's password never opens an account its mailbox owner verified) · amended
+  2026-11-06 (**owner decision**: Linux WebKit doesn't treat `http://localhost` as secure,
+  so the end-to-end stack runs over HTTPS)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -316,8 +318,33 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
 ### Deployment
 - Same origin: nginx in docker compose serves the frontend and proxies `/api` to the API.
   No CORS is needed, and cross-origin requests are rejected.
-- `Secure` cookies work on `http://localhost` (browsers treat it as a secure context). Any
-  other deployment terminates TLS at nginx.
+- `Secure` cookies work on `http://localhost` in Chromium and Firefox, which treat it as a
+  secure context. Any other deployment terminates TLS at nginx.
+  - *Amended 2026-11-06 (owner decision):* Playwright's Linux WebKit doesn't treat
+    `http://localhost` as secure. It drops the `Secure` session cookies there, so every
+    request after login was `401`. The end-to-end stack therefore runs over HTTPS:
+    - an e2e-only TLS edge (`deploy/e2e/compose.tls.yml`) sits in front of `web`
+    - its self-signed certificate is made at run time, valid for one day, into the
+      git-ignored `.e2e-tls/` (`scripts/e2e-tls-cert.sh`), and is never committed
+    - its `APP_ORIGIN` is `https://localhost:<port>`, so the origin check and emailed links
+      use it
+    - Playwright ignores the certificate error; production nginx and the app are unchanged.
+  - The rate limits stay on in the e2e stack. The browsers run one after another.
+    Before each spec file, an automatic Playwright fixture clears the per-address counters
+    (`login-ip`, `signup-ip`) of compose project `po-e2e` directly in its database,
+    refusing any other target. A whole browser run made 29 logins a minute against the
+    limit of 30, so clearing once per browser left one login of headroom. Per-email and
+    per-user counters are left alone, so one e2e test still drives a fresh address's
+    forgot-password bucket to `429 RATE_LIMITED`.
+  - WebKit reports a `style-src-attr` CSP violation against a native `<select>` for its
+    own rendering of the control. A bare page with only a CSP and a `<select>`, no style
+    attribute and no app code reproduces it; Chromium and Firefox report nothing, and
+    nothing is blocked. The e2e CSP checks share one exception for exactly that report
+    (WebKit, effective directive `style-src-attr`, target `SELECT`, empty sample) while no
+    element on the page has a style attribute. Any other report still fails. A WebKit
+    canary test reproduces it on the bare page and fails once WebKit stops sending it, so
+    the exception can be removed (`frontend/e2e/support/csp.ts`,
+    `frontend/e2e/webkit-canary.spec.ts`).
 - **Rate-limit counters** (amended 2026-11-02): one store, the database, as for the
   lockout. Counters live in a PostgreSQL table, so limits hold across every API instance;
   there is no in-memory option and nothing to configure.

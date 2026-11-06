@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { createAdmin, logIn, loggedInAdmin, setPassword } from './support/accounts';
+import { recordCspViolations } from './support/csp';
 
 // Spec US1's independent test: set a password from the link, log in, survive access-token
 // expiry with a silent refresh (ADR-0017, ADR-0018).
@@ -98,23 +99,14 @@ test.describe('[NFR-FE-02] silent refresh', () => {
 test.describe('[NFR-FE-05] account pages accessibility and content security', () => {
   for (const path of ['/login', '/forgot-password', '/reset-password']) {
     test(`[NFR-FE-05] ${path} has no axe or CSP violations`, async ({ page }) => {
-      await page.addInitScript(() => {
-        const seen: string[] = [];
-        (window as unknown as { cspViolations: string[] }).cspViolations = seen;
-        document.addEventListener('securitypolicyviolation', (event) => {
-          seen.push(`${event.violatedDirective} blocked ${event.blockedURI}`);
-        });
-      });
+      const violations = await recordCspViolations(page);
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
-      const csp = await page.evaluate(
-        () => (window as unknown as { cspViolations: string[] }).cspViolations,
-      );
-      expect(csp).toEqual([]);
+      expect(await violations()).toEqual([]);
     });
   }
 });

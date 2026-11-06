@@ -1,0 +1,19 @@
+# End-to-end runs only (scripts/e2e-local.sh and CI's e2e jobs, through COMPOSE_FILE): a
+# TLS edge in front of `web`, so the browsers see https://localhost and keep the Secure
+# session cookies. Playwright's Linux WebKit drops Secure cookies on http://localhost
+# (ADR-0017 "Deployment"). The certificate is a throwaway one, made at run time into the
+# git-ignored .e2e-tls/ (scripts/e2e-tls-cert.sh). The production stack is untouched.
+services:
+  tls:
+    # web's nginx release (deploy/web.Dockerfile), run as shipped: its master reads the key.
+    image: nginx:1.30.6-alpine
+    security_opt: ['no-new-privileges:true']
+    restart: unless-stopped
+    volumes:
+      - ./deploy/e2e/tls.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./.e2e-tls:/etc/nginx/tls:ro
+    ports:
+      - '${E2E_TLS_PORT}:8443'
+    depends_on:
+      web:
+        condition: service_healthy

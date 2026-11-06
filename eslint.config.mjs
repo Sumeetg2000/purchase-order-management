@@ -89,6 +89,25 @@ export default defineConfig(
   },
   // Accessibility of the JSX itself (ADR-0018), alongside axe on the rendered pages.
   { files: ['frontend/**/*.tsx'], ...jsxA11y.flatConfigs.recommended },
+  // Every spec takes test from support/test, whose fixture clears the shared rate limits.
+  {
+    files: ['frontend/e2e/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test'],
+              message:
+                "Import test from './support/test': its fixture clears the shared rate limits.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // No import cycles anywhere in TypeScript: they break module load order (Zod's jitless
   // setting depends on it) and blur layer boundaries.
   {

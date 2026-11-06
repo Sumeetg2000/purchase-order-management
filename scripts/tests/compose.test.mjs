@@ -107,7 +107,8 @@ describe('[NFR-OPS-01] local end-to-end stack', () => {
   it('[NFR-OPS-01] publishes web and Mailpit on their own ports and points Playwright at them', () => {
     assert.notEqual(exported('WEB_PORT'), '8080');
     assert.notEqual(exported('MAILPIT_PORT'), '8025');
-    assert.equal(exported('APP_ORIGIN'), 'http://localhost:${WEB_PORT}');
+    assert.notEqual(exported('E2E_TLS_PORT'), '8443');
+    assert.equal(exported('APP_ORIGIN'), 'https://localhost:${E2E_TLS_PORT}');
     assert.equal(exported('E2E_BASE_URL'), '${APP_ORIGIN}');
     assert.equal(exported('MAILPIT_URL'), 'http://127.0.0.1:${MAILPIT_PORT}');
   });
@@ -244,5 +245,40 @@ describe('[NFR-OPS-01] compose start order and health', () => {
     for (const name of ['db', 'api', 'web', 'maintenance']) {
       assert.equal(services[name].restart, 'unless-stopped', name);
     }
+  });
+});
+
+// The end-to-end stack's TLS edge (deploy/e2e): the browsers see https://localhost, so
+// every engine keeps the Secure session cookies (ADR-0017 "Deployment"). It lives only in
+// e2e files; the production stack and its nginx are untouched.
+describe('[NFR-OPS-01] end-to-end TLS edge', () => {
+  const overlay = parse(
+    readFileSync(new URL('../../deploy/e2e/compose.tls.yml', import.meta.url), 'utf8'),
+  );
+  const tls = overlay.services?.tls ?? {};
+  const script = readFileSync(new URL('../e2e-local.sh', import.meta.url), 'utf8');
+  const exported = (name) => new RegExp(`^export ${name}=(\\S+)$`, 'm').exec(script)?.[1];
+  const ignored = readFileSync(new URL('../../.gitignore', import.meta.url), 'utf8');
+
+  it('[NFR-OPS-01] adds only a tls service, which publishes only its own port', () => {
+    assert.deepEqual(Object.keys(overlay.services ?? {}), ['tls']);
+    assert.deepEqual(tls.ports, ['${E2E_TLS_PORT}:8443']);
+    assert.equal(dependsOn('web').tls, undefined);
+    assert.equal(tls.depends_on?.web?.condition, 'service_healthy');
+  });
+
+  it("[NFR-OPS-01] runs web's nginx release and mounts the throwaway certificate read-only", () => {
+    const web = readFileSync(new URL('../../deploy/web.Dockerfile', import.meta.url), 'utf8');
+    const nginx = /^FROM (nginx:\S+)$/m.exec(web)?.[1];
+    assert.equal(tls.image, nginx);
+    assert.ok(tls.volumes?.includes('./.e2e-tls:/etc/nginx/tls:ro'));
+    assert.ok(tls.volumes?.includes('./deploy/e2e/tls.conf:/etc/nginx/conf.d/default.conf:ro'));
+    assert.deepEqual(tls.security_opt, ['no-new-privileges:true']);
+  });
+
+  it('[NFR-OPS-01] the certificate directory is git-ignored and made at run time', () => {
+    assert.match(ignored, /^\.e2e-tls\/$/m);
+    assert.match(script, /^scripts\/e2e-tls-cert\.sh$/m);
+    assert.equal(exported('COMPOSE_FILE'), 'docker-compose.yml:deploy/e2e/compose.tls.yml');
   });
 });

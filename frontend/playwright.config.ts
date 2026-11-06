@@ -5,6 +5,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests against the running compose stack (research R19). Chromium on every
 // pull request; E2E_BROWSERS=chromium,firefox,webkit on main and nightly (research R22).
+// The stack is reached over HTTPS through its e2e-only TLS edge (deploy/e2e), whose
+// certificate is a throwaway self-signed one, so certificate errors are ignored here.
 const ENGINES = {
   chromium: devices['Desktop Chrome'],
   firefox: devices['Desktop Firefox'],
@@ -34,6 +36,16 @@ export default defineConfig({
     ['list'],
     ['json', { outputFile: fileURLToPath(new URL('../reports/playwright.json', import.meta.url)) }],
   ],
-  use: { baseURL: process.env['E2E_BASE_URL'] ?? appOrigin() ?? 'http://localhost:8080' },
-  projects: engines.map((name) => ({ name, use: ENGINES[name] })),
+  use: {
+    baseURL: process.env['E2E_BASE_URL'] ?? appOrigin() ?? 'http://localhost:8080',
+    ignoreHTTPSErrors: true,
+  },
+  // The browsers run one after another, and every spec file starts with the stack's
+  // per-address rate-limit counters cleared (e2e/support/test.ts): every request comes from
+  // the stack's one address, so browsers or files running together would share ADR-0017's
+  // per-IP limits. A failing browser skips the ones after it; the run fails either way.
+  projects: engines.map((name, index) => {
+    const previous = engines[index - 1];
+    return { name, use: ENGINES[name], dependencies: previous === undefined ? [] : [previous] };
+  }),
 });
