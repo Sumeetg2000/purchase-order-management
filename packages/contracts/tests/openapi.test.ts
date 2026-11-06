@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ACCESS_LEVELS, ERROR_CODES, FIELD_CODES } from '../src/index.js';
+import {
+  ACCESS_LEVELS,
+  ERROR_CODES,
+  FIELD_CODES,
+  OPERATIONS,
+  type OperationContract,
+} from '../src/index.js';
 import { z } from 'zod';
 import {
   buildOpenApiDocument,
@@ -26,7 +32,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents the health operations and the slice 1 US1 to US4 ones, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations, the slice 1 ones and the slice 2 vendor ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
     const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
@@ -60,6 +66,13 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'listSessions get /auth/sessions',
         'revokeSession delete /auth/sessions/{id}',
         'forgotPassword post /auth/forgot-password',
+        'listVendors get /vendors',
+        'getVendor get /vendors/{id}',
+        'createVendor post /vendors',
+        'updateVendor put /vendors/{id}',
+        'deactivateVendor post /vendors/{id}/deactivate',
+        'reactivateVendor post /vendors/{id}/reactivate',
+        'listVendorHistory get /vendors/{id}/history',
       ].sort(),
     );
   });
@@ -118,6 +131,83 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(at(doc, 'paths', '/readyz', 'get')['x-access']).toBe('public');
   });
 
+  it('[FR-ACT-01] a role-level operation declares its roles, and answers NO_ROLE_ASSIGNED and FORBIDDEN', () => {
+    const create = at(doc, 'paths', '/vendors', 'post');
+    expect(create['x-access']).toBe('role');
+    expect(create['x-roles']).toEqual(['BUYER']);
+    expect(at(doc, 'paths', '/vendors', 'get')['x-roles']).toEqual(['BUYER', 'APPROVER', 'ADMIN']);
+    expect(at(doc, 'paths', '/vendors/{id}/history', 'get')['x-roles']).toEqual(['BUYER', 'ADMIN']);
+    expect(at(create, 'responses', '403')['x-error-codes']).toEqual(
+      expect.arrayContaining(['CSRF_REJECTED', 'NO_ROLE_ASSIGNED', 'FORBIDDEN']),
+    );
+    expect(at(doc, 'paths', '/healthz', 'get')).not.toHaveProperty('x-roles');
+  });
+
+  it('[FR-ACT-01] access role needs a non-empty roles list, and roles needs access role', () => {
+    for (const operation of Object.values(OPERATIONS) as OperationContract[]) {
+      expect((operation.roles?.length ?? 0) > 0, operation.operationId).toBe(
+        operation.access === 'role',
+      );
+    }
+    const base = {
+      method: 'get',
+      path: '/items',
+      operationId: 'listItems',
+      summary: 'test only',
+      responses: { 200: z.strictObject({}) },
+    } as const;
+    const malformed = [
+      { ...base, access: 'role' },
+      { ...base, access: 'role', roles: [] },
+      { ...base, access: 'admin', roles: ['ADMIN'] },
+    ] as unknown as OperationContract[];
+    for (const operation of malformed) {
+      expect(() => buildOpenApiDocument([operation]), JSON.stringify(operation)).toThrow(TypeError);
+    }
+  });
+
+  it('[FR-VEN-01] documents existingVendor on the Problem schema and on the responses that can carry it', () => {
+    const member = at(doc, 'components', 'schemas', 'Problem', 'properties', 'existingVendor');
+    expect(at(member, 'properties', 'id')).toMatchObject({ type: 'string', format: 'uuid' });
+    expect(at(member, 'properties', 'name')).toMatchObject({ type: 'string' });
+    expect(member['required']).toEqual(['id', 'name']);
+    expect(member['additionalProperties']).toBe(false);
+    expect(String(member['description'])).toContain('DUPLICATE_VENDOR_NAME');
+
+    for (const [path, method] of [
+      ['/vendors', 'post'],
+      ['/vendors/{id}', 'put'],
+    ] as const) {
+      const conflict = at(doc, 'paths', path, method, 'responses', '409');
+      expect(conflict['x-error-codes'], path).toContain('DUPLICATE_VENDOR_NAME');
+      expect(conflict['x-problem-members'], path).toEqual({
+        DUPLICATE_VENDOR_NAME: ['existingVendor'],
+      });
+    }
+    const deactivate = at(doc, 'paths', '/vendors/{id}/deactivate', 'post', 'responses', '409');
+    expect(deactivate).not.toHaveProperty('x-problem-members');
+  });
+
+  it('[FR-VEN-01] documents ETag and Location on vendor create, and ETag on its reads and changes', () => {
+    const created = at(doc, 'paths', '/vendors', 'post', 'responses', '201', 'headers');
+    expect(created).toHaveProperty('ETag');
+    expect(created).toHaveProperty('Location');
+    for (const [path, method] of [
+      ['/vendors/{id}', 'get'],
+      ['/vendors/{id}', 'put'],
+      ['/vendors/{id}/deactivate', 'post'],
+      ['/vendors/{id}/reactivate', 'post'],
+    ] as const) {
+      expect(at(doc, 'paths', path, method, 'responses', '200', 'headers'), path).toHaveProperty(
+        'ETag',
+      );
+    }
+    const parameters = at(doc, 'paths', '/vendors/{id}', 'put')['parameters'] as Json[];
+    expect(parameters).toContainEqual(
+      expect.objectContaining({ in: 'header', name: 'If-Match', required: true }),
+    );
+  });
+
   it('[NFR-API-01] has a Problem schema whose code is an extensible ErrorCode enum equal to the registry', () => {
     const schemas = at(doc, 'components', 'schemas');
     // Codes grow every slice and clients fall back on unknown ones, so the enums are
@@ -168,14 +258,16 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
   });
 
   it('[NFR-SEC-01] each access level lists the cookies and CSRF header it requires', () => {
-    const op = (method: 'get' | 'post', access: (typeof ACCESS_LEVELS)[number]) => ({
-      method,
-      path: `/${access}/${method}`,
-      operationId: `${access}${method}`.replace('-', ''),
-      summary: 'test only',
-      access,
-      responses: { 204: z.void() },
-    });
+    const op = (method: 'get' | 'post', access: (typeof ACCESS_LEVELS)[number]) =>
+      ({
+        method,
+        path: `/${access}/${method}`,
+        operationId: `${access}${method}`.replace('-', ''),
+        summary: 'test only',
+        access,
+        ...(access === 'role' ? { roles: ['BUYER'] } : {}),
+        responses: { 204: z.void() },
+      }) as OperationContract;
     const built = buildOpenApiDocument(
       ACCESS_LEVELS.flatMap((access) => [op('get', access), op('post', access)]),
     ) as unknown as Json;
@@ -185,7 +277,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(security('public', 'get')).toBeUndefined();
     expect(security('public', 'post')).toBeUndefined();
     expect(security('refresh', 'post')).toEqual([{ refreshCookie: [], csrfHeader: [] }]);
-    for (const access of ['user', 'no-role', 'admin']) {
+    for (const access of ['user', 'no-role', 'admin', 'role']) {
       expect(security(access, 'get')).toEqual([{ accessCookie: [] }]);
       expect(security(access, 'post')).toEqual([{ accessCookie: [], csrfHeader: [] }]);
     }

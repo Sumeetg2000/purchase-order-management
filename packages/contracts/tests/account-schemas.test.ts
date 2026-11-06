@@ -50,8 +50,8 @@ const email = 'buyer@example.local';
 const password = 'correct horse battery';
 
 describe('[NFR-VAL-01] slice 1 shared request schemas', () => {
-  it('[NFR-VAL-01] the access levels are public, refresh, user, no-role and admin', () => {
-    expect([...ACCESS_LEVELS]).toEqual(['public', 'refresh', 'user', 'no-role', 'admin']);
+  it('[NFR-VAL-01] the access levels are public, refresh, user, no-role, admin and role', () => {
+    expect([...ACCESS_LEVELS]).toEqual(['public', 'refresh', 'user', 'no-role', 'admin', 'role']);
   });
 
   it('[NFR-VAL-01] pages default to 1 and PAGE_SIZE_DEFAULT, and page size is capped', () => {
