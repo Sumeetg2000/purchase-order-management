@@ -21,6 +21,15 @@ jobs:
     name: e2e (all engines)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # The disposable e2e project behind its e2e-only TLS edge, as scripts/e2e-local.sh:
+    # every engine keeps the Secure cookies, and reset-limits.setup.ts may clear the
+    # rate-limit counters of compose project po-e2e between browsers.
+    env:
+      COMPOSE_PROJECT_NAME: po-e2e
+      COMPOSE_FILE: docker-compose.yml:deploy/e2e/compose.tls.yml
+      E2E_TLS_PORT: '8443'
+      APP_ORIGIN: https://localhost:8443
+      E2E_BASE_URL: https://localhost:8443
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,6 +37,8 @@ jobs:
       # .env from .env.example with random throwaway secrets: no repository secrets needed.
       - name: Write .env
         run: scripts/ci-env.sh
+      - name: Make the e2e TLS certificate
+        run: scripts/e2e-tls-cert.sh
       - name: Start the stack
         run: docker compose up -d --build --wait --wait-timeout 300
       - name: Smoke test
