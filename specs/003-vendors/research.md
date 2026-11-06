@@ -136,20 +136,27 @@ spec).
   ADR-0012 sizes (amended 2026-11-06): 2,000 vendors (10 % inactive) and about 2M audit
   entries, 10,000 of them vendor entries. Each table is seeded by **one** `INSERT …
   SELECT … FROM generate_series(…)` statement with deterministic values derived from the
-  series number (no ORM loops, no random source). It runs `VACUUM ANALYZE`, then `EXPLAIN (ANALYZE,
-  BUFFERS, FORMAT JSON)` for: list page and `COUNT` per status filter, with and without
-  `q`; history page and `COUNT`. It asserts no `Seq Scan` on `vendors` or
-  `audit_entries` for the page queries and no `Sort` node over more rows than the page
-  plus offset. `npm run plans:vendors` writes the text plans to
-  `docs/query-plans/vendors/`, committed. Slice 7 generalises the tooling.
+  series number (no ORM loops, no random source). It runs `VACUUM ANALYZE`, then, for the
+  list page and `COUNT` per status filter with and without `q`, and the history page and
+  `COUNT`:
+  - **Assertions** use `EXPLAIN (ANALYZE, FORMAT JSON)` in memory only, never written to
+    disk: no `Seq Scan` on `vendors` or `audit_entries` for the page queries, and no `Sort`
+    node over more rows than the page plus offset.
+  - **Committed plans** use `EXPLAIN (COSTS OFF)`: shape only, with no costs, timings,
+    row counts or buffers, so the same data and indexes always give the same text.
+    `npm run plans:vendors` writes them to `docs/query-plans/vendors/`, and
+    `git diff --exit-code docs/query-plans/vendors` fails only on a real plan change.
+  Slice 7 generalises the tooling.
 - **Where it runs**: the 2M-row seed took about 29 s on a developer machine with a
   simplified row trigger (2026-11-06), so on 2-vCPU CI runners with the real audit
   triggers it is expected to add more than about 1 minute. The plan tests therefore sit
   outside the default `npm test` run (their own Vitest project, `npm run test:plans`) and
-  run in the **nightly** workflow and in a CI job that runs only on pull requests changing
-  vendor or audit queries: `backend/src/vendors/**`, `backend/src/audit/**`,
-  `backend/prisma/migrations/**`, `backend/tests/plans/**`. If the measured CI time turns
-  out to be under about 1 minute, the job may move back into the default run (record it here).
+  run in a separate `plans` CI job on: pull requests that change `backend/**` or
+  `packages/contracts/**` (any query, schema, migration or list contract can move a
+  plan); **every push to `main`**; and the **nightly** workflow. The job runs
+  `npm run test:plans`, then `npm run plans:vendors` and
+  `git diff --exit-code docs/query-plans/vendors`. If the measured CI time turns out to
+  be under about 1 minute, the job may move back into the default run (record it here).
 - **Rationale**: ADR-0021 deferred only the two admin lists; every other list keeps the
   rule in its own slice.
 - **Alternatives**: another deviation (no reason to give: the tooling is small here).

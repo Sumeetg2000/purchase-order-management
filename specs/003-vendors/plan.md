@@ -41,7 +41,8 @@ test with a fixed-seed dataset, Testing Library + vitest-axe + MSW, Playwright +
 
 **Performance Goals**: list and history pages served by index scans at 2,000 vendors and
 about 2M audit entries (ADR-0012, amended 2026-11-06), plans committed (R11); plan tests
-run nightly and on vendor/audit-query PRs; route chunk ≤ 150 KB gzip.
+run on backend/contracts PRs, every push to `main` and nightly; committed plans are
+`EXPLAIN (COSTS OFF)` shape only; route chunk ≤ 150 KB gzip.
 
 **Constraints**: strict bodies; deny by default; no vendor delete on any path; `""` never
 stored for an optional field; vendor contact details kept in full in audit (ADR-0016).
@@ -119,7 +120,7 @@ backend/tests/
 ├── integration/vendors*.test.ts, vendor-history.test.ts, vendor-active-check.test.ts,
 │   vendor-constants.test.ts (SQL ↔ constants, normalisation), authorization-matrix (rows)
 └── plans/vendors.plan.test.ts     # own Vitest project; + scripts/plans-vendors.ts, docs/query-plans/vendors/
-.github/workflows/nightly.yml, ci.yml   # plan job: nightly + PRs touching vendor/audit queries
+.github/workflows/nightly.yml, ci.yml   # plans job: backend/contracts PRs, push to main, nightly
 
 frontend/src/
 ├── pages/vendors/  # VendorsList, VendorDetail, VendorForm, VendorHistory, DeactivateVendorDialog, queries, payment-terms format

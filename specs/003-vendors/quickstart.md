@@ -12,9 +12,9 @@ Validation run for the slice; record results in `quickstart-results.md`.
 
 ```bash
 set -o pipefail; npm test 2>&1 | tail -40          # vendors, matrix, contract
-npm run test:plans                                 # 2M-row plan tests (nightly / vendor-query PRs)
+npm run test:plans                                 # 2M-row plan tests (backend/contracts PRs, main, nightly)
 npm run plans:vendors                              # rewrites docs/query-plans/vendors/*.txt
-git diff --exit-code docs/query-plans/vendors       # plans committed and current (shape)
+git diff --exit-code docs/query-plans/vendors       # EXPLAIN (COSTS OFF) shape: fails only on a real plan change
 npm run e2e:local                                  # isolated po-e2e stack, all browsers
 ```
 

@@ -279,15 +279,19 @@ role and anonymous.
   `INSERT … SELECT … FROM generate_series(…)` statement with values derived from the series
   number (no ORM loops); `VACUUM ANALYZE`; list page per status filter with and without
   `q`, history page: no `Seq Scan` on `vendors`/`audit_entries`, no `Sort` over more than
-  page + offset rows; counts captured. Record the seed and run time —
+  page + offset rows, asserted on `EXPLAIN (ANALYZE, FORMAT JSON)` held in memory only
+  (never written to disk); counts captured. Record the seed and run time —
   `backend/tests/plans/vendors.plan.test.ts` — R11, SC-006.
-- [ ] T046 Plan writer, the `plans:vendors` script entry, and committed plans —
+- [ ] T046 Plan writer using `EXPLAIN (COSTS OFF)` (shape only: no costs, timings, rows
+  or buffers), the `plans:vendors` script entry, and the committed plans; running it twice
+  on the same data leaves `git diff --exit-code docs/query-plans/vendors` clean —
   `backend/scripts/plans-vendors.ts`, `backend/package.json`,
   `docs/query-plans/vendors/*.txt` — T045 green.
-- [ ] T047 CI: run `npm run test:plans` in the nightly workflow and in a CI job limited to
-  pull requests changing `backend/src/vendors/**`, `backend/src/audit/**`,
-  `backend/prisma/migrations/**` or `backend/tests/plans/**`; record the measured CI time
-  in R11 (move it into the default run if under about 1 minute) —
+- [ ] T047 CI: a `plans` job running `npm run test:plans`, then `npm run plans:vendors`
+  and `git diff --exit-code docs/query-plans/vendors`, on pull requests changing
+  `backend/**` or `packages/contracts/**`, on every push to `main`, and in the nightly
+  workflow; record the measured CI time in R11 (move it into the default run if under
+  about 1 minute) —
   `.github/workflows/nightly.yml`, `.github/workflows/ci.yml`,
   `specs/003-vendors/research.md` — R11.
 - [ ] T048 [P] E2E: two Buyers share a vendor; duplicate link; version conflict and
