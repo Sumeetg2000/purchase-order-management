@@ -43,7 +43,7 @@ short summary stop.
 
 ### Schema
 
-- [ ] T002 Migration tests, seen failing: `vendors` columns, `CHECK`s and grants exactly as
+- [X] T002 Migration tests, seen failing: `vendors` columns, `CHECK`s and grants exactly as
   [data-model.md](data-model.md): `name` "`CHECK (char_length(name) BETWEEN 1 AND 200)`",
   `name_key` generated and unwritable by `po_app`, `vendors_name_key_key` unique,
   `contact_email` "`= lower(contact_email) AND char_length <= 254`", `contact_phone`
@@ -53,7 +53,7 @@ short summary stop.
   no `DELETE`/`TRUNCATE`; statement without actor context → `PO001`;
   `audit_entries_entity_idx` exists — `backend/tests/integration/vendor-schema.test.ts` —
   FR-004, FR-005, R2, R5, R6 (FR-VEN-01).
-- [ ] T003 Migration `0011_vendors` (table, indexes `vendors_status_name_key_idx (status,
+- [X] T003 Migration `0011_vendors` (table, indexes `vendors_status_name_key_idx (status,
   name_key, id)` and `audit_entries_entity_idx (entity_type, entity_id, occurred_at DESC,
   id DESC)`, `require_actor_context` and `set_updated_at` triggers, column grants) and the
   Prisma `Vendor` model with `name_key` read-only — `backend/prisma/migrations/0011_vendors/

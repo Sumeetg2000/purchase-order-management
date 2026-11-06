@@ -21,8 +21,10 @@ spec).
 ## R2 Normalised name in the database
 
 - **Decision**: `name_key text COLLATE "C" GENERATED ALWAYS AS
-  (lower(regexp_replace(btrim(normalize(name, NFC)), '\s+', ' ', 'g'))) STORED`, with
-  `UNIQUE (name_key)`. The contracts package exports `normaliseVendorName()` doing the
+  (lower(btrim(regexp_replace(normalize(name, NFC), '[<WS>]+', ' ', 'g')))) STORED`, with
+  `UNIQUE (name_key)`. `<WS>` is JavaScript's `\s` set spelled out: PostgreSQL's `\s`
+  doesn't match the no-break space, and collapsing before trimming makes a leading tab
+  disappear as JavaScript's `trim()` does (found by the T002 test, 2026-11-06). The contracts package exports `normaliseVendorName()` doing the
   same for the `q` prefix filter; an integration test pins it to the SQL expression over a
   fixture list (case, tabs, NBSP, combining accents).
 - **Rationale**: uniqueness enforced by PostgreSQL, so concurrent creates can't both win

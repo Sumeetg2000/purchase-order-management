@@ -9,7 +9,7 @@ Migration `0011_vendors` (one migration). Every number below is a named constant
 |---|---|---|
 | `id` | `uuid` PK | `DEFAULT gen_random_uuid()`; never written by the app |
 | `name` | `text NOT NULL` | trimmed by the API; `CHECK (char_length(name) BETWEEN 1 AND 200)` |
-| `name_key` | `text COLLATE "C"` generated, stored | `lower(regexp_replace(btrim(normalize(name, NFC)), '\s+', ' ', 'g'))`; `CONSTRAINT vendors_name_key_key UNIQUE (name_key)` |
+| `name_key` | `text COLLATE "C"` generated, stored | `lower(btrim(regexp_replace(normalize(name, NFC), '[<WS>]+', ' ', 'g')))`, where `<WS>` is JavaScript's `\s` set spelled out (PostgreSQL's `\s` misses the no-break space); `CONSTRAINT vendors_name_key_key UNIQUE (name_key)` |
 | `contact_name` | `text NOT NULL` | `CHECK (char_length BETWEEN 1 AND 200)` |
 | `contact_email` | `text NOT NULL` | `CHECK (contact_email = lower(contact_email) AND char_length <= 254)`; not unique |
 | `contact_phone` | `text NULL` | `NULL` = no phone; `CHECK (contact_phone ~ '^[0-9 +()-]{1,30}$' AND contact_phone ~ '[0-9]')`, so `''` is refused |
@@ -21,7 +21,8 @@ Migration `0011_vendors` (one migration). Every number below is a named constant
 | `version` | `integer NOT NULL DEFAULT 1` | `CHECK (version >= 1)` |
 | `created_at`, `updated_at` | `timestamptz NOT NULL DEFAULT now()` | `updated_at` by the existing `set_updated_at()` trigger |
 
-Terms check `vendors_payment_terms_valid`:
+Terms check `vendors_payment_terms_valid` (wrapped in `coalesce(…, false)`, so a missing
+number is refused rather than passing as `NULL`):
 - `NET`: `net_days BETWEEN 0 AND 180 AND advance_percent IS NULL`
 - `ADVANCE`: `net_days IS NULL AND advance_percent IS NULL`
 - `PARTIAL_ADVANCE`: `advance_percent BETWEEN 1 AND 99 AND net_days BETWEEN 0 AND 180`
