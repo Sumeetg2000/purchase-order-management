@@ -7,7 +7,10 @@ import { PURGE_LOCK } from '../../src/db/locks.js';
 import {
   auditEntriesTask,
   oneTimeTokensTask,
+  rateLimitCountersTask,
   runPurge,
+  SESSION_RETENTION_DAYS,
+  sessionsTask,
   type PurgeTask,
   TOKEN_RETENTION_DAYS,
 } from '../../src/maintenance/purge.js';
@@ -86,8 +89,13 @@ async function holdLock(db: TestDatabase): Promise<pg.Client> {
 }
 
 describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
-  it('[NFR-OPS-05] registers the audit and token tasks for the maintenance loop', () => {
-    expect(purgeTasks.map((task) => task.name)).toEqual(['audit_entries', 'one_time_tokens']);
+  it('[NFR-OPS-05] registers the audit, token, session and rate-limit tasks for the maintenance loop', () => {
+    expect(purgeTasks.map((task) => task.name)).toEqual([
+      'audit_entries',
+      'one_time_tokens',
+      'sessions',
+      'rate_limit_counters',
+    ]);
   });
 
   it('[NFR-OPS-05] deletes audit entries older than 8 years and keeps newer ones', async () => {
@@ -196,6 +204,8 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
     expect(perTable.map((line) => [line['table'], line['deleted']])).toEqual([
       ['audit_entries', 0],
       ['one_time_tokens', 0],
+      ['sessions', 0],
+      ['rate_limit_counters', 0],
     ]);
     // Table names are values, not keys: a key like one_time_tokens matches the logger's
     // redaction of anything named like a token, and the count would read [Redacted].
@@ -204,6 +214,8 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       [
         { table: 'audit_entries', deleted: 0 },
         { table: 'one_time_tokens', deleted: 0 },
+        { table: 'sessions', deleted: 0 },
+        { table: 'rate_limit_counters', deleted: 0 },
       ],
     ]);
   });
@@ -358,5 +370,94 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       });
     }
     expect(await remaining(db, 'SELECT action AS label FROM audit_entries')).toEqual(['OLD']);
+  });
+});
+
+/** A session with two refresh tokens, and its own user. */
+function session(label: string, times: { createdAt: Date; expiresAt: Date; revokedAt?: Date }) {
+  const revoked = times.revokedAt ? `${at(times.revokedAt)}, 'LOGOUT'` : 'NULL, NULL';
+  const refresh = (n: number) =>
+    `INSERT INTO refresh_tokens (id, session_id, token_hash, expires_at, created_at)
+      VALUES ('${randomUUID()}', '${label}', '\\x${randomBytes(32).toString('hex')}',
+        ${at(times.expiresAt)}, ${at(new Date(times.createdAt.getTime() + n))})`;
+  return [
+    `INSERT INTO users (id, name, email, roles, status)
+      VALUES ('${label}', 'Session User', '${label}@example.local', '{}', 'ACTIVE')`,
+    `INSERT INTO sessions (id, user_id, created_at, last_used_at, absolute_expires_at,
+        expires_at, user_agent, ip, revoked_at, revoke_reason)
+      VALUES ('${label}', '${label}', ${at(times.createdAt)}, ${at(times.createdAt)},
+        ${at(times.expiresAt)}, ${at(times.expiresAt)}, 'agent', '10.0.0.1', ${revoked})`,
+    refresh(1),
+    refresh(2),
+  ];
+}
+
+function rateLimitWindow(key: string, windowEnd: Date) {
+  return `INSERT INTO rate_limit_counters (bucket, key, window_start, window_end, hits)
+    VALUES ('login-ip', '${key}', ${at(new Date(windowEnd.getTime() - 60_000))}, ${at(windowEnd)}, 3)`;
+}
+
+describe('[NFR-OPS-05] purge of sessions and rate-limit windows', () => {
+  it('[NFR-OPS-05] deletes sessions that ended more than 90 days ago with their refresh tokens, and keeps newer ones', async () => {
+    expect(SESSION_RETENTION_DAYS).toBe(90);
+    const db = trackDatabase(await createTestDatabase());
+    const ids = {
+      revokedLongAgo: randomUUID(),
+      expiredLongAgo: randomUUID(),
+      expiredRecently: randomUUID(),
+      revokedRecently: randomUUID(),
+      active: randomUUID(),
+    };
+    await seed(db, [
+      ...session(ids.revokedLongAgo, {
+        createdAt: daysBefore(100),
+        expiresAt: daysBefore(93),
+        revokedAt: daysBefore(95),
+      }),
+      ...session(ids.expiredLongAgo, { createdAt: daysBefore(100), expiresAt: daysBefore(91) }),
+      ...session(ids.expiredRecently, { createdAt: daysBefore(100), expiresAt: daysBefore(89) }),
+      ...session(ids.revokedRecently, {
+        createdAt: daysBefore(10),
+        expiresAt: daysBefore(-1),
+        revokedAt: daysBefore(5),
+      }),
+      ...session(ids.active, { createdAt: daysBefore(1), expiresAt: daysBefore(-6) }),
+    ]);
+    const outcome = await runPurge({
+      tasks: [sessionsTask],
+      db: client(db, 'po_maintenance'),
+      lockUrl: db.url('po_maintenance'),
+      logger: createCapture().logger,
+      asOf: AS_OF,
+      // One row per batch, so the loop runs past a full batch.
+      batchSize: 1,
+    });
+    expect(outcome).toEqual({ status: 'complete', counts: { sessions: 2 } });
+    const kept = [ids.expiredRecently, ids.revokedRecently, ids.active].sort();
+    expect(await remaining(db, 'SELECT id::text AS label FROM sessions')).toEqual(kept);
+    expect(
+      await remaining(db, 'SELECT DISTINCT session_id::text AS label FROM refresh_tokens'),
+    ).toEqual(kept);
+    expect(await remaining(db, 'SELECT 1::text AS label FROM refresh_tokens')).toHaveLength(6);
+  });
+
+  it('[NFR-OPS-05] deletes rate-limit windows that have ended and keeps the current ones', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    await seed(db, [
+      rateLimitWindow('ended-long-ago', daysBefore(2)),
+      rateLimitWindow('ended-just-now', AS_OF),
+      rateLimitWindow('current', new Date(AS_OF.getTime() + 30_000)),
+    ]);
+    const outcome = await runPurge({
+      tasks: [rateLimitCountersTask],
+      db: client(db, 'po_maintenance'),
+      lockUrl: db.url('po_maintenance'),
+      logger: createCapture().logger,
+      asOf: AS_OF,
+    });
+    expect(outcome).toEqual({ status: 'complete', counts: { rate_limit_counters: 2 } });
+    expect(await remaining(db, 'SELECT key AS label FROM rate_limit_counters')).toEqual([
+      'current',
+    ]);
   });
 });

@@ -7,7 +7,11 @@ outstanding-orders report by vendor and age. Stack: Node + TypeScript, Express, 
 PostgreSQL for the API, a React frontend, docker compose. The core concern is derived-value
 integrity: totals and outstanding quantities must never drift, on any code path.
 
-## Binding documents (read before changing anything)
+## Binding documents
+These bind every change. Read the sections a task needs: the constitution once per slice
+(at `/speckit-specify` and `/speckit-plan`), then only the ADR sections and spec/tasks
+sections the current story or task names.
+
 - [Constitution](.specify/memory/constitution.md): the principles. It overrides everything,
   this file included.
 - [ADRs](docs/adr/README.md): every mechanism, number and decision.
@@ -30,9 +34,22 @@ when the slice is done.
 3. `/speckit-tasks`, then `/speckit-analyze`
 4. `/speckit-implement`: tests first, seen failing against real PostgreSQL, then code
    until green. Never weaken, skip or delete a test to pass.
-5. `/code-review` and `/security-review`, then CI green
+5. Review at slice end: `/code-review` and `/security-review` once at slice end (and
+   `/security-review` on auth, sessions, tokens or permissions stories); no per-story
+   reviews. Then the owner's review and CI green
 6. Update `docs/traceability.md`: every row the slice touches has a passing test
 7. Merge
+
+## Token budget
+- Never open generated files: `frontend/src/api/schema.d.ts`,
+  `packages/contracts/openapi/openapi.json`, `package-lock.json`.
+- While working, run only the affected test files. For the full gate and e2e, print only
+  a summary and the failures, keeping the exit code:
+  `set -o pipefail; npm test 2>&1 | tail -40`.
+- `/code-review` and `/security-review` once at slice end, before the PR is marked ready
+  (and `/security-review` on auth, sessions, tokens or permissions stories); no per-story
+  reviews.
+- Short commit bodies and short summaries: what changed, test counts, CI status.
 
 ## Commands (Node 24, see `.nvmrc`; `.npmrc` refuses other versions)
 - Start (production-like, the only required setup): `cp .env.example .env && docker compose up`

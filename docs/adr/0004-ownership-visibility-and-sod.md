@@ -2,7 +2,9 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (matrix moved here from the
   constitution; no-role users and access requests; `DUPLICATE_APPROVER` removed; approval
-  authority and owner transfer **not adopted**)
+  authority and owner transfer **not adopted**) · amended 2026-11-03 (POC scope, owner
+  decision: no phone field, ADR-0016) · amended 2026-11-03 (**owner decision**: a route's
+  access level is checked before validation, like `NO_ROLE_ASSIGNED`)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -55,10 +57,13 @@ let any buyer edit any draft (lesson 3).
   1. `401`
   2. `403 NO_ROLE_ASSIGNED`: route-level, before validation, because the caller can't use
      the route whatever the input
-  3. `400`: shape
-  4. `404`: can't read
-  5. `403`: role, ownership, separation of duties
-  6. `409`: state, version, business rule
+  3. `403 FORBIDDEN` for the route's access level (amended 2026-11-03): also route-level and
+     before validation, for the same reason. A Buyer on `/api/admin/*` gets `403`, never
+     `400`, whatever the body.
+  4. `400`: shape
+  5. `404`: can't read
+  6. `403` order-level: the role in context, ownership, separation of duties
+  7. `409`: state, version, business rule
 - Authorization is checked in the service layer against the order loaded **under lock** in
   the command's transaction.
 
@@ -82,7 +87,7 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Read approval policy | ✓ | ✓ | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Pending-approvals count (approver queue `total`) | 403 | 403 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Organisation-wide audit log | 403 | 403 | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
-| `GET /me`, `PATCH /me` (name and phone only) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `GET /me`, `PATCH /me` (name only) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Change password; list and revoke own sessions (another user's session → 404) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Own access request: `GET`, `POST /api/me/access-request` | 403 | 403 | 403 | 403 | ✓ |
 | `GET /api/admin/users`, `GET /api/admin/users/:id` | 403 | 403 | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
@@ -92,7 +97,6 @@ cell changes a permission, so it needs sign-off (Principle X).
 - **Public endpoints** (no session): login, signup, verify-email, resend-verification,
   forgot-password and reset-password. Refresh, logout and logout-all are authenticated by
   the refresh cookie.
-- A user's phone is visible only to that user and to Admins.
 - The operator CLI (ADR-0016) is not an HTTP surface and isn't in the matrix.
 
 ## Tests

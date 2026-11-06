@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// zod-config.ts turns Zod's eval probe off for the CSP. That only reaches the schemas in
+// public/zod-config.js turns Zod's eval probe off for the CSP. That only reaches the schemas in
 // @po/contracts if the app and the contracts package share one Zod.
 const require = createRequire(import.meta.url);
 const FRONTEND = fileURLToPath(new URL('..', import.meta.url));

@@ -1,5 +1,9 @@
 import type { Logger } from 'pino';
-import { logSecurityEvent, type SecurityEvent } from '../observability/security-log.js';
+import {
+  logSecurityEvent,
+  type SecurityEvent,
+  type SecurityEventFields,
+} from '../observability/security-log.js';
 import type { Mailer } from './mailer.js';
 import type { MailMessage, MailTemplateName, MailVariables } from './template.js';
 
@@ -32,7 +36,7 @@ interface InFlight {
  * Logs a mail security event without ever throwing: a send's promise must not reject, or
  * settling (and so shutdown) would fail and the rejection would go unhandled.
  */
-function record(logger: Logger, event: SecurityEvent, fields: Record<string, unknown>): void {
+function record(logger: Logger, event: SecurityEvent, fields: SecurityEventFields): void {
   try {
     logSecurityEvent(logger, event, fields);
   } catch {

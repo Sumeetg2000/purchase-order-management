@@ -4,7 +4,8 @@
   rules and the `maintenance` compose service) · amended 2026-10-23 (internal-only metrics
   port; public-repository CI rules and secret scanning; credential separation; runtime
   libraries from the slice 0 plan) · amended 2026-10-27 (shutdown waits for mail within
-  the drain deadline)
+  the drain deadline) · amended 2026-11-03 (POC scope, owner decision: no user phone, so
+  no phone purge and no `UPDATE` grant for it)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -89,7 +90,7 @@
 ### Observability
 - Structured JSON logs (pino) with a correlation id on every line. The id is also
   returned as a response header and stored in audit entries.
-- No secrets, tokens or phone numbers are logged. The only exceptions are the bootstrap and
+- No secrets or tokens are logged. The only exceptions are the bootstrap and
   `admin:create` set-password links (ADR-0016).
 - `/healthz` checks liveness and `/readyz` checks the database.
 - **Metrics**: request latency and error rates are exposed in Prometheus format at
@@ -111,7 +112,6 @@
 |---|---|---|
 | Business audit entries (including actor name and email snapshots) | 8 years | Companies Act 2013 s.128(5); DPDP Act 2023 legal-obligation basis (ADR-0016) |
 | Orders, lines, receipts, vendors, users (name, email), access requests | Not purged (users are deactivated, never deleted) | Statutory books and the audit record |
-| User phone | Cleared 90 days after deactivation; not restored on reactivation | DPDP: no purpose once the person has left (ADR-0016) |
 | Session rows and refresh tokens (IP, user agent) | 90 days after the session ends | DPDP: only as long as needed for security (ADR-0017) |
 | Security log entries | 90 days | Same |
 | One-time tokens | Deleted 7 days after use or expiry | No longer needed |
@@ -119,8 +119,7 @@
 
 - **Purge job**: `npm run maintenance -- purge` connects as the **maintenance role**. Only
   that role has `DELETE` on audit, sessions, refresh tokens, one-time tokens and
-  idempotency keys, and `UPDATE` on the `phone` column of users (to clear it). It also has
-  `INSERT` on audit for `USER_PHONE_PURGED`. The app role never deletes any of them.
+  idempotency keys. The app role never deletes any of them.
   - Each run deletes only rows past their limit, in batches, and logs the counts.
   - Each run takes a PostgreSQL advisory lock (`pg_try_advisory_lock`). If another run
     holds it, the new run logs "already running" and exits as a no-op.
@@ -153,8 +152,6 @@ runtime service needs an ADR, and this section is it.
 - Security headers are present. A cross-origin request is denied.
 - The purge (called directly) removes only expired rows of each kind, and runs only as the
   maintenance role. The app role's `DELETE` on audit is denied.
-- The phone purge clears only phones of users deactivated more than 90 days ago, and
-  audits each one without the number.
 - A second purge started while one holds the advisory lock is a no-op. Per-table counts
   are logged.
 - The API's config validation rejects maintenance credentials.

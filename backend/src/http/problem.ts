@@ -1,4 +1,4 @@
-import { ERROR_REGISTRY, type AppError } from '@po/contracts';
+import { carriesRevokeReason, ERROR_REGISTRY, type AppError } from '@po/contracts';
 import type { Response } from 'express';
 import { requestIdOf } from './middleware/correlation.js';
 
@@ -10,6 +10,9 @@ import { requestIdOf } from './middleware/correlation.js';
 export function sendProblem(res: Response, error: AppError): void {
   const entry = ERROR_REGISTRY[error.code];
   res.locals['problemCode'] = error.code;
+  if (error.retryAfterSeconds !== undefined) {
+    res.set('Retry-After', String(error.retryAfterSeconds));
+  }
   res
     .status(entry.status)
     .type('application/problem+json')
@@ -21,5 +24,8 @@ export function sendProblem(res: Response, error: AppError): void {
       correlationId: requestIdOf(res),
       ...(error.detail === undefined ? {} : { detail: error.detail }),
       ...(entry.fieldDetails && error.details?.length ? { details: error.details } : {}),
+      ...(carriesRevokeReason(error.code) && error.reason !== undefined
+        ? { reason: error.reason }
+        : {}),
     });
 }

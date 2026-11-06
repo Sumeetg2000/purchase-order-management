@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ERROR_CODES } from '../src/index.js';
+import { ACCESS_LEVELS, ERROR_CODES, FIELD_CODES } from '../src/index.js';
 import { z } from 'zod';
 import {
   buildOpenApiDocument,
@@ -26,10 +26,91 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents getHealth and getReadiness, and nothing else yet', () => {
+  it('[NFR-API-01] documents the health operations and the slice 1 US1 to US4 ones, and nothing else yet', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
-    expect(Object.keys(at(doc, 'paths')).sort()).toEqual(['/healthz', '/readyz']);
+    const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
+      Object.entries(methods as Json).map(
+        ([method, op]) => `${(op as Json)['operationId'] as string} ${method} ${path}`,
+      ),
+    );
+    expect(operations.sort()).toEqual(
+      [
+        'getHealth get /healthz',
+        'getReadiness get /readyz',
+        'getMe get /me',
+        'login post /auth/login',
+        'logout post /auth/logout',
+        'logoutAll post /auth/logout-all',
+        'refreshSession post /auth/refresh',
+        'resetPassword post /auth/reset-password',
+        'signup post /auth/signup',
+        'verifyEmail post /auth/verify-email',
+        'resendVerification post /auth/resend-verification',
+        'getOwnAccessRequest get /me/access-request',
+        'sendAccessRequest post /me/access-request',
+        'listUsers get /admin/users',
+        'getUser get /admin/users/{id}',
+        'updateUser patch /admin/users/{id}',
+        'sendUserPasswordReset post /admin/users/{id}/reset-password',
+        'listAccessRequests get /admin/access-requests',
+        'dismissAccessRequest post /admin/access-requests/{id}/dismiss',
+        'updateMe patch /me',
+        'changePassword post /auth/change-password',
+        'listSessions get /auth/sessions',
+        'revokeSession delete /auth/sessions/{id}',
+        'forgotPassword post /auth/forgot-password',
+      ].sort(),
+    );
+  });
+
+  it('[NFR-SEC-01] documents Set-Cookie on the responses that set the session cookies', () => {
+    for (const [path, status] of [
+      ['/auth/login', '200'],
+      ['/auth/refresh', '204'],
+      ['/auth/logout', '204'],
+      ['/auth/logout-all', '204'],
+    ] as const) {
+      expect(at(doc, 'paths', path, 'post', 'responses', status, 'headers'), path).toHaveProperty(
+        'Set-Cookie',
+      );
+    }
+    // Revoking a session clears cookies only when it is the caller's own: optional.
+    const revoke = at(doc, 'paths', '/auth/sessions/{id}', 'delete', 'responses', '204', 'headers');
+    expect(revoke).toHaveProperty('Set-Cookie');
+    expect((revoke['Set-Cookie'] as Json)['required']).not.toBe(true);
+    expect(
+      (
+        at(doc, 'paths', '/auth/login', 'post', 'responses', '200', 'headers')['Set-Cookie'] as Json
+      )['required'],
+    ).toBe(true);
+    expect(at(doc, 'paths', '/me', 'get', 'responses', '200', 'headers')).not.toHaveProperty(
+      'Set-Cookie',
+    );
+  });
+
+  it('[FR-ADM-02] documents ETag on the reads and updates of a versioned user', () => {
+    for (const method of ['get', 'patch'] as const) {
+      const headers = at(doc, 'paths', '/admin/users/{id}', method, 'responses', '200', 'headers');
+      expect(headers, method).toHaveProperty('ETag');
+      expect(headers, method).toHaveProperty('X-Request-Id');
+    }
+    expect(
+      at(doc, 'paths', '/admin/users', 'get', 'responses', '200', 'headers'),
+    ).not.toHaveProperty('ETag');
+  });
+
+  it('[NFR-API-01] a 202 with no body documents no content', () => {
+    const accepted = at(doc, 'paths', '/auth/signup', 'post', 'responses', '202');
+    expect(accepted['content']).toBeUndefined();
+  });
+
+  it('[NFR-SEC-05] documents Retry-After on 423 and 429 responses', () => {
+    const responses = at(doc, 'paths', '/auth/login', 'post', 'responses');
+    for (const status of ['423', '429']) {
+      expect(at(responses, status, 'headers'), status).toHaveProperty('Retry-After');
+    }
+    expect(at(responses, '401', 'headers')).not.toHaveProperty('Retry-After');
   });
 
   it('[NFR-API-01] declares each operation access level', () => {
@@ -37,9 +118,16 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(at(doc, 'paths', '/readyz', 'get')['x-access']).toBe('public');
   });
 
-  it('[NFR-API-01] has a Problem schema whose code is an ErrorCode enum equal to the registry', () => {
+  it('[NFR-API-01] has a Problem schema whose code is an extensible ErrorCode enum equal to the registry', () => {
     const schemas = at(doc, 'components', 'schemas');
-    expect(at(schemas, 'ErrorCode')['enum']).toEqual([...ERROR_CODES]);
+    // Codes grow every slice and clients fall back on unknown ones, so the enums are
+    // published as x-extensible-enum: a new code is not a breaking change (ADR-0008).
+    expect(at(schemas, 'ErrorCode')['x-extensible-enum']).toEqual([...ERROR_CODES]);
+    expect(at(schemas, 'ErrorCode')).not.toHaveProperty('enum');
+    expect(at(schemas, 'FieldError', 'properties', 'code')['x-extensible-enum']).toEqual([
+      ...FIELD_CODES,
+    ]);
+    expect(at(schemas, 'FieldError', 'properties', 'code')).not.toHaveProperty('enum');
     expect(at(schemas, 'Problem', 'properties', 'code')).toEqual({
       $ref: '#/components/schemas/ErrorCode',
     });
@@ -77,6 +165,54 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
   it('[NFR-API-01] generation is deterministic and matches the committed document', () => {
     expect(serializeOpenApiDocument()).toBe(serializeOpenApiDocument());
     expect(readFileSync(COMMITTED, 'utf8')).toBe(serializeOpenApiDocument());
+  });
+
+  it('[NFR-SEC-01] each access level lists the cookies and CSRF header it requires', () => {
+    const op = (method: 'get' | 'post', access: (typeof ACCESS_LEVELS)[number]) => ({
+      method,
+      path: `/${access}/${method}`,
+      operationId: `${access}${method}`.replace('-', ''),
+      summary: 'test only',
+      access,
+      responses: { 204: z.void() },
+    });
+    const built = buildOpenApiDocument(
+      ACCESS_LEVELS.flatMap((access) => [op('get', access), op('post', access)]),
+    ) as unknown as Json;
+    const security = (access: string, method: string) =>
+      at(built, 'paths', `/${access}/${method}`, method)['security'];
+
+    expect(security('public', 'get')).toBeUndefined();
+    expect(security('public', 'post')).toBeUndefined();
+    expect(security('refresh', 'post')).toEqual([{ refreshCookie: [], csrfHeader: [] }]);
+    for (const access of ['user', 'no-role', 'admin']) {
+      expect(security(access, 'get')).toEqual([{ accessCookie: [] }]);
+      expect(security(access, 'post')).toEqual([{ accessCookie: [], csrfHeader: [] }]);
+    }
+    expect(at(built, 'components', 'securitySchemes')).toEqual({
+      accessCookie: { type: 'apiKey', in: 'cookie', name: 'po_access' },
+      refreshCookie: { type: 'apiKey', in: 'cookie', name: 'po_refresh' },
+      csrfHeader: { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' },
+    });
+  });
+
+  it('[FR-ADM-02] an operation flagged ifMatch documents a required If-Match header', () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'patch',
+        path: '/items/:id',
+        operationId: 'updateItem',
+        summary: 'test only',
+        access: 'admin',
+        ifMatch: 'required',
+        request: { params: z.strictObject({ id: z.uuid() }), body: z.strictObject({}) },
+        responses: { 200: z.strictObject({}) },
+      },
+    ]) as unknown as Json;
+    const parameters = at(built, 'paths', '/items/{id}', 'patch')['parameters'] as Json[];
+    expect(parameters).toContainEqual(
+      expect.objectContaining({ in: 'header', name: 'If-Match', required: true }),
+    );
   });
 
   it('[NFR-API-01] documents a 204 response without a body', () => {

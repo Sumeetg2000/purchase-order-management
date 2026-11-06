@@ -1,0 +1,50 @@
+.page {
+  max-width: 28rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field input {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.375rem;
+}
+
+.field input[data-focused] {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--color-danger);
+}
+
+.notice {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.375rem;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-danger);
+  border-radius: 0.375rem;
+}

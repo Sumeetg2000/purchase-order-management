@@ -8,7 +8,18 @@
   requires TLS) · amended 2026-11-02 (POC: clear, specific error messages over
   anti-enumeration, **owner decision**: one code per login failure, `EMAIL_IN_USE` and
   `ACCOUNT_NOT_FOUND` instead of silent `202`s, no dummy hash or timing padding,
-  `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`)
+  `ACCESS_TOKEN_EXPIRED` separate from `UNAUTHENTICATED`; rate-limit counters always in
+  PostgreSQL, **owner decision**) · amended 2026-11-03 (one code per failed one-time
+  token; `SESSION_REVOKED` carries the revoke reason, **owner decision**) · amended
+  2026-11-03 (POC scope, owner decision: resend-verification and forgot-password are
+  limited per email only; no phone in security logs because none is stored;
+  `SESSION_REVOKED` names only the three public revoke reasons) · amended 2026-11-03
+  (**owner decision**: revocation takes effect on the next request, since every request
+  reads its session with its user; the access cookie lives as long as the refresh cookie,
+  and the JWT inside it still expires after 15 minutes) · amended 2026-11-04 (**owner
+  decision**: a new password equal to the current one → `PASSWORD_UNCHANGED`) · amended
+  2026-11-05 (**owner decision**: verify-email requires the password chosen at signup, so
+  a squatter's password never opens an account its mailbox owner verified)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -31,7 +42,7 @@ answer to an in-app access request (ADR-0016).
 ### Tokens and cookies
 | Cookie | Content | Lifetime | Flags | Path |
 |---|---|---|---|---|
-| access | JWT `{ sub: userId, sid: sessionId }` | 15 min | HttpOnly, Secure, SameSite=Strict | `/api` |
+| access | JWT `{ sub: userId, sid: sessionId }` | the cookie as long as the refresh cookie; the JWT's `exp` 15 min | HttpOnly, Secure, SameSite=Strict | `/api` |
 | refresh | opaque random (256-bit) | 7 days idle, capped by the 30-day session limit | HttpOnly, Secure, SameSite=Strict | `/api/auth` |
 | csrf | `HMAC(sessionId, server secret)` | same as the refresh cookie, re-issued on every refresh | Secure, SameSite=Strict (**not** HttpOnly, by design) | `/` |
 
@@ -48,9 +59,21 @@ answer to an in-app access request (ADR-0016).
 - An access token that is well formed and correctly signed but past its expiry →
   `401 ACCESS_TOKEN_EXPIRED`. No access token, or a malformed or wrongly signed one →
   `401 UNAUTHENTICATED`. The web app refreshes only on `ACCESS_TOKEN_EXPIRED` (ADR-0018).
-- **Every request loads `status` and `roles` from the database** (indexed by user id), so
-  changes take effect immediately. A user who is no longer `ACTIVE` →
-  `401 ACCOUNT_DEACTIVATED`. A missing role → `403`.
+- The access cookie outlives its JWT on purpose (amended 2026-11-03): a cookie that
+  expired with the JWT would vanish from the browser, the next request would arrive with
+  no token and get `UNAUTHENTICATED`, and the silent refresh on `ACCESS_TOKEN_EXPIRED`
+  would never run.
+- **Every request loads its session with its user from the database** (amended
+  2026-11-03, owner decision): one indexed lookup of the session by id, joined to its user,
+  so revocation, deactivation and role changes all take effect on the very next request.
+  In the refresh's order:
+  - a user who is not `ACTIVE` → `401 ACCOUNT_DEACTIVATED`
+  - a revoked session → `401 SESSION_REVOKED`, with the reason only when it is public
+  - a session past its idle or absolute end → `401 SESSION_EXPIRED`
+  - a session that no longer exists, or isn't the token's user's → `401 UNAUTHENTICATED`
+  - a missing role → `403`
+- The web app ends the session on `SESSION_REVOKED` or `SESSION_EXPIRED` from any call, as
+  it does on `ACCOUNT_DEACTIVATED`, and shows its message (ADR-0018).
 
 ### Signup and verification
 - `POST /api/auth/signup { name, email, password }`, with a strict schema. A body with
@@ -68,8 +91,12 @@ answer to an in-app access request (ADR-0016).
 - After verification and login, a no-role user sees the "Access pending" screen
   (ADR-0018). Every endpoint except `/me`, password, sessions, logout and their access
   request → `403 NO_ROLE_ASSIGNED`.
-- `POST /api/auth/verify-email { token }` → the user becomes `ACTIVE`. It doesn't log the
-  user in.
+- `POST /api/auth/verify-email { token, password }` → the user becomes `ACTIVE` only if
+  `password` matches the one chosen at signup. It doesn't log the user in. Checks, in
+  order: the token (its four codes) → `ACCOUNT_DEACTIVATED` → `ACCOUNT_LOCKED` → the
+  password. A wrong password → `400 VALIDATION_FAILED` with `INCORRECT_PASSWORD` on
+  `body.password`; it counts toward the lockout like login's, and the token stays unused
+  so the owner can retry. *Amended 2026-11-05 (owner decision).*
 - `POST /api/auth/resend-verification { email }`:
   - an `UNVERIFIED` user → `202`, and a new verification email is sent
   - no account → `404 ACCOUNT_NOT_FOUND`
@@ -79,6 +106,13 @@ answer to an in-app access request (ADR-0016).
   `UNVERIFIED` and can't log in. When the real owner signs up, they get
   `409 EMAIL_IN_USE`, whose message points to forgot-password. Completing the reset sets
   their own password and verifies the account.
+  - *Amended 2026-11-05 (owner decision):* the verification email reaches the real owner,
+    and opening it used to activate the account with the squatter's password, which the
+    squatter could then log in with. Verify-email now requires the password chosen at
+    signup, which the owner doesn't know, so the squatted account stays `UNVERIFIED`
+    until the owner resets it. The email says: "If you didn't sign up, ignore this email.
+    To use this address yourself, reset your password from the login page."
+
 
 ### Passwords
 - **Policy**: 12–128 characters, and not on a bundled common-password list (checked
@@ -88,12 +122,18 @@ answer to an in-app access request (ADR-0016).
 - `POST /api/auth/change-password { currentPassword, newPassword }`:
   - A wrong current password → `400 VALIDATION_FAILED` with field code
     `INCORRECT_PASSWORD`. It is rate-limited like login and counts toward the lockout.
+  - Once the current password is verified, a new password equal to it → `400
+    VALIDATION_FAILED` with field code `PASSWORD_UNCHANGED` on `newPassword`, found by
+    comparing the two inputs (no extra hash). Nothing is written and no session is revoked.
   - On success, every **other** session of the user is revoked and the current one is kept.
 - `POST /api/auth/forgot-password { email }`:
   - an `UNVERIFIED` or `ACTIVE` user → `202`, and a reset email is sent
   - no account → `404 ACCOUNT_NOT_FOUND`
   - a `DEACTIVATED` account → `401 ACCOUNT_DEACTIVATED`
 - `POST /api/auth/reset-password { token, newPassword }`:
+  - a link for an account `DEACTIVATED` since it was sent → `401 ACCOUNT_DEACTIVATED`,
+    rolled back so the link stays unused, as verify-email does (amended 2026-11-04, owner
+    decision: a deactivated account can't reset its password)
   - sets the password
   - revokes **all** of the user's sessions
   - clears any lockout
@@ -105,8 +145,12 @@ answer to an in-app access request (ADR-0016).
   - `VERIFY_EMAIL`: valid 24 h
   - `RESET`: valid 30 min
 - Issuing a new token invalidates the user's earlier unused tokens with the same purpose.
-- An invalid, expired, used or superseded token → `400 INVALID_TOKEN`. All four look the
-  same.
+- A failed token gets its own code (amended 2026-11-03), checked in this order:
+  - used → `400 TOKEN_USED` ("This link has already been used.")
+  - superseded → `400 TOKEN_SUPERSEDED` ("A newer link was sent. Use the latest email.")
+  - expired → `400 TOKEN_EXPIRED` ("This link has expired. Request a new one.")
+  - unknown (no row with that hash and purpose, including one already purged) →
+    `400 INVALID_TOKEN`
 - Links point at the frontend with the token in the **fragment**:
   `APP_ORIGIN/verify-email#token=…` and `APP_ORIGIN/reset-password#token=…`. This covers
   every link: the bootstrap and `admin:create` set-password links, and from slice 1 the
@@ -149,7 +193,9 @@ answer to an in-app access request (ADR-0016).
   - A locked account's password isn't checked.
   - The status is checked after the password.
   - The web app computes N from `Retry-After`, rounded up to whole minutes.
-- **Per-account lockout**: 5 consecutive failed logins → locked for 15 minutes.
+- **Per-account lockout**: 5 consecutive failed logins → locked for 15 minutes. A wrong
+  password at change-password or verify-email counts the same way, through one shared
+  helper.
   - Only check 4 (a wrong password) counts as a failure. The attempt that reaches 5
     returns `423 ACCOUNT_LOCKED` instead of `INCORRECT_PASSWORD`.
   - The counter and `lockedUntil` live on the user row (PostgreSQL), so they hold across
@@ -161,10 +207,10 @@ answer to an in-app access request (ADR-0016).
   - login: ≤ 30 per minute per IP (offices share one IP) and ≤ 10 per minute per
     account
   - signup: ≤ 5 per hour per IP and ≤ 3 per hour per email
-  - resend-verification and forgot-password: ≤ 10 per hour per IP and ≤ 3 per hour per
-    email
-  - Over any limit, per IP or per email → `429 RATE_LIMITED` with `Retry-After`, and
-    nothing is sent.
+  - resend-verification and forgot-password: ≤ 3 per hour per email. No per-IP limit
+    (amended 2026-11-03, POC scope, owner decision): the per-email limit already caps
+    the mail any one address receives.
+  - Over any limit → `429 RATE_LIMITED` with `Retry-After`, and nothing is sent.
 
 ### Sessions and refresh rotation
 - Table `sessions` (one row per refresh family): id, user, created at, last used at (set
@@ -193,7 +239,21 @@ answer to an in-app access request (ADR-0016).
     sibling instead of triggering revocation. The window is short, the token is HttpOnly
     and limited to `/api/auth`, and reuse after the window still revokes the whole session.
 - An expired refresh token or a session past its absolute expiry → `401 SESSION_EXPIRED`.
-  A refresh on a revoked session → `401 SESSION_REVOKED`.
+  A refresh on a revoked session → `401 SESSION_REVOKED` (amended 2026-11-03, POC scope,
+  owner decision):
+  - The session row records one of eight revoke reasons (`PASSWORD_CHANGED`,
+    `PASSWORD_RESET`, `ROLES_CHANGED`, `DEACTIVATED`, `LOGOUT`, `LOGOUT_ALL`,
+    `USER_REVOKED`, `REUSE_DETECTED`), which the security log also carries.
+  - Only three are public: `PASSWORD_CHANGED`, `PASSWORD_RESET` and `ROLES_CHANGED` go in
+    the problem's `reason`, and the web app shows "You were logged out because <reason>.
+    Please log in again."
+  - `LOGOUT`, `LOGOUT_ALL`, `USER_REVOKED` and `REUSE_DETECTED` leave `reason` out, and
+    the web app shows "You've been logged out. Please log in again." Reuse detection
+    still revokes the whole session.
+  - `DEACTIVATED` never reaches the user as a reason: a deactivated user's refresh gets
+    `401 ACCOUNT_DEACTIVATED` first.
+  - Only the holder of that session's refresh token ever sees a reason: no response
+    about another user's session carries it.
 - **Session management**:
   - `GET /api/auth/sessions` lists the caller's active sessions: id, createdAt,
     lastUsedAt, user agent, IP, and `current: true` on the calling session. It is
@@ -201,11 +261,8 @@ answer to an in-app access request (ADR-0016).
   - `DELETE /api/auth/sessions/:id` revokes one session.
     - Another user's session id → `404`.
     - Revoking the current session also clears its cookies, like logout.
-- Revocation is checked at refresh. An access token already issued to a revoked session
-  stays valid until it expires (≤ 15 min).
-  - Accepted trade-off: this keeps the per-request lookup to the user row.
-  - Deactivation and role changes still take effect on the very next request, through the
-    per-request load of status and roles.
+- A revoked session is refused on its next request, whatever its access token's expiry
+  (amended 2026-11-03).
 
 ### Logout and revocation
 - `POST /api/auth/logout` revokes the session identified by **the refresh token itself**,
@@ -261,17 +318,15 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
   No CORS is needed, and cross-origin requests are rejected.
 - `Secure` cookies work on `http://localhost` (browsers treat it as a secure context). Any
   other deployment terminates TLS at nginx.
-- **Rate-limit counters**: an in-memory store is acceptable **only** for the single API
-  instance in docker compose. Any multi-instance deployment MUST use a shared store (a
-  PostgreSQL table or Redis), so limits hold across instances. The store is chosen by
-  configuration and validated at startup. If more than one instance is configured with the
-  in-memory store, startup fails. Lockout state is always in PostgreSQL.
+- **Rate-limit counters** (amended 2026-11-02): one store, the database, as for the
+  lockout. Counters live in a PostgreSQL table, so limits hold across every API instance;
+  there is no in-memory option and nothing to configure.
 
 ### Security logs
 These events are written as structured `security` log entries, separate from the business
 audit:
 - signup
-- email verification
+- email verification, and a verification refused on the password (locked or wrong)
 - login success and failure, with the reason: unknown email, locked, no password set,
   wrong password, unverified, deactivated
 - lockout
@@ -283,7 +338,7 @@ audit:
 - mail send failure
 
 Each entry has the user id when known, IP, user agent, session id and request id. Entries
-never contain tokens, passwords or phone numbers. The only exceptions are the set-password
+never contain tokens or passwords. The only exceptions are the set-password
 links printed by bootstrap and by `admin:create` (ADR-0016).
 
 ### Retention of session and security data (DPDP Act 2023)
@@ -306,11 +361,9 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   Self-signup with no role costs the admin one role assignment and no account
   administration.
 - Bearer tokens in `localStorage`: readable by any XSS. Rejected.
-- Server-side sessions only (no JWT): simpler revocation, but a session lookup on every
-  request. We already load the user on every request, and the JWT saves the session
-  lookup. Revocation applies at refresh, within 15 minutes.
-- Checking the session on every request: makes revocation immediate, at the cost of a
-  second lookup. Not adopted, because deactivation and role changes are already immediate.
+- Server-side sessions only (no JWT): the session is read on every request anyway, but
+  the signed token still lets a forged or expired one be refused without a database read,
+  and gives the web app `ACCESS_TOKEN_EXPIRED` to refresh on.
 - Long-lived access tokens: delay deactivation. Rejected.
 - **Anti-enumeration** (the decision until 2026-11-02): one `401 INVALID_CREDENTIALS` for
   every login failure, `202` from signup, resend and forgot-password whatever the account,
@@ -332,12 +385,15 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - self-signup always gets `{}`; `roles` in the body → 400
   - a verified no-role user can log in and gets `403 NO_ROLE_ASSIGNED` everywhere except
     `/me`, password, sessions, logout and the access request
-- Tokens: an expired, used or superseded token → `INVALID_TOKEN`; a new token invalidates
-  the previous one with the same purpose; the database stores only the hash.
+- Tokens: expired → `TOKEN_EXPIRED`, used → `TOKEN_USED`, superseded →
+  `TOKEN_SUPERSEDED`, unknown or wrong purpose → `INVALID_TOKEN`; a used and expired token
+  → `TOKEN_USED`; a new token invalidates the previous one with the same purpose; the
+  database stores only the hash.
 - Passwords:
   - policy field codes
   - change-password revokes the other sessions and keeps the current one
   - a wrong current password → 400 `INCORRECT_PASSWORD`
+  - a new password equal to the current one → 400 `PASSWORD_UNCHANGED`, nothing written
   - forgot-password: an unknown email → 404 `ACCOUNT_NOT_FOUND`; a deactivated account →
     401 `ACCOUNT_DEACTIVATED`; nothing is sent in either
   - reset-password revokes all sessions, clears a lockout and activates an `UNVERIFIED`
@@ -348,11 +404,12 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - unlocked after 15 minutes (with an injected clock)
   - the counter resets on success
   - lockout holds across two app instances
-- Rate limits: signup, resend and forgot-password limits, per IP and per email → 429
+- Rate limits: signup per IP and per email, resend and forgot-password per email → 429
   `RATE_LIMITED` with `Retry-After`, and nothing is sent.
 - Sessions:
   - the list shows only the caller's sessions and marks the current one
-  - revoking a session → that session's next refresh → 401 `SESSION_REVOKED`
+  - revoking a session → that session's next request and refresh → 401 `SESSION_REVOKED` with no
+    `reason`; each revoke path stores its own reason in the session row
   - another user's session id → 404
   - revoking the current session clears its cookies
 - Mail: sent only after commit, with nothing sent on rollback; a mail failure is logged and
@@ -365,7 +422,10 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   ones stay; the purge runs only as the maintenance role.
 - Rotation:
   - rotation issues a new pair
-  - reuse of a rotated token after 10 s → session revoked → 401 `SESSION_REVOKED`
+  - reuse of a rotated token after 10 s → whole session revoked (`REUSE_DETECTED` stored
+    and logged) → 401 `SESSION_REVOKED` with no `reason`
+  - a password change, reset or role change → the session's next request and refresh → 401
+    `SESSION_REVOKED` with that `reason`
   - concurrent refreshes within 10 s both succeed (sibling tokens) and the session stays
     valid
 - Logout:
@@ -375,7 +435,7 @@ links printed by bootstrap and by `admin:create` (ADR-0016).
   - the refresh cookie is not sent to non-auth `/api` routes (Path asserted)
   - flags asserted (HttpOnly, Secure, SameSite=Strict, Path), and no token in any response
     body
-- The rate limiter uses the configured store (a shared-store test with two app instances).
+- The rate limiter keeps its counters in PostgreSQL: two app instances share one limit.
 - A deactivated user's next request → 401 `ACCOUNT_DEACTIVATED`. A removed role → next
   request 403.
 - Access tokens: an expired one → 401 `ACCESS_TOKEN_EXPIRED`; none, a malformed one, or one

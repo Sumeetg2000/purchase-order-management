@@ -1,4 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests against the running compose stack (research R19). Chromium on every
@@ -15,6 +17,15 @@ for (const engine of engines) {
   if (!(engine in ENGINES)) throw new Error(`E2E_BROWSERS: unknown engine "${engine}"`);
 }
 
+/**
+ * The stack's own origin (APP_ORIGIN in its env file), so the browser's Origin header is
+ * the one the API accepts: the API refuses state changes from any other origin.
+ */
+function appOrigin(): string | undefined {
+  const file = process.env['E2E_ENV_FILE'] ?? fileURLToPath(new URL('../.env', import.meta.url));
+  return existsSync(file) ? parseEnv(readFileSync(file, 'utf8'))['APP_ORIGIN'] : undefined;
+}
+
 export default defineConfig({
   testDir: 'e2e',
   forbidOnly: Boolean(process.env['CI']),
@@ -23,6 +34,6 @@ export default defineConfig({
     ['list'],
     ['json', { outputFile: fileURLToPath(new URL('../reports/playwright.json', import.meta.url)) }],
   ],
-  use: { baseURL: process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:8080' },
+  use: { baseURL: process.env['E2E_BASE_URL'] ?? appOrigin() ?? 'http://localhost:8080' },
   projects: engines.map((name) => ({ name, use: ENGINES[name] })),
 });

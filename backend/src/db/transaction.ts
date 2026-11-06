@@ -133,3 +133,40 @@ export async function withDatabase<T>(fn: () => Promise<T>): Promise<T> {
     throw error;
   }
 }
+
+/**
+ * Changes who is acting, inside the same transaction: for a flow that learns the actor
+ * only part-way through, as reset-password does once its token names the user.
+ */
+export async function actAs(
+  tx: AuditedTransaction,
+  actor: ActorContext,
+  requestId: string,
+): Promise<void> {
+  await setActorContext(tx, actor, requestId);
+}
+
+/** Who acts and for which request; the runner adds the database and its limits. */
+export interface TransactionContext {
+  actor: ActorContext;
+  requestId: string;
+  logger: Logger;
+}
+
+export interface TransactionRunner {
+  run<T>(
+    context: TransactionContext,
+    fn: (tx: AuditedTransaction, hooks: TransactionHooks) => Promise<T>,
+  ): Promise<T>;
+}
+
+/** withTransaction with the API's database and configured timeouts filled in. */
+export function createTransactionRunner(options: {
+  prisma: AppPrismaClient;
+  timeoutMs: number;
+  maxWaitMs: number;
+}): TransactionRunner {
+  return {
+    run: (context, fn) => withTransaction({ ...options, ...context }, fn),
+  };
+}

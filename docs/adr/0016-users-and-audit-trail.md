@@ -4,7 +4,9 @@
   assignable role sets, Admin user management: **signed off by the owner 2026-10-20**;
   operator CLI for admin accounts; signup with no role, access requests, retention) ·
   amended 2026-11-02 (POC: clear, specific error messages over anti-enumeration: login
-  codes per status, ADR-0017)
+  codes per status, ADR-0017) · amended 2026-11-03 (POC scope, owner decision: no phone
+  field, so no phone purge and no `USER_PHONE_PURGED`; the admin lists' committed query
+  plans move to slice 7)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -29,8 +31,8 @@ a separate power and does not touch any order.
   - `email`: stored lower-cased, unique, the login identifier. One per user, and nobody can
     change it, the user and admins included. There is no secondary email and no
     email-change flow.
-  - `phone`: optional, normalised to E.164 (default region `IN`, libphonenumber). An invalid
-    number → `400 VALIDATION_FAILED` with field code `INVALID_PHONE`.
+  - No phone (amended 2026-11-03, POC scope, owner decision): the brief doesn't require
+    one, and personal data with no purpose isn't collected.
   - `roles`: one of the **role sets** below
   - `status`: `UNVERIFIED` | `ACTIVE` | `DEACTIVATED`, plus `deactivatedAt` (set on each
     deactivation, cleared on reactivation)
@@ -69,7 +71,8 @@ a separate power and does not touch any order.
     - Their open orders follow the "reassignment not adopted" process (ADR-0004): an
       Approver rejects pending ones and cancels approved ones, and a new order is raised.
     - Their drafts remain and are harmless.
-    - The admin confirm dialog shows the user's open-order counts before the change.
+    - The admin confirm dialog shows the user's open-order counts before the change
+      (from the orders slice; deferred until orders exist, ADR-0019, 2026-11-04).
   - **Removing APPROVER**: takes effect on the next request. Steps they already approved
     stay valid.
   - **Dual role**: `SELF_APPROVAL` still applies (ADR-0004).
@@ -77,22 +80,11 @@ a separate power and does not touch any order.
     (ADR-0017).
 
 ### Profile (every role)
-- `GET /me` returns id, name, email, phone, roles, status and createdAt.
-- `PATCH /me` accepts `{ name, phone }` only. The schema is strict, so email, roles,
-  status or any other field → `400`. `phone: null` clears the phone.
+- `GET /me` returns id, name, email, roles, status and createdAt.
+- `PATCH /me` accepts `{ name }` only. The schema is strict, so email, roles, status or
+  any other field → `400`.
   - Last write wins. There's no `If-Match`: only the user edits their own profile.
   - Audited as `USER_PROFILE_UPDATED`, with before/after.
-- **Phone is personal data**: only the user and Admins see it. It never appears in audit
-  entries (neither actor snapshots nor `details`), in anything an Approver or another Buyer
-  can read, or in logs.
-  - `USER_PROFILE_UPDATED` records only that the phone was set, changed or cleared, never
-    the number.
-  - **Purged 90 days after deactivation**: the daily purge (ADR-0020) clears `phone` on
-    users with `status = DEACTIVATED` and `deactivatedAt` more than 90 days ago.
-    - Name and email are kept, because the audit record needs them.
-    - Reactivation doesn't restore the phone. The user can enter it again.
-    - Audited as `USER_PHONE_PURGED`, actorType `SYSTEM`, with no phone value in
-      `details`.
 
 ### Access requests
 A no-role user can ask an administrator for access in the app. It's in-app only, with no
@@ -117,9 +109,9 @@ email: notifications stay deferred (ADR-0019).
 | Endpoint | Behaviour |
 |---|---|
 | `GET /api/admin/users` | Paginated (ADR-0007). Filters: `role` (including `NONE` for no-role users), `status`, `q` (case-insensitive prefix of name or email). Sort: `name`, then `id`. Each item includes `lastLoginAt`. |
-| `GET /api/admin/users/:id` | Profile, including phone, `lastLoginAt`, `version`, and open-order counts (draft, pending, approved with open lines) |
+| `GET /api/admin/users/:id` | Profile, including `lastLoginAt`, `version`, and open-order counts (draft, pending, approved with open lines). *Amended 2026-11-04:* the open-order counts are deferred to the orders slice (ADR-0019, 2026-11-04). |
 | `PATCH /api/admin/users/:id` | `{ roles, isActive }`, both optional. Requires `If-Match`: missing → `400 VERSION_REQUIRED`, stale → `409 VERSION_CONFLICT`. `roles` must be one of the three assignable sets; anything else → `400 VALIDATION_FAILED` (`INVALID_ROLE_SET`). Any other field → `400`. |
-| `POST /api/admin/users/:id/reset-password` | Sends the standard reset email (ADR-0017). Returns `202`. |
+| `POST /api/admin/users/:id/reset-password` | Sends the standard reset email (ADR-0017). Returns `202`. *Amended 2026-11-04 (owner decision):* a `DEACTIVATED` user → `409 USER_DEACTIVATED`, after the guards below, and nothing is sent: a deactivated account can't reset its password. |
 
 - **Guards** (checked in this order, after `404`):
   1. Target is the caller → `409 SELF_MODIFICATION`. An admin can't deactivate or change
@@ -128,15 +120,19 @@ email: notifications stay deferred (ADR-0019).
   3. `isActive: true` on an `UNVERIFIED` user → `409 USER_UNVERIFIED`. Admins can't verify
      an email on someone's behalf. They can send a reset email instead, and completing it
      verifies the account.
+     *Amended 2026-11-03 (slice 1 US3):* `isActive: false` on an `UNVERIFIED` user is
+     refused the same way, since the transitions above have no `UNVERIFIED → DEACTIVATED`;
+     a later reactivation would otherwise activate an unverified mailbox.
 - **Admins never set or see passwords.**
 - A no-op change (same roles, same status) writes nothing: no audit entry and no
   revocation.
 - Roles and status changed in one request → one transaction, one audit entry per change.
 - **Indexes**: `(name, id)`, `(status, name, id)`, `lower(name) text_pattern_ops` and
   `lower(email) text_pattern_ops` for the prefix search. `role` is a low-selectivity
-  predicate applied on top. The page query and its `COUNT` have committed
-  `EXPLAIN (ANALYZE, BUFFERS)` output at a seeded 10,000-user dataset, so the
-  index paths are exercised.
+  predicate applied on top. The page query and its `COUNT` get committed
+  `EXPLAIN (ANALYZE, BUFFERS)` output at a seeded 10,000-user dataset in slice 7, with
+  the other load work (amended 2026-11-03, POC scope, owner decision). Slice 1 ships the
+  indexes.
 
 ### Bootstrap admin
 - On startup, if no `ADMIN` exists, a script creates one from `BOOTSTRAP_ADMIN_EMAIL` and
@@ -164,7 +160,7 @@ modify Admin accounts (`409 ADMIN_NOT_MODIFIABLE`). A deployment can have severa
 | Command | Behaviour |
 |---|---|
 | `admin:create --email --name` | Creates an `ACTIVE` `{ADMIN}` user with no password and prints a one-time set-password link (a `RESET` token), like bootstrap. The email may be outside `SIGNUP_ALLOWED_DOMAINS`. An email that belongs to an existing user → error `EMAIL_IN_USE`; a non-admin is never promoted. |
-| `admin:deactivate --email` | Deactivates an admin and revokes all their sessions. It refuses to deactivate the last `ACTIVE` admin → error `LAST_ADMIN`. A non-admin email → error `NOT_AN_ADMIN`. |
+| `admin:deactivate --email` | Deactivates an admin and revokes all their sessions. It refuses to deactivate the last `ACTIVE` admin → error `LAST_ADMIN`. A non-admin email → error `NOT_AN_ADMIN`. *Amended 2026-11-05 (owner decision):* an email no account has → error `USER_NOT_FOUND`, for this command and `admin:reactivate`. |
 | `admin:reactivate --email` | Reactivates a deactivated admin. A non-admin email → error `NOT_AN_ADMIN`. |
 | `policy:set --tier1 <amount>`, `policy:show` | Approval policy changes and display (ADR-0002) |
 
@@ -185,8 +181,7 @@ modify Admin accounts (`409 ADMIN_NOT_MODIFIABLE`). A deployment can have severa
 `{ type, id }` · `orderId` and PO number (order events) · structured `details` ·
 `requestId`.
 
-The snapshot makes past entries immutable even after a rename, and it never includes the
-phone. `actingRole` records the capacity the user acted in (for example APPROVER when a
+The snapshot makes past entries immutable even after a rename. `actingRole` records the capacity the user acted in (for example APPROVER when a
 dual-role user approves, ADMIN for user management). Self-service events (signup,
 verification) have the user as their own actor.
 
@@ -212,8 +207,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `APPROVAL_POLICY_CHANGED` | actorType `OPERATOR`; policy version and tiers before → after; `osUser`, `host` |
 | `USER_SIGNED_UP` | user id, email domain, initial role set |
 | `USER_EMAIL_VERIFIED` | how: verification link or completed reset |
-| `USER_PROFILE_UPDATED` | name before → after; phone only as `set` / `changed` / `cleared`, never the number |
-| `USER_PHONE_PURGED` | actorType `SYSTEM`; user id; days since deactivation; never the number |
+| `USER_PROFILE_UPDATED` | name before → after |
 | `USER_ROLES_CHANGED` | roles before → after; sessions revoked |
 | `USER_DEACTIVATED` / `USER_REACTIVATED` | status before → after; sessions revoked. By an Admin (`USER`) or the operator CLI (`OPERATOR`, with `osUser` and `host`) |
 | `USER_PASSWORD_RESET_SENT` | target user (admin-initiated resets only) |
@@ -237,8 +231,7 @@ Authentication events (logins, lockouts, password changes, session revocations) 
 - Any purge of older entries runs under the separate maintenance database role, never the
   app role (ADR-0020).
 - Under the DPDP Act 2023, audit actor snapshots (name and email) are kept for that period
-  on the **legal-obligation** basis: they are part of the statutory record. Phones are never
-  in snapshots.
+  on the **legal-obligation** basis: they are part of the statutory record.
 - Session and security-log data has its own 90-day rule (ADR-0017, ADR-0020).
 
 ### Visibility (paginated, read-only, filtered in SQL)
@@ -269,11 +262,8 @@ Authentication events (logins, lockouts, password changes, session revocations) 
 ## Tests
 - Profile:
   - `GET /me` returns the listed fields.
-  - `PATCH /me` changes name and phone. Phone is normalised to E.164 and `null` clears it.
-    An invalid phone → 400.
-  - `PATCH /me` with email, roles or status → 400.
-  - The phone is absent from audit actor snapshots and from every response an Approver can
-    read.
+  - `PATCH /me` changes the name.
+  - `PATCH /me` with email, roles, status or any other field (`phone` included) → 400.
 - Roles and status:
   - roles outside the three sets → 400, including `{}` through the admin API
   - a new signup has role set `{}`; the role-set `CHECK` accepts `{}` and rejects other
@@ -291,7 +281,8 @@ Authentication events (logins, lockouts, password changes, session revocations) 
   - a no-op PATCH writes nothing
   - the reset email is sent
   - list filters (role, status, `q` prefix on name and email, case-insensitive),
-    pagination, sort stability, and committed `EXPLAIN` for the page and its `COUNT`
+    pagination, sort stability; committed `EXPLAIN` for the page and its `COUNT` in
+    slice 7
 - Bootstrap: creates exactly one admin and prints the link once. A second start prints
   nothing. Two concurrent starts create one admin. An existing non-admin email → startup
   fails.
@@ -301,7 +292,8 @@ Authentication events (logins, lockouts, password changes, session revocations) 
   - `admin:deactivate` deactivates one of two admins and revokes their sessions
   - deactivating the last active admin → `LAST_ADMIN`, and nothing changes
   - two concurrent deactivations of the last two admins leave one active
-  - `admin:reactivate` works; a non-admin email → `NOT_AN_ADMIN`
+  - `admin:reactivate` works; a non-admin email → `NOT_AN_ADMIN`; an email no account has
+    → `USER_NOT_FOUND`
   - each change is audited with `actorType` `OPERATOR`, `osUser` and `host`
   - the audit `CHECK` rejects an `OPERATOR` entry without `osUser` or `host`, and a `USER`
     entry without `actorUserId`
@@ -313,7 +305,7 @@ Authentication events (logins, lockouts, password changes, session revocations) 
   - a fourth send in a day → 429
   - a user with a role → 403
   - `GET` shows the status and dates, or 404 if none was ever sent
-  - admin list filter, pagination and `EXPLAIN`
+  - admin list filter and pagination; `EXPLAIN` in slice 7
   - assigning a role resolves the open request in the same transaction
   - dismiss with a note, shown to the user; dismissing a non-open request → 409
     `ACCESS_REQUEST_NOT_OPEN`
@@ -323,14 +315,6 @@ Authentication events (logins, lockouts, password changes, session revocations) 
   - each step is audited
 - Retention purge: runs only as the maintenance role (the app role's `DELETE` on audit is
   denied) and removes only entries older than 8 years.
-- Phone purge:
-  - a user deactivated 91 days ago has the phone cleared; one deactivated 89 days ago, or
-    an active user, keeps it (injected clock)
-  - name and email unchanged
-  - `USER_PHONE_PURGED` written with actorType `SYSTEM` and no number
-  - reactivation leaves the phone empty
-  - the maintenance role can update only the `phone` column of users
-- `USER_PROFILE_UPDATED` never contains a phone number.
 - Every event's payload. Dual-role `actingRole`. `SYSTEM` on auto-approval.
 - Renaming a user doesn't change old entries' actor snapshot.
 - Audit visibility per role: a Buyer viewing another buyer's timeline → 404; an Approver

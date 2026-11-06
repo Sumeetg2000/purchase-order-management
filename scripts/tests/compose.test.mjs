@@ -27,6 +27,10 @@ const ALLOWED = {
     'SMTP_USER',
     'SMTP_PASSWORD',
     'MAIL_FROM',
+    'SIGNUP_ALLOWED_DOMAINS',
+    'JWT_SIGNING_KEY',
+    'JWT_KEY_ID',
+    'CSRF_SECRET',
   ],
   maintenance: ['APP_ENV', 'MAINTENANCE_DATABASE_URL', 'LOG_LEVEL', 'PURGE_INTERVAL_HOURS'],
   migrate: [
@@ -83,6 +87,39 @@ describe('[NFR-OPS-01] compose services', () => {
     }
     assert.equal(services.web.build?.dockerfile, 'deploy/web.Dockerfile');
   });
+
+  it('[NFR-OPS-01] the API image tag defaults to local and can be overridden', () => {
+    for (const name of ['api', 'migrate', 'maintenance']) {
+      assert.equal(services[name].image, 'po-api:${API_IMAGE_TAG:-local}', name);
+    }
+  });
+});
+
+describe('[NFR-OPS-01] local end-to-end stack', () => {
+  const script = readFileSync(new URL('../e2e-local.sh', import.meta.url), 'utf8');
+  const exported = (name) => new RegExp(`^export ${name}=(\\S+)$`, 'm').exec(script)?.[1];
+
+  it('[NFR-OPS-01] uses its own compose project and image tag, never the default stack', () => {
+    assert.equal(exported('COMPOSE_PROJECT_NAME'), 'po-e2e');
+    assert.equal(exported('API_IMAGE_TAG'), 'e2e');
+  });
+
+  it('[NFR-OPS-01] publishes web and Mailpit on their own ports and points Playwright at them', () => {
+    assert.notEqual(exported('WEB_PORT'), '8080');
+    assert.notEqual(exported('MAILPIT_PORT'), '8025');
+    assert.equal(exported('APP_ORIGIN'), 'http://localhost:${WEB_PORT}');
+    assert.equal(exported('E2E_BASE_URL'), '${APP_ORIGIN}');
+    assert.equal(exported('MAILPIT_URL'), 'http://127.0.0.1:${MAILPIT_PORT}');
+  });
+
+  it('[NFR-OPS-01] removes only its own stack and env file when it ends', () => {
+    assert.match(script, /^trap 'docker compose down -v; rm -f "\$COMPOSE_ENV_FILES"' EXIT$/m);
+  });
+
+  it("[NFR-OPS-01] reads a throwaway env file with random secrets, never the owner's .env", () => {
+    assert.equal(exported('COMPOSE_ENV_FILES'), '"$(mktemp)"');
+    assert.match(script, /^CI_ENV_FILE="\$COMPOSE_ENV_FILES" scripts\/ci-env.sh --force$/m);
+  });
 });
 
 describe('[NFR-OPS-02] compose exposure', () => {
@@ -94,9 +131,9 @@ describe('[NFR-OPS-02] compose exposure', () => {
     assert.deepEqual(services.web.ports, ['${WEB_PORT}:8080']);
   });
 
-  it('[NFR-OPS-04] Mailpit publishes its UI on 127.0.0.1:8025 only, under the local profile', () => {
+  it('[NFR-OPS-04] Mailpit publishes its UI on 127.0.0.1 only (8025 by default), under the local profile', () => {
     assert.deepEqual(services.mailpit.profiles, ['local']);
-    assert.deepEqual(services.mailpit.ports, ['127.0.0.1:8025:8025']);
+    assert.deepEqual(services.mailpit.ports, ['127.0.0.1:${MAILPIT_PORT:-8025}:8025']);
   });
 
   it('[NFR-OPS-02] api exposes the metrics port inside the network only', () => {
@@ -152,6 +189,11 @@ describe('[NFR-OPS-05] compose credential separation', () => {
       assert.deepEqual(extra, [], `${name} receives variables it must not have`);
     });
   }
+
+  it('[NFR-OPS-02] api receives every variable the API reads, slice 1 secrets included', () => {
+    const missing = ALLOWED.api.filter((key) => !(key in environment('api')));
+    assert.deepEqual(missing, [], 'api is missing variables its config requires');
+  });
 
   it('[NFR-OPS-05] migrate gets DATABASE_URL for the bootstrap and never the maintenance URL', () => {
     const env = environment('migrate');

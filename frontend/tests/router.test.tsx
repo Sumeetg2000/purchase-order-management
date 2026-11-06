@@ -1,13 +1,23 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../src/app/providers';
 import { lazyPage } from '../src/app/lazyPage';
 import { buildRoutes } from '../src/app/router';
 import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
 import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
+import { fakeApi, json, ME } from './support/fake-api';
+
+// The pages behind a login render for a logged-in user.
+beforeEach(() => {
+  fakeApi({ 'GET /me': () => json(200, ME) });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function paths(routes: readonly RouteObject[]): string[] {
   return routes.flatMap((route) => [route.path ?? '', ...paths(route.children ?? [])]);

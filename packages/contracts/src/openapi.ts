@@ -5,9 +5,11 @@ import {
   type ZodOpenApiResponseObject,
 } from 'zod-openapi';
 import { ERROR_REGISTRY, type ErrorCode } from './errors.js';
-import { OPERATIONS, type OperationContract } from './operations.js';
+import { ETAG_PATTERN } from './etag.js';
+import { OPERATIONS, type Access, type OperationContract } from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
+import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE, requiresCsrf } from './session-cookies.js';
 
 // Generates the OpenAPI document from the operation contracts and the error registry
 // (ADR-0008, research R12). `npm run contract:generate` writes it to
@@ -27,6 +29,32 @@ const requestIdHeader = z
 
 const responseHeaders = z.object({ 'X-Request-Id': requestIdHeader });
 
+const cookieHeaders = responseHeaders.extend({
+  'Set-Cookie': z.string().meta({
+    description: 'The session cookies: po_access, po_refresh and po_csrf (ADR-0017).',
+  }),
+});
+
+const etagHeaders = responseHeaders.extend({
+  ETag: z
+    .string()
+    .regex(ETAG_PATTERN)
+    .meta({ description: "The resource's version; send it back in If-Match to update it." }),
+});
+
+const maybeCookieHeaders = responseHeaders.extend({
+  'Set-Cookie': z.string().optional().meta({
+    description: 'When the session ended is the calling one: its cookies, cleared (ADR-0017).',
+  }),
+});
+
+const retryHeaders = responseHeaders.extend({
+  'Retry-After': z
+    .string()
+    .regex(/^[0-9]+$/)
+    .meta({ description: 'Seconds to wait.' }),
+});
+
 const problemResponse = {
   id: 'Problem',
   description: 'Any error, in RFC 9457 format.',
@@ -41,12 +69,69 @@ const SUCCESS_DESCRIPTIONS: Readonly<Record<number, string>> = {
   204: 'No content',
 };
 
-const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+/** The cookies and header that authenticate a request (ADR-0017). */
+const SECURITY_SCHEMES = {
+  accessCookie: { type: 'apiKey', in: 'cookie', name: ACCESS_COOKIE },
+  refreshCookie: { type: 'apiKey', in: 'cookie', name: REFRESH_COOKIE },
+  csrfHeader: { type: 'apiKey', in: 'header', name: CSRF_HEADER },
+} as const;
+type SecurityScheme = keyof typeof SECURITY_SCHEMES;
 
-/** Codes any operation can return: validation, size and origin for bodies, and failure. */
+/** The credential each access level needs; public needs none. */
+const CREDENTIAL: Readonly<Record<Access, SecurityScheme | undefined>> = {
+  public: undefined,
+  refresh: 'refreshCookie',
+  user: 'accessCookie',
+  'no-role': 'accessCookie',
+  admin: 'accessCookie',
+};
+
+/** Security requirements: the credential, plus the CSRF header on unsafe methods. */
+function security(operation: OperationContract): Record<string, string[]>[] | undefined {
+  const credential = CREDENTIAL[operation.access];
+  if (!credential) return undefined;
+  const requirement: Record<string, string[]> = { [credential]: [] };
+  if (requiresCsrf(operation.method)) requirement['csrfHeader'] = [];
+  return [requirement];
+}
+
+const ifMatchHeader = z.strictObject({
+  'If-Match': z
+    .string()
+    .regex(ETAG_PATTERN)
+    .meta({ description: 'The ETag from the last read; a missing or stale one is refused.' }),
+});
+
+/** The codes the authorize step answers for any logged-in caller (research R1). */
+const SESSION_CODES = [
+  'UNAUTHENTICATED',
+  'ACCESS_TOKEN_EXPIRED',
+  'ACCOUNT_DEACTIVATED',
+  'SESSION_REVOKED',
+  'SESSION_EXPIRED',
+] as const satisfies readonly ErrorCode[];
+
+/** The codes the authorize step answers for each access level. */
+const ACCESS_CODES: Readonly<Record<Access, readonly ErrorCode[]>> = {
+  public: [],
+  refresh: ['UNAUTHENTICATED', 'SESSION_EXPIRED'],
+  // Every request checks its session (ADR-0017, amended 2026-11-03).
+  user: SESSION_CODES,
+  'no-role': [...SESSION_CODES, 'FORBIDDEN'],
+  admin: [...SESSION_CODES, 'NO_ROLE_ASSIGNED', 'FORBIDDEN'],
+};
+
+/** Codes whose responses say when to try again (lockout, rate limits). */
+const RETRY_AFTER_CODES: ReadonlySet<ErrorCode> = new Set(['ACCOUNT_LOCKED', 'RATE_LIMITED']);
+
+/**
+ * Codes any operation can return: validation, size and origin for bodies, its access
+ * level's, and failure; then its own.
+ */
 function errorCodes(operation: OperationContract): ErrorCode[] {
   const codes: ErrorCode[] = ['VALIDATION_FAILED', 'INTERNAL_ERROR'];
-  if (UNSAFE_METHODS.has(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
+  if (requiresCsrf(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
+  for (const code of ACCESS_CODES[operation.access]) if (!codes.includes(code)) codes.push(code);
   for (const code of operation.errors ?? []) if (!codes.includes(code)) codes.push(code);
   return codes;
 }
@@ -60,9 +145,17 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   for (const [status, schema] of Object.entries(operation.responses)) {
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
-      headers: responseHeaders,
-      // 204 has no body, so no content type either.
-      ...(status === '204' ? {} : { content: { 'application/json': { schema } } }),
+      headers:
+        operation.setsCookies === 'sometimes'
+          ? maybeCookieHeaders
+          : operation.setsCookies
+            ? cookieHeaders
+            : operation.etag
+              ? etagHeaders
+              : responseHeaders,
+      // A void response (204, or a 202 that only acknowledges) has no body, so no content
+      // type either.
+      ...(schema._zod.def.type === 'void' ? {} : { content: { 'application/json': { schema } } }),
     };
   }
   const byStatus = new Map<number, ErrorCode[]>();
@@ -73,7 +166,7 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   for (const [status, codes] of [...byStatus].sort(([a], [b]) => a - b)) {
     responses[String(status)] = {
       description: `Problem document with code ${codes.join(' or ')}.`,
-      headers: responseHeaders,
+      headers: codes.some((code) => RETRY_AFTER_CODES.has(code)) ? retryHeaders : responseHeaders,
       content: { 'application/problem+json': { schema: problemSchema } },
       'x-error-codes': codes,
     };
@@ -81,12 +174,21 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   responses['default'] = problemResponse;
 
   const { params, query, body } = operation.request ?? {};
+  const header = operation.ifMatch === 'required' ? ifMatchHeader : undefined;
+  const requirements = security(operation);
   return {
     operationId: operation.operationId,
     summary: operation.summary,
     'x-access': operation.access,
-    ...(params || query
-      ? { requestParams: { ...(params ? { path: params } : {}), ...(query ? { query } : {}) } }
+    ...(requirements ? { security: requirements } : {}),
+    ...(params || query || header
+      ? {
+          requestParams: {
+            ...(params ? { path: params } : {}),
+            ...(query ? { query } : {}),
+            ...(header ? { header } : {}),
+          },
+        }
       : {}),
     ...(body ? { requestBody: { content: { 'application/json': { schema: body } } } } : {}),
     responses,
@@ -118,6 +220,7 @@ export function buildOpenApiDocument(
       },
     ],
     paths,
+    components: { securitySchemes: SECURITY_SCHEMES },
   });
 }
 

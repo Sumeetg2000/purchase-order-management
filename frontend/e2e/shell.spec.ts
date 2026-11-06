@@ -1,8 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/shared-admin';
 import { SECURITY_HEADERS } from '../../deploy/security-headers.mjs';
 
-// The production shell, served by nginx from the compose stack.
+// The production shell, served by nginx from the compose stack. Its pages need a login
+// (slice 1): the tests share one logged-in admin per worker (support/shared-admin.ts).
 
 const SHELL_PAGES = ['/', '/no/such/page'];
 

@@ -37,8 +37,25 @@ function inventory(operations: Readonly<Record<string, OperationContract>>): Bod
   return result;
 }
 
-/** The reviewed inventory. Slice 0 serves no mutating operation. */
-const EXPECTED: BodyInventory = {};
+/** The reviewed inventory (contracts/api.md), growing story by story with the routes. */
+const EXPECTED: BodyInventory = {
+  login: { email: 'required', password: 'required' },
+  refreshSession: 'no body',
+  logout: 'no body',
+  logoutAll: 'no body',
+  resetPassword: { token: 'required', newPassword: 'required' },
+  signup: { name: 'required', email: 'required', password: 'required' },
+  verifyEmail: { token: 'required', password: 'required' },
+  resendVerification: { email: 'required' },
+  sendAccessRequest: { message: 'required' },
+  updateUser: { roles: 'optional', isActive: 'optional' },
+  sendUserPasswordReset: 'no body',
+  dismissAccessRequest: { note: 'optional' },
+  updateMe: { name: 'required' },
+  changePassword: { currentPassword: 'required', newPassword: 'required' },
+  revokeSession: 'no body',
+  forgotPassword: { email: 'required' },
+};
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {
   it('[NFR-VAL-01] every mutating operation has exactly the reviewed body fields', () => {

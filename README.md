@@ -27,6 +27,13 @@ docker compose logs migrate | grep oneTimeLink
 ```
 
 More admins: `docker compose exec api npm run admin -- admin:create --email <email> --name "<name>"`.
+
+Accounts: anyone with an email in `SIGNUP_ALLOWED_DOMAINS` can sign up; they verify from
+the emailed link and wait on Access pending until an admin assigns a role. Locally, mail
+goes to Mailpit at <http://localhost:8025>, and `SEED_DEMO_DATA=true` adds
+`buyer1@example.com`, `buyer2@example.com` and `approver@example.com` (password in
+`backend/src/migrate/seed-demo.ts`). A walkthrough is in the
+[slice 1 quickstart](specs/002-accounts-user-management/quickstart.md).
 Troubleshooting (including snap-packaged Docker) is in the
 [quickstart](specs/001-foundation/quickstart.md).
 
@@ -37,7 +44,7 @@ npm ci          # installs dependencies and the git hooks
 npm test        # all tests; integration tests start PostgreSQL in Docker
 npm run lint
 npm run typecheck
-npm run dev     # API reload + Vite HMR on one origin (lands later in slice 0)
+npm run dev     # API reload + Vite HMR on one origin
 ```
 
 `npm ci` installs a [lefthook](lefthook.yml) pre-commit hook that runs gitleaks on the
@@ -49,6 +56,6 @@ A test-first commit, whose test imports code that doesn't exist yet, skips only 
 
 - [The brief](docs/BRIEF.md): the requirements
 - [Architecture decisions](docs/adr/README.md)
-- [Current slice: foundation](specs/001-foundation/) (spec, plan, tasks)
+- [Current slice: accounts and user management](specs/002-accounts-user-management/) (spec, plan, tasks)
 - [Traceability](docs/traceability.md): brief clause → requirement → tests
 - [Working agreement](CLAUDE.md)

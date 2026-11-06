@@ -1,15 +1,15 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from 'pino';
+import { createApiApp } from './app.js';
 import type { ApiConfig } from './config/api.js';
 import { createPrismaClient } from './db/client.js';
-import { createApp } from './http/app.js';
 import { listMigrations } from './health/service.js';
-import { productionRoutes } from './http/routes/index.js';
 import { createShutdown, DRAIN_TIMEOUT_MS } from './http/shutdown.js';
 import { createMailDispatcher } from './mail/dispatcher.js';
 import { createSmtpMailer } from './mail/smtp.js';
 import { createMetrics, createMetricsServer } from './observability/metrics.js';
+import { systemClock, type Clock } from './lib/clock.js';
 
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -33,7 +33,16 @@ export interface RunningApi {
  * Starts the API and its metrics listener from a validated config. Nothing here contacts
  * the mail server: an unreachable SMTP host fails sends, not startup.
  */
-export async function startApi(config: ApiConfig, logger: Logger): Promise<RunningApi> {
+export interface StartApiOptions {
+  /** Tests move time with an injected clock; production runs on the system clock. */
+  clock?: Clock;
+}
+
+export async function startApi(
+  config: ApiConfig,
+  logger: Logger,
+  { clock = systemClock }: StartApiOptions = {},
+): Promise<RunningApi> {
   // Before the client exists, so a failure here leaves nothing to close.
   const expectedMigrations = await listMigrations();
   const prisma = createPrismaClient({
@@ -44,17 +53,7 @@ export async function startApi(config: ApiConfig, logger: Logger): Promise<Runni
 
   const mail = createMailDispatcher(createSmtpMailer(config));
   const metrics = createMetrics();
-  const app = createApp({
-    logger,
-    appOrigin: config.APP_ORIGIN,
-    metrics,
-    routes: productionRoutes({
-      prisma,
-      expectedMigrations,
-      logger,
-      mail,
-    }),
-  });
+  const app = createApiApp({ config, prisma, clock, logger, mail, expectedMigrations, metrics });
 
   const server = createServer(app);
   const metricsServer = createMetricsServer(metrics);

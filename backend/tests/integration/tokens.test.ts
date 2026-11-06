@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { withTransaction, type AuditedTransaction } from '../../src/db/transaction.js';
 import {
+  consumeToken,
   hashToken,
   issueToken,
   RESET_TOKEN_LIFETIME_MINUTES,
@@ -198,6 +199,102 @@ describe('[FR-ACC-03] one-time tokens', () => {
         'UNIQUE (user_id, purpose) WHERE ((used_at IS NULL) AND (superseded_at IS NULL))',
       ],
       ['one_time_tokens_purge_idx', '(COALESCE(used_at, superseded_at, expires_at))'],
+    ]);
+  });
+});
+
+describe('[FR-ACC-03] consuming a one-time token', () => {
+  async function consumer() {
+    const context = await setup();
+    const consume = (token: string, purpose: TokenPurpose = 'RESET') =>
+      context.run((tx) => consumeToken(tx, purpose, token));
+    const admin = await context.db.client('postgres');
+    /** Moves a token's expiry into the past, as the superuser (po_app can't). */
+    const expire = (token: string) =>
+      admin.query(
+        `UPDATE one_time_tokens SET created_at = now() - interval '2 hours',
+                                    expires_at = now() - interval '1 second'
+          WHERE token_hash = $1`,
+        [hashToken(token)],
+      );
+    return { ...context, consume, admin, expire };
+  }
+
+  it('[FR-ACC-03] a valid token is accepted once, for its user, then TOKEN_USED', async () => {
+    const { issue, consume, userId } = await consumer();
+    const { token } = await issue('RESET');
+    expect(await consume(token)).toEqual({ ok: true, userId });
+    expect(await consume(token)).toEqual({ ok: false, code: 'TOKEN_USED' });
+  });
+
+  it('[FR-ACC-03] an earlier token after a reissue is TOKEN_SUPERSEDED; the newest works', async () => {
+    const { issue, consume, userId } = await consumer();
+    const first = await issue('RESET');
+    const second = await issue('RESET');
+    expect(await consume(first.token)).toEqual({ ok: false, code: 'TOKEN_SUPERSEDED' });
+    expect(await consume(second.token)).toEqual({ ok: true, userId });
+  });
+
+  it('[FR-ACC-03] a token past its expiry is TOKEN_EXPIRED and stays unused', async () => {
+    const { issue, consume, expire, db } = await consumer();
+    const { token } = await issue('RESET');
+    await expire(token);
+    expect(await consume(token)).toEqual({ ok: false, code: 'TOKEN_EXPIRED' });
+    expect((await tokenRows(db))[0]?.used_at).toBeNull();
+  });
+
+  it('[FR-ACC-03] an unknown, purged or wrong-purpose token is INVALID_TOKEN', async () => {
+    const { issue, consume, admin } = await consumer();
+    expect(await consume('not-a-token')).toEqual({ ok: false, code: 'INVALID_TOKEN' });
+
+    const verify = await issue('VERIFY_EMAIL');
+    expect(await consume(verify.token, 'RESET')).toEqual({ ok: false, code: 'INVALID_TOKEN' });
+
+    const purged = await issue('RESET');
+    await admin.query('DELETE FROM one_time_tokens WHERE token_hash = $1', [
+      hashToken(purged.token),
+    ]);
+    expect(await consume(purged.token)).toEqual({ ok: false, code: 'INVALID_TOKEN' });
+  });
+
+  it('[FR-ACC-03] used beats superseded beats expired: a used, expired token is TOKEN_USED', async () => {
+    const { issue, consume, expire } = await consumer();
+    const used = await issue('RESET');
+    await consume(used.token);
+    await expire(used.token);
+    expect(await consume(used.token)).toEqual({ ok: false, code: 'TOKEN_USED' });
+
+    const superseded = await issue('RESET');
+    await issue('RESET');
+    await expire(superseded.token);
+    expect(await consume(superseded.token)).toEqual({ ok: false, code: 'TOKEN_SUPERSEDED' });
+  });
+
+  it('[FR-ACC-03] two concurrent uses of one token: exactly one succeeds, the other is TOKEN_USED', async () => {
+    const { issue, run, userId } = await consumer();
+    const { token } = await issue('RESET');
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markConsumed: () => void = () => undefined;
+    const consumedA = new Promise<void>((resolve) => {
+      markConsumed = resolve;
+    });
+    // A consumes and holds its transaction (and the row lock) open; B tries meanwhile.
+    const a = run(async (tx) => {
+      const result = await consumeToken(tx, 'RESET', token);
+      markConsumed();
+      await gate;
+      return result;
+    });
+    await consumedA;
+    const b = run((tx) => consumeToken(tx, 'RESET', token));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    release();
+    expect(await Promise.all([a, b])).toEqual([
+      { ok: true, userId },
+      { ok: false, code: 'TOKEN_USED' },
     ]);
   });
 });

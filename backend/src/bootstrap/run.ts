@@ -9,6 +9,7 @@ import { logOneTimeLink } from '../observability/logger.js';
 import { RESET_TOKEN_LIFETIME_MINUTES } from '../tokens/one-time.js';
 import { createAdmin, EmailInUseError } from '../users/create-admin.js';
 import { adminExists } from '../users/repository.js';
+import { SYSTEM_ACTOR } from '../users/actor.js';
 
 // The first administrator (migrate step 3, research R13, contracts/cli.md). Idempotent:
 // under ADMIN_LOCK it does nothing if any administrator exists, so restarts, and two
@@ -42,7 +43,7 @@ export async function runBootstrap(options: BootstrapOptions): Promise<'created'
   return withTransaction(
     {
       prisma,
-      actor: { type: 'SYSTEM' },
+      actor: SYSTEM_ACTOR,
       requestId: uuidv7(),
       timeoutMs: options.timeoutMs ?? ONE_SHOT.transactionTimeoutMs,
       maxWaitMs: options.maxWaitMs ?? ONE_SHOT.transactionMaxWaitMs,

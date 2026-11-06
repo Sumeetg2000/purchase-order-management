@@ -1,10 +1,21 @@
 // Single source of the API contract (ADR-0008): the error registry, the Zod schemas and
 // the operation contracts. The OpenAPI generator is a separate entry, @po/contracts/openapi.
+export * from './access-requests.js';
 export * from './app-error.js';
 export * from './email.js';
 export * from './errors.js';
+export * from './etag.js';
 export * from './operations.js';
 export * from './request-id.js';
+export * from './schemas/access-requests.js';
+export * from './schemas/admin-users.js';
+export * from './schemas/auth.js';
 export * from './schemas/health.js';
+export * from './schemas/ids.js';
+export * from './schemas/me.js';
+export * from './schemas/pagination.js';
 export * from './schemas/problem.js';
+export * from './schemas/sessions.js';
+export * from './session-cookies.js';
+export * from './sessions.js';
 export * from './users.js';

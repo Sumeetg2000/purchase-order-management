@@ -1,4 +1,4 @@
-import { emailAddressSchema } from '@po/contracts';
+import { emailAddressSchema, USER_NAME_MAX_LENGTH } from '@po/contracts';
 import { z } from 'zod';
 import {
   appEnv,
@@ -35,7 +35,7 @@ export const migrateConfig = defineProcessConfig({
     SEED_DEMO_DATA: envBoolean,
     // Required only when no admin exists yet; the bootstrap checks that at run time.
     BOOTSTRAP_ADMIN_EMAIL: optional(emailAddressSchema.transform((v) => v.toLowerCase())),
-    BOOTSTRAP_ADMIN_NAME: optional(z.string().trim().min(1).max(100)),
+    BOOTSTRAP_ADMIN_NAME: optional(z.string().trim().min(1).max(USER_NAME_MAX_LENGTH)),
   },
   forbidden: (key) => key === 'MAINTENANCE_DATABASE_URL',
   refine: (config, ctx) => {

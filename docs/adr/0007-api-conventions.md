@@ -8,13 +8,19 @@
   2026-11-02 (POC: clear, specific error messages over anti-enumeration, **owner
   decision**: `INVALID_CREDENTIALS` replaced by one code per login failure;
   `ACCOUNT_NOT_FOUND`, `EMAIL_IN_USE`, `ACCOUNT_ALREADY_VERIFIED`, `ACCESS_TOKEN_EXPIRED`;
-  a body-schema inventory test for mutating operations)
+  a body-schema inventory test for mutating operations) · amended 2026-11-03 (specific
+  one-time-link codes `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`; `SESSION_REVOKED`
+  carries its `reason`, **owner decision**) · amended 2026-11-03 (POC scope, owner
+  decision: no `phone` field, so no `INVALID_PHONE`; `SESSION_REVOKED`'s `reason` only
+  for the three public revoke reasons) · amended 2026-11-04 (field code
+  `PASSWORD_UNCHANGED`, **owner decision**) · amended 2026-11-05 (`page` max 100,000, from
+  the slice 1 code review: a deeper offset overflowed Prisma's integer and answered 500)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
 ## Decision
-- **Offset pagination** on every collection: `page` (1-based, default 1) and `pageSize`
-  (default 20, max 50). Invalid values → `400 VALIDATION_FAILED`. Envelope
+- **Offset pagination** on every collection: `page` (1-based, default 1, max 100,000) and
+  `pageSize` (default 20, max 50). Invalid values → `400 VALIDATION_FAILED`. Envelope
   `{ items, page, pageSize, total }`. Every list has a stable sort ending in `id`, backed by
   a matching index.
   - Why: simplicity and page-number navigation. If deep pages get slow (measured at page
@@ -50,7 +56,7 @@ Field rules:
 - an order has 1–500 lines, and the same line id may not appear twice
 - withdraw, reject and cancel `reason`: plain text, 1–500 characters
 - receipt `note`: plain text, 0–500 characters
-- user `name`: 1–100 characters; `phone`: E.164 after normalisation (ADR-0016)
+- user `name`: 1–100 characters
 - access-request `message` and dismiss `note`: plain text, 1–500 and 0–500 characters
 - every free-text field is stored and rendered as text, never HTML
 
@@ -63,10 +69,12 @@ One registry module holds every code. Every endpoint documents its codes in the 
     `INVALID_FORMAT`, `TOO_SHORT`, `TOO_LONG`, `OUT_OF_RANGE`
   - `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`, `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`
   - `VERSION_REQUIRED`
-  - `INVALID_PHONE`, `INVALID_ROLE_SET`
-  - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`
-- Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and `INVALID_TOKEN` (an invalid, expired,
-  used or superseded one-time token, all indistinguishable).
+  - `INVALID_ROLE_SET`
+  - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`,
+    `PASSWORD_UNCHANGED`
+- Other `400` codes: `SIGNUP_DOMAIN_NOT_ALLOWED`, and one code per failed one-time token
+  (ADR-0017): `TOKEN_EXPIRED`, `TOKEN_USED`, `TOKEN_SUPERSEDED`, and `INVALID_TOKEN` for
+  an unknown one.
 - `401`:
   - `UNAUTHENTICATED`: no access token, or a malformed or wrongly signed one
   - `ACCESS_TOKEN_EXPIRED`: a valid access token past its expiry; the web app refreshes
@@ -78,7 +86,10 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ACCOUNT_DEACTIVATED`: login, with the right password, to a `DEACTIVATED` account;
     forgot-password or resend-verification for one; and any request after deactivation
   - `SESSION_EXPIRED`: idle or absolute limit reached
-  - `SESSION_REVOKED`
+  - `SESSION_REVOKED`: the session was revoked. When the revoke reason is public
+    (`PASSWORD_CHANGED`, `PASSWORD_RESET` or `ROLES_CHANGED`, ADR-0017), the problem
+    carries it as the extension member `reason`, returned only to the holder of that
+    session's refresh token. Any other revocation leaves `reason` out.
 - `403`:
   - `FORBIDDEN`, `NO_ROLE_ASSIGNED`
   - `NOT_ORDER_OWNER`, `SELF_APPROVAL`

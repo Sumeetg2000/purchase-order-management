@@ -1,23 +1,30 @@
 import type { Logger } from 'pino';
 import { afterAll, expect } from 'vitest';
 import { createLogger } from '../../src/observability/logger.js';
+import { secretsIn } from './secrets.js';
+
+export { TOKEN_SHAPED } from './secrets.js';
 
 export type LogLine = Record<string, unknown>;
-
-/**
- * A 256-bit token in base64url is 43 characters. Ids (UUIDs are 36), hostnames and path
- * segments are shorter, so a longer run of these characters is treated as a token.
- */
-export const TOKEN_SHAPED = /[A-Za-z0-9_-]{43,}/;
 
 // Every capture created in this test file, so the response audit can find a request's log
 // lines whichever logger the app under test was given.
 const captures: LogLine[][] = [];
+// The captures the end-of-file check scans: all but those that leak on purpose.
+const checked: LogLine[][] = [];
 
-/** A logger with the application's options whose lines are kept in memory. */
-export function createCapture(): { logger: Logger; lines: LogLine[] } {
+/**
+ * A logger with the application's options whose lines are kept in memory. Its lines must
+ * hold no secret, checked when the test file ends, unless `leaksExpected` (a test of the
+ * check itself).
+ */
+export function createCapture({ leaksExpected = false }: { leaksExpected?: boolean } = {}): {
+  logger: Logger;
+  lines: LogLine[];
+} {
   const lines: LogLine[] = [];
   captures.push(lines);
+  if (!leaksExpected) checked.push(lines);
   const logger = createLogger('trace', {
     write: (chunk: string) => {
       for (const line of chunk.split('\n')) {
@@ -28,15 +35,18 @@ export function createCapture(): { logger: Logger; lines: LogLine[] } {
   return { logger, lines };
 }
 
-/** Lines with a token-shaped value outside the one-time link channel (SC-003). */
+/**
+ * Lines with a secret (a token-shaped value, a password hash or the test password),
+ * except a token on the one-time link channel.
+ */
 export function findTokenLeaks(lines: readonly LogLine[]): LogLine[] {
-  return lines.filter(
-    (line) => line['oneTimeLink'] !== true && TOKEN_SHAPED.test(JSON.stringify(line)),
-  );
+  return lines.filter((line) => {
+    const found = secretsIn(line);
+    return line['oneTimeLink'] === true ? found.some((kind) => kind !== 'token') : found.length > 0;
+  });
 }
 
-// One capture per test file. Apps under test log here, and the file fails if any line
-// leaks a token.
+// One capture per test file that apps under test log to by default.
 const shared = createCapture();
 
 export function testLogger(): Logger {
@@ -49,5 +59,5 @@ export function capturedLines(): readonly LogLine[] {
 }
 
 afterAll(() => {
-  expect(findTokenLeaks(shared.lines), 'log lines with a token-shaped value').toEqual([]);
+  expect(findTokenLeaks(checked.flat()), 'log lines with a token or password').toEqual([]);
 });

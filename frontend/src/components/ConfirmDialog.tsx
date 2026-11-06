@@ -31,6 +31,8 @@ export interface ConfirmDialogProps {
   tone?: 'default' | 'danger';
   /** When set, a reason is required: confirm stays disabled until it is valid. */
   reason?: { label: string; minLength: number; maxLength: number };
+  /** Keeps confirm disabled, e.g. until the dialog's own choice is made or its data loads. */
+  confirmDisabled?: boolean;
   /** Called once per press, with the trimmed reason when one is required. */
   onConfirm: (reason?: string) => Promise<void>;
   /** Escape, an outside click and the safe button call it, except while pending. */
@@ -56,6 +58,7 @@ export function ConfirmDialog({
   cancelLabel = 'Go back',
   tone = 'default',
   reason,
+  confirmDisabled = false,
   onConfirm,
   onClose,
   error,
@@ -76,7 +79,7 @@ export function ConfirmDialog({
     !reason || (trimmed.length >= reason.minLength && trimmed.length <= reason.maxLength);
 
   const confirm = async () => {
-    if (pendingRef.current || !reasonValid) return;
+    if (pendingRef.current || !reasonValid || confirmDisabled) return;
     pendingRef.current = true;
     setPending(true);
     setFailure(undefined);
@@ -146,7 +149,7 @@ export function ConfirmDialog({
             <Button
               className={tone === 'danger' ? controls.danger : controls.primary}
               onPress={() => void confirm()}
-              isDisabled={pending || !reasonValid}
+              isDisabled={pending || !reasonValid || confirmDisabled}
             >
               {pending ? `${confirmLabel}…` : confirmLabel}
             </Button>

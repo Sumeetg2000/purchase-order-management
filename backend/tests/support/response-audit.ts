@@ -4,12 +4,14 @@ import request from 'supertest';
 import { afterAll, expect } from 'vitest';
 import { capturedLines } from './log-capture.js';
 import { isDocumentedPath, validateResponse } from './openapi-validator.js';
+import { secretsIn } from './secrets.js';
 
 // Every error response the suite sees from an API app must be problem+json with a
 // registered code and a correlationId equal to its X-Request-Id header and present in the
 // log lines. Every error response, and every response from a documented path, must also
 // match the committed OpenAPI document; success responses from test-only routes
-// have no documentation to match. Supertest is hooked once per test file; the metrics
+// have no documentation to match. No response body may hold a token, a password hash or
+// the test password: cookies carry the session tokens. Supertest is hooked once per test file; the metrics
 // listener (a plain http.Server, not an Express app) is not the API and is skipped.
 
 interface SeenResponse {
@@ -85,7 +87,22 @@ function contractProblems(entry: (typeof seen)[number]): string[] {
   });
 }
 
+/** Responses whose body holds a secret, as "METHOD path status: kinds". */
+export function secretResponses(
+  entries: readonly { method: string; url: string; res: SeenResponse }[],
+) {
+  return entries.flatMap((entry) => {
+    const kinds = secretsIn(entry.res.body ?? '');
+    return kinds.length === 0
+      ? []
+      : [
+          `${entry.method} ${new URL(entry.url).pathname} ${String(entry.res.status)}: ${kinds.join(', ')}`,
+        ];
+  });
+}
+
 afterAll(() => {
+  expect(secretResponses(seen), 'response bodies with a token or password').toEqual([]);
   const failures = seen.filter((entry) => entry.res.status >= 400).flatMap(problems);
   expect(failures, 'error responses outside the standard shape').toEqual([]);
   expect(seen.flatMap(contractProblems), 'responses that break the OpenAPI document').toEqual([]);
