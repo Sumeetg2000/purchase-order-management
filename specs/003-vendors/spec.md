@@ -215,7 +215,8 @@ four entries, newest first, each with actor, time and before → after.
   create (lost response) gets the same `409`, pointing at the vendor it already created.
 - `contactEmail` is compared and stored lower-cased; an invalid email → `400`. A
   `contactPhone` with letters or other symbols, or over the length limit → `400`; an
-  omitted or `null` phone is stored as no phone. Contact emails need not be unique.
+  omitted or `null` phone is stored as no phone (`null`); `""` is refused with `400`, never
+  stored (ADR-0007: one form for "no value"). Contact emails need not be unique.
 - Two Buyers deactivate and edit the same vendor at the same moment: one wins, the other
   gets `409 VERSION_CONFLICT`.
 - Deactivating an already-inactive vendor, or reactivating an active one, is refused with
