@@ -14,7 +14,10 @@
   decision: no `phone` field, so no `INVALID_PHONE`; `SESSION_REVOKED`'s `reason` only
   for the three public revoke reasons) · amended 2026-11-04 (field code
   `PASSWORD_UNCHANGED`, **owner decision**) · amended 2026-11-05 (`page` max 100,000, from
-  the slice 1 code review: a deeper offset overflowed Prisma's integer and answered 500)
+  the slice 1 code review: a deeper offset overflowed Prisma's integer and answered 500) ·
+  amended 2026-11-06 (slice 2, **owner decision**: a `409` about a clash with another
+  resource names it in one typed extension member, `existingVendor` first; the vendor
+  field rules)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -58,6 +61,12 @@ Field rules:
 - receipt `note`: plain text, 0–500 characters
 - user `name`: 1–100 characters
 - access-request `message` and dismiss `note`: plain text, 1–500 and 0–500 characters
+- vendor `name` and `contactName`: 1–200 characters after trimming; `contactEmail`: a
+  valid email, at most 254 characters, stored lower-cased; `contactPhone`: optional, only
+  digits, spaces and `+ - ( )`, at least one digit, at most 30 characters
+- **One form for "no value"** on an optional field (amended 2026-11-06): it is `null` in
+  responses and storage. A request clears it with `null`, or by leaving it out of a
+  full-replacement body; `""` is refused (`TOO_SHORT`), never stored or read as "none"
 - every free-text field is stored and rendered as text, never HTML
 
 Check precedence is in ADR-0004.
@@ -114,6 +123,14 @@ One registry module holds every code. Every endpoint documents its codes in the 
 - `503 SERVICE_UNAVAILABLE`, `CONCURRENCY_RETRY_EXHAUSTED`.
 - The problem body carries `code`, `title`, `status`, `detail`, `correlationId` and an
   optional `details`.
+- **Clash with an existing resource** (amended 2026-11-06, owner decision): a `409` caused
+  by another resource that already exists names it in **one** typed extension member,
+  `existing<Entity>`, holding exactly that resource's `id` and its display label, and
+  nothing the caller couldn't read anyway. The registry entry declares which member a
+  code carries, and the problem schema refuses that member on any other code, as it does
+  for `reason`. First use: `DUPLICATE_VENDOR_NAME` → `existingVendor: { id, name }`. A
+  later clash code follows the same shape (an order would use `{ id, poNumber }`); it
+  does not invent another member name or nest the data in `detail` or `details`.
 - Every code has a user-facing message in the web app's message map
   (`frontend/src/errors/messages.ts`), typed `Record<ErrorCode, …>`, so a code added
   without a message fails the typecheck.
@@ -125,7 +142,8 @@ Cursor-only pagination (more scalable, but no page numbers); the `{error:{…}}`
 ## Tests
 Page boundaries, defaults, max, invalid values, sort stability with equal timestamps;
 malformed JSON → 400; bad UUID → 400; unknown errors → 500 with no leak; every documented
-code appears in the OpenAPI.
+code appears in the OpenAPI. A clash member appears only on the code that declares it,
+and the OpenAPI documents it on that code; `""` in an optional field → 400.
 
 Body-schema inventory: a contract test pins, for every mutating operation (`post`, `put`,
 `patch`, `delete`), its body's fields and whether each is required, or that it takes no
