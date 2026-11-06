@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { adminPage, askForAccess, chooseRadio, logInAs, signUpAndVerify } from './support/signup';
 
 // Spec US2's and US3's independent tests (SC-001, SC-002): a new employee signs up,

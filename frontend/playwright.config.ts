@@ -40,19 +40,12 @@ export default defineConfig({
     baseURL: process.env['E2E_BASE_URL'] ?? appOrigin() ?? 'http://localhost:8080',
     ignoreHTTPSErrors: true,
   },
-  // The browsers run one after another, each after its rate-limit counters are cleared
-  // (reset-limits.setup.ts): every request comes from the stack's one address, so
-  // browsers running together would share ADR-0017's per-IP limits. A failing browser
-  // skips the ones after it; the run fails either way.
-  projects: engines.flatMap((name, index) => {
+  // The browsers run one after another, and every spec file starts with the stack's
+  // per-address rate-limit counters cleared (e2e/support/test.ts): every request comes from
+  // the stack's one address, so browsers or files running together would share ADR-0017's
+  // per-IP limits. A failing browser skips the ones after it; the run fails either way.
+  projects: engines.map((name, index) => {
     const previous = engines[index - 1];
-    return [
-      {
-        name: `${name}-reset-limits`,
-        testMatch: /reset-limits\.setup\.ts/,
-        dependencies: previous === undefined ? [] : [previous],
-      },
-      { name, use: ENGINES[name], dependencies: [`${name}-reset-limits`] },
-    ];
+    return { name, use: ENGINES[name], dependencies: previous === undefined ? [] : [previous] };
   }),
 });

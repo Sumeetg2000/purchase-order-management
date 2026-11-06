@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 
-// The rate limits stay on in the end-to-end stack: its counters are only cleared between
-// browsers (reset-limits.setup.ts). The per-email forgot-password bucket is used because
-// a fresh address touches no other test's counters.
+// The rate limits stay on in the end-to-end stack. Only the per-address counters are
+// cleared before each spec file (support/limits.ts); this test drives the per-email
+// forgot-password bucket for a fresh address, which nothing else touches or clears.
 
 const FORGOT_EMAIL_LIMIT = 3;
 

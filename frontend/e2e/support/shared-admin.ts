@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { test as base } from '@playwright/test';
 import { loggedInAdmin } from './accounts';
+import { test as base } from './test';
 
 // One logged-in admin per worker, for tests that only look at pages (shell, axe, CSP,
 // cookies). Every login from the stack's one address counts toward ADR-0017's per-IP
@@ -32,4 +32,4 @@ export const test = base.extend<object, { adminStorageState: string }>({
   ],
 });
 
-export { expect } from '@playwright/test';
+export { expect } from './test';

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { isWebKitSelectReport, type CspReport } from './support/csp';
 
 // The reproduction behind support/csp.ts's one exception: a bare page with a CSP and a

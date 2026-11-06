@@ -329,9 +329,13 @@ verify-email, resend-verification, forgot-password, reset-password). They rely o
     - its `APP_ORIGIN` is `https://localhost:<port>`, so the origin check and emailed links
       use it
     - Playwright ignores the certificate error; production nginx and the app are unchanged.
-  - The rate limits stay on in the e2e stack. The browsers run one after another, and
-    before each, a setup step clears the counters of compose project `po-e2e` directly in
-    its database, refusing any other target. One e2e test still expects `429 RATE_LIMITED`.
+  - The rate limits stay on in the e2e stack. The browsers run one after another.
+    Before each spec file, an automatic Playwright fixture clears the per-address counters
+    (`login-ip`, `signup-ip`) of compose project `po-e2e` directly in its database,
+    refusing any other target. A whole browser run made 29 logins a minute against the
+    limit of 30, so clearing once per browser left one login of headroom. Per-email and
+    per-user counters are left alone, so one e2e test still drives a fresh address's
+    forgot-password bucket to `429 RATE_LIMITED`.
   - WebKit reports a `style-src-attr` CSP violation against a native `<select>` for its
     own rendering of the control. A bare page with only a CSP and a `<select>`, no style
     attribute and no app code reproduces it; Chromium and Firefox report nothing, and

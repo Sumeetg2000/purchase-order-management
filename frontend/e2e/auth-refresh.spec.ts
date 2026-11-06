@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { createAdmin, logIn, loggedInAdmin, setPassword } from './support/accounts';
 import { recordCspViolations } from './support/csp';
 

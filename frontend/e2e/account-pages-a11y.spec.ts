@@ -1,8 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test as anonymousTest, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { recordCspViolations } from './support/csp';
 import { linkEmailedTo } from './support/mailpit';
 import { expect, test } from './support/shared-admin';
+import { test as anonymousTest } from './support/test';
 import { E2E_PASSWORD } from './support/accounts';
 import { logInAs } from './support/signup';
 

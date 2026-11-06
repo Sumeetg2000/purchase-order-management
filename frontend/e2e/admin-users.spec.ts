@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test';
 import { E2E_PASSWORD } from './support/accounts';
 import { adminPage, assignRole, logInAs, signUpAndVerify } from './support/signup';
 
