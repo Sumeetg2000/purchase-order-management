@@ -1,6 +1,8 @@
 # ADR-0005: Shared vendor list, uniqueness, snapshot and deactivation
 
-- **Status:** Accepted · 2026-10-16
+- **Status:** Accepted · 2026-10-16 · amended 2026-11-06 (slice 2 clarifications, **owner
+  decisions**: one contact person; list defaults to active vendors; the duplicate-name
+  `409` names the existing vendor)
 - **Brief:** §3.1, §3.5 · Q3c, private-orders decision
 - **Principles:** III, IV, VII
 
@@ -8,7 +10,16 @@
 - One shared vendor list. Every Buyer maintains all vendors. Create, edit, deactivate and
   reactivate are audited with the actor.
 - Unique on a normalised name (case- and whitespace-insensitive) across active and inactive
-  vendors → `409 DUPLICATE_VENDOR_NAME`. Vendors are never deleted.
+  vendors → `409 DUPLICATE_VENDOR_NAME`, carrying `existingVendor: { id, name }`
+  (ADR-0007) so the web app can link to it; a retried create gets the same answer.
+  Vendors are never deleted.
+- Contact: one contact person, `contactName`, `contactEmail` (stored lower-cased, not
+  unique) and an optional `contactPhone` (`null` when absent). No address: the brief has
+  no use for one. Field limits are in ADR-0007.
+- The vendor list shows active vendors by default; inactive and all are filter choices.
+- Deactivate and reactivate are separate actions from editing, each valid only from the
+  other state (`409 INVALID_STATE_TRANSITION`). An inactive vendor can still be edited.
+  Every change requires `If-Match` (ADR-0006).
 - Payment terms are structured, one of:
   - `NET` with `netDays` 0–180
   - `ADVANCE`: 100% payable upfront
