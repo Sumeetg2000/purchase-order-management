@@ -26,12 +26,13 @@ import {
 /**
  * Each failure as "path CODE", with the field code the API's mapper gives it (ADR-0007):
  * missing → REQUIRED, extra key → UNKNOWN_FIELD, string length → TOO_SHORT/TOO_LONG,
- * number bounds → OUT_OF_RANGE, anything else → INVALID_FORMAT.
+ * number bounds → OUT_OF_RANGE, anything else → INVALID_FORMAT. Like the API, one per
+ * field: the first reported.
  */
 function failures(schema: z.ZodType, value: unknown): string[] {
   const result = schema.safeParse(value, { reportInput: true });
   if (result.success) return [];
-  return result.error.issues.flatMap((issue) => {
+  const all = result.error.issues.flatMap((issue) => {
     const path = issue.path.map(String).join('.');
     switch (issue.code) {
       case 'unrecognized_keys':
@@ -45,6 +46,11 @@ function failures(schema: z.ZodType, value: unknown): string[] {
       default:
         return [`${path} INVALID_FORMAT`];
     }
+  });
+  const seen = new Set<string>();
+  return all.filter((failure) => {
+    const path = failure.slice(0, failure.lastIndexOf(' '));
+    return !seen.has(path) && seen.add(path);
   });
 }
 
@@ -134,7 +140,8 @@ describe('[FR-VEN-01] vendorBody', () => {
   });
 
   it('[FR-VEN-01] contactPhone: omitted or null accepted, "" too short, letters invalid, 31 characters too long', () => {
-    const { contactPhone: _omitted, ...withoutPhone } = body;
+    const withoutPhone: Partial<typeof body> = { ...body };
+    delete withoutPhone.contactPhone;
     expect(failures(vendorBody, withoutPhone)).toEqual([]);
     expect(vendorBody.parse(withoutPhone).contactPhone).toBeUndefined();
     expect(vendorBody.parse({ ...body, contactPhone: null }).contactPhone).toBeNull();

@@ -61,7 +61,7 @@ short summary stop.
 
 ### Contracts
 
-- [ ] T004 [P] Contract tests, seen failing: `vendorBody` accepts each payment-term
+- [X] T004 [P] Contract tests, seen failing: `vendorBody` accepts each payment-term
   variant and refuses out-of-range, cross-variant fields (`UNKNOWN_FIELD`), non-integers;
   `contactPhone` omitted/`null` accepted, `""` → `TOO_SHORT`, letters → `INVALID_FORMAT`,
   31 chars → `TOO_LONG`; `contactEmail` lower-cased; system fields (`id`, `status`,
@@ -75,7 +75,7 @@ short summary stop.
   `contactEmail`*, `contactPhone`, `paymentTerms`*) and no body on deactivate/reactivate —
   `packages/contracts/tests/errors.test.ts`, `openapi.test.ts`, `body-inventory.test.ts` —
   R1, R4, FR-015.
-- [ ] T006 Constants and `normaliseVendorName` (`VENDOR_NAME_MAX = 200`, `CONTACT_NAME_MAX
+- [X] T006 Constants and `normaliseVendorName` (`VENDOR_NAME_MAX = 200`, `CONTACT_NAME_MAX
   = 200`, `CONTACT_PHONE_MAX = 30`, `CONTACT_PHONE_PATTERN`, `NET_DAYS_MAX = 180`,
   `ADVANCE_PERCENT_MIN = 1`, `ADVANCE_PERCENT_MAX = 99`, `PAYMENT_TERM_TYPES`,
   `VENDOR_STATUSES = ['ACTIVE', 'INACTIVE']`, `VENDOR_STATUS_FILTERS = ['ACTIVE',
