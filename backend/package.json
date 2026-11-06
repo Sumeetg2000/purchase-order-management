@@ -8,7 +8,9 @@
     "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin": "node dist/cli/admin.js",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project integration",
+    "test:plans": "vitest run --project plans --coverage.enabled=false --outputFile.json=../reports/vitest-plans.json",
+    "pretest:plans": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "generate": "prisma generate",
     "migrate": "node dist/migrate/run.js",
     "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"

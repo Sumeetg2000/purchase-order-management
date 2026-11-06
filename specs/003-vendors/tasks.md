@@ -33,7 +33,7 @@ short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add a separate Vitest project for plan tests (`backend/tests/plans/**`,
+- [X] T001 Add a separate Vitest project for plan tests (`backend/tests/plans/**`,
   excluded from the default `npm test`) and the `test:plans` script —
   `backend/vitest.config.ts`, `backend/package.json`, root `package.json` — R11.
 
