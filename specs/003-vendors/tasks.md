@@ -215,31 +215,31 @@ under the default active filter.
 **Independent test**: deactivate → leaves default list, check reports inactive;
 reactivate restores.
 
-- [ ] T029 [P] [US3] Tests, seen failing: deactivate/reactivate with `If-Match` → 200,
+- [X] T029 [P] [US3] Tests, seen failing: deactivate/reactivate with `If-Match` → 200,
   version +1, `deactivatedAt` set/cleared, one audit entry each; repeat → 409
   `INVALID_STATE_TRANSITION`, no entry, version unchanged; stale → 409 `VERSION_CONFLICT`
   (checked before state); no delete route exists and `po_app` `DELETE` fails —
   `backend/tests/integration/vendors-status.test.ts` — FR-005, FR-007 (FR-VEN-01).
-- [ ] T030 [P] [US3] Active check tests, seen failing, via a test-only caller in a
+- [X] T030 [P] [US3] Active check tests, seen failing, via a test-only caller in a
   transaction: missing id → `VALIDATION_FAILED` with `{ path, code: 'VENDOR_NOT_FOUND' }`;
   inactive → `VENDOR_INACTIVE`; active → `VendorSnapshot` (`id`, name, contacts,
   `paymentTerms`); a deactivate started while a check holds `FOR SHARE` waits until that
   transaction ends (barrier); two checks don't block each other —
   `backend/tests/integration/vendor-active-check.test.ts` — FR-011, FR-012, R9
   (FR-VEN-02, FR-VEN-03 building blocks).
-- [ ] T031 [P] [US3] Web: Deactivate dialog (title, consequence text, safe button
+- [X] T031 [P] [US3] Web: Deactivate dialog (title, consequence text, safe button
   focused, Escape closes, disabled while pending, server error inside); Reactivate with
   no dialog; axe — `frontend/tests/deactivate-vendor-dialog.test.tsx`,
   `frontend/tests/vendor-detail-page.test.tsx` — FR-016, NFR-FE-09.
-- [ ] T032 [US3] Repository `setVendorStatus`, `lockVendorShared` (`FOR SHARE`) —
+- [X] T032 [US3] Repository `setVendorStatus`, `lockVendorShared` (`FOR SHARE`) —
   `backend/src/vendors/repository.ts`.
-- [ ] T033 [US3] Service `deactivateVendor`, `reactivateVendor`, exported
+- [X] T033 [US3] Service `deactivateVendor`, `reactivateVendor`, exported
   `requireActiveVendor(tx, vendorId, path)` — `backend/src/vendors/service.ts` — T029,
   T030 green.
-- [ ] T034 [US3] Operations and routes `deactivateVendor`, `reactivateVendor` (contract,
+- [X] T034 [US3] Operations and routes `deactivateVendor`, `reactivateVendor` (contract,
   OpenAPI list, inventory, matrix pins) —
   `backend/src/vendors/routes.ts`.
-- [ ] T035 [US3] Web: dialog via `ConfirmDialog`, reactivate button, status badge —
+- [X] T035 [US3] Web: dialog via `ConfirmDialog`, reactivate button, status badge —
   `frontend/src/pages/vendors/` — T031 green.
 
 **Checkpoint**: US1–US3.
