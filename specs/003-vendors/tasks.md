@@ -109,10 +109,10 @@ short summary stop.
 
 ### Platform
 
-- [ ] T009 Authorize tests, seen failing: `role` level → no role `403 NO_ROLE_ASSIGNED`,
+- [X] T009 Authorize tests, seen failing: `role` level → no role `403 NO_ROLE_ASSIGNED`,
   role outside `roles` `403 FORBIDDEN` before body validation (an invalid body still gets
   403), anonymous `401` — `backend/tests/integration/authorize.test.ts` — R1 (FR-ACT-01).
-- [ ] T010 `role` access level in `allowed()` and `ROLE_LEVELS` —
+- [X] T010 `role` access level in `allowed()` and `ROLE_LEVELS` —
   `backend/src/http/middleware/authorize.ts` — T009 green.
 - [ ] T011 [P] Audit events `VENDOR_CREATED`/`UPDATED`/`DEACTIVATED`/`REACTIVATED`
   (`entityType: 'vendor'`, `{ before: VendorSnapshot | null, after: VendorSnapshot }`) —

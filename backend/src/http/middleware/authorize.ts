@@ -1,4 +1,11 @@
-import { AppError, CSRF_HEADER, requiresCsrf, ROLE, type Access } from '@po/contracts';
+import {
+  AppError,
+  CSRF_HEADER,
+  requiresCsrf,
+  ROLE,
+  type Access,
+  type OperationContract,
+} from '@po/contracts';
 import type { RequestHandler, Response } from 'express';
 import { readCookies } from '../../auth/cookies.js';
 import { csrfTokenMatches } from '../../auth/csrf.js';
@@ -21,7 +28,7 @@ const AUTH_KEY = 'auth';
 const REFRESH_KEY = 'refreshSession';
 
 /** Access levels that serve only users holding a role: no role is NO_ROLE_ASSIGNED. */
-const ROLE_LEVELS: ReadonlySet<Access> = new Set(['admin']);
+const ROLE_LEVELS: ReadonlySet<Access> = new Set(['admin', 'role']);
 
 function checkCsrf(
   deps: AuthDependencies,
@@ -33,8 +40,11 @@ function checkCsrf(
   if (!csrfTokenMatches(deps.csrfSecret, sessionId, header)) throw new AppError('CSRF_REJECTED');
 }
 
-/** Whether a user's roles satisfy an access level. */
-function allowed(access: Access, user: AuthenticatedUser): boolean {
+/** Whether a user's roles satisfy an operation's access level (and roles, for role). */
+function allowed(
+  { access, roles }: Pick<OperationContract, 'access' | 'roles'>,
+  user: AuthenticatedUser,
+): boolean {
   switch (access) {
     case 'public':
     case 'refresh':
@@ -44,10 +54,16 @@ function allowed(access: Access, user: AuthenticatedUser): boolean {
       return user.roles.length === 0;
     case 'admin':
       return user.roles.includes(ROLE.ADMIN);
+    case 'role':
+      return user.roles.some((role) => roles?.includes(role) === true);
   }
 }
 
-export function authenticate(access: Access, deps: AuthDependencies): RequestHandler {
+export function authenticate(
+  operation: Pick<OperationContract, 'access' | 'roles'>,
+  deps: AuthDependencies,
+): RequestHandler {
+  const { access } = operation;
   return (req, res, next) => {
     const run = async () => {
       const cookies = readCookies(req);
@@ -63,7 +79,7 @@ export function authenticate(access: Access, deps: AuthDependencies): RequestHan
       if (ROLE_LEVELS.has(access) && user.roles.length === 0) {
         throw new AppError('NO_ROLE_ASSIGNED');
       }
-      if (!allowed(access, user)) throw new AppError('FORBIDDEN');
+      if (!allowed(operation, user)) throw new AppError('FORBIDDEN');
       res.locals[AUTH_KEY] = user;
     };
     run().then(
@@ -79,7 +95,7 @@ export function authenticate(access: Access, deps: AuthDependencies): RequestHan
   };
 }
 
-/** The authenticated user of a request on a user, no-role or admin route. */
+/** The authenticated user of a request on a user, no-role, admin or role route. */
 export function authOf(res: Response): AuthenticatedUser {
   const user = res.locals[AUTH_KEY] as AuthenticatedUser | undefined;
   if (!user) throw new Error('authOf called on a route that is not authenticated');
