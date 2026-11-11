@@ -26,8 +26,9 @@ spec).
   is JavaScript's `\s` set spelled out (PostgreSQL's `\s` misses the no-break space;
   collapsing before trimming makes a leading tab disappear). The column is
   `name_key text COLLATE "C" GENERATED ALWAYS AS (vendor_name_key(name)) STORED` with
-  `UNIQUE (name_key)`, and the list's prefix filter compares `name_key` with
-  `vendor_name_key($q)` in an escaped `LIKE`, so the API never normalises a name itself
+  `UNIQUE (name_key)`, and the list's prefix filter is the range `name_key >=
+  vendor_name_key($q) AND name_key < vendor_name_key($q) || chr(1114111)` (an escaped
+  `LIKE` until the R11 generic-plan check, 2026-11-11), so the API never normalises a name itself
   and no copy of the rule can drift. `name`, `contact_name` and `contact_phone` also carry
   `CHECK (x = btrim(x))`. Tests show the function treats non-ASCII case (`ÉCOLE` /
   `école`), tabs, the no-break space and combining accents as one name, by key and by a
@@ -35,7 +36,7 @@ spec).
 - **Rationale**: uniqueness enforced by PostgreSQL, so concurrent creates can't both win
   (Principle I style); one rule in one place. All four functions are `IMMUTABLE` in PostgreSQL 17 (checked on
   `postgres:17.11`). The `"C"` collation lets one btree serve both `ORDER BY name_key`
-  and `LIKE 'prefix%'`.
+  and the prefix range.
 - **Alternatives**: `citext` (doesn't collapse spaces, extension); an app-written key
   column with a `CHECK` (two writers of one rule); `text_pattern_ops` index (can't serve
   the sort).
@@ -167,6 +168,18 @@ spec).
 - **Rationale**: ADR-0021 deferred only the two admin lists; every other list keeps the
   rule in its own slice.
 - **Alternatives**: another deviation (no reason to give: the tooling is small here).
+- **Results (2026-11-11, developer machine, `postgres:17.11`)**: the seed with VACUUM
+  ANALYZE takes about 30–34 s; all page plans (custom and generic) about 0.1 s; the whole
+  `npm run test:plans` about 40 s. Beyond Seq Scan and Sort, the test also refuses an
+  Incremental Sort over more than page plus offset rows and a scan that filters out more
+  than that. What it found and fixed:
+  - `ORDER BY … id` bound to the selected `id::text`, not the column: history sorted equal
+    timestamps as text (`99` above `101`, now an integration test) and no list or
+    history page could use its index for the tie-break. Both sorts now name the table.
+  - The `ALL` list sorted by `id` within the unique `name_key`; the list now sorts by
+    `name_key` alone, the same order, served by `vendors_name_key_key` with no sort.
+  - Under a generic plan the escaped `LIKE` became a filter over the whole status range
+    (about 1,500 rows removed); the prefix is now the range on `name_key` (R2).
 
 ## R12 Frontend
 
