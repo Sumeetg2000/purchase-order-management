@@ -1,6 +1,12 @@
 import { ERROR_CODES, PUBLIC_REVOKE_REASONS } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
-import { errorMessages, messageForProblem, revokeReasonText } from '../src/errors/messages';
+import {
+  errorMessages,
+  fieldMessages,
+  messageForProblem,
+  revokeReasonText,
+  sentenceFor,
+} from '../src/errors/messages';
 
 describe('[NFR-FE-01] web error messages', () => {
   it('[NFR-FE-01] every registry code has a non-empty message', () => {
@@ -17,6 +23,21 @@ describe('[NFR-FE-01] web error messages', () => {
     expect(errorMessages.INVALID_TOKEN.message).toBe(
       "This link isn't valid. Check that you opened the whole link from the email.",
     );
+  });
+});
+
+describe('[FR-VEN-01] vendor messages (specs/003-vendors/contracts/errors.md)', () => {
+  it('[FR-VEN-01] each vendor code says what happened and what to do', () => {
+    expect(sentenceFor({ code: 'DUPLICATE_VENDOR_NAME' })).toBe(
+      'A vendor with this name already exists.',
+    );
+    expect(sentenceFor({ code: 'INVALID_STATE_TRANSITION' })).toBe(
+      "This vendor's status has already changed. Reload to see it.",
+    );
+    expect(sentenceFor({ code: 'VENDOR_INACTIVE' })).toBe(
+      'This vendor is deactivated. Reactivate it or choose another vendor.',
+    );
+    expect(fieldMessages.VENDOR_NOT_FOUND).toBe('This vendor no longer exists.');
   });
 });
 
