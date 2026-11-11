@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppProviders } from '../src/app/providers';
 import { buildRoutes } from '../src/app/router';
 import { fakeApi, json, ME } from './support/fake-api';
+import { ACME_ID, page, vendor } from './support/vendors';
 
 // The vendor routes and nav item (specs/003-vendors/contracts/ui.md): every role holder
 // reads vendors; adding and editing are for Buyers, and anyone else sees the 403 page.
@@ -13,7 +14,11 @@ afterEach(() => {
 });
 
 function renderAt(path: string, roles: readonly string[]) {
-  fakeApi({ 'GET /me': () => json(200, { ...ME, roles }) });
+  fakeApi({
+    'GET /me': () => json(200, { ...ME, roles }),
+    'GET /vendors': () => json(200, page([vendor()])),
+    [`GET /vendors/${ACME_ID}`]: () => json(200, vendor(), { ETag: '"1"' }),
+  });
   const router = createMemoryRouter(buildRoutes({ includeDemo: false }), {
     initialEntries: [path],
   });
@@ -41,8 +46,8 @@ describe('[FR-VEN-01] vendor routes', () => {
   );
 
   it('[FR-VEN-01] every role reads a vendor', async () => {
-    renderAt('/vendors/0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f', ['APPROVER']);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Vendor' })).toBeVisible();
+    renderAt(`/vendors/${ACME_ID}`, ['APPROVER']);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Acme Supplies' })).toBeVisible();
   });
 
   it.each([
