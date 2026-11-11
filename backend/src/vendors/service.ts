@@ -4,6 +4,7 @@ import {
   type Vendor,
   type VendorBody,
   type VendorListQuery,
+  type VendorStatus,
 } from '@po/contracts';
 import type { AuthenticatedUser } from '../auth/service.js';
 import { writeAudit } from '../audit/write.js';
@@ -24,10 +25,19 @@ import {
   insertVendor,
   listVendors,
   lockVendor,
+  lockVendorShared,
+  setVendorStatus,
   updateVendor,
   type VendorFields,
 } from './repository.js';
-import { termColumns, toSnapshot, toVendor } from './snapshot.js';
+import {
+  statusOf,
+  termColumns,
+  toOrderSnapshot,
+  toSnapshot,
+  toVendor,
+  type VendorOrderSnapshot,
+} from './snapshot.js';
 
 // The shared vendor list (ADR-0005): Buyers add vendors; every role reads them.
 
@@ -42,6 +52,57 @@ export interface VendorsService {
     target: { id: string; version: number; body: VendorBody },
     ctx: RequestContext,
   ): Promise<Vendor>;
+  /** ACTIVE → INACTIVE when `version` is current; otherwise INVALID_STATE_TRANSITION. */
+  deactivateVendor(
+    buyer: AuthenticatedUser,
+    target: { id: string; version: number },
+    ctx: RequestContext,
+  ): Promise<Vendor>;
+  /** INACTIVE → ACTIVE when `version` is current; otherwise INVALID_STATE_TRANSITION. */
+  reactivateVendor(
+    buyer: AuthenticatedUser,
+    target: { id: string; version: number },
+    ctx: RequestContext,
+  ): Promise<Vendor>;
+}
+
+/** A status change: where it starts, where it ends, and its audit action. */
+const TRANSITIONS = {
+  deactivate: { from: 'ACTIVE', to: 'INACTIVE', action: 'VENDOR_DEACTIVATED' },
+  reactivate: { from: 'INACTIVE', to: 'ACTIVE', action: 'VENDOR_REACTIVATED' },
+} as const satisfies Record<
+  string,
+  {
+    from: VendorStatus;
+    to: VendorStatus;
+    action: 'VENDOR_DEACTIVATED' | 'VENDOR_REACTIVATED';
+  }
+>;
+
+/**
+ * The order slices' vendor check (FR-011, FR-012; research R9), run inside the caller's
+ * transaction after it has locked the order and its lines (ADR-0006 lock order). Reads the
+ * vendor under FOR SHARE and returns the snapshot an order stores on submit. A missing id
+ * is VALIDATION_FAILED with VENDOR_NOT_FOUND at `path` (the caller's field, e.g.
+ * `body.vendorId`); an inactive vendor is VENDOR_INACTIVE.
+ *
+ * The FOR SHARE lock is held until the caller's transaction ends. Concurrent checks of the
+ * same vendor don't block each other, but every vendor write takes FOR UPDATE: a
+ * deactivate or reactivate, and an edit too, waits for each order transaction that has
+ * checked the vendor. Order transactions must therefore stay short: nothing slow (no
+ * mail, no external call, no waiting on a user) between this check and the commit.
+ */
+export async function requireActiveVendor(
+  tx: AuditedTransaction,
+  vendorId: string,
+  path: string,
+): Promise<VendorOrderSnapshot> {
+  const row = await lockVendorShared(tx, vendorId);
+  if (!row) {
+    throw new AppError('VALIDATION_FAILED', { details: [{ path, code: 'VENDOR_NOT_FOUND' }] });
+  }
+  if (statusOf(row) !== 'ACTIVE') throw new AppError('VENDOR_INACTIVE');
+  return toOrderSnapshot(row);
 }
 
 /** The unique constraint on vendors.name_key (migration 0011). */
@@ -74,7 +135,37 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
     return deps.transactions.run({ actor, requestId: ctx.requestId, logger: ctx.logger }, fn);
   }
 
+  /** Lock → 404 → version → state → update and audit (research R8). */
+  function changeStatus(
+    transition: (typeof TRANSITIONS)[keyof typeof TRANSITIONS],
+    buyer: AuthenticatedUser,
+    { id, version }: { id: string; version: number },
+    ctx: RequestContext,
+  ): Promise<Vendor> {
+    return asBuyer(buyer, ctx, async (tx) => {
+      const current = await lockVendor(tx, id);
+      if (!current) throw new AppError('NOT_FOUND');
+      if (current.version !== version) throw new AppError('VERSION_CONFLICT');
+      if (statusOf(current) !== transition.from) {
+        throw new AppError('INVALID_STATE_TRANSITION');
+      }
+      const changed = await setVendorStatus(tx, id, transition.to);
+      await writeAudit(tx, {
+        action: transition.action,
+        entityType: 'vendor',
+        entityId: id,
+        details: { before: toSnapshot(current), after: toSnapshot(changed) },
+      });
+      return toVendor(changed);
+    });
+  }
+
   return {
+    deactivateVendor: (buyer, target, ctx) =>
+      changeStatus(TRANSITIONS.deactivate, buyer, target, ctx),
+    reactivateVendor: (buyer, target, ctx) =>
+      changeStatus(TRANSITIONS.reactivate, buyer, target, ctx),
+
     listVendors: async (query) => {
       const filter = { status: query.status, q: query.q };
       const [rows, total] = await withDatabase(() =>

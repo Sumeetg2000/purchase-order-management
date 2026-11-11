@@ -64,7 +64,7 @@ export function termColumns(terms: PaymentTerms): PaymentTermColumns {
   }
 }
 
-function statusOf(row: VendorRow): VendorStatus {
+export function statusOf(row: VendorRow): VendorStatus {
   const status = VENDOR_STATUSES.find((known) => known === row.status);
   if (!status) throw unmappable(row, `status ${row.status}`);
   return status;
@@ -95,5 +95,22 @@ export function toSnapshot(row: VendorRow): VendorSnapshot {
     contactPhone: row.contactPhone,
     paymentTerms: paymentTermsOf(row),
     status: statusOf(row),
+  };
+}
+
+/**
+ * The vendor as an order stores it on submit (data-model.md, FR-012): the audit snapshot
+ * without status, plus the id. Slice 4 stores it; the active check returns it.
+ */
+export type VendorOrderSnapshot = Omit<VendorSnapshot, 'status'> & { id: string };
+
+export function toOrderSnapshot(row: VendorRow): VendorOrderSnapshot {
+  return {
+    id: row.id,
+    name: row.name,
+    contactName: row.contactName,
+    contactEmail: row.contactEmail,
+    contactPhone: row.contactPhone,
+    paymentTerms: paymentTermsOf(row),
   };
 }

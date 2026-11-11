@@ -57,5 +57,29 @@ export function vendorRoutes(vendors: VendorsService): RouteDefinition[] {
         res.set('ETag', etagFor(vendor.version)).json(vendor);
       },
     }),
+    defineRoute({
+      ...OPERATIONS.deactivateVendor,
+      handler: async (req, res) => {
+        const target = { id: idParamOf(req), version: ifMatchVersionOf(res) };
+        const vendor = await vendors.deactivateVendor(
+          authOf(res),
+          target,
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(vendor.version)).json(vendor);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.reactivateVendor,
+      handler: async (req, res) => {
+        const target = { id: idParamOf(req), version: ifMatchVersionOf(res) };
+        const vendor = await vendors.reactivateVendor(
+          authOf(res),
+          target,
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(vendor.version)).json(vendor);
+      },
+    }),
   ];
 }

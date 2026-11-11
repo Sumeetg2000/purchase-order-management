@@ -70,6 +70,8 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'getVendor get /vendors/{id}',
         'createVendor post /vendors',
         'updateVendor put /vendors/{id}',
+        'deactivateVendor post /vendors/{id}/deactivate',
+        'reactivateVendor post /vendors/{id}/reactivate',
       ].sort(),
     );
   });

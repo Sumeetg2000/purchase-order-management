@@ -1,4 +1,4 @@
-import type { ExistingVendor, VendorStatusFilter } from '@po/contracts';
+import type { ExistingVendor, VendorStatus, VendorStatusFilter } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -92,6 +92,39 @@ export async function updateVendor(
     RETURNING ${COLUMNS}`;
   if (!row) throw new Error(`Vendor ${id} vanished while locked`);
   return row;
+}
+
+/**
+ * Sets the status, with deactivated_at set or cleared to match, and moves the version; the
+ * caller holds the row lock and has checked the transition (research R8).
+ */
+export async function setVendorStatus(
+  tx: AuditedTransaction,
+  id: string,
+  status: VendorStatus,
+): Promise<VendorRow> {
+  const [row] = await tx.$queryRaw<VendorRow[]>`
+    UPDATE vendors
+       SET status = ${status},
+           deactivated_at = CASE WHEN ${status === 'INACTIVE'} THEN now() END,
+           version = version + 1
+     WHERE id = ${id}::uuid
+    RETURNING ${COLUMNS}`;
+  if (!row) throw new Error(`Vendor ${id} vanished while locked`);
+  return row;
+}
+
+/**
+ * Reads the vendor under FOR SHARE for an order's active check (research R9), or null.
+ * Shared holders don't block each other; a status change or edit (FOR UPDATE) waits.
+ */
+export async function lockVendorShared(
+  tx: AuditedTransaction,
+  id: string,
+): Promise<VendorRow | null> {
+  const [row] = await tx.$queryRaw<VendorRow[]>`
+    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid FOR SHARE`;
+  return row ?? null;
 }
 
 export async function findVendor(prisma: AppPrismaClient, id: string): Promise<VendorRow | null> {

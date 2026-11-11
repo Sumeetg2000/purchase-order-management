@@ -69,6 +69,8 @@ const EXPECTED: BodyInventory = {
     contactPhone: 'optional',
     paymentTerms: 'required',
   },
+  deactivateVendor: 'no body',
+  reactivateVendor: 'no body',
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {
