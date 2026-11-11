@@ -114,7 +114,7 @@ short summary stop.
   403), anonymous `401` — `backend/tests/integration/authorize.test.ts` — R1 (FR-ACT-01).
 - [X] T010 `role` access level in `allowed()` and `ROLE_LEVELS` —
   `backend/src/http/middleware/authorize.ts` — T009 green.
-- [ ] T011 [P] Audit events `VENDOR_CREATED`/`UPDATED`/`DEACTIVATED`/`REACTIVATED`
+- [X] T011 [P] Audit events `VENDOR_CREATED`/`UPDATED`/`DEACTIVATED`/`REACTIVATED`
   (`entityType: 'vendor'`, `{ before: VendorSnapshot | null, after: VendorSnapshot }`) —
   `backend/src/audit/events.ts` — FR-013, data-model.
 - [ ] T012 [P] Web: messages for the three codes and the field code
