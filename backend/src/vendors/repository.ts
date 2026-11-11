@@ -1,0 +1,101 @@
+import type { ExistingVendor, VendorStatusFilter } from '@po/contracts';
+import type { AppPrismaClient } from '../db/client.js';
+import type { AuditedTransaction } from '../db/transaction.js';
+import { Prisma } from '../generated/prisma/client.js';
+import type { PaymentTermColumns, VendorRow } from './snapshot.js';
+
+// Vendors (ADR-0005, data-model.md). The name rule lives only in SQL (research R2): the
+// generated name_key column and vendor_name_key(), which every lookup by name calls, so
+// nothing here normalises a name.
+
+const COLUMNS = Prisma.sql`id::text, name, contact_name AS "contactName",
+  contact_email AS "contactEmail", contact_phone AS "contactPhone",
+  payment_term_type AS "paymentTermType", net_days AS "netDays",
+  advance_percent AS "advancePercent", status, deactivated_at AS "deactivatedAt", version,
+  created_at AS "createdAt", updated_at AS "updatedAt"`;
+
+/** What a create or an edit stores; the API has trimmed and lower-cased it already. */
+export interface VendorFields extends PaymentTermColumns {
+  name: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+}
+
+/**
+ * Inserts the vendor, or returns null when its name key is taken (research R3). ON
+ * CONFLICT waits for an in-flight insert of the same key and doesn't abort the
+ * transaction, so the caller can read the winner next.
+ */
+export async function insertVendor(
+  tx: AuditedTransaction,
+  fields: VendorFields,
+): Promise<VendorRow | null> {
+  const [row] = await tx.$queryRaw<VendorRow[]>`
+    INSERT INTO vendors (name, contact_name, contact_email, contact_phone,
+                         payment_term_type, net_days, advance_percent)
+    VALUES (${fields.name}, ${fields.contactName}, ${fields.contactEmail},
+            ${fields.contactPhone}, ${fields.paymentTermType}, ${fields.netDays}::smallint,
+            ${fields.advancePercent}::smallint)
+    ON CONFLICT (name_key) DO NOTHING
+    RETURNING ${COLUMNS}`;
+  return row ?? null;
+}
+
+/** The vendor whose name key equals that of `name`, or null. */
+export async function findVendorByNameKey(
+  tx: AuditedTransaction,
+  name: string,
+): Promise<ExistingVendor | null> {
+  const [row] = await tx.$queryRaw<ExistingVendor[]>`
+    SELECT id::text, name FROM vendors WHERE name_key = vendor_name_key(${name})`;
+  return row ?? null;
+}
+
+export async function findVendor(prisma: AppPrismaClient, id: string): Promise<VendorRow | null> {
+  const [row] = await prisma.$queryRaw<VendorRow[]>`
+    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid`;
+  return row ?? null;
+}
+
+export interface VendorListFilter {
+  status: VendorStatusFilter;
+  /** A name prefix; compared by name key, its LIKE wildcards taken literally. */
+  q?: string | undefined;
+}
+
+/**
+ * The filter in SQL. The prefix is the escaped name key of `q` plus %, a constant once
+ * the immutable functions fold, so the "C"-collated name_key indexes serve it.
+ */
+function whereOf(filter: VendorListFilter): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+  if (filter.status !== 'ALL') conditions.push(Prisma.sql`status = ${filter.status}`);
+  if (filter.q !== undefined) {
+    conditions.push(Prisma.sql`name_key LIKE replace(replace(replace(
+      vendor_name_key(${filter.q}), '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`);
+  }
+  return conditions.length > 0
+    ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+    : Prisma.empty;
+}
+
+/** A page of vendors sorted by name key, then id. */
+export function listVendors(
+  prisma: AppPrismaClient,
+  filter: VendorListFilter & { offset: number; limit: number },
+): Promise<VendorRow[]> {
+  return prisma.$queryRaw<VendorRow[]>`
+    SELECT ${COLUMNS} FROM vendors ${whereOf(filter)}
+     ORDER BY name_key, id
+     LIMIT ${filter.limit} OFFSET ${filter.offset}`;
+}
+
+export async function countVendors(
+  prisma: AppPrismaClient,
+  filter: VendorListFilter,
+): Promise<number> {
+  const [row] = await prisma.$queryRaw<{ total: bigint }[]>`
+    SELECT count(*) AS total FROM vendors ${whereOf(filter)}`;
+  return Number(row?.total ?? 0);
+}
