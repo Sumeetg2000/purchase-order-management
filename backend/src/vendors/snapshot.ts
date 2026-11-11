@@ -2,11 +2,13 @@ import {
   VENDOR_STATUSES,
   type PaymentTerms,
   type Vendor,
+  type VendorBody,
   type VendorSnapshot,
   type VendorStatus,
 } from '@po/contracts';
+import type { VendorFields } from './repository.js';
 
-// A vendor row ↔ the API's shapes (FR-012): the payment-term columns become the
+// A vendor row ↔ the API's shapes (spec: the snapshot an order stores): the payment-term columns become the
 // `paymentTerms` union and back. Pure, so the order slices can reuse it. The table's
 // CHECKs allow only valid combinations; one the code can't map means code and database
 // disagree, which fails loudly.
@@ -64,6 +66,18 @@ export function termColumns(terms: PaymentTerms): PaymentTermColumns {
   }
 }
 
+/** What a create or an edit stores, from the API body (or the demo seed's). */
+export function fieldsOf(body: VendorBody): VendorFields {
+  return {
+    name: body.name,
+    contactName: body.contactName,
+    contactEmail: body.contactEmail,
+    // Omitted or null: no phone, stored as NULL, never "" (research R6).
+    contactPhone: body.contactPhone ?? null,
+    ...termColumns(body.paymentTerms),
+  };
+}
+
 export function statusOf(row: VendorRow): VendorStatus {
   const status = VENDOR_STATUSES.find((known) => known === row.status);
   if (!status) throw unmappable(row, `status ${row.status}`);
@@ -99,7 +113,7 @@ export function toSnapshot(row: VendorRow): VendorSnapshot {
 }
 
 /**
- * The vendor as an order stores it on submit (data-model.md, FR-012): the audit snapshot
+ * The vendor as an order stores it on submit (data-model.md): the audit snapshot
  * without status, plus the id. Slice 4 stores it; the active check returns it.
  */
 export type VendorOrderSnapshot = Omit<VendorSnapshot, 'status'> & { id: string };

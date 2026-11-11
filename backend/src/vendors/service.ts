@@ -8,6 +8,7 @@ import {
   type VendorListQuery,
   type VendorStatus,
 } from '@po/contracts';
+import { z } from 'zod';
 import type { AuthenticatedUser } from '../auth/service.js';
 import { countEntityHistory, listEntityHistory } from '../audit/repository.js';
 import { writeAudit } from '../audit/write.js';
@@ -31,12 +32,11 @@ import {
   lockVendorShared,
   setVendorStatus,
   updateVendor,
-  type VendorFields,
 } from './repository.js';
 import { toHistoryItem } from './history.js';
 import {
+  fieldsOf,
   statusOf,
-  termColumns,
   toOrderSnapshot,
   toSnapshot,
   toVendor,
@@ -86,11 +86,12 @@ const TRANSITIONS = {
 >;
 
 /**
- * The order slices' vendor check (FR-011, FR-012; research R9), run inside the caller's
+ * The order slices' vendor check (research R9), run inside the caller's
  * transaction after it has locked the order and its lines (ADR-0006 lock order). Reads the
  * vendor under FOR SHARE and returns the snapshot an order stores on submit. A missing id
- * is VALIDATION_FAILED with VENDOR_NOT_FOUND at `path` (the caller's field, e.g.
- * `body.vendorId`); an inactive vendor is VENDOR_INACTIVE.
+ * or malformed id is VALIDATION_FAILED with VENDOR_NOT_FOUND at `path` (the caller's field,
+ * e.g. `body.vendorId`); a malformed one never reaches PostgreSQL, so the caller's
+ * transaction stays usable. An inactive vendor is VENDOR_INACTIVE.
  *
  * The FOR SHARE lock is held until the caller's transaction ends. Concurrent checks of the
  * same vendor don't block each other, but every vendor write takes FOR UPDATE: a
@@ -103,7 +104,7 @@ export async function requireActiveVendor(
   vendorId: string,
   path: string,
 ): Promise<VendorOrderSnapshot> {
-  const row = await lockVendorShared(tx, vendorId);
+  const row = z.uuid().safeParse(vendorId).success ? await lockVendorShared(tx, vendorId) : null;
   if (!row) {
     throw new AppError('VALIDATION_FAILED', { details: [{ path, code: 'VENDOR_NOT_FOUND' }] });
   }
@@ -117,17 +118,6 @@ const NAME_KEY_CONSTRAINT = 'vendors_name_key_key';
 export interface VendorsServiceDependencies {
   prisma: AppPrismaClient;
   transactions: TransactionRunner;
-}
-
-function fieldsOf(body: VendorBody): VendorFields {
-  return {
-    name: body.name,
-    contactName: body.contactName,
-    contactEmail: body.contactEmail,
-    // Omitted or null: no phone, stored as NULL, never "" (research R6).
-    contactPhone: body.contactPhone ?? null,
-    ...termColumns(body.paymentTerms),
-  };
 }
 
 export function createVendorsService(deps: VendorsServiceDependencies): VendorsService {

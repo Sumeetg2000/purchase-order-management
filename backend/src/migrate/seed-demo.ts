@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import { ROLE, type PaymentTerms, type UserRole } from '@po/contracts';
+import { ROLE, type UserRole, type VendorBody } from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
 import type { AppEnv } from '../config/rules.js';
 import type { AppPrismaClient } from '../db/client.js';
@@ -10,11 +10,11 @@ import { insertUserIfAbsent } from '../users/repository.js';
 import { SYSTEM_ACTOR } from '../users/actor.js';
 import { writeAudit } from '../audit/write.js';
 import { insertVendor, setVendorStatus } from '../vendors/repository.js';
-import { termColumns, toSnapshot } from '../vendors/snapshot.js';
+import { fieldsOf, toSnapshot } from '../vendors/snapshot.js';
 
 // Demo data for local stacks (migrate step 4 with SEED_DEMO_DATA=true): two Buyers and one
-// Approver, never an admin (FR-037), and five vendors (slice 2 FR-018). Users that exist are left as they are, so a
-// restart changes nothing. The config refuses SEED_DEMO_DATA in production; this refuses
+// Approver, never an admin, and five demo vendors. Users and vendors that exist are left as
+// they are, so a restart changes nothing. The config refuses SEED_DEMO_DATA in production; this refuses
 // again, in case it is ever called another way.
 
 /** The password every demo user logs in with (local stacks only; documented in quickstart). */
@@ -26,7 +26,7 @@ export const DEMO_USERS: readonly { email: string; name: string; roles: readonly
   { email: 'approver@example.com', name: 'Demo Approver', roles: [ROLE.APPROVER] },
 ];
 
-/** Creates the demo users that don't exist yet; returns how many it created. */
+/** What every seed step needs. */
 interface SeedOptions {
   prisma: AppPrismaClient;
   appEnv: AppEnv;
@@ -56,12 +56,9 @@ function asSystem<T>(
 }
 
 /** Creates the demo users that don't exist yet; returns how many it created. */
-export async function seedDemoUsers(options: SeedOptions): Promise<number> {
-  if (options.appEnv === 'production') {
-    throw new Error('demo users are never seeded in production');
-  }
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
+export function seedDemoUsers(options: SeedOptions): Promise<number> {
   return asSystem(options, 'users', async (tx) => {
+    const passwordHash = await hashPassword(DEMO_PASSWORD);
     let created = 0;
     for (const user of DEMO_USERS) {
       if (await insertUserIfAbsent(tx, { ...user, passwordHash })) created += 1;
@@ -70,16 +67,9 @@ export async function seedDemoUsers(options: SeedOptions): Promise<number> {
   });
 }
 
-interface DemoVendor {
-  name: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string | null;
-  paymentTerms: PaymentTerms;
-  inactive?: true;
-}
+type DemoVendor = VendorBody & { inactive?: true };
 
-/** One per payment-term type, one inactive, one without a phone (FR-018). */
+/** One per payment-term type, one inactive, one without a phone. */
 export const DEMO_VENDORS: readonly DemoVendor[] = [
   {
     name: 'Acme Supplies',
@@ -126,8 +116,8 @@ export const DEMO_VENDORS: readonly DemoVendor[] = [
 export function seedDemoVendors(options: SeedOptions): Promise<number> {
   return asSystem(options, 'vendors', async (tx) => {
     let created = 0;
-    for (const { paymentTerms, inactive, ...fields } of DEMO_VENDORS) {
-      const row = await insertVendor(tx, { ...fields, ...termColumns(paymentTerms) });
+    for (const { inactive, ...body } of DEMO_VENDORS) {
+      const row = await insertVendor(tx, fieldsOf(body));
       if (!row) continue;
       created += 1;
       await writeAudit(tx, {

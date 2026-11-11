@@ -81,6 +81,25 @@ describe('[FR-VEN-02] the vendor active check', () => {
     });
   });
 
+  it('[FR-VEN-02] a malformed vendor id is the same VENDOR_NOT_FOUND, and the transaction goes on', async () => {
+    const h = await vendorsHarness();
+    const inTx = caller(h);
+    const error: unknown = await inTx(async (tx) => {
+      const refused: unknown = await requireActiveVendor(tx, 'not-a-uuid', 'body.vendorId').catch(
+        (caught: unknown) => caught,
+      );
+      // The transaction is still usable: nothing failed inside PostgreSQL.
+      await tx.$queryRaw`SELECT 1`;
+      throw refused;
+    }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      status: 400,
+      details: [{ path: 'body.vendorId', code: 'VENDOR_NOT_FOUND' }],
+    });
+  });
+
   it('[FR-VEN-02] an inactive vendor is 409 VENDOR_INACTIVE', async () => {
     const h = await vendorsHarness();
     const id = await h.seedVendor({ name: 'Acme Supplies', status: 'INACTIVE' });
