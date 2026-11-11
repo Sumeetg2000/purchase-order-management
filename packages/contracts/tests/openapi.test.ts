@@ -32,7 +32,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(doc['servers']).toEqual([expect.objectContaining({ url: '/api' })]);
   });
 
-  it('[NFR-API-01] documents the health operations and the slice 1 ones, and nothing else yet', () => {
+  it('[NFR-API-01] documents exactly the operations served so far', () => {
     expect(at(doc, 'paths', '/healthz', 'get')['operationId']).toBe('getHealth');
     expect(at(doc, 'paths', '/readyz', 'get')['operationId']).toBe('getReadiness');
     const operations = Object.entries(at(doc, 'paths')).flatMap(([path, methods]) =>
@@ -66,6 +66,9 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'listSessions get /auth/sessions',
         'revokeSession delete /auth/sessions/{id}',
         'forgotPassword post /auth/forgot-password',
+        'listVendors get /vendors',
+        'getVendor get /vendors/{id}',
+        'createVendor post /vendors',
       ].sort(),
     );
   });

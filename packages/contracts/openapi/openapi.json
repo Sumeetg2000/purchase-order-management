@@ -3754,10 +3754,613 @@
           }
         }
       }
+    },
+    "/vendors": {
+      "get": {
+        "operationId": "listVendors",
+        "summary": "Vendors, active by default, filtered by status and a name prefix, by name.",
+        "x-access": "role",
+        "x-roles": [
+          "BUYER",
+          "APPROVER",
+          "ADMIN"
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "default": "ACTIVE",
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "ALL"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfVendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "ACCESS_TOKEN_EXPIRED",
+              "ACCOUNT_DEACTIVATED",
+              "SESSION_REVOKED",
+              "SESSION_EXPIRED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "x-error-codes": [
+              "NO_ROLE_ASSIGNED",
+              "FORBIDDEN"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createVendor",
+        "summary": "Add a vendor; a name another vendor has, ignoring case and spacing, is refused.",
+        "x-access": "role",
+        "x-roles": [
+          "BUYER"
+        ],
+        "security": [
+          {
+            "accessCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "ETag": {
+                "required": true,
+                "description": "The resource's version; send it back in If-Match to update it.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"([1-9][0-9]*)\"$",
+                  "description": "The resource's version; send it back in If-Match to update it."
+                }
+              },
+              "Location": {
+                "required": true,
+                "description": "The path of the created resource.",
+                "schema": {
+                  "type": "string",
+                  "description": "The path of the created resource."
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "ACCESS_TOKEN_EXPIRED",
+              "ACCOUNT_DEACTIVATED",
+              "SESSION_REVOKED",
+              "SESSION_EXPIRED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "x-error-codes": [
+              "CSRF_REJECTED",
+              "NO_ROLE_ASSIGNED",
+              "FORBIDDEN"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Problem document with code DUPLICATE_VENDOR_NAME.",
+            "x-error-codes": [
+              "DUPLICATE_VENDOR_NAME"
+            ],
+            "x-problem-members": {
+              "DUPLICATE_VENDOR_NAME": [
+                "existingVendor"
+              ]
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/vendors/{id}": {
+      "get": {
+        "operationId": "getVendor",
+        "summary": "One vendor, active or not, with its version.",
+        "x-access": "role",
+        "x-roles": [
+          "BUYER",
+          "APPROVER",
+          "ADMIN"
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "ETag": {
+                "required": true,
+                "description": "The resource's version; send it back in If-Match to update it.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"([1-9][0-9]*)\"$",
+                  "description": "The resource's version; send it back in If-Match to update it."
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "ACCESS_TOKEN_EXPIRED",
+              "ACCOUNT_DEACTIVATED",
+              "SESSION_REVOKED",
+              "SESSION_EXPIRED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "x-error-codes": [
+              "NO_ROLE_ASSIGNED",
+              "FORBIDDEN"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Problem document with code NOT_FOUND.",
+            "x-error-codes": [
+              "NOT_FOUND"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "VendorBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "contactName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "contactEmail": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "contactPhone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 30,
+                "allOf": [
+                  {
+                    "pattern": "^[0-9 +()-]+$"
+                  },
+                  {
+                    "pattern": "[0-9]"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paymentTerms": {
+            "$ref": "#/components/schemas/PaymentTerms"
+          }
+        },
+        "required": [
+          "name",
+          "contactName",
+          "contactEmail",
+          "paymentTerms"
+        ],
+        "additionalProperties": false
+      },
+      "PaymentTerms": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "NET"
+              },
+              "netDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 180
+              }
+            },
+            "required": [
+              "type",
+              "netDays"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "ADVANCE"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "PARTIAL_ADVANCE"
+              },
+              "advancePercent": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99
+              },
+              "netDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 180
+              }
+            },
+            "required": [
+              "type",
+              "advancePercent",
+              "netDays"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "type": "object"
+      },
       "Problem": {
         "type": "object",
         "properties": {
@@ -4281,6 +4884,115 @@
           "userAgent",
           "ip",
           "current"
+        ],
+        "additionalProperties": false
+      },
+      "PageOfVendor": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Vendor"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "Vendor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymentTerms": {
+            "$ref": "#/components/schemas/PaymentTerms"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ]
+          },
+          "deactivatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contactName",
+          "contactEmail",
+          "contactPhone",
+          "paymentTerms",
+          "status",
+          "deactivatedAt",
+          "version",
+          "createdAt",
+          "updatedAt"
         ],
         "additionalProperties": false
       }

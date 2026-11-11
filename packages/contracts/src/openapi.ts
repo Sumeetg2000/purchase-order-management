@@ -6,7 +6,13 @@ import {
 } from 'zod-openapi';
 import { clashMemberOf, ERROR_REGISTRY, type ClashMember, type ErrorCode } from './errors.js';
 import { ETAG_PATTERN } from './etag.js';
-import { accessProblem, OPERATIONS, type Access, type OperationContract } from './operations.js';
+import {
+  accessProblem,
+  API_PATH_PREFIX,
+  OPERATIONS,
+  type Access,
+  type OperationContract,
+} from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
 import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE, requiresCsrf } from './session-cookies.js';
@@ -241,7 +247,7 @@ export function buildOpenApiDocument(
     info: { title: 'Vendor & Purchase Order Management API', version: '0.1.0' },
     servers: [
       {
-        url: '/api',
+        url: API_PATH_PREFIX,
         description:
           'Same-origin prefix. nginx (and the Vite dev proxy) strips /api before forwarding.',
       },

@@ -26,7 +26,8 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
-import type { UserRole } from './users.js';
+import { vendor, vendorBody, vendorListQuery } from './schemas/vendors.js';
+import { ROLE, type UserRole } from './users.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -41,6 +42,12 @@ export const ACCESS_LEVELS = ['public', 'refresh', 'user', 'no-role', 'admin', '
 export type Access = (typeof ACCESS_LEVELS)[number];
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+/**
+ * The same-origin prefix the browser calls the API under; nginx and the Vite dev proxy
+ * strip it, so operation paths don't carry it. A 201's Location includes it.
+ */
+export const API_PATH_PREFIX = '/api';
 
 export interface OperationRequestSchemas {
   params?: z.ZodType;
@@ -364,5 +371,41 @@ export const OPERATIONS = {
     request: { body: emailBody },
     responses: { 202: z.void() },
     errors: ['ACCOUNT_NOT_FOUND', 'ACCOUNT_DEACTIVATED', 'RATE_LIMITED'],
+  },
+
+  // Slice 2, US1: the shared vendor list (ADR-0005, specs/003-vendors/contracts/api.md).
+  listVendors: {
+    method: 'get',
+    path: '/vendors',
+    operationId: 'listVendors',
+    summary: 'Vendors, active by default, filtered by status and a name prefix, by name.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { query: vendorListQuery },
+    responses: { 200: pageOf(vendor).meta({ id: 'PageOfVendor' }) },
+  },
+  getVendor: {
+    method: 'get',
+    path: '/vendors/:id',
+    operationId: 'getVendor',
+    summary: 'One vendor, active or not, with its version.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: vendor },
+    errors: ['NOT_FOUND'],
+  },
+  createVendor: {
+    method: 'post',
+    path: '/vendors',
+    operationId: 'createVendor',
+    summary: 'Add a vendor; a name another vendor has, ignoring case and spacing, is refused.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    etag: true,
+    request: { body: vendorBody },
+    responses: { 201: vendor },
+    errors: ['DUPLICATE_VENDOR_NAME'],
   },
 } as const satisfies Record<string, OperationContract>;

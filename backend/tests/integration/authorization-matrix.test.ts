@@ -35,6 +35,16 @@ const PINNED_ACCESS: Record<string, Access> = {
   sendUserPasswordReset: 'admin',
   listAccessRequests: 'admin',
   dismissAccessRequest: 'admin',
+  listVendors: 'role',
+  getVendor: 'role',
+  createVendor: 'role',
+};
+
+/** The roles of each role-level operation (ADR-0004's vendor rows), pinned the same way. */
+const PINNED_ROLES: Record<string, readonly string[]> = {
+  listVendors: ['BUYER', 'APPROVER', 'ADMIN'],
+  getVendor: ['BUYER', 'APPROVER', 'ADMIN'],
+  createVendor: ['BUYER'],
 };
 
 /** Callable with no session (ADR-0004 "Public endpoints", plus the slice 0 health checks). */
@@ -98,6 +108,13 @@ describe('[NFR-AUTH-02] the route table is the pinned matrix', () => {
     expect(served).toEqual(PINNED_ACCESS);
   });
 
+  it('[NFR-AUTH-02] every role-level operation has its pinned roles', () => {
+    const served = Object.fromEntries(
+      operations.filter((op) => op.roles).map((op) => [op.operationId, op.roles]),
+    );
+    expect(served).toEqual(PINNED_ROLES);
+  });
+
   it('[NFR-AUTH-02] the public operations are exactly the pinned list', () => {
     const open = operations.filter((op) => op.access === 'public').map((op) => op.operationId);
     expect(open.sort()).toEqual(PUBLIC_OPERATIONS);
@@ -141,8 +158,9 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 24 operations (22 of this slice, 2 health checks) × 6 callers.
+    // Zero cells untested: 27 operations (2 health checks, 22 of slice 1, 3 vendor ones so
+    // far) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(24);
+    expect(operations).toHaveLength(27);
   });
 });

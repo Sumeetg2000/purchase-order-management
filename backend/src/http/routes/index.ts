@@ -11,6 +11,8 @@ import { createReadinessService, type HealthDependencies } from '../../health/se
 import type { MailDispatcher } from '../../mail/dispatcher.js';
 import { profileRoutes } from '../../profile/routes.js';
 import { createProfileService } from '../../profile/service.js';
+import { vendorRoutes } from '../../vendors/routes.js';
+import { createVendorsService } from '../../vendors/service.js';
 import type { RouteDefinition } from '../define-route.js';
 
 /** What the routes' services need. */
@@ -19,7 +21,8 @@ export type RouteDependencies = HealthDependencies &
   Parameters<typeof createAccountsService>[0] &
   Parameters<typeof createProfileService>[0] &
   Parameters<typeof createAdminUsersService>[0] &
-  Parameters<typeof createAccessRequestsService>[0] & {
+  Parameters<typeof createAccessRequestsService>[0] &
+  Parameters<typeof createVendorsService>[0] & {
     mail: MailDispatcher;
   };
 
@@ -36,5 +39,6 @@ export function productionRoutes(deps: RouteDependencies): RouteDefinition[] {
     ...profileRoutes(createProfileService(deps)),
     ...adminUserRoutes(createAdminUsersService(deps)),
     ...accessRequestRoutes(createAccessRequestsService(deps)),
+    ...vendorRoutes(createVendorsService(deps)),
   ];
 }
