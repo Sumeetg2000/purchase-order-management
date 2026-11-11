@@ -150,13 +150,13 @@ model RateLimitCounter {
 }
 
 // Vendors (migration 0011_vendors). Never deleted: po_app has no DELETE. name_key is a
-// stored generated column (the normalised name): read it, never write it; po_app has no
+// stored generated column, vendor_name_key(name): read it, never write it; po_app has no
 // INSERT or UPDATE grant on it. The CHECKs, the trigger and the column grants live in the
 // migration; tests/integration/vendor-schema.test.ts pins them.
 model Vendor {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
-  nameKey         String?   @unique(map: "vendors_name_key_key") @default(dbgenerated("lower(btrim(regexp_replace(NORMALIZE(name, NFC), '[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+'::text, ' '::text, 'g'::text)))")) @map("name_key")
+  nameKey         String?   @unique(map: "vendors_name_key_key") @default(dbgenerated("vendor_name_key(name)")) @map("name_key")
   contactName     String    @map("contact_name")
   contactEmail    String    @map("contact_email")
   contactPhone    String?   @map("contact_phone")

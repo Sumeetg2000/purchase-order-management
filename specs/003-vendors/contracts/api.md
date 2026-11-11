@@ -18,8 +18,6 @@ export const VENDOR_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 /** Filter values for the list; ALL is a filter only, never a vendor status. */
 export const VENDOR_STATUS_FILTERS = ['ACTIVE', 'INACTIVE', 'ALL'] as const;
 export const VENDOR_STATUS_FILTER_DEFAULT = 'ACTIVE';
-/** Same rule as the generated name_key column; a test pins the two together. */
-export function normaliseVendorName(name: string): string;
 
 const netDays = z.int().min(0).max(NET_DAYS_MAX);
 export const paymentTerms = z.discriminatedUnion('type', [
@@ -54,7 +52,7 @@ export const vendor = z.strictObject({
 export const vendorListQuery = z.strictObject({
   ...pageQuery,
   status: z.enum(VENDOR_STATUS_FILTERS).default(VENDOR_STATUS_FILTER_DEFAULT),
-  q: z.string().trim().min(1).max(VENDOR_NAME_MAX).optional(), // case-insensitive name prefix
+  q: z.string().trim().min(1).max(VENDOR_NAME_MAX).optional(), // prefix of vendor_name_key, in SQL
 });
 
 export const vendorSnapshot = vendor.pick({ name: true, contactName: true,

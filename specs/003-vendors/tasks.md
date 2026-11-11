@@ -15,6 +15,14 @@ real PostgreSQL** (Testcontainers) before the task that makes it pass; its commi
 carries a "Failing run:" line under 100 characters. Requirement IDs go in test names only
 (ADR-0013).
 
+**Operations per story** (owner decision, 2026-11-11): Foundational adds the registry
+codes, `existingVendor`, the `role` access level and the generator's support for them, but
+no vendor operation. Each story adds its operations to `OPERATIONS` together with their
+routes (US1 `listVendors`, `getVendor`, `createVendor`; US2 `updateVendor`; US3
+`deactivateVendor`, `reactivateVendor`; US5 `listVendorHistory`), and grows the OpenAPI
+operation list, the body inventory and the authorization-matrix pins in the same commit,
+as slice 1 did. An unserved operation would leave the matrix test red until US5.
+
 **Organization**: Setup, Foundational, then US1–US5 in plan order, then Polish. Stories
 run in sequence; each ends with a checkpoint (green CI on the slice's draft PR) and a
 short summary stop.
@@ -70,12 +78,14 @@ short summary stop.
   FR-008, R5, R6 (FR-VEN-01, NFR-VAL-01).
 - [ ] T005 [P] Contract tests, seen failing: `existingVendor` allowed only on
   `DUPLICATE_VENDOR_NAME` (problem schema refine and `AppError` constructor); the OpenAPI
-  documents it on that code; `access: 'role'` requires a non-empty `roles` and vice versa;
-  body inventory pins `createVendor`/`updateVendor` fields (`name`*, `contactName`*,
-  `contactEmail`*, `contactPhone`, `paymentTerms`*) and no body on deactivate/reactivate —
+  documents it on the responses that can carry that code (`x-problem-members`), a role
+  operation's `x-roles`, and `Location` on a 201, shown on made-up operations;
+  `access: 'role'` requires a non-empty `roles` and vice versa. The vendor operations'
+  OpenAPI entries and body-inventory rows arrive with their stories (see "Operations per
+  story") —
   `packages/contracts/tests/errors.test.ts`, `openapi.test.ts`, `body-inventory.test.ts` —
   R1, R4, FR-015.
-- [X] T006 Constants and `normaliseVendorName` (`VENDOR_NAME_MAX = 200`, `CONTACT_NAME_MAX
+- [X] T006 Constants (`VENDOR_NAME_MAX = 200`, `CONTACT_NAME_MAX
   = 200`, `CONTACT_PHONE_MAX = 30`, `CONTACT_PHONE_PATTERN`, `NET_DAYS_MAX = 180`,
   `ADVANCE_PERCENT_MIN = 1`, `ADVANCE_PERCENT_MAX = 99`, `PAYMENT_TERM_TYPES`,
   `VENDOR_STATUSES = ['ACTIVE', 'INACTIVE']`, `VENDOR_STATUS_FILTERS = ['ACTIVE',
@@ -86,13 +96,16 @@ short summary stop.
   `INVALID_STATE_TRANSITION` (409), `VENDOR_INACTIVE` (409, registry comment: "first
   route: order create, slice 3"), field code `VENDOR_NOT_FOUND`;
   `problemSchema.existingVendor`; `AppError` `existingVendor` option; `ACCESS_LEVELS`
-  `'role'` + `roles`; the seven operations of the contract — `packages/contracts/src/
+  `'role'` + `roles` and the generator's support (no vendor operation yet, see
+  "Operations per story") — `packages/contracts/src/
   errors.ts`, `schemas/problem.ts`, `app-error.ts`, `operations.ts`, `openapi.ts` — T005
   green; regenerate `openapi.json` (don't open it); breaking-change check green.
-- [ ] T008 [P] Constants ↔ SQL pin tests, seen failing then green against T003: every
-  number and list in T006 equals its `CHECK`; `normaliseVendorName` equals `name_key` over
-  a fixture (case, tabs, NBSP, repeated spaces, combining accents) —
-  `backend/tests/integration/vendor-constants.test.ts` — R2, R13.
+- [X] T008 [P] Constants ↔ SQL pin tests, seen failing then green against T003: every
+  number and list in T006 equals its `CHECK` (and `AUDIT_ACTOR_TYPES` its audit `CHECK`);
+  the one name rule, `vendor_name_key(text)` (SQL only, R2, owner decision 2026-11-11),
+  is `IMMUTABLE`, executable by `po_app` only, and treats non-ASCII case (`ÉCOLE` /
+  `école`), tabs, NBSP and combining accents as one name, by key and by a clash on
+  `vendors_name_key_key` — `backend/tests/integration/vendor-constants.test.ts` — R2, R13.
 
 ### Platform
 
@@ -145,12 +158,14 @@ under the default active filter.
 
 - [ ] T017 [US1] Repository: `insertVendor` (`INSERT … ON CONFLICT (name_key) DO NOTHING
   RETURNING`), `findVendorByNameKey`, `findVendor`, `listVendors` (`LIMIT`/`OFFSET`, filters
-  in SQL, escaped `LIKE`), `countVendors` — `backend/src/vendors/repository.ts` — R2, R3.
+  in SQL, `name_key LIKE` the escaped `vendor_name_key($q)` plus `%`), `countVendors` — `backend/src/vendors/repository.ts` — R2, R3.
 - [ ] T018 [US1] Pure `toVendor`/`toSnapshot` mapping (columns ↔ union `paymentTerms`) —
   `backend/src/vendors/snapshot.ts` — FR-012.
 - [ ] T019 [US1] Service `createVendor` (audited, clash → `existingVendor`), `getVendor`,
   `listVendors` — `backend/src/vendors/service.ts` — T013–T015 green.
-- [ ] T020 [US1] Routes `listVendors`, `getVendor`, `createVendor`; register the area —
+- [ ] T020 [US1] Operations and routes `listVendors`, `getVendor`, `createVendor` (contract,
+  OpenAPI list, body inventory, matrix pins and rows; regenerate `openapi.json`); register
+  the area —
   `backend/src/vendors/routes.ts`, `backend/src/http/routes/index.ts`.
 - [ ] T021 [US1] Web: `queries.ts`, `payment-terms.ts` (format), `VendorsList`,
   `VendorForm` (create), `VendorDetail` (read) — `frontend/src/pages/vendors/` — T016 green.
@@ -184,7 +199,8 @@ under the default active filter.
 - [ ] T026 [US2] Service `updateVendor`: lock → 404 → version → clash → update + audit;
   on `vendors_name_key_key` violation, read the clash in a new read transaction and throw
   `DUPLICATE_VENDOR_NAME` — `backend/src/vendors/service.ts` — T022, T023 green.
-- [ ] T027 [US2] Route `updateVendor` — `backend/src/vendors/routes.ts`.
+- [ ] T027 [US2] Operation and route `updateVendor` (contract, OpenAPI list, inventory,
+  matrix pin) — `backend/src/vendors/routes.ts`.
 - [ ] T028 [US2] Web: edit route and form mode, guard, conflict handling —
   `frontend/src/pages/vendors/` — T024 green.
 
@@ -219,7 +235,8 @@ reactivate restores.
 - [ ] T033 [US3] Service `deactivateVendor`, `reactivateVendor`, exported
   `requireActiveVendor(tx, vendorId, path)` — `backend/src/vendors/service.ts` — T029,
   T030 green.
-- [ ] T034 [US3] Routes `deactivateVendor`, `reactivateVendor` —
+- [ ] T034 [US3] Operations and routes `deactivateVendor`, `reactivateVendor` (contract,
+  OpenAPI list, inventory, matrix pins) —
   `backend/src/vendors/routes.ts`.
 - [ ] T035 [US3] Web: dialog via `ConfirmDialog`, reactivate button, status badge —
   `frontend/src/pages/vendors/` — T031 green.
@@ -262,7 +279,8 @@ role and anonymous.
   VendorHistory.test.tsx` — FR-016.
 - [ ] T041 [US5] Audit repository `listEntityHistory(entityType, entityId, page)` and
   `countEntityHistory` — `backend/src/audit/repository.ts`.
-- [ ] T042 [US5] Service `listVendorHistory` (404 when the vendor doesn't exist) and route
+- [ ] T042 [US5] Service `listVendorHistory` (404 when the vendor doesn't exist), operation
+  (contract, OpenAPI list, matrix pin) and route
   — `backend/src/vendors/service.ts`, `routes.ts` — T039 green.
 - [ ] T043 [US5] Web: `VendorHistory` tab — `frontend/src/pages/vendors/` — T040 green.
 

@@ -20,15 +20,20 @@ spec).
 
 ## R2 Normalised name in the database
 
-- **Decision**: `name_key text COLLATE "C" GENERATED ALWAYS AS
-  (lower(btrim(regexp_replace(normalize(name, NFC), '[<WS>]+', ' ', 'g')))) STORED`, with
-  `UNIQUE (name_key)`. `<WS>` is JavaScript's `\s` set spelled out: PostgreSQL's `\s`
-  doesn't match the no-break space, and collapsing before trimming makes a leading tab
-  disappear as JavaScript's `trim()` does (found by the T002 test, 2026-11-06). The contracts package exports `normaliseVendorName()` doing the
-  same for the `q` prefix filter; an integration test pins it to the SQL expression over a
-  fixture list (case, tabs, NBSP, combining accents).
+- **Decision**: one normalisation rule, in SQL only (owner decision, 2026-11-11):
+  `CREATE FUNCTION vendor_name_key(text) RETURNS text IMMUTABLE STRICT` returning
+  `lower(btrim(regexp_replace(normalize(name, NFC), '[<WS>]+', ' ', 'g')))`, where `<WS>`
+  is JavaScript's `\s` set spelled out (PostgreSQL's `\s` misses the no-break space;
+  collapsing before trimming makes a leading tab disappear). The column is
+  `name_key text COLLATE "C" GENERATED ALWAYS AS (vendor_name_key(name)) STORED` with
+  `UNIQUE (name_key)`, and the list's prefix filter compares `name_key` with
+  `vendor_name_key($q)` in an escaped `LIKE`, so the API never normalises a name itself
+  and no copy of the rule can drift. `name`, `contact_name` and `contact_phone` also carry
+  `CHECK (x = btrim(x))`. Tests show the function treats non-ASCII case (`ÉCOLE` /
+  `école`), tabs, the no-break space and combining accents as one name, by key and by a
+  clash on `vendors_name_key_key`. `lower()` follows the database ctype (`en_US.utf8`).
 - **Rationale**: uniqueness enforced by PostgreSQL, so concurrent creates can't both win
-  (Principle I style). All four functions are `IMMUTABLE` in PostgreSQL 17 (checked on
+  (Principle I style); one rule in one place. All four functions are `IMMUTABLE` in PostgreSQL 17 (checked on
   `postgres:17.11`). The `"C"` collation lets one btree serve both `ORDER BY name_key`
   and `LIKE 'prefix%'`.
 - **Alternatives**: `citext` (doesn't collapse spaces, extension); an app-written key

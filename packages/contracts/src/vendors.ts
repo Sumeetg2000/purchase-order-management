@@ -1,6 +1,7 @@
 // Vendor constants (ADR-0005, specs/003-vendors/data-model.md). The vendors table's CHECKs
-// and generated name_key (migration 0011_vendors) hold SQL copies of these;
-// backend/tests/integration/vendor-constants.test.ts pins each one.
+// (migration 0011_vendors) hold SQL copies of these; backend/tests/integration/
+// vendor-constants.test.ts pins each one. The name normalisation rule lives only in SQL,
+// as vendor_name_key() (research R2): nothing here normalises a name.
 
 export const VENDOR_NAME_MAX = 200;
 export const CONTACT_NAME_MAX = 200;
@@ -30,15 +31,3 @@ export const VENDOR_AUDIT_ACTIONS = [
   'VENDOR_REACTIVATED',
 ] as const;
 export type VendorAuditAction = (typeof VENDOR_AUDIT_ACTIONS)[number];
-
-/** JavaScript's \s, the whitespace the generated name_key collapses (research R2). */
-const WHITESPACE_RUN = /\s+/gu;
-
-/**
- * The uniqueness and search key of a vendor name: NFC, every whitespace run collapsed to
- * one space, trimmed, lower-case. The same rule as the generated name_key column; a test
- * pins the two together.
- */
-export function normaliseVendorName(name: string): string {
-  return name.normalize('NFC').replace(WHITESPACE_RUN, ' ').trim().toLowerCase();
-}

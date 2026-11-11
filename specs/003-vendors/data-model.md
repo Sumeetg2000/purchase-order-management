@@ -8,11 +8,11 @@ Migration `0011_vendors` (one migration). Every number below is a named constant
 | Column | Type | Rule |
 |---|---|---|
 | `id` | `uuid` PK | `DEFAULT gen_random_uuid()`; never written by the app |
-| `name` | `text NOT NULL` | trimmed by the API; `CHECK (char_length(name) BETWEEN 1 AND 200)` |
-| `name_key` | `text COLLATE "C"` generated, stored | `lower(btrim(regexp_replace(normalize(name, NFC), '[<WS>]+', ' ', 'g')))`, where `<WS>` is JavaScript's `\s` set spelled out (PostgreSQL's `\s` misses the no-break space); `CONSTRAINT vendors_name_key_key UNIQUE (name_key)` |
-| `contact_name` | `text NOT NULL` | `CHECK (char_length BETWEEN 1 AND 200)` |
+| `name` | `text NOT NULL` | trimmed by the API; `CHECK (char_length(name) BETWEEN 1 AND 200)`, `CHECK (name = btrim(name))` |
+| `name_key` | `text COLLATE "C"` generated, stored | `vendor_name_key(name)` (below); `CONSTRAINT vendors_name_key_key UNIQUE (name_key)` |
+| `contact_name` | `text NOT NULL` | `CHECK (char_length BETWEEN 1 AND 200)`, `CHECK (contact_name = btrim(contact_name))` |
 | `contact_email` | `text NOT NULL` | `CHECK (contact_email = lower(contact_email) AND char_length <= 254)`; not unique |
-| `contact_phone` | `text NULL` | `NULL` = no phone; `CHECK (contact_phone ~ '^[0-9 +()-]{1,30}$' AND contact_phone ~ '[0-9]')`, so `''` is refused |
+| `contact_phone` | `text NULL` | `NULL` = no phone; `CHECK (contact_phone ~ '^[0-9 +()-]{1,30}$' AND contact_phone ~ '[0-9]')`, so `''` is refused; `CHECK (contact_phone = btrim(contact_phone))` |
 | `payment_term_type` | `text NOT NULL` | `CHECK IN ('NET', 'ADVANCE', 'PARTIAL_ADVANCE')` |
 | `net_days` | `smallint NULL` | see terms check |
 | `advance_percent` | `smallint NULL` | see terms check |
@@ -20,6 +20,11 @@ Migration `0011_vendors` (one migration). Every number below is a named constant
 | `deactivated_at` | `timestamptz NULL` | `CHECK ((status = 'INACTIVE') = (deactivated_at IS NOT NULL))` |
 | `version` | `integer NOT NULL DEFAULT 1` | `CHECK (version >= 1)` |
 | `created_at`, `updated_at` | `timestamptz NOT NULL DEFAULT now()` | `updated_at` by the existing `set_updated_at()` trigger |
+
+Function `vendor_name_key(text) RETURNS text IMMUTABLE STRICT PARALLEL SAFE`: the one
+normalisation rule (research R2), `lower(btrim(regexp_replace(normalize(name, NFC),
+'[<WS>]+', ' ', 'g')))` with `<WS>` JavaScript's `\s` set spelled out. `EXECUTE` for
+`po_app` only (the list compares `name_key` with `vendor_name_key($q)`).
 
 Terms check `vendors_payment_terms_valid` (wrapped in `coalesce(…, false)`, so a missing
 number is refused rather than passing as `NULL`):

@@ -3,24 +3,35 @@
 -- constant in packages/contracts/src/vendors.ts; tests/integration/vendor-constants.test.ts
 -- pins each copy. Runs as po_owner.
 
+-- The one normalisation rule for vendor names (research R2): NFC, every whitespace run
+-- collapsed to one space, trimmed, lower-case. The generated name_key uses it, and the
+-- list's prefix filter compares name_key with vendor_name_key($q), so the API never
+-- normalises a name itself. The whitespace class is JavaScript's \s spelled out, so it
+-- doesn't depend on the locale (PostgreSQL's \s misses the no-break space). lower()
+-- follows the database's ctype, so non-ASCII case folds too ("ÉCOLE" = "école").
+CREATE FUNCTION vendor_name_key(name text) RETURNS text
+LANGUAGE sql
+IMMUTABLE STRICT PARALLEL SAFE
+RETURN lower(btrim(regexp_replace(
+  normalize(name, NFC),
+  '[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+',
+  ' ', 'g')));
+
+REVOKE ALL ON FUNCTION vendor_name_key(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vendor_name_key(text) TO po_app;
+
 CREATE TABLE vendors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- VENDOR_NAME_MAX. Trimmed by the API.
+  -- VENDOR_NAME_MAX. Trimmed by the API; stored trimmed on any path.
   name text NOT NULL
-    CONSTRAINT vendors_name_length CHECK (char_length(name) BETWEEN 1 AND 200),
-  -- The uniqueness and search key (normaliseVendorName): NFC, every whitespace run
-  -- collapsed to one space, trimmed, lower-case. The class is JavaScript's \s spelled out,
-  -- so it doesn't depend on the locale (PostgreSQL's \s misses the no-break space).
-  -- "C" so one btree serves ORDER BY and LIKE 'prefix%'.
-  name_key text COLLATE "C"
-    GENERATED ALWAYS AS (lower(btrim(regexp_replace(
-      normalize(name, NFC),
-      '[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+',
-      ' ', 'g'))))
-    STORED,
+    CONSTRAINT vendors_name_length CHECK (char_length(name) BETWEEN 1 AND 200)
+    CONSTRAINT vendors_name_trimmed CHECK (name = btrim(name)),
+  -- The uniqueness and search key. "C" so one btree serves ORDER BY and LIKE 'prefix%'.
+  name_key text COLLATE "C" GENERATED ALWAYS AS (vendor_name_key(name)) STORED,
   -- CONTACT_NAME_MAX.
   contact_name text NOT NULL
-    CONSTRAINT vendors_contact_name_length CHECK (char_length(contact_name) BETWEEN 1 AND 200),
+    CONSTRAINT vendors_contact_name_length CHECK (char_length(contact_name) BETWEEN 1 AND 200)
+    CONSTRAINT vendors_contact_name_trimmed CHECK (contact_name = btrim(contact_name)),
   -- EMAIL_MAX_LENGTH. Lower-cased by the API; not unique.
   contact_email text NOT NULL
     CONSTRAINT vendors_contact_email_valid
@@ -28,7 +39,8 @@ CREATE TABLE vendors (
   -- NULL is the only "no phone"; CONTACT_PHONE_PATTERN and CONTACT_PHONE_MAX, plus a digit.
   contact_phone text
     CONSTRAINT vendors_contact_phone_valid
-      CHECK (contact_phone ~ '^[0-9 +()-]{1,30}$' AND contact_phone ~ '[0-9]'),
+      CHECK (contact_phone ~ '^[0-9 +()-]{1,30}$' AND contact_phone ~ '[0-9]')
+    CONSTRAINT vendors_contact_phone_trimmed CHECK (contact_phone = btrim(contact_phone)),
   -- PAYMENT_TERM_TYPES, in the same order.
   payment_term_type text NOT NULL
     CONSTRAINT vendors_payment_term_type_valid

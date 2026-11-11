@@ -7,7 +7,6 @@ import {
   CONTACT_PHONE_MAX,
   EMAIL_MAX_LENGTH,
   NET_DAYS_MAX,
-  normaliseVendorName,
   PAGE_SIZE_DEFAULT,
   PAYMENT_TERM_TYPES,
   paymentTerms,
@@ -83,13 +82,6 @@ describe('[FR-VEN-01] vendor constants', () => {
     expect([...VENDOR_STATUSES]).toEqual(['ACTIVE', 'INACTIVE']);
     expect([...VENDOR_STATUS_FILTERS]).toEqual(['ACTIVE', 'INACTIVE', 'ALL']);
     expect(VENDOR_STATUS_FILTER_DEFAULT).toBe('ACTIVE');
-  });
-
-  it('[FR-VEN-01] normaliseVendorName: NFC, whitespace runs to one space, trimmed, lower-case', () => {
-    expect(normaliseVendorName('  ACME \t  Supplies Ltd ')).toBe('acme supplies ltd');
-    expect(normaliseVendorName('\tAcme')).toBe('acme');
-    expect(normaliseVendorName('Café Co')).toBe('café co');
-    expect(normaliseVendorName('50%_off')).toBe('50%_off');
   });
 });
 

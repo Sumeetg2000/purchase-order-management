@@ -97,7 +97,7 @@ specs/003-vendors/
 
 ```text
 packages/contracts/src/
-├── vendors.ts                 # constants, normaliseVendorName
+├── vendors.ts                 # constants (the name rule is SQL only: vendor_name_key)
 ├── schemas/vendors.ts         # paymentTerms, vendorBody, vendor, list query, history item
 ├── schemas/problem.ts         # + existingVendor, refined to its code
 ├── errors.ts                  # + 3 codes (clash on DUPLICATE_VENDOR_NAME), + VENDOR_NOT_FOUND

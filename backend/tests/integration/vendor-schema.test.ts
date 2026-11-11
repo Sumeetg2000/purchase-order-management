@@ -137,7 +137,7 @@ describe('[FR-VEN-01] vendors table (0011)', () => {
     const db = await database();
     const app = await db.client('po_app');
     await insertVendor(app, { name: 'Acme Supplies' });
-    for (const name of ['acme supplies', ' ACME   SUPPLIES ', 'Acme\tSupplies']) {
+    for (const name of ['acme supplies', 'ACME   SUPPLIES', 'Acme\tSupplies']) {
       const error = await insertVendor(app, { name }).catch((e: unknown) => e);
       expect(error, name).toMatchObject({
         code: UNIQUE_VIOLATION,

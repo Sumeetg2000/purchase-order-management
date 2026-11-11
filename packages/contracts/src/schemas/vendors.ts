@@ -74,7 +74,7 @@ export const vendor = z
 export const vendorListQuery = z.strictObject({
   ...pageQueryShape,
   status: z.enum(VENDOR_STATUS_FILTERS).default(VENDOR_STATUS_FILTER_DEFAULT),
-  /** A name prefix, case- and space-insensitive (normaliseVendorName). */
+  /** A name prefix, case- and space-insensitive: compared in SQL by vendor_name_key. */
   q: z.string().trim().min(1).max(VENDOR_NAME_MAX).optional(),
 });
 
