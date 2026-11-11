@@ -1,7 +1,8 @@
 name: Nightly
 
 # The end-to-end suite on Chromium, Firefox and WebKit against a fresh compose stack
-# (browser support, research R22). A failure here is treated like a failed check on main.
+# (browser support, research R22), and the query plans at the ADR-0012 sizes (slice 2
+# research R11). A failure here is treated like a failed check on main.
 # Same public-repository rules as ci.yml: no pull_request_target, no secrets, read-only
 # token (ADR-0020).
 on:
@@ -68,3 +69,36 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  plans:
+    name: plans
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:plans
+      - run: npm run plans:vendors
+      - name: Plan drift check
+        run: |
+          drift="$(git status --porcelain -- docs/query-plans/vendors)"
+          if [[ -n "$drift" ]]; then
+            echo "$drift"
+            git diff -- docs/query-plans/vendors
+            echo "::error::The vendor query plans differ from the committed ones."
+            exit 1
+          fi
+      - name: Upload the plan test report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plans-report
+          path: reports/vitest-plans.json
+          if-no-files-found: warn
+          retention-days: 14
