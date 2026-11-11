@@ -4,6 +4,7 @@ import {
   ConcurrencyRetryExhaustedError,
   DatabaseUnavailableError,
   mapDbError,
+  violatedConstraint,
 } from '../../src/db/errors.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
 import { createCapture } from '../support/log-capture.js';
@@ -62,6 +63,30 @@ describe('[NFR-API-02] central database error mapper', () => {
     expect(map(error, { items_vendor_fkey: () => new AppError('NOT_FOUND') }).result?.code).toBe(
       'NOT_FOUND',
     );
+  });
+
+  it("[NFR-API-02] a raw query's violation (P2010) is mapped by its constraint like P2002", () => {
+    const error = adapterError({
+      kind: 'UniqueConstraintViolation',
+      originalCode: '23505',
+      constraint: { index: 'items_name_key' },
+    });
+    expect(map(error).result?.code).toBe('INTERNAL_ERROR');
+    expect(map(error, { items_name_key: () => new AppError('NOT_FOUND') }).result?.code).toBe(
+      'NOT_FOUND',
+    );
+  });
+
+  it('[NFR-API-02] violatedConstraint names the constraint of an ORM or a raw-query violation only', () => {
+    const unique = { kind: 'UniqueConstraintViolation', constraint: { index: 'items_name_key' } };
+    expect(violatedConstraint(adapterError(unique, 'P2002'))).toBe('items_name_key');
+    expect(violatedConstraint(adapterError(unique))).toBe('items_name_key');
+    const foreign = { kind: 'ForeignKeyConstraintViolation', constraint: { index: 'items_fk' } };
+    expect(violatedConstraint(adapterError(foreign))).toBe('items_fk');
+    expect(
+      violatedConstraint(adapterError({ kind: 'Other', constraint: { index: 'x' } })),
+    ).toBeUndefined();
+    expect(violatedConstraint(new Error('not the database'))).toBeUndefined();
   });
 
   it('[NFR-API-02] P2025 (record not found) is NOT_FOUND', () => {

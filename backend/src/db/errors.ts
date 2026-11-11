@@ -52,14 +52,22 @@ function adapterCause(error: Prisma.PrismaClientKnownRequestError): DriverAdapte
   return meta?.driverAdapterError?.cause;
 }
 
+/** A raw query's failure (P2010) carries the violation's kind in the adapter cause. */
+const CONSTRAINT_KINDS = new Set(['UniqueConstraintViolation', 'ForeignKeyConstraintViolation']);
+
 /**
- * The constraint a unique (P2002) or foreign-key (P2003) violation names, or undefined for
- * any other error. For code that turns one specific constraint into a domain error.
+ * The constraint a unique (P2002) or foreign-key (P2003) violation names, from the ORM or
+ * from a raw query (P2010), or undefined for any other error. For code that turns one
+ * specific constraint into a domain error.
  */
 export function violatedConstraint(error: unknown): string | undefined {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
-  if (error.code !== 'P2002' && error.code !== 'P2003') return undefined;
-  return adapterCause(error)?.constraint?.index;
+  const cause = adapterCause(error);
+  const isViolation =
+    error.code === 'P2002' ||
+    error.code === 'P2003' ||
+    (error.code === 'P2010' && cause?.kind !== undefined && CONSTRAINT_KINDS.has(cause.kind));
+  return isViolation ? cause?.constraint?.index : undefined;
 }
 
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
@@ -177,8 +185,8 @@ export function mapDbError(
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
   const cause = adapterCause(error);
 
-  if (error.code === 'P2002' || error.code === 'P2003') {
-    const constraint = cause?.constraint?.index;
+  const constraint = violatedConstraint(error);
+  if (constraint !== undefined || error.code === 'P2002' || error.code === 'P2003') {
     const toError =
       constraint !== undefined && Object.hasOwn(constraints, constraint)
         ? constraints[constraint]
