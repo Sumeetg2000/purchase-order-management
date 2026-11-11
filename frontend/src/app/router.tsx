@@ -40,6 +40,37 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
         },
       ],
     },
+    // Vendors: read by every role; added and edited by Buyers (slice 2, ADR-0004).
+    {
+      path: 'vendors',
+      children: [
+        {
+          index: true,
+          lazy: lazyPage(() => import('../pages/vendors/VendorsList').then((m) => m.VendorsList)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: ':id',
+          lazy: lazyPage(() => import('../pages/vendors/VendorDetail').then((m) => m.VendorDetail)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          element: <RequireRole requires="BUYER" />,
+          children: [
+            {
+              path: 'new',
+              lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.NewVendor)),
+              errorElement: <RouteErrorBoundary />,
+            },
+            {
+              path: ':id/edit',
+              lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.EditVendor)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+      ],
+    },
     ...(includeDemo ? demoRoutes : []),
     {
       path: '*',

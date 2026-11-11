@@ -117,7 +117,7 @@ short summary stop.
 - [X] T011 [P] Audit events `VENDOR_CREATED`/`UPDATED`/`DEACTIVATED`/`REACTIVATED`
   (`entityType: 'vendor'`, `{ before: VendorSnapshot | null, after: VendorSnapshot }`) —
   `backend/src/audit/events.ts` — FR-013, data-model.
-- [ ] T012 [P] Web: messages for the three codes and the field code
+- [X] T012 [P] Web: messages for the three codes and the field code
   ([contracts/errors.md](contracts/errors.md)); `Vendors` nav item for role holders; lazy
   routes `/vendors`, `/vendors/new`, `/vendors/:id`, `/vendors/:id/edit` with Buyer-only
   guards on new/edit — `frontend/src/errors/messages.ts`, `frontend/src/app/router.tsx`,
