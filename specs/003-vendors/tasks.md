@@ -252,16 +252,16 @@ reactivate restores.
 **Independent test**: the matrix rows pass for Buyer, other Buyer, Approver, Admin, no
 role and anonymous.
 
-- [ ] T036 [P] [US4] Matrix rows, seen failing for any gap: the seven vendor operations ×
+- [X] T036 [P] [US4] Matrix rows, seen failing for any gap: the seven vendor operations ×
   6 caller kinds (writes as Approver/Admin → 403 `FORBIDDEN` with an invalid body; no role
   → `NO_ROLE_ASSIGNED`; anonymous → 401; history as Approver → 403), generated from the
   route table — `backend/tests/integration/authorization-matrix.test.ts` — FR-010, SC-004
   (FR-ACT-01).
-- [ ] T037 [P] [US4] Web: Approver and Admin see no write controls; Buyer-only routes show
+- [X] T037 [P] [US4] Web: Approver and Admin see no write controls; Buyer-only routes show
   Forbidden; a role removed mid-edit → next save shows the 403 message —
   `frontend/tests/vendors-list-page.test.tsx`, `frontend/tests/vendor-detail-page.test.tsx`
   — FR-016.
-- [ ] T038 [US4] Fix whatever T036/T037 expose (expected: none beyond the route table) —
+- [X] T038 [US4] Fix whatever T036/T037 expose (expected: none beyond the route table) —
   `backend/src/vendors/routes.ts`, `frontend/src/pages/vendors/`.
 
 ---
@@ -271,20 +271,20 @@ role and anonymous.
 **Goal**: who changed what, for Buyers and Admins.
 **Independent test**: create, edit, deactivate, reactivate → four entries newest first.
 
-- [ ] T039 [P] [US5] Tests, seen failing: history paginated newest first (`occurredAt
+- [X] T039 [P] [US5] Tests, seen failing: history paginated newest first (`occurredAt
   DESC, id DESC`, equal timestamps stable); actor name snapshot survives a later rename;
   refused changes leave none; unknown vendor 404; Approver 403 —
   `backend/tests/integration/vendor-history.test.ts` — FR-013, FR-014, SC-005
   (NFR-AUD-03).
-- [ ] T040 [P] [US5] Web: History tab for Buyers and Admins (states, pagination, changed
+- [X] T040 [P] [US5] Web: History tab for Buyers and Admins (states, pagination, changed
   fields before → after); hidden for Approvers — `frontend/tests/
   vendor-history-page.test.tsx` — FR-016.
-- [ ] T041 [US5] Audit repository `listEntityHistory(entityType, entityId, page)` and
+- [X] T041 [US5] Audit repository `listEntityHistory(entityType, entityId, page)` and
   `countEntityHistory` — `backend/src/audit/repository.ts`.
-- [ ] T042 [US5] Service `listVendorHistory` (404 when the vendor doesn't exist), operation
+- [X] T042 [US5] Service `listVendorHistory` (404 when the vendor doesn't exist), operation
   (contract, OpenAPI list, matrix pin) and route
   — `backend/src/vendors/service.ts`, `routes.ts` — T039 green.
-- [ ] T043 [US5] Web: `VendorHistory` tab — `frontend/src/pages/vendors/` — T040 green.
+- [X] T043 [US5] Web: `VendorHistory` tab — `frontend/src/pages/vendors/` — T040 green.
 
 ---
 
