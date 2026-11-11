@@ -62,8 +62,11 @@ function nth<T>(items: readonly T[], index: number): T {
   return item;
 }
 
+/** The history's entries: the list's own items, not the changes listed inside each. */
 const entries = async () =>
-  within(await screen.findByRole('list', { name: 'Vendor history' })).getAllByRole('listitem');
+  Array.from((await screen.findByRole('list', { name: 'Vendor history' })).children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
 
 describe('[NFR-AUD-03] vendor history tab', () => {
   it.each([['BUYER'], ['ADMIN']])('[NFR-AUD-03] %s has Details and History tabs', async (role) => {
@@ -168,10 +171,10 @@ describe('[NFR-AUD-03] vendor history tab', () => {
   });
 
   it('[NFR-AUD-03] shows a failed load', async () => {
-    historyApi(['BUYER'], { [HISTORY]: () => problem(503, 'SERVICE_UNAVAILABLE') });
+    historyApi(['BUYER'], { [HISTORY]: () => problem(500, 'INTERNAL_ERROR') });
     renderApp(`/vendors/${ACME_ID}/history`);
     expect(
-      await screen.findByText(errorMessages.SERVICE_UNAVAILABLE.message, { exact: false }),
+      await screen.findByText(errorMessages.INTERNAL_ERROR.message, { exact: false }),
     ).toBeInTheDocument();
   });
 });
