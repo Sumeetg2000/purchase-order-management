@@ -6,7 +6,7 @@ import { ONE_SHOT } from '../db/one-shot.js';
 import { createLogger } from '../observability/logger.js';
 import { deployMigrations } from './deploy.js';
 import { provisionDatabase } from './provision.js';
-import { seedDemoUsers } from './seed-demo.js';
+import { seedDemoUsers, seedDemoVendors } from './seed-demo.js';
 
 async function main() {
   const config = loadConfig(migrateConfig.schema);
@@ -54,6 +54,8 @@ async function main() {
     if (config.SEED_DEMO_DATA) {
       const created = await seedDemoUsers({ prisma, appEnv: config.APP_ENV, logger });
       logger.info({ step: 'seed-demo', created }, 'demo users seeded');
+      const vendors = await seedDemoVendors({ prisma, appEnv: config.APP_ENV, logger });
+      logger.info({ step: 'seed-demo', created: vendors }, 'demo vendors seeded');
     }
   } finally {
     await prisma.$disconnect();
