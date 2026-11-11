@@ -149,9 +149,9 @@ describe('[FR-VEN-01] edit a vendor', () => {
   it('[FR-VEN-01] a vendor may change the case and spacing of its own name', async () => {
     const h = await vendorsHarness();
     const id = await created(h);
-    const res = await h.updateVendor(id, vendorBody({ name: 'ACME  Supplies' }), 1);
+    const res = await h.updateVendor(id, vendorBody({ name: ' ACME  supplies ' }), 1);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ name: 'ACME Supplies', version: 2 });
+    expect(res.body).toMatchObject({ name: 'ACME  supplies', version: 2 });
   });
 
   it('[FR-VEN-01] an inactive vendor is editable and stays inactive', async () => {

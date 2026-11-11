@@ -5,7 +5,12 @@ import {
   type VendorBody,
   type VendorListQuery,
 } from '@po/contracts';
-import { defineRoute, idParamOf, type RouteDefinition } from '../http/define-route.js';
+import {
+  defineRoute,
+  idParamOf,
+  ifMatchVersionOf,
+  type RouteDefinition,
+} from '../http/define-route.js';
 import { authOf } from '../http/middleware/authorize.js';
 import { requestContext } from '../http/request-context.js';
 import type { VendorsService } from './service.js';
@@ -38,6 +43,18 @@ export function vendorRoutes(vendors: VendorsService): RouteDefinition[] {
           .set('ETag', etagFor(vendor.version))
           .set('Location', `${API_PATH_PREFIX}/vendors/${vendor.id}`)
           .json(vendor);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.updateVendor,
+      handler: async (req, res) => {
+        const target = {
+          id: idParamOf(req),
+          version: ifMatchVersionOf(res),
+          body: req.body as VendorBody,
+        };
+        const vendor = await vendors.updateVendor(authOf(res), target, requestContext(req, res));
+        res.set('ETag', etagFor(vendor.version)).json(vendor);
       },
     }),
   ];

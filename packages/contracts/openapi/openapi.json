@@ -4243,6 +4243,219 @@
             "$ref": "#/components/responses/Problem"
           }
         }
+      },
+      "put": {
+        "operationId": "updateVendor",
+        "summary": "Replace a vendor's details; leaving out the phone clears it.",
+        "x-access": "role",
+        "x-roles": [
+          "BUYER"
+        ],
+        "security": [
+          {
+            "accessCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "required": true
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "type": "string",
+              "pattern": "^\"([1-9][0-9]*)\"$",
+              "description": "The ETag from the last read; a missing or stale one is refused."
+            },
+            "required": true,
+            "description": "The ETag from the last read; a missing or stale one is refused."
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "ETag": {
+                "required": true,
+                "description": "The resource's version; send it back in If-Match to update it.",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"([1-9][0-9]*)\"$",
+                  "description": "The resource's version; send it back in If-Match to update it."
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vendor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Problem document with code VALIDATION_FAILED.",
+            "x-error-codes": [
+              "VALIDATION_FAILED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED.",
+            "x-error-codes": [
+              "UNAUTHENTICATED",
+              "ACCESS_TOKEN_EXPIRED",
+              "ACCOUNT_DEACTIVATED",
+              "SESSION_REVOKED",
+              "SESSION_EXPIRED"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "x-error-codes": [
+              "CSRF_REJECTED",
+              "NO_ROLE_ASSIGNED",
+              "FORBIDDEN"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Problem document with code NOT_FOUND.",
+            "x-error-codes": [
+              "NOT_FOUND"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Problem document with code VERSION_CONFLICT or DUPLICATE_VENDOR_NAME.",
+            "x-error-codes": [
+              "VERSION_CONFLICT",
+              "DUPLICATE_VENDOR_NAME"
+            ],
+            "x-problem-members": {
+              "DUPLICATE_VENDOR_NAME": [
+                "existingVendor"
+              ]
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Problem document with code PAYLOAD_TOO_LARGE.",
+            "x-error-codes": [
+              "PAYLOAD_TOO_LARGE"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Problem document with code INTERNAL_ERROR.",
+            "x-error-codes": [
+              "INTERNAL_ERROR"
+            ],
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
       }
     }
   },

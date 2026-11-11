@@ -42,14 +42,56 @@ export async function insertVendor(
   return row ?? null;
 }
 
-/** The vendor whose name key equals that of `name`, or null. */
+/**
+ * The vendor whose name key equals that of `name`, or null. Inside the write's transaction,
+ * or on its own after a rename lost the race for the key (research R3).
+ */
 export async function findVendorByNameKey(
-  tx: AuditedTransaction,
+  db: AuditedTransaction | AppPrismaClient,
   name: string,
 ): Promise<ExistingVendor | null> {
-  const [row] = await tx.$queryRaw<ExistingVendor[]>`
+  const [row] = await db.$queryRaw<ExistingVendor[]>`
     SELECT id::text, name FROM vendors WHERE name_key = vendor_name_key(${name})`;
   return row ?? null;
+}
+
+/** Locks the vendor row for an edit or a status change (research R8), or null. */
+export async function lockVendor(tx: AuditedTransaction, id: string): Promise<VendorRow | null> {
+  const [row] = await tx.$queryRaw<VendorRow[]>`
+    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid FOR UPDATE`;
+  return row ?? null;
+}
+
+/** Another vendor whose name key equals that of `name`, or null (an edit's clash check). */
+export async function findClash(
+  tx: AuditedTransaction,
+  name: string,
+  exceptId: string,
+): Promise<ExistingVendor | null> {
+  const [row] = await tx.$queryRaw<ExistingVendor[]>`
+    SELECT id::text, name FROM vendors
+     WHERE name_key = vendor_name_key(${name}) AND id <> ${exceptId}::uuid`;
+  return row ?? null;
+}
+
+/** Replaces the editable fields and moves the version; the caller holds the row lock. */
+export async function updateVendor(
+  tx: AuditedTransaction,
+  id: string,
+  fields: VendorFields,
+): Promise<VendorRow> {
+  const [row] = await tx.$queryRaw<VendorRow[]>`
+    UPDATE vendors
+       SET name = ${fields.name}, contact_name = ${fields.contactName},
+           contact_email = ${fields.contactEmail}, contact_phone = ${fields.contactPhone},
+           payment_term_type = ${fields.paymentTermType},
+           net_days = ${fields.netDays}::smallint,
+           advance_percent = ${fields.advancePercent}::smallint,
+           version = version + 1
+     WHERE id = ${id}::uuid
+    RETURNING ${COLUMNS}`;
+  if (!row) throw new Error(`Vendor ${id} vanished while locked`);
+  return row;
 }
 
 export async function findVendor(prisma: AppPrismaClient, id: string): Promise<VendorRow | null> {

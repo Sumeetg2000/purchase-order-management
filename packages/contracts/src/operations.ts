@@ -408,4 +408,19 @@ export const OPERATIONS = {
     responses: { 201: vendor },
     errors: ['DUPLICATE_VENDOR_NAME'],
   },
+
+  // Slice 2, US2: edit is a full replacement under If-Match (research R7, R8).
+  updateVendor: {
+    method: 'put',
+    path: '/vendors/:id',
+    operationId: 'updateVendor',
+    summary: "Replace a vendor's details; leaving out the phone clears it.",
+    access: 'role',
+    roles: [ROLE.BUYER],
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: vendorBody },
+    responses: { 200: vendor },
+    errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'DUPLICATE_VENDOR_NAME'],
+  },
 } as const satisfies Record<string, OperationContract>;
