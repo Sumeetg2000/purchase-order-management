@@ -8,7 +8,7 @@ import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { formatPaymentTerms } from './payment-terms';
 import { DeactivateVendorDialog } from './DeactivateVendorDialog';
-import { STALE_STATUS_CODES, useChangeVendorStatus, useVendor } from './queries';
+import { isStaleStatusCode, useChangeVendorStatus, useVendor } from './queries';
 import { VENDOR_STATUS_LABELS } from './status';
 import { VendorTabs } from './VendorTabs';
 import css from './vendors.module.css';
@@ -98,7 +98,7 @@ export function VendorDetail() {
       {failure && (
         <div role="alert" className={styles.alert}>
           <p>{failureMessage(failure)}</p>
-          {STALE_STATUS_CODES.has(failure.problem.code) && (
+          {isStaleStatusCode(failure.problem.code) && (
             <button type="button" className={controls.button} onClick={reload}>
               Reload
             </button>

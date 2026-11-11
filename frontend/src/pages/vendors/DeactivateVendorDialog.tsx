@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ProblemLike } from '../../errors/messages';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { STALE_STATUS_CODES, useChangeVendorStatus } from './queries';
+import { isStaleStatusCode, useChangeVendorStatus } from './queries';
 
 export interface DeactivateVendorDialogProps {
   vendor: { id: string; name: string; version: number };
@@ -36,7 +36,7 @@ export function DeactivateVendorDialog({ vendor, onClose, onReload }: Deactivate
       onClose={onClose}
       error={error}
       errorActions={
-        error && STALE_STATUS_CODES.has(error.code)
+        error && isStaleStatusCode(error.code)
           ? [
               {
                 label: 'Reload',

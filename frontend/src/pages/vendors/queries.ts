@@ -39,10 +39,15 @@ export function useVendor(id: string) {
 }
 
 /** A status change's failures that mean the page is out of date: they offer Reload. */
-export const STALE_STATUS_CODES: ReadonlySet<string> = new Set([
+const STALE_STATUS_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
   'VERSION_CONFLICT',
   'INVALID_STATE_TRANSITION',
-] satisfies ErrorCode[]);
+]);
+
+/** Whether a problem's code, as received, is one of STALE_STATUS_CODES. */
+export function isStaleStatusCode(code: string): boolean {
+  return (STALE_STATUS_CODES as ReadonlySet<string>).has(code);
+}
 
 /**
  * Deactivate or reactivate, sent with the version the page shows. On success the open

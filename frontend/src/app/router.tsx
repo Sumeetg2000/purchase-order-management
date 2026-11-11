@@ -1,3 +1,4 @@
+import { OPERATIONS, ROLE } from '@po/contracts';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RequireRole } from '../auth/RequireRole';
 import { RequireUser } from '../auth/RequireUser';
@@ -55,8 +56,8 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           errorElement: <RouteErrorBoundary />,
         },
         {
-          // The history is for Buyers and Admins (ADR-0004); Approvers get the 403 page.
-          element: <RequireRole requires={['BUYER', 'ADMIN']} />,
+          // The history's roles are the API operation's (ADR-0004); others get the 403 page.
+          element: <RequireRole requires={OPERATIONS.listVendorHistory.roles} />,
           children: [
             {
               path: ':id/history',
@@ -68,7 +69,7 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           ],
         },
         {
-          element: <RequireRole requires="BUYER" />,
+          element: <RequireRole requires={ROLE.BUYER} />,
           children: [
             {
               path: 'new',
