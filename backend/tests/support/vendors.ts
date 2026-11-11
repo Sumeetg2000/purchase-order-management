@@ -36,6 +36,17 @@ export async function vendorsHarness() {
     return h.send('put', `/vendors/${id}`, as, body, headers);
   }
 
+  /** Deactivate or reactivate; `version` null sends no If-Match. */
+  function setStatus(
+    id: string,
+    action: 'deactivate' | 'reactivate',
+    version: number | null,
+    as: CookieJar = jar,
+  ) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/vendors/${id}/${action}`, as, undefined, headers);
+  }
+
   /**
    * A vendor inserted as the superuser with triggers off (no audit entry), NET 30. The
    * generated name_key is still computed by PostgreSQL.
@@ -69,7 +80,7 @@ export async function vendorsHarness() {
     );
   }
 
-  return { ...h, buyer, jar, createVendor, updateVendor, seedVendor, vendorAudit };
+  return { ...h, buyer, jar, createVendor, updateVendor, setStatus, seedVendor, vendorAudit };
 }
 
 export type VendorsHarness = Awaited<ReturnType<typeof vendorsHarness>>;
