@@ -55,6 +55,19 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           errorElement: <RouteErrorBoundary />,
         },
         {
+          // The history is for Buyers and Admins (ADR-0004); Approvers get the 403 page.
+          element: <RequireRole requires={['BUYER', 'ADMIN']} />,
+          children: [
+            {
+              path: ':id/history',
+              lazy: lazyPage(() =>
+                import('../pages/vendors/VendorHistory').then((m) => m.VendorHistory),
+              ),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
           element: <RequireRole requires="BUYER" />,
           children: [
             {

@@ -10,6 +10,7 @@ import { formatPaymentTerms } from './payment-terms';
 import { DeactivateVendorDialog } from './DeactivateVendorDialog';
 import { STALE_STATUS_CODES, useChangeVendorStatus, useVendor } from './queries';
 import { VENDOR_STATUS_LABELS } from './status';
+import { VendorTabs } from './VendorTabs';
 import css from './vendors.module.css';
 
 const styles = classes(css, 'header', 'badge', 'details', 'term', 'muted', 'alert');
@@ -113,6 +114,7 @@ export function VendorDetail() {
           onReload={reload}
         />
       )}
+      <VendorTabs id={vendor.id} />
       <ul aria-label="Vendor details" className={styles.details}>
         <li>
           <span className={styles.term}>Contact</span>

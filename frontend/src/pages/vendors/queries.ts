@@ -67,3 +67,14 @@ export function useChangeVendorStatus() {
     return outcome;
   };
 }
+
+/** One page of a vendor's history, newest first (Buyers and Admins). */
+export function useVendorHistory(id: string, page: number) {
+  const query = page === 1 ? {} : { page };
+  return useQuery({
+    queryKey: [...vendorKey(id), 'history', query],
+    queryFn: async () =>
+      dataOrThrow(await api.GET('/vendors/{id}/history', { params: { path: { id }, query } })),
+    placeholderData: keepPreviousData,
+  });
+}
