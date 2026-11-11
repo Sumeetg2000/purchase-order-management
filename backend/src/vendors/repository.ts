@@ -135,34 +135,44 @@ export async function findVendor(prisma: AppPrismaClient, id: string): Promise<V
 
 export interface VendorListFilter {
   status: VendorStatusFilter;
-  /** A name prefix; compared by name key, its LIKE wildcards taken literally. */
+  /** A name prefix, compared by name key. */
   q?: string | undefined;
 }
 
 /**
- * The filter in SQL. The prefix is the escaped name key of `q` plus %, a constant once
- * the immutable functions fold, so the "C"-collated name_key indexes serve it.
+ * The highest code point (U+10FFFF, a noncharacter): every name key that starts with `key`
+ * sorts below `key || chr(MAX_CHAR)`, unless that very character follows the prefix.
+ */
+const MAX_CHAR = 1_114_111;
+
+/**
+ * The filter in SQL. The prefix is a range on the "C"-collated name_key, from the key of
+ * `q` to that key plus the highest code point, so an index serves it even under a generic
+ * plan, and `%` or `_` in `q` mean themselves (research R11).
  */
 function whereOf(filter: VendorListFilter): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
   if (filter.status !== 'ALL') conditions.push(Prisma.sql`status = ${filter.status}`);
   if (filter.q !== undefined) {
-    conditions.push(Prisma.sql`name_key LIKE replace(replace(replace(
-      vendor_name_key(${filter.q}), '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`);
+    conditions.push(Prisma.sql`name_key >= vendor_name_key(${filter.q})
+      AND name_key < vendor_name_key(${filter.q}) || chr(${MAX_CHAR}::int)`);
   }
   return conditions.length > 0
     ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
     : Prisma.empty;
 }
 
-/** A page of vendors sorted by name key, then id. */
+/**
+ * A page of vendors sorted by name key. The key is unique (vendors_name_key_key), so it is
+ * a total order and both name-key indexes serve it with no sort.
+ */
 export function listVendors(
   prisma: AppPrismaClient,
   filter: VendorListFilter & { offset: number; limit: number },
 ): Promise<VendorRow[]> {
   return prisma.$queryRaw<VendorRow[]>`
     SELECT ${COLUMNS} FROM vendors ${whereOf(filter)}
-     ORDER BY name_key, id
+     ORDER BY vendors.name_key
      LIMIT ${filter.limit} OFFSET ${filter.offset}`;
 }
 

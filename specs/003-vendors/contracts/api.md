@@ -91,7 +91,7 @@ Common set: `UNAUTHENTICATED`, `ACCESS_TOKEN_EXPIRED`, `SESSION_*`, `CSRF_REJECT
 (writes), `NO_ROLE_ASSIGNED`, `FORBIDDEN`, `VALIDATION_FAILED`, `PAYLOAD_TOO_LARGE`,
 `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`, `CONCURRENCY_RETRY_EXHAUSTED`.
 
-Sorts: list by `name_key`, then `id`; history by `occurredAt DESC`, then `id DESC`.
+Sorts: list by `name_key` (unique, so a total order); history by `occurredAt DESC`, then `id DESC`.
 
 ## Problem body change (ADR-0007, amended 2026-11-06)
 
