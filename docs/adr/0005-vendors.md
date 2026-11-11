@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-11-06 (slice 2 clarifications, **owner
   decisions**: one contact person; list defaults to active vendors; the duplicate-name
-  `409` names the existing vendor)
+  `409` names the existing vendor) · amended 2026-11-11 (name key folds case with
+  PostgreSQL's builtin collation; the upgrade step below, **owner decision**)
 - **Brief:** §3.1, §3.5 · Q3c, private-orders decision
 - **Principles:** III, IV, VII
 
@@ -13,6 +14,24 @@
   vendors → `409 DUPLICATE_VENDOR_NAME`, carrying `existingVendor: { id, name }`
   (ADR-0007) so the web app can link to it; a retried create gets the same answer.
   Vendors are never deleted.
+- The normalised name is a stored key computed by PostgreSQL (`vendor_name_key`: NFC,
+  whitespace runs collapsed, trimmed, `lower()` under `pg_c_utf8`, PostgreSQL 17's builtin
+  collation), so it doesn't depend on glibc or the database's ctype. Its Unicode tables
+  can change with a PostgreSQL **major** upgrade, so after one, recompute every stored key
+  as an operator, in one transaction:
+
+  ```sql
+  BEGIN;
+  SELECT set_config('app.actor_txid', txid_current()::text, true),
+         set_config('app.actor_type', 'OPERATOR', true),
+         set_config('app.os_user', '<your OS user>', true),
+         set_config('app.os_host', '<this host>', true);
+  UPDATE vendors SET name = name;
+  COMMIT;
+  ```
+
+  A unique violation on `vendors_name_key_key` there is a real new clash (two names the new
+  tables fold to one): resolve it by renaming one vendor, then run the step again.
 - Contact: one contact person, `contactName`, `contactEmail` (stored lower-cased, not
   unique) and an optional `contactPhone` (`null` when absent). No address: the brief has
   no use for one. Field limits are in ADR-0007.

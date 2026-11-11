@@ -32,7 +32,9 @@ spec).
   and no copy of the rule can drift. `name`, `contact_name` and `contact_phone` also carry
   `CHECK (x = btrim(x))`. Tests show the function treats non-ASCII case (`ÉCOLE` /
   `école`), tabs, the no-break space and combining accents as one name, by key and by a
-  clash on `vendors_name_key_key`. `lower()` follows the database ctype (`en_US.utf8`).
+  clash on `vendors_name_key_key`. `lower()` runs under `pg_c_utf8` (PostgreSQL 17's
+  builtin collation, owner decision 2026-11-11), so the key needs neither glibc nor the
+  database ctype; after a PostgreSQL major upgrade, ADR-0005's step recomputes the keys.
 - **Rationale**: uniqueness enforced by PostgreSQL, so concurrent creates can't both win
   (Principle I style); one rule in one place. All four functions are `IMMUTABLE` in PostgreSQL 17 (checked on
   `postgres:17.11`). The `"C"` collation lets one btree serve both `ORDER BY name_key`

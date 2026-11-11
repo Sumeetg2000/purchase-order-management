@@ -7,8 +7,11 @@
 -- collapsed to one space, trimmed, lower-case. The generated name_key uses it, and the
 -- list's prefix filter compares name_key with vendor_name_key($q), so the API never
 -- normalises a name itself. The whitespace class is JavaScript's \s spelled out, so it
--- doesn't depend on the locale (PostgreSQL's \s misses the no-break space). lower()
--- follows the database's ctype, so non-ASCII case folds too ("ÉCOLE" = "école").
+-- doesn't depend on the locale (PostgreSQL's \s misses the no-break space). lower() runs
+-- under pg_c_utf8, PostgreSQL 17's builtin collation: Unicode case mapping from
+-- PostgreSQL's own tables, not libc's, so non-ASCII case folds ("ÉCOLE" = "école") in any
+-- database ctype and a glibc upgrade can't change a key. A PostgreSQL major upgrade can
+-- (new Unicode tables): ADR-0005 has the step that recomputes the stored keys.
 CREATE FUNCTION vendor_name_key(name text) RETURNS text
 LANGUAGE sql
 IMMUTABLE STRICT PARALLEL SAFE
@@ -17,7 +20,7 @@ SET search_path = pg_catalog, pg_temp
 RETURN lower(btrim(regexp_replace(
   normalize(name, NFC),
   '[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+',
-  ' ', 'g')));
+  ' ', 'g')) COLLATE pg_c_utf8);
 
 REVOKE ALL ON FUNCTION vendor_name_key(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vendor_name_key(text) TO po_app;

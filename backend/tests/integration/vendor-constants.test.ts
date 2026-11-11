@@ -11,9 +11,11 @@ import {
   VENDOR_NAME_MAX,
   VENDOR_STATUSES,
 } from '@po/contracts';
-import type pg from 'pg';
+import { readFileSync } from 'node:fs';
+import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { createTestDatabase } from '../support/db.js';
+import { roleUrl } from '../support/postgres.js';
 import { trackDatabase } from '../support/setup.js';
 
 // Every vendor constant's SQL copy in migration 0011 equals the constant (CLAUDE.md,
@@ -139,6 +141,51 @@ describe('[FR-VEN-01] vendor_name_key: one name however it is cased or spaced', 
       `SELECT vendor_name_key('ÉCOLE  Supplies') AS key`,
     );
     expect(rows[0]?.key).toBe('école supplies');
+  });
+
+  it("[FR-VEN-01] folds case by Unicode, not the database's libc ctype", async () => {
+    // Migration 0011's own function, created in a scratch database whose ctype is C: there
+    // libc's lower() leaves É alone, so only a collation of PostgreSQL's own folds it.
+    const migration = readFileSync(
+      new URL('../../prisma/migrations/0011_vendors/migration.sql', import.meta.url),
+      'utf8',
+    );
+    const ddl = /CREATE FUNCTION vendor_name_key[\s\S]*?;$/m.exec(migration)?.[0];
+    if (!ddl) throw new Error('vendor_name_key not found in migration 0011');
+    const db = trackDatabase(await createTestDatabase());
+    const superuser = await db.client('postgres');
+    const scratch = `${db.name}_ctype_c`;
+    await superuser.query(
+      `CREATE DATABASE ${scratch} TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'`,
+    );
+    const client = new pg.Client({ connectionString: roleUrl(db.connection, 'postgres', scratch) });
+    try {
+      await client.connect();
+      await client.query(ddl);
+      const { rows } = await client.query<{ key: string }>(
+        `SELECT vendor_name_key('ÉCOLE  ÖZTÜRK') AS key`,
+      );
+      expect(rows[0]?.key).toBe('école öztürk');
+    } finally {
+      await client.end();
+      await superuser.query(`DROP DATABASE ${scratch} WITH (FORCE)`);
+    }
+  });
+
+  it('[FR-VEN-01] the ADR-0005 upgrade step recomputes every key, run as written', async () => {
+    const adr = readFileSync(new URL('../../../docs/adr/0005-vendors.md', import.meta.url), 'utf8');
+    const step = /```sql\n([\s\S]*?UPDATE vendors SET name = name;[\s\S]*?)```/.exec(adr)?.[1];
+    if (!step) throw new Error('ADR-0005 has no name-key upgrade step');
+    const db = trackDatabase(await createTestDatabase());
+    await insertNamed(await db.client('postgres'), 'ÉCOLE Supplies');
+    const owner = await db.client('po_owner');
+    await owner.query(
+      step.replace('<your OS user>', 'ops').replace('<this host>', 'db-host').replace(/^ +/gm, ''),
+    );
+    const { rows } = await owner.query<{ stale: number }>(
+      'SELECT count(*)::int AS stale FROM vendors WHERE name_key IS DISTINCT FROM vendor_name_key(name)',
+    );
+    expect(rows).toEqual([{ stale: 0 }]);
   });
 
   it('[FR-VEN-01] a second vendor with any of these spellings clashes on vendors_name_key_key', async () => {
