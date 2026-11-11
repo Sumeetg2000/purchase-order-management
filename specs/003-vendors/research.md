@@ -172,7 +172,9 @@ spec).
 - **Alternatives**: another deviation (no reason to give: the tooling is small here).
 - **Results (2026-11-11, developer machine, `postgres:17.11`)**: the seed with VACUUM
   ANALYZE takes about 30–34 s; all page plans (custom and generic) about 0.1 s; the whole
-  `npm run test:plans` about 40 s. Beyond Seq Scan and Sort, the test also refuses an
+  `npm run test:plans` about 40 s. In CI (PR #16, 2026-11-11) the `plans` job took
+  2 min 27 s end to end (install, plan test, plan writer, drift check), so it stays a
+  separate job and out of the default run. Beyond Seq Scan and Sort, the test also refuses an
   Incremental Sort over more than page plus offset rows and a scan that filters out more
   than that. What it found and fixed:
   - `ORDER BY … id` bound to the selected `id::text`, not the column: history sorted equal
