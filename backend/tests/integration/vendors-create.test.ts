@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import { vendorBody, vendorsHarness } from '../support/vendors.js';
 
@@ -30,7 +31,7 @@ describe('[FR-VEN-01] create a vendor', () => {
       updatedAt: expect.any(String) as unknown,
     });
     expect(res.get('ETag')).toBe('"1"');
-    expect(res.get('Location')).toBe(`/api/vendors/${id}`);
+    expect(res.get('Location')).toBe(`${API_PATH_PREFIX}/vendors/${id}`);
 
     const [row] = await h.query<{ name: string; contact_email: string; contact_phone: null }>(
       'SELECT name, contact_email, contact_phone FROM vendors WHERE id = $1',

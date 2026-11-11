@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { API_PATH_PREFIX } from '@po/contracts';
 import { parse } from 'yaml';
 
 const compose = parse(readFileSync(new URL('../../docker-compose.yml', import.meta.url), 'utf8'));
@@ -148,6 +149,11 @@ describe('[NFR-OPS-02] compose exposure', () => {
     assert.equal(String(env.METRICS_PORT), '9464');
     assert.match(nginx, /http:\/\/api:3000\b/);
     assert.deepEqual(services.api.expose, [String(env.METRICS_PORT)]);
+  });
+  it('[NFR-OPS-03] the edge proxies the API under the shared API path prefix', () => {
+    const nginx = readFileSync(new URL('../../deploy/nginx/default.conf', import.meta.url), 'utf8');
+    assert.ok(nginx.includes(`"~^${API_PATH_PREFIX}(?<rest>/.*)$" $rest;`), 'map regex');
+    assert.ok(nginx.includes(`location ${API_PATH_PREFIX}/ {`), 'location block');
   });
 });
 

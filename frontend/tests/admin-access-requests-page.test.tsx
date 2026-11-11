@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from './support/axe';
@@ -73,9 +74,11 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
     await user.selectOptions(await screen.findByLabelText('Status'), 'DISMISSED');
     expect(router.state.location.search).toBe('?status=DISMISSED');
     await waitFor(() => {
-      expect(seen.some((r) => r.url.endsWith('/api/admin/access-requests?status=DISMISSED'))).toBe(
-        true,
-      );
+      expect(
+        seen.some((r) =>
+          r.url.endsWith(`${API_PATH_PREFIX}/admin/access-requests?status=DISMISSED`),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -194,7 +197,9 @@ describe('[NFR-FE-08] open access-request badge', () => {
       await screen.findByRole('link', { name: 'Users, 2 open access requests' }),
     ).toBeInTheDocument();
     expect(
-      seen.some((r) => r.url.endsWith('/api/admin/access-requests?status=OPEN&pageSize=1')),
+      seen.some((r) =>
+        r.url.endsWith(`${API_PATH_PREFIX}/admin/access-requests?status=OPEN&pageSize=1`),
+      ),
     ).toBe(true);
   });
 

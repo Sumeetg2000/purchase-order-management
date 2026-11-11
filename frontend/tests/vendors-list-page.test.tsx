@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages } from '../src/errors/messages';
@@ -38,7 +39,7 @@ function vendorApi(roles: readonly string[] = ['BUYER'], handlers: Record<string
 }
 
 const listRequests = (seen: Request[]) =>
-  seen.filter((r) => new URL(r.url).pathname === '/api/vendors');
+  seen.filter((r) => new URL(r.url).pathname === `${API_PATH_PREFIX}/vendors`);
 
 const rowOf = async (name: string) =>
   (await screen.findByRole('link', { name })).closest('tr') as HTMLElement;

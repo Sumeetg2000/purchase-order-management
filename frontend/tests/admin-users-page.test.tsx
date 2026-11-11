@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages } from '../src/errors/messages';
@@ -96,7 +97,7 @@ describe('[NFR-FE-08] admin Users list', () => {
     expect(await screen.findByLabelText('Role')).toHaveValue('NONE');
     expect(screen.getByLabelText('Status')).toHaveValue('ACTIVE');
     await waitFor(() => {
-      const list = seen.filter((r) => new URL(r.url).pathname === '/api/admin/users');
+      const list = seen.filter((r) => new URL(r.url).pathname === `${API_PATH_PREFIX}/admin/users`);
       expect(new URL(list.at(-1)?.url ?? '').search).toBe('?role=NONE&status=ACTIVE&page=2');
     });
     await u.type(screen.getByLabelText('Name or email starts with'), 'pri');

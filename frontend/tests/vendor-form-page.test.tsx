@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages, fieldMessages } from '../src/errors/messages';
@@ -18,7 +19,7 @@ function formApi(handlers: Record<string, Handler> = {}) {
     'GET /me': () => json(200, { ...ME, roles: ['BUYER'] }),
     [`GET /vendors/${ACME_ID}`]: () => json(200, vendor(), { ETag: '"1"' }),
     'POST /vendors': () =>
-      json(201, vendor(), { ETag: '"1"', Location: `/api/vendors/${ACME_ID}` }),
+      json(201, vendor(), { ETag: '"1"', Location: `${API_PATH_PREFIX}/vendors/${ACME_ID}` }),
     ...handlers,
   });
 }

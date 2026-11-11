@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -51,11 +52,11 @@ describe('[NFR-SEC-01] session cookies', () => {
     ]);
   });
 
-  it('[NFR-SEC-01] the access cookie is HttpOnly, Secure, SameSite=Strict, Path=/api, and lives as long as the refresh cookie', async () => {
+  it('[NFR-SEC-01] the access cookie is HttpOnly, Secure, SameSite=Strict, Path=the API prefix, and lives as long as the refresh cookie', async () => {
     const res = await request(app()).post('/set');
     const access = cookieNamed(res.get('Set-Cookie'), ACCESS_COOKIE);
     expect(access).toMatch(/^po_access=access-jwt;/);
-    expect(access).toContain('Path=/api;');
+    expect(access).toContain(`Path=${API_PATH_PREFIX};`);
     // Not the JWT's 15 minutes: a cookie that expired with its token would vanish, and the
     // next request would be UNAUTHENTICATED instead of ACCESS_TOKEN_EXPIRED (ADR-0017).
     expect(access).toContain(`Max-Age=${String(REFRESH_MAX_AGE_SECONDS)};`);
@@ -65,11 +66,11 @@ describe('[NFR-SEC-01] session cookies', () => {
     expect(access).toMatch(/SameSite=Strict/);
   });
 
-  it('[NFR-SEC-01] the refresh cookie is HttpOnly, Secure, SameSite=Strict, Path=/api/auth, with the given lifetime', async () => {
+  it('[NFR-SEC-01] the refresh cookie is HttpOnly, Secure, SameSite=Strict, Path=the API prefix + /auth, with the given lifetime', async () => {
     const res = await request(app()).post('/set');
     const refresh = cookieNamed(res.get('Set-Cookie'), REFRESH_COOKIE);
     expect(refresh).toMatch(/^po_refresh=refresh-opaque;/);
-    expect(refresh).toContain('Path=/api/auth;');
+    expect(refresh).toContain(`Path=${API_PATH_PREFIX}/auth;`);
     expect(refresh).toContain(`Max-Age=${String(REFRESH_MAX_AGE_SECONDS)};`);
     expect(refresh).toMatch(/HttpOnly/);
     expect(refresh).toMatch(/Secure/);
@@ -91,8 +92,8 @@ describe('[NFR-SEC-01] session cookies', () => {
     const res = await request(app()).post('/clear');
     const header = res.get('Set-Cookie');
     for (const [name, path] of [
-      [ACCESS_COOKIE, '/api'],
-      [REFRESH_COOKIE, '/api/auth'],
+      [ACCESS_COOKIE, API_PATH_PREFIX],
+      [REFRESH_COOKIE, `${API_PATH_PREFIX}/auth`],
       [CSRF_COOKIE, '/'],
     ] as const) {
       const cookie = cookieNamed(header, name);

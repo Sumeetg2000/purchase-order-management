@@ -1,4 +1,4 @@
-import { ERROR_CODES } from '@po/contracts';
+import { API_PATH_PREFIX, ERROR_CODES } from '@po/contracts';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -126,7 +126,7 @@ describe('[NFR-FE-01] RouteErrorBoundary', () => {
   it('[NFR-FE-01] a plain error shows no request id, never one from an unrelated earlier request', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       fetch: () =>
         Promise.resolve(
           new Response('{"status":"ok"}', {
@@ -257,7 +257,7 @@ describe('[NFR-FE-04] useQueryStates', () => {
     // finishes first; the successful one finishes afterwards.
     let finishOk = () => undefined as unknown;
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       fetch: (request: Request) =>
         request.url.endsWith('/readyz')
           ? Promise.resolve(
@@ -292,7 +292,7 @@ describe('[NFR-FE-04] useQueryStates', () => {
 
   it('[NFR-FE-04] a network failure is a temporary failure, with Retry', async () => {
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       fetch: () => Promise.reject(new TypeError('Failed to fetch')),
     });
     let calls = 0;

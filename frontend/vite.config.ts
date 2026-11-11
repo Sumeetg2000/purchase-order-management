@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { API_PATH_PREFIX } from '@po/contracts';
 import react from '@vitejs/plugin-react';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
@@ -36,9 +37,9 @@ function devServer(): Plugin {
             'Content-Security-Policy': devContentSecurityPolicy(nonce),
           },
           proxy: {
-            '/api/': {
+            [`${API_PATH_PREFIX}/`]: {
               target: `http://127.0.0.1:${env['HTTP_PORT'] ?? ''}`,
-              rewrite: (path) => path.replace(/^\/api/, ''),
+              rewrite: (path) => path.slice(API_PATH_PREFIX.length),
               // As nginx does: replace any client-supplied value rather than append to it.
               configure: (proxy) => {
                 proxy.on('proxyReq', (proxyReq, req) => {
