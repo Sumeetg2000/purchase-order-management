@@ -1,19 +1,24 @@
-import { useParams } from 'react-router';
+import { ROLE } from '@po/contracts';
+import { Link, useParams } from 'react-router';
+import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
+import controlsCss from '../../styles/controls.module.css';
 import { formatPaymentTerms } from './payment-terms';
 import { useVendor } from './queries';
 import { VENDOR_STATUS_LABELS } from './status';
 import css from './vendors.module.css';
 
 const styles = classes(css, 'header', 'badge', 'details', 'term', 'muted');
+const controls = classes(controlsCss, 'button');
 
 /**
- * One vendor, for every role (specs/003-vendors/contracts/ui.md). US2 adds Edit; US3 the
- * status actions; US5 the history tab.
+ * One vendor, for every role (specs/003-vendors/contracts/ui.md). Buyers get Edit; US3 adds
+ * the status actions, US5 the history tab.
  */
 export function VendorDetail() {
   const { id = '' } = useParams();
+  const isBuyer = useCurrentUser().data?.roles.includes(ROLE.BUYER) ?? false;
   const states = useQueryStates(useVendor(id), { loadingLabel: 'Loading the vendor' });
   if (states.view) {
     return (
@@ -31,6 +36,11 @@ export function VendorDetail() {
       <div className={styles.header}>
         <h1>{vendor.name}</h1>
         <span className={styles.badge}>{VENDOR_STATUS_LABELS[vendor.status]}</span>
+        {isBuyer && (
+          <Link to={`/vendors/${vendor.id}/edit`} className={controls.button}>
+            Edit
+          </Link>
+        )}
       </div>
       <ul aria-label="Vendor details" className={styles.details}>
         <li>

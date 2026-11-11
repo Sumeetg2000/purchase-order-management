@@ -105,8 +105,24 @@
 }
 
 .alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
   margin: 0;
   color: var(--color-danger);
+}
+
+.alert p {
+  margin: 0;
+}
+
+/* The form's submit button and Cancel link, side by side. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
 }
 
 .details {
