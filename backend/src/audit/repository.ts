@@ -24,7 +24,10 @@ export interface EntityRef {
   entityId: string;
 }
 
-/** A page of the entity's entries, newest first; equal timestamps by id, newest first. */
+/**
+ * A page of the entity's entries, newest first; equal timestamps by id, newest first. The
+ * sort names the table: a bare `id` would mean the selected `id::text` and sort as text.
+ */
 export function listEntityHistory(
   prisma: AppPrismaClient,
   { entityType, entityId }: EntityRef,
@@ -36,7 +39,7 @@ export function listEntityHistory(
            acting_role AS "actingRole", details
       FROM audit_entries
      WHERE entity_type = ${entityType} AND entity_id = ${entityId}
-     ORDER BY occurred_at DESC, id DESC
+     ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC
      LIMIT ${limit} OFFSET ${offset}`;
 }
 

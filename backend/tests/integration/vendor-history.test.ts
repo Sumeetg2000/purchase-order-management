@@ -140,6 +140,42 @@ describe('[NFR-AUD-03] vendor history', () => {
     expect(items[0]?.actor).toEqual({ type: 'SYSTEM', name: null, email: null, role: null });
   });
 
+  it('[NFR-AUD-03] entries with the same timestamp order by id as a number, across a digit boundary', async () => {
+    const h = await vendorsHarness();
+    const id = await h.seedVendor({ name: 'Acme Supplies' });
+    // Ids 98 to 101: as text, "99" sorts above "101".
+    await h.query('ALTER TABLE audit_entries ALTER COLUMN id RESTART WITH 98');
+    const prisma = createPrismaClient({
+      url: h.db.url('po_app'),
+      poolSize: 1,
+      connectionTimeoutMs: 2_000,
+    });
+    clients.push(prisma);
+    await withTransaction(
+      {
+        prisma,
+        actor: { type: 'SYSTEM' },
+        requestId: 'req-history-digit-boundary',
+        timeoutMs: 5_000,
+        maxWaitMs: 2_000,
+        logger: testLogger(),
+      },
+      async (tx) => {
+        for (const contactName of ['98', '99', '100', '101']) {
+          await writeAudit(tx, {
+            action: 'VENDOR_UPDATED',
+            entityType: 'vendor',
+            entityId: id,
+            details: { before: ACME, after: { ...ACME, contactName } },
+          });
+        }
+      },
+    );
+
+    const items = (await history(h, id)).body as HistoryPage;
+    expect(items.items.map((item) => item.id)).toEqual(['101', '100', '99', '98']);
+  });
+
   it("[NFR-AUD-03] an entry keeps the actor's name from the time, after they are renamed", async () => {
     const h = await vendorsHarness();
     const created = await h.createVendor(vendorBody());
