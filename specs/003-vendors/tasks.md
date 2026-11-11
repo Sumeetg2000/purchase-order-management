@@ -180,29 +180,29 @@ under the default active filter.
 **Goal**: full-replacement edit with optimistic concurrency.
 **Independent test**: two Buyers edit one vendor; the stale save gets `409 VERSION_CONFLICT`.
 
-- [ ] T022 [P] [US2] Edit tests, seen failing: `PUT` with current `If-Match` → 200,
+- [X] T022 [P] [US2] Edit tests, seen failing: `PUT` with current `If-Match` → 200,
   version +1, `VENDOR_UPDATED` before → after (contact email and phone included); missing
   `If-Match` → 400 `VERSION_REQUIRED`; stale → 409 `VERSION_CONFLICT`, nothing changed;
   phone cleared by `null` and by omission (stored `NULL`), `""` → 400; rename onto another
   vendor's normalised name → 409 with `existingVendor`; own-name case change allowed;
   inactive vendor editable; unknown id 404 — `backend/tests/integration/
   vendors-update.test.ts` — FR-006, R6, R7, R8 (FR-VEN-01).
-- [ ] T023 [P] [US2] Concurrency, seen failing: two edits with the same version behind a
+- [X] T023 [P] [US2] Concurrency, seen failing: two edits with the same version behind a
   barrier → one 200, one 409; two renames to one new name → one 200, one 409
   `DUPLICATE_VENDOR_NAME` with `existingVendor` (the `23505` fallback read, R3) —
   `backend/tests/integration/vendors-concurrency.test.ts` — SC-003.
-- [ ] T024 [P] [US2] Web: edit form prefilled, sends `If-Match`, clearing phone sends
+- [X] T024 [P] [US2] Web: edit form prefilled, sends `If-Match`, clearing phone sends
   `null`; unsaved-changes guard (router blocker and `beforeunload`); `VERSION_CONFLICT`
   reload after the guard; no confirmation on save — `frontend/tests/
   vendor-form-page.test.tsx` — FR-016, NFR-FE-09.
-- [ ] T025 [US2] Repository `lockVendor` (`FOR UPDATE`), `findClash(nameKey, exceptId)`,
+- [X] T025 [US2] Repository `lockVendor` (`FOR UPDATE`), `findClash(nameKey, exceptId)`,
   `updateVendor` (`version = version + 1`) — `backend/src/vendors/repository.ts`.
-- [ ] T026 [US2] Service `updateVendor`: lock → 404 → version → clash → update + audit;
+- [X] T026 [US2] Service `updateVendor`: lock → 404 → version → clash → update + audit;
   on `vendors_name_key_key` violation, read the clash in a new read transaction and throw
   `DUPLICATE_VENDOR_NAME` — `backend/src/vendors/service.ts` — T022, T023 green.
-- [ ] T027 [US2] Operation and route `updateVendor` (contract, OpenAPI list, inventory,
+- [X] T027 [US2] Operation and route `updateVendor` (contract, OpenAPI list, inventory,
   matrix pin) — `backend/src/vendors/routes.ts`.
-- [ ] T028 [US2] Web: edit route and form mode, guard, conflict handling —
+- [X] T028 [US2] Web: edit route and form mode, guard, conflict handling —
   `frontend/src/pages/vendors/` — T024 green.
 
 **Checkpoint**: US1 + US2.
