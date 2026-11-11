@@ -2,6 +2,7 @@ import {
   API_PATH_PREFIX,
   etagFor,
   OPERATIONS,
+  type PageQuery,
   type VendorBody,
   type VendorListQuery,
 } from '@po/contracts';
@@ -28,6 +29,14 @@ export function vendorRoutes(vendors: VendorsService): RouteDefinition[] {
       handler: async (req, res) => {
         const vendor = await vendors.getVendor(idParamOf(req));
         res.set('ETag', etagFor(vendor.version)).json(vendor);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.listVendorHistory,
+      handler: async (req, res) => {
+        res.json(
+          await vendors.listVendorHistory(idParamOf(req), req.query as unknown as PageQuery),
+        );
       },
     }),
     defineRoute({

@@ -1,12 +1,15 @@
 import {
   AppError,
   type Page,
+  type PageQuery,
   type Vendor,
   type VendorBody,
+  type VendorHistoryItem,
   type VendorListQuery,
   type VendorStatus,
 } from '@po/contracts';
 import type { AuthenticatedUser } from '../auth/service.js';
+import { countEntityHistory, listEntityHistory } from '../audit/repository.js';
 import { writeAudit } from '../audit/write.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { violatedConstraint } from '../db/errors.js';
@@ -30,6 +33,7 @@ import {
   updateVendor,
   type VendorFields,
 } from './repository.js';
+import { toHistoryItem } from './history.js';
 import {
   statusOf,
   termColumns,
@@ -52,6 +56,8 @@ export interface VendorsService {
     target: { id: string; version: number; body: VendorBody },
     ctx: RequestContext,
   ): Promise<Vendor>;
+  /** The vendor's audit entries, newest first (research R10); NOT_FOUND for no vendor. */
+  listVendorHistory(id: string, query: PageQuery): Promise<Page<VendorHistoryItem>>;
   /** ACTIVE → INACTIVE when `version` is current; otherwise INVALID_STATE_TRANSITION. */
   deactivateVendor(
     buyer: AuthenticatedUser,
@@ -179,6 +185,22 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
         ]),
       );
       return { items: rows.map(toVendor), page: query.page, pageSize: query.pageSize, total };
+    },
+
+    listVendorHistory: async (id, query) => {
+      const entity = { entityType: 'vendor', entityId: id } as const;
+      const [vendor, rows, total] = await withDatabase(() =>
+        Promise.all([
+          findVendor(deps.prisma, id),
+          listEntityHistory(deps.prisma, entity, {
+            offset: (query.page - 1) * query.pageSize,
+            limit: query.pageSize,
+          }),
+          countEntityHistory(deps.prisma, entity),
+        ]),
+      );
+      if (!vendor) throw new AppError('NOT_FOUND');
+      return { items: rows.map(toHistoryItem), page: query.page, pageSize: query.pageSize, total };
     },
 
     getVendor: async (id) => {

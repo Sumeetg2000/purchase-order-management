@@ -400,6 +400,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vendors/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A vendor's changes, newest first: who, when, and the vendor before and after. */
+        get: operations["listVendorHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vendors/{id}/deactivate": {
         parameters: {
             query?: never;
@@ -591,6 +608,37 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        PageOfVendorHistoryItem: {
+            items: components["schemas"]["VendorHistoryItem"][];
+            page: number;
+            pageSize: number;
+            total: number;
+        };
+        VendorHistoryItem: {
+            id: string;
+            /** @enum {string} */
+            action: "VENDOR_CREATED" | "VENDOR_UPDATED" | "VENDOR_DEACTIVATED" | "VENDOR_REACTIVATED";
+            /** Format: date-time */
+            occurredAt: string;
+            actor: {
+                /** @enum {string} */
+                type: "USER" | "SYSTEM" | "OPERATOR";
+                name: string | null;
+                email: string | null;
+                role: ("BUYER" | "APPROVER" | "ADMIN" | "SELF") | null;
+            };
+            before: components["schemas"]["VendorSnapshot"] | null;
+            after: components["schemas"]["VendorSnapshot"];
+        };
+        VendorSnapshot: {
+            name: string;
+            contactName: string;
+            contactEmail: string;
+            contactPhone: string | null;
+            paymentTerms: components["schemas"]["PaymentTerms"];
+            /** @enum {string} */
+            status: "ACTIVE" | "INACTIVE";
         };
     };
     responses: {
@@ -2879,6 +2927,83 @@ export interface operations {
             };
             /** @description Problem document with code PAYLOAD_TOO_LARGE. */
             413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listVendorHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageOfVendorHistoryItem"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
                     [name: string]: unknown;

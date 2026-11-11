@@ -26,7 +26,7 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
-import { vendor, vendorBody, vendorListQuery } from './schemas/vendors.js';
+import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
 /**
@@ -422,6 +422,17 @@ export const OPERATIONS = {
     request: { params: idParams, body: vendorBody },
     responses: { 200: vendor },
     errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'DUPLICATE_VENDOR_NAME'],
+  },
+  listVendorHistory: {
+    method: 'get',
+    path: '/vendors/:id/history',
+    operationId: 'listVendorHistory',
+    summary: "A vendor's changes, newest first: who, when, and the vendor before and after.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.ADMIN],
+    request: { params: idParams, query: pageQuery },
+    responses: { 200: pageOf(vendorHistoryItem).meta({ id: 'PageOfVendorHistoryItem' }) },
+    errors: ['NOT_FOUND'],
   },
   deactivateVendor: {
     method: 'post',
