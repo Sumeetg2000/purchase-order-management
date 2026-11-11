@@ -143,6 +143,16 @@ describe('[NFR-AUD-03] vendor history tab', () => {
     ]);
   });
 
+  it('[NFR-AUD-03] a save that changed nothing says so instead of an empty list', async () => {
+    historyApi(['BUYER'], {
+      [HISTORY]: () => json(200, page([entry('5', 'VENDOR_UPDATED', ACME, ACME)])),
+    });
+    renderApp(`/vendors/${ACME_ID}/history`);
+    const item = nth(await entries(), 0);
+    expect(within(item).queryByRole('list', { name: 'Changes' })).toBeNull();
+    expect(within(item).getByText('No fields changed.')).toBeVisible();
+  });
+
   it('[NFR-AUD-03] pages through the history, the page in the URL', async () => {
     const seen = historyApi(['BUYER'], {
       [HISTORY]: (request) => {

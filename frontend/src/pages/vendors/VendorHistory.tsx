@@ -73,20 +73,28 @@ export function VendorHistory() {
         <>
           {states.notice}
           <ol aria-label="Vendor history" className={styles.history}>
-            {states.data.items.map((item) => (
-              <li key={item.id}>
-                <h2>{ACTION_LABELS[item.action]}</h2>
-                <p className={styles.muted}>
-                  {actorOf(item)} ·{' '}
-                  <time dateTime={item.occurredAt}>{formatDateTime(item.occurredAt)}</time>
-                </p>
-                <ul aria-label="Changes">
-                  {changesOf(item).map((change) => (
-                    <li key={change}>{change}</li>
-                  ))}
-                </ul>
-              </li>
-            ))}
+            {states.data.items.map((item) => {
+              const changes = changesOf(item);
+              return (
+                <li key={item.id}>
+                  <h2>{ACTION_LABELS[item.action]}</h2>
+                  <p className={styles.muted}>
+                    {actorOf(item)} ·{' '}
+                    <time dateTime={item.occurredAt}>{formatDateTime(item.occurredAt)}</time>
+                  </p>
+                  {changes.length === 0 ? (
+                    // A save of the form as it was: recorded, but nothing to compare.
+                    <p>No fields changed.</p>
+                  ) : (
+                    <ul aria-label="Changes">
+                      {changes.map((change) => (
+                        <li key={change}>{change}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ol>
           <Pager
             page={states.data.page}
