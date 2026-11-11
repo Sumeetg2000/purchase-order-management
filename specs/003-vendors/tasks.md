@@ -328,7 +328,7 @@ role and anonymous.
   cells passing (rows stay partial until the order slices); NFR-FE-09 lists the
   deactivate-vendor dialog among its Playwright dialogs and stays Tested; FR-VEN-02/03 stay
   Todo — `docs/traceability.md`.
-- [ ] T050 Quickstart run and results — `specs/003-vendors/quickstart-results.md`.
+- [X] T050 Quickstart run and results — `specs/003-vendors/quickstart-results.md`.
 - [ ] T051 Slice-end review: `/code-review`, `/security-review`, constitution pass; fix
   findings; full gate `set -o pipefail; npm test 2>&1 | tail -40`, lint, typecheck green.
 
