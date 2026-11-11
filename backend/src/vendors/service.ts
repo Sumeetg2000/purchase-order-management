@@ -205,7 +205,8 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
         if (!created) {
           // The insert waited for any in-flight one, so the winner is visible now (R3).
           const existing = await findVendorByNameKey(tx, body.name);
-          if (!existing) throw new Error('Vendor insert conflicted, but no vendor holds the name');
+          // Renamed away in between (research R3): the name is free again, so a retry wins.
+          if (!existing) throw new AppError('CONCURRENCY_RETRY_EXHAUSTED');
           throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: existing });
         }
         await writeAudit(tx, {
@@ -242,11 +243,8 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
         // A concurrent rename committed the key after our clash check (research R3): the
         // transaction has rolled back, so the winner is read on its own.
         const existing = await withDatabase(() => findVendorByNameKey(deps.prisma, body.name));
-        if (!existing) {
-          throw new Error('Vendor rename conflicted, but no vendor holds the name', {
-            cause: error,
-          });
-        }
+        // Renamed away in between: the name is free again, so a retry wins.
+        if (!existing) throw new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
         throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: existing, cause: error });
       }
     },

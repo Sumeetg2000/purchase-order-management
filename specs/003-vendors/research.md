@@ -49,7 +49,9 @@ spec).
   (`name_key = $key AND id <> $id`) after locking the vendor; if a concurrent rename still
   wins, the `UPDATE` raises `23505` on `vendors_name_key_key`, the transaction rolls back,
   and the service reads the clashing vendor in a fresh read-only transaction and throws
-  the same `409`.
+  the same `409`. If that read finds no holder (the winner was renamed away in between),
+  the name is free again: `503 CONCURRENCY_RETRY_EXHAUSTED`, which clients retry (code
+  review, 2026-11-11).
 - **Rationale**: `ON CONFLICT DO NOTHING` waits for an in-flight insert and doesn't abort
   the transaction, so the follow-up read sees the winner. A retried create (lost
   response) gets the vendor it already made. No savepoints through Prisma.
