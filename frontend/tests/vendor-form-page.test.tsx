@@ -193,6 +193,19 @@ describe('[FR-VEN-01] edit vendor form', () => {
 
   const put = (seen: Request[]) => seen.filter((r) => r.method === 'PUT');
 
+  it('[FR-ACT-01] a role removed mid-edit: the next save shows the 403 message and keeps the edits', async () => {
+    editApi({ [`PUT /vendors/${ACME_ID}`]: () => problem(403, 'FORBIDDEN') });
+    const { user } = renderApp(EDIT_PATH);
+    const name = await screen.findByLabelText('Vendor name');
+    await user.clear(name);
+    await user.type(name, 'Acme Industrial');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(errorMessages.FORBIDDEN.message);
+    expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
+    expect(screen.getByLabelText('Vendor name')).toHaveValue('Acme Industrial');
+  });
+
   it('[FR-VEN-01] is prefilled with the vendor', async () => {
     editApi();
     renderApp(EDIT_PATH);

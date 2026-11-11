@@ -2,6 +2,7 @@ import { OPERATIONS, type Access, type OperationContract } from '@po/contracts';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { accountsHarness, APP_ORIGIN, cookieHeader, type CookieJar } from '../support/accounts.js';
+import { vendorBody, vendorsHarness } from '../support/vendors.js';
 
 // The authorization matrix (ADR-0004), generated from the route table: every operation ×
 // every caller kind, each cell asserted. Every request carries an unknown query field, so
@@ -168,5 +169,75 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
     // far) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
     expect(operations).toHaveLength(30);
+  });
+});
+
+describe('[FR-ACT-01] the vendor rows (ADR-0004)', () => {
+  /** Every vendor write, each with a body or headers that would fail validation. */
+  const WRITES = [
+    { op: 'createVendor', method: 'post', path: () => '/vendors', body: { bogus: 1 } },
+    { op: 'updateVendor', method: 'put', path: (id: string) => `/vendors/${id}`, body: {} },
+    {
+      op: 'deactivateVendor',
+      method: 'post',
+      path: (id: string) => `/vendors/${id}/deactivate`,
+      body: { bogus: 1 },
+    },
+    {
+      op: 'reactivateVendor',
+      method: 'post',
+      path: (id: string) => `/vendors/${id}/reactivate`,
+      body: { bogus: 1 },
+    },
+  ] as const;
+
+  it('[FR-ACT-01] Approver and Admin writes are 403 FORBIDDEN before the body is validated, changing nothing', async () => {
+    const h = await vendorsHarness();
+    const id = await h.seedVendor({ name: 'Acme Supplies' });
+    for (const roles of ['{APPROVER}', '{ADMIN}']) {
+      const jar = await h.loggedIn(await h.seedUser({ roles }));
+      for (const write of WRITES) {
+        // No If-Match either: the role refusal comes before every 400.
+        const res = await h.send(write.method, write.path(id), jar, write.body);
+        expect(res.status, `${write.op} as ${roles}`).toBe(403);
+        expect(res.body, `${write.op} as ${roles}`).toMatchObject({ code: 'FORBIDDEN' });
+      }
+    }
+    expect(await h.query('SELECT version FROM vendors')).toEqual([{ version: 1 }]);
+    expect(await h.vendorAudit()).toEqual([]);
+  });
+
+  it('[FR-ACT-01] a user with no role is 403 NO_ROLE_ASSIGNED and an anonymous caller 401 on vendor reads', async () => {
+    const h = await vendorsHarness();
+    const id = await h.seedVendor({ name: 'Acme Supplies' });
+    const noRole = await h.loggedIn(await h.seedUser({ roles: '{}' }));
+    for (const path of ['/vendors', `/vendors/${id}`]) {
+      const refused = await h.get(path, noRole);
+      expect(refused.status, path).toBe(403);
+      expect(refused.body, path).toMatchObject({ code: 'NO_ROLE_ASSIGNED' });
+      const anonymous = await request(h.app).get(path).set('Origin', APP_ORIGIN);
+      expect(anonymous.status, path).toBe(401);
+      expect(anonymous.body, path).toMatchObject({ code: 'UNAUTHENTICATED' });
+    }
+  });
+
+  it('[FR-ACT-01] vendors have no owner: another Buyer edits, deactivates and reactivates one', async () => {
+    const h = await vendorsHarness();
+    const created = await h.createVendor(vendorBody());
+    expect(created.status).toBe(201);
+    const id = (created.body as { id: string }).id;
+    const other = await h.loggedIn(await h.seedUser({ roles: '{BUYER}' }));
+
+    expect(
+      (await h.updateVendor(id, vendorBody({ name: 'Acme Industrial' }), 1, other)).status,
+    ).toBe(200);
+    expect((await h.setStatus(id, 'deactivate', 2, other)).status).toBe(200);
+    expect((await h.setStatus(id, 'reactivate', 3, other)).status).toBe(200);
+    expect((await h.vendorAudit()).map((entry) => entry.action)).toEqual([
+      'VENDOR_CREATED',
+      'VENDOR_UPDATED',
+      'VENDOR_DEACTIVATED',
+      'VENDOR_REACTIVATED',
+    ]);
   });
 });

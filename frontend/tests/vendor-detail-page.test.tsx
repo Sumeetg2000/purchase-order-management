@@ -118,4 +118,37 @@ describe('[FR-VEN-01] vendor detail status actions', () => {
     expect(within(top).queryByRole('link', { name: 'Edit' })).toBeNull();
     expect(within(top).queryByRole('button')).toBeNull();
   });
+
+  it('[FR-ACT-01] an Admin sees the vendor read-only, active or not', async () => {
+    detailApi(['ADMIN'], 'ACTIVE');
+    renderApp(`/vendors/${ACME_ID}`);
+    const top = await header();
+    expect(within(top).getByText('Active')).toBeInTheDocument();
+    expect(within(top).queryByRole('link', { name: 'Edit' })).toBeNull();
+    expect(within(top).queryByRole('button')).toBeNull();
+  });
+
+  it('[FR-ACT-01] a role removed mid-session: Reactivate shows the 403 message, with no Reload', async () => {
+    detailApi(['BUYER'], 'INACTIVE', { [REACTIVATE]: () => problem(403, 'FORBIDDEN') });
+    const { user } = renderApp(`/vendors/${ACME_ID}`);
+    const top = await header();
+    await user.click(within(top).getByRole('button', { name: 'Reactivate' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(errorMessages.FORBIDDEN.message);
+    expect(within(alert).queryByRole('button', { name: 'Reload' })).toBeNull();
+  });
+
+  it('[FR-ACT-01] a role removed mid-session: Deactivate shows the 403 message inside the dialog', async () => {
+    detailApi(['BUYER'], 'ACTIVE', {
+      [`POST /vendors/${ACME_ID}/deactivate`]: () => problem(403, 'FORBIDDEN'),
+    });
+    const { user } = renderApp(`/vendors/${ACME_ID}`);
+    await user.click(within(await header()).getByRole('button', { name: 'Deactivate' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Deactivate vendor' }));
+    expect(
+      await within(dialog).findByText(errorMessages.FORBIDDEN.message, { exact: false }),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Reload' })).toBeNull();
+  });
 });
