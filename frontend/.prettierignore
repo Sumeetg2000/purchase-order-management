@@ -1,0 +1,8 @@
+# Prettier reads .prettierignore only from the directory it runs in. The root file covers
+# runs from the root (and npm run format); this one covers runs from frontend/.
+# Generated and committed; CI compares a fresh generation byte for byte.
+src/api/schema.d.ts
+dist/
+coverage/
+test-results/
+node_modules/
