@@ -3,7 +3,7 @@ export function Home() {
     <>
       <title>Home · Purchase Orders</title>
       <h1>Welcome</h1>
-      <p>Vendors, purchase orders, approvals and goods receipts arrive in the coming slices.</p>
+      <p>Purchase orders, approvals and goods receipts arrive in the coming slices.</p>
     </>
   );
 }
