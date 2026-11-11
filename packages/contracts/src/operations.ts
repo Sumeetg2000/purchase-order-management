@@ -26,6 +26,7 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
+import type { UserRole } from './users.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -34,8 +35,9 @@ import { sessionItem } from './schemas/sessions.js';
  * - user: any logged-in user, with or without a role
  * - no-role: a logged-in user with no role (their own access request)
  * - admin: a logged-in Admin
+ * - role: a logged-in user holding one of the operation's `roles` (slice 2, research R1)
  */
-export const ACCESS_LEVELS = ['public', 'refresh', 'user', 'no-role', 'admin'] as const;
+export const ACCESS_LEVELS = ['public', 'refresh', 'user', 'no-role', 'admin', 'role'] as const;
 export type Access = (typeof ACCESS_LEVELS)[number];
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
@@ -56,6 +58,8 @@ export interface OperationContract {
   operationId: string;
   summary: string;
   access: Access;
+  /** The roles that may call it: required, non-empty, exactly when access is role. */
+  roles?: readonly UserRole[];
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
   /**
@@ -70,6 +74,19 @@ export interface OperationContract {
   responses: Readonly<Record<number, z.ZodType>>;
   /** Codes this operation returns beyond the ones every operation can return. */
   errors?: readonly ErrorCode[];
+}
+
+/**
+ * Why an operation's access and roles disagree, or undefined: access role needs a
+ * non-empty roles list, and roles needs access role.
+ */
+export function accessProblem(operation: OperationContract): string | undefined {
+  const hasRoles = (operation.roles?.length ?? 0) > 0;
+  if (operation.access === 'role' && !hasRoles) return 'has access role but no roles';
+  if (operation.access !== 'role' && operation.roles !== undefined) {
+    return `lists roles but has access ${operation.access}`;
+  }
+  return undefined;
 }
 
 /** Every operation of the API. The generator documents exactly these. */

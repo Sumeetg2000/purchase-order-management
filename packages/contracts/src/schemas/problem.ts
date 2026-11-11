@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { carriesRevokeReason, ERROR_CODES, FIELD_CODES, isErrorCode } from '../errors.js';
+import {
+  carriesRevokeReason,
+  clashMemberOf,
+  ERROR_CODES,
+  FIELD_CODES,
+  isErrorCode,
+} from '../errors.js';
 import { PUBLIC_REVOKE_REASONS } from '../sessions.js';
 
 /**
@@ -40,12 +46,22 @@ export const problemSchema = z
     details: z.array(fieldErrorSchema).optional(),
     /** Why the session was revoked: SESSION_REVOKED only, and only a public reason. */
     reason: z.enum(PUBLIC_REVOKE_REASONS).optional(),
+    existingVendor: z
+      .strictObject({ id: z.uuid(), name: z.string() })
+      .optional()
+      .meta({ description: 'The vendor whose name clashed: DUPLICATE_VENDOR_NAME only.' }),
   })
   .refine(
     (problem) =>
       problem.reason === undefined ||
       (isErrorCode(problem.code) && carriesRevokeReason(problem.code)),
     { path: ['reason'], message: 'only SESSION_REVOKED carries a reason' },
+  )
+  .refine(
+    (problem) =>
+      problem.existingVendor === undefined ||
+      (isErrorCode(problem.code) && clashMemberOf(problem.code) === 'existingVendor'),
+    { path: ['existingVendor'], message: 'only DUPLICATE_VENDOR_NAME carries existingVendor' },
   )
   .meta({ id: 'Problem' });
 

@@ -378,6 +378,12 @@ export interface components {
             details?: components["schemas"]["FieldError"][];
             /** @enum {string} */
             reason?: "PASSWORD_CHANGED" | "PASSWORD_RESET" | "ROLES_CHANGED";
+            /** @description The vendor whose name clashed: DUPLICATE_VENDOR_NAME only. */
+            existingVendor?: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
         };
         /** @description Every code in the registry (packages/contracts/src/errors.ts). */
         ErrorCode: string;

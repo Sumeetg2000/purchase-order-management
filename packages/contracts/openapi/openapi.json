@@ -3794,6 +3794,25 @@
               "PASSWORD_RESET",
               "ROLES_CHANGED"
             ]
+          },
+          "existingVendor": {
+            "description": "The vendor whose name clashed: DUPLICATE_VENDOR_NAME only.",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -3841,7 +3860,10 @@
           "USER_DEACTIVATED",
           "ACCESS_REQUEST_NOT_OPEN",
           "ACCOUNT_LOCKED",
-          "RATE_LIMITED"
+          "RATE_LIMITED",
+          "DUPLICATE_VENDOR_NAME",
+          "INVALID_STATE_TRANSITION",
+          "VENDOR_INACTIVE"
         ]
       },
       "FieldError": {
@@ -3867,7 +3889,8 @@
               "PASSWORD_TOO_LONG",
               "PASSWORD_TOO_COMMON",
               "INCORRECT_PASSWORD",
-              "PASSWORD_UNCHANGED"
+              "PASSWORD_UNCHANGED",
+              "VENDOR_NOT_FOUND"
             ]
           }
         },

@@ -76,7 +76,7 @@ short summary stop.
   `version`, `createdAt`, `updatedAt`, `nameKey`) → `UNKNOWN_FIELD`; list query default
   `status=ACTIVE` — `packages/contracts/tests/vendor-schemas.test.ts` — FR-002, FR-003,
   FR-008, R5, R6 (FR-VEN-01, NFR-VAL-01).
-- [ ] T005 [P] Contract tests, seen failing: `existingVendor` allowed only on
+- [X] T005 [P] Contract tests, seen failing: `existingVendor` allowed only on
   `DUPLICATE_VENDOR_NAME` (problem schema refine and `AppError` constructor); the OpenAPI
   documents it on the responses that can carry that code (`x-problem-members`), a role
   operation's `x-roles`, and `Location` on a 201, shown on made-up operations;
@@ -92,7 +92,7 @@ short summary stop.
   'INACTIVE', 'ALL']` (`ALL` a filter value only), default `ACTIVE`) and the schemas of
   [contracts/api.md](contracts/api.md) — `packages/contracts/src/vendors.ts`,
   `packages/contracts/src/schemas/vendors.ts`, `index.ts` — T004 green.
-- [ ] T007 Registry: `DUPLICATE_VENDOR_NAME` (409, `clash: 'existingVendor'`),
+- [X] T007 Registry: `DUPLICATE_VENDOR_NAME` (409, `clash: 'existingVendor'`),
   `INVALID_STATE_TRANSITION` (409), `VENDOR_INACTIVE` (409, registry comment: "first
   route: order create, slice 3"), field code `VENDOR_NOT_FOUND`;
   `problemSchema.existingVendor`; `AppError` `existingVendor` option; `ACCESS_LEVELS`
