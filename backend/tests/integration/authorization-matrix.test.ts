@@ -62,7 +62,7 @@ type Caller = keyof typeof CALLERS;
 type Outcome = 'OPEN' | 'UNAUTHENTICATED' | 'NO_ROLE_ASSIGNED' | 'FORBIDDEN';
 
 /** The cell's expected outcome, from ADR-0004's matrix. */
-function expected(access: Access, caller: Caller): Outcome {
+function expected({ access, roles }: OperationContract, caller: Caller): Outcome {
   if (access === 'public') return 'OPEN';
   if (caller === 'anonymous') return 'UNAUTHENTICATED';
   switch (access) {
@@ -74,6 +74,11 @@ function expected(access: Access, caller: Caller): Outcome {
     case 'admin':
       if (caller === 'no role') return 'NO_ROLE_ASSIGNED';
       return caller === 'Admin' ? 'OPEN' : 'FORBIDDEN';
+    case 'role': {
+      if (caller === 'no role') return 'NO_ROLE_ASSIGNED';
+      const held = CALLERS[caller].replace(/[{}]/g, '').split(',');
+      return held.some((role) => roles?.includes(role as never)) ? 'OPEN' : 'FORBIDDEN';
+    }
   }
 }
 
@@ -120,7 +125,7 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
             .set('X-CSRF-Token', jar['po_csrf'] ?? '');
         }
         const res = await req;
-        const outcome = expected(op.access, caller);
+        const outcome = expected(op, caller);
         const cell = `${op.operationId} × ${caller}`;
         cells.push(cell);
         expect(res.status, cell).toBe(STATUS[outcome]);
