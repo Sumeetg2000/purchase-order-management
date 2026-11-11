@@ -290,11 +290,11 @@ role and anonymous.
 
 ## Phase 8: Polish
 
-- [ ] T044 [P] Demo seed: five vendors (one per term type, one inactive, one without
+- [X] T044 [P] Demo seed: five vendors (one per term type, one inactive, one without
   phone) as `SYSTEM`, refused in production; test extended —
   `backend/src/migrate/seed-demo.ts`, `backend/tests/integration/seed-demo.test.ts` —
   FR-018.
-- [ ] T045 [P] Plan test, seen failing, at the ADR-0012 sizes: 2,000 vendors (10 %
+- [X] T045 [P] Plan test, seen failing, at the ADR-0012 sizes: 2,000 vendors (10 %
   inactive) and about 2M audit entries (10,000 vendor entries), each table seeded by one
   `INSERT … SELECT … FROM generate_series(…)` statement with values derived from the series
   number (no ORM loops); `VACUUM ANALYZE`; list page per status filter with and without
@@ -306,25 +306,25 @@ role and anonymous.
   (`>= key AND < key || chr(1114111)`) and drop the `LIKE` escaping. Record the seed and
   run time —
   `backend/tests/plans/vendors.plan.test.ts` — R11, SC-006.
-- [ ] T046 Plan writer using `EXPLAIN (COSTS OFF)` (shape only: no costs, timings, rows
+- [X] T046 Plan writer using `EXPLAIN (COSTS OFF)` (shape only: no costs, timings, rows
   or buffers), the `plans:vendors` script entry, and the committed plans; running it twice
   on the same data leaves `git diff --exit-code docs/query-plans/vendors` clean —
   `backend/scripts/plans-vendors.ts`, `backend/package.json`,
   `docs/query-plans/vendors/*.txt` — T045 green.
-- [ ] T047 CI: a `plans` job running `npm run test:plans`, then `npm run plans:vendors`
+- [X] T047 CI: a `plans` job running `npm run test:plans`, then `npm run plans:vendors`
   and `git diff --exit-code docs/query-plans/vendors`, on pull requests changing
   `backend/**` or `packages/contracts/**`, on every push to `main`, and in the nightly
   workflow; record the measured CI time in R11 (move it into the default run if under
   about 1 minute) —
   `.github/workflows/nightly.yml`, `.github/workflows/ci.yml`,
   `specs/003-vendors/research.md` — R11.
-- [ ] T048 [P] E2E: two Buyers share a vendor; duplicate link; version conflict and
+- [X] T048 [P] E2E: two Buyers share a vendor; duplicate link; version conflict and
   reload; deactivate via dialog and reactivate (no dialog); Approver read-only; axe on each
   screen. Add the deactivate dialog to the Playwright dialog checks (content and
   consequence, safe button focused, Escape closes, disabled while pending so a double
   click sends one request) — `frontend/e2e/vendors.spec.ts` — FR-017, SC-007, NFR-FE-09.
   Run `npm run e2e:local`.
-- [ ] T049 Traceability: FR-VEN-01 → Tested; FR-ACT-01 and NFR-AUD-03 note the vendor
+- [X] T049 Traceability: FR-VEN-01 → Tested; FR-ACT-01 and NFR-AUD-03 note the vendor
   cells passing (rows stay partial until the order slices); NFR-FE-09 lists the
   deactivate-vendor dialog among its Playwright dialogs and stays Tested; FR-VEN-02/03 stay
   Todo — `docs/traceability.md`.
