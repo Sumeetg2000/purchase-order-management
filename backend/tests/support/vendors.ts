@@ -30,6 +30,12 @@ export async function vendorsHarness() {
     return h.send('post', '/vendors', as, body);
   }
 
+  /** A full-replacement edit; `version` null sends no If-Match. */
+  function updateVendor(id: string, body: unknown, version: number | null, as: CookieJar = jar) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('put', `/vendors/${id}`, as, body, headers);
+  }
+
   /**
    * A vendor inserted as the superuser with triggers off (no audit entry), NET 30. The
    * generated name_key is still computed by PostgreSQL.
@@ -63,7 +69,7 @@ export async function vendorsHarness() {
     );
   }
 
-  return { ...h, buyer, jar, createVendor, seedVendor, vendorAudit };
+  return { ...h, buyer, jar, createVendor, updateVendor, seedVendor, vendorAudit };
 }
 
 export type VendorsHarness = Awaited<ReturnType<typeof vendorsHarness>>;
