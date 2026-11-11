@@ -8,7 +8,8 @@ import { axeViolations } from './support/axe';
 
 function EditPage() {
   const [dirty, setDirty] = useState(false);
-  const { dialog, release } = useUnsavedChangesGuard(dirty);
+  const [reloads, setReloads] = useState(0);
+  const { dialog, release, confirmDiscard } = useUnsavedChangesGuard(dirty);
   const navigate = useNavigate();
   // A save finishing in the background, fired by the test when it chooses.
   useEffect(() => {
@@ -50,6 +51,18 @@ function EditPage() {
       >
         Save and close
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          confirmDiscard(() => {
+            setDirty(false);
+            setReloads((count) => count + 1);
+          });
+        }}
+      >
+        Reload
+      </button>
+      <p>Reloaded {reloads}</p>
       <Link to="/elsewhere">Elsewhere</Link>
       {dialog}
     </>
@@ -127,6 +140,26 @@ describe('[NFR-FE-09] unsaved-changes guard', () => {
       expect(screen.queryByRole('alertdialog')).toBeNull();
     });
     expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('[NFR-FE-09] an in-page discard runs at once when clean, and asks first when dirty', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(screen.getByText('Reloaded 1')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Change name' }));
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
+      'Discard your unsaved changes?',
+    );
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByText('Reloaded 1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    expect(await screen.findByText('Reloaded 2')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('[NFR-FE-09] a reload or tab close is guarded by beforeunload only while dirty', async () => {

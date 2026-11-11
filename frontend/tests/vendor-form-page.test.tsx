@@ -168,3 +168,148 @@ describe('[FR-VEN-01] add vendor form', () => {
     expect(await axeViolations(document.body)).toEqual([]);
   });
 });
+
+describe('[FR-VEN-01] edit vendor form', () => {
+  const EDIT_PATH = `/vendors/${ACME_ID}/edit`;
+  const current = vendor({
+    contactPhone: '022 4000 1000',
+    paymentTerms: { type: 'PARTIAL_ADVANCE', advancePercent: 20, netDays: 45 },
+  });
+
+  function editApi(handlers: Record<string, Handler> = {}) {
+    return formApi({
+      [`GET /vendors/${ACME_ID}`]: () => json(200, current, { ETag: '"1"' }),
+      [`PUT /vendors/${ACME_ID}`]: async (request) =>
+        json(
+          200,
+          { ...current, ...((await request.json()) as object), version: 2 },
+          {
+            ETag: '"2"',
+          },
+        ),
+      ...handlers,
+    });
+  }
+
+  const put = (seen: Request[]) => seen.filter((r) => r.method === 'PUT');
+
+  it('[FR-VEN-01] is prefilled with the vendor', async () => {
+    editApi();
+    renderApp(EDIT_PATH);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Edit vendor' })).toBeVisible();
+    expect(await screen.findByLabelText('Vendor name')).toHaveValue('Acme Supplies');
+    expect(screen.getByLabelText('Contact name')).toHaveValue('Ravi Shah');
+    expect(screen.getByLabelText('Contact email')).toHaveValue('ravi@acme.example');
+    expect(screen.getByLabelText('Contact phone (optional)')).toHaveValue('022 4000 1000');
+    expect(screen.getByRole('radio', { name: 'Partial advance' })).toBeChecked();
+    expect(screen.getByLabelText('Advance percent')).toHaveValue('20');
+    expect(screen.getByLabelText('Net days')).toHaveValue('45');
+  });
+
+  it('[FR-VEN-01] saves with If-Match and no confirmation; a cleared phone is sent as null', async () => {
+    const seen = editApi();
+    const { user, router } = renderApp(EDIT_PATH);
+    await user.clear(await screen.findByLabelText('Contact phone (optional)'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/vendors/${ACME_ID}`);
+    });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    const [request] = put(seen);
+    expect(request?.headers.get('If-Match')).toBe('"1"');
+    expect(await request?.json()).toEqual({
+      name: 'Acme Supplies',
+      contactName: 'Ravi Shah',
+      contactEmail: 'ravi@acme.example',
+      contactPhone: null,
+      paymentTerms: { type: 'PARTIAL_ADVANCE', advancePercent: 20, netDays: 45 },
+    });
+  });
+
+  it('[NFR-FE-09] leaving with unsaved edits asks first; a reload or tab close is guarded', async () => {
+    editApi();
+    const { user, router } = renderApp(EDIT_PATH);
+    await user.type(await screen.findByLabelText('Contact name'), ' Jr');
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    await user.click(screen.getByRole('link', { name: 'Cancel' }));
+    expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
+      'Discard your unsaved changes?',
+    );
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(router.state.location.pathname).toBe(EDIT_PATH);
+    expect(screen.getByLabelText('Contact name')).toHaveValue('Ravi Shah Jr');
+  });
+
+  it('[FR-VEN-01] a version conflict offers Reload, which asks before discarding the edits', async () => {
+    let reads = 0;
+    const seen = editApi({
+      [`GET /vendors/${ACME_ID}`]: () => {
+        reads += 1;
+        return reads === 1
+          ? json(200, current, { ETag: '"1"' })
+          : json(200, { ...current, contactName: 'Meera Iyer', version: 3 }, { ETag: '"3"' });
+      },
+      [`PUT /vendors/${ACME_ID}`]: () => problem(409, 'VERSION_CONFLICT'),
+    });
+    const { user } = renderApp(EDIT_PATH);
+    await user.type(await screen.findByLabelText('Vendor name'), ' Ltd');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      errorMessages.VERSION_CONFLICT.message,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
+      'Discard your unsaved changes?',
+    );
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Contact name')).toHaveValue('Meera Iyer');
+    });
+    expect(screen.getByLabelText('Vendor name')).toHaveValue('Acme Supplies');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => {
+      expect(put(seen)).toHaveLength(2);
+    });
+    expect(put(seen)[1]?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('[FR-VEN-01] a duplicate name links to the existing vendor', async () => {
+    const otherId = '0192e4a0-0000-7000-8000-0000000000b2';
+    editApi({
+      [`PUT /vendors/${ACME_ID}`]: () =>
+        problem(409, 'DUPLICATE_VENDOR_NAME', {
+          existingVendor: { id: otherId, name: 'Bolt Traders' },
+        }),
+    });
+    const { user } = renderApp(EDIT_PATH);
+    const name = await screen.findByLabelText('Vendor name');
+    await user.clear(name);
+    await user.type(name, 'bolt traders');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('link', { name: 'Open Bolt Traders' })).toHaveAttribute(
+      'href',
+      `/vendors/${otherId}`,
+    );
+  });
+
+  it('[FR-VEN-01] a Buyer opens the edit form from the vendor page', async () => {
+    editApi();
+    const { user, router } = renderApp(`/vendors/${ACME_ID}`);
+    await user.click(await screen.findByRole('link', { name: 'Edit' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(EDIT_PATH);
+    });
+  });
+
+  it('[SC-007] the edit form has no axe violations', async () => {
+    editApi();
+    renderApp(EDIT_PATH);
+    await screen.findByLabelText('Vendor name');
+    expect(await axeViolations(document.body)).toEqual([]);
+  });
+});
