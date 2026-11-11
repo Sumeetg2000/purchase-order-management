@@ -135,39 +135,40 @@ under the default active filter.
 
 ### Tests (seen failing)
 
-- [ ] T013 [P] [US1] Create: 201 with `ETag`, `Location`, `version 1`, status `ACTIVE`;
+- [X] T013 [P] [US1] Create: 201 with `ETag`, `Location`, `version 1`, status `ACTIVE`;
   stored name trimmed, email lower-cased, phone `null` when omitted; one `VENDOR_CREATED`
   entry with full snapshot; duplicate by case/spacing against active and inactive →
   `409 DUPLICATE_VENDOR_NAME` with `existingVendor { id, name }` and no audit entry; a
   retried identical create → same `409` naming the first — `backend/tests/integration/
   vendors-create.test.ts` — FR-001–FR-004, FR-013 (FR-VEN-01).
-- [ ] T014 [P] [US1] Concurrent creates of one normalised name behind a barrier: exactly
+- [X] T014 [P] [US1] Concurrent creates of one normalised name behind a barrier: exactly
   one 201, the other 409 naming the winner, never 500 — `backend/tests/integration/
   vendors-concurrency.test.ts` — R3, SC-002 (FR-VEN-01).
-- [ ] T015 [P] [US1] List and read: default `ACTIVE`; `INACTIVE`, `ALL`; lowercase
+- [X] T015 [P] [US1] List and read: default `ACTIVE`; `INACTIVE`, `ALL`; lowercase
   `active` → 400; `q` prefix
   case- and space-insensitive with `%`/`_` taken literally; sort `name_key, id`;
   pagination envelope and a page past the end; `GET /vendors/:id` 200 with `ETag`, unknown
   id 404, non-UUID 400 — `backend/tests/integration/vendors-list.test.ts` — FR-009.
-- [ ] T016 [P] [US1] Web: list (states, filters in URL, pagination, payment-terms format)
+- [X] T016 [P] [US1] Web: list (states, filters in URL, pagination, payment-terms format)
   and create form (per-type fields, field errors by code, duplicate link to
-  `existingVendor`, no double submit), axe clean — `frontend/src/pages/vendors/
-  VendorsList.test.tsx`, `VendorForm.test.tsx` — FR-016, SC-007.
+  `existingVendor`, no double submit), axe clean — `frontend/tests/
+  vendors-list-page.test.tsx`, `vendor-form-page.test.tsx` (Vitest runs `tests/` only) —
+  FR-016, SC-007.
 
 ### Implementation
 
-- [ ] T017 [US1] Repository: `insertVendor` (`INSERT … ON CONFLICT (name_key) DO NOTHING
+- [X] T017 [US1] Repository: `insertVendor` (`INSERT … ON CONFLICT (name_key) DO NOTHING
   RETURNING`), `findVendorByNameKey`, `findVendor`, `listVendors` (`LIMIT`/`OFFSET`, filters
   in SQL, `name_key LIKE` the escaped `vendor_name_key($q)` plus `%`), `countVendors` — `backend/src/vendors/repository.ts` — R2, R3.
-- [ ] T018 [US1] Pure `toVendor`/`toSnapshot` mapping (columns ↔ union `paymentTerms`) —
+- [X] T018 [US1] Pure `toVendor`/`toSnapshot` mapping (columns ↔ union `paymentTerms`) —
   `backend/src/vendors/snapshot.ts` — FR-012.
-- [ ] T019 [US1] Service `createVendor` (audited, clash → `existingVendor`), `getVendor`,
+- [X] T019 [US1] Service `createVendor` (audited, clash → `existingVendor`), `getVendor`,
   `listVendors` — `backend/src/vendors/service.ts` — T013–T015 green.
-- [ ] T020 [US1] Operations and routes `listVendors`, `getVendor`, `createVendor` (contract,
+- [X] T020 [US1] Operations and routes `listVendors`, `getVendor`, `createVendor` (contract,
   OpenAPI list, body inventory, matrix pins and rows; regenerate `openapi.json`); register
   the area —
   `backend/src/vendors/routes.ts`, `backend/src/http/routes/index.ts`.
-- [ ] T021 [US1] Web: `queries.ts`, `payment-terms.ts` (format), `VendorsList`,
+- [X] T021 [US1] Web: `queries.ts`, `payment-terms.ts` (format), `VendorsList`,
   `VendorForm` (create), `VendorDetail` (read) — `frontend/src/pages/vendors/` — T016 green.
 
 **Checkpoint**: US1 demonstrable alone.
