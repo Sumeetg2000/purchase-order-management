@@ -137,6 +137,8 @@ export interface ProblemLike {
   correlationId?: string | undefined;
   /** Why a session was revoked, on SESSION_REVOKED only. */
   reason?: string | undefined;
+  /** The vendor a name clashed with, on DUPLICATE_VENDOR_NAME only. */
+  existingVendor?: { id: string; name: string } | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */

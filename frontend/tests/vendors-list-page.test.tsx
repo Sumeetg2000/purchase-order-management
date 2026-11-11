@@ -87,7 +87,7 @@ describe('[FR-VEN-01] vendor list', () => {
     const { user, router } = renderApp('/vendors?page=3');
     await user.type(await screen.findByLabelText('Name starts with'), 'Acme S');
     await waitFor(() => {
-      expect(router.state.location.search).toBe(`?q=${encodeURIComponent('Acme S')}`);
+      expect(router.state.location.search).toBe('?q=Acme+S');
     });
     expect(screen.getByLabelText('Name starts with')).toHaveValue('Acme S');
     expect(screen.getByLabelText('Name starts with')).toHaveFocus();
