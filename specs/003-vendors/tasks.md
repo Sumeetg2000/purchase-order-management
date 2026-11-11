@@ -193,8 +193,8 @@ under the default active filter.
   `backend/tests/integration/vendors-concurrency.test.ts` — SC-003.
 - [ ] T024 [P] [US2] Web: edit form prefilled, sends `If-Match`, clearing phone sends
   `null`; unsaved-changes guard (router blocker and `beforeunload`); `VERSION_CONFLICT`
-  reload after the guard; no confirmation on save — `frontend/src/pages/vendors/
-  VendorForm.test.tsx` — FR-016, NFR-FE-09.
+  reload after the guard; no confirmation on save — `frontend/tests/
+  vendor-form-page.test.tsx` — FR-016, NFR-FE-09.
 - [ ] T025 [US2] Repository `lockVendor` (`FOR UPDATE`), `findClash(nameKey, exceptId)`,
   `updateVendor` (`version = version + 1`) — `backend/src/vendors/repository.ts`.
 - [ ] T026 [US2] Service `updateVendor`: lock → 404 → version → clash → update + audit;
@@ -229,8 +229,8 @@ reactivate restores.
   (FR-VEN-02, FR-VEN-03 building blocks).
 - [ ] T031 [P] [US3] Web: Deactivate dialog (title, consequence text, safe button
   focused, Escape closes, disabled while pending, server error inside); Reactivate with
-  no dialog; axe — `frontend/src/pages/vendors/DeactivateVendorDialog.test.tsx`,
-  `VendorDetail.test.tsx` — FR-016, NFR-FE-09.
+  no dialog; axe — `frontend/tests/deactivate-vendor-dialog.test.tsx`,
+  `frontend/tests/vendor-detail-page.test.tsx` — FR-016, NFR-FE-09.
 - [ ] T032 [US3] Repository `setVendorStatus`, `lockVendorShared` (`FOR SHARE`) —
   `backend/src/vendors/repository.ts`.
 - [ ] T033 [US3] Service `deactivateVendor`, `reactivateVendor`, exported
@@ -259,7 +259,8 @@ role and anonymous.
   (FR-ACT-01).
 - [ ] T037 [P] [US4] Web: Approver and Admin see no write controls; Buyer-only routes show
   Forbidden; a role removed mid-edit → next save shows the 403 message —
-  `frontend/src/pages/vendors/VendorsList.test.tsx`, `VendorDetail.test.tsx` — FR-016.
+  `frontend/tests/vendors-list-page.test.tsx`, `frontend/tests/vendor-detail-page.test.tsx`
+  — FR-016.
 - [ ] T038 [US4] Fix whatever T036/T037 expose (expected: none beyond the route table) —
   `backend/src/vendors/routes.ts`, `frontend/src/pages/vendors/`.
 
@@ -276,8 +277,8 @@ role and anonymous.
   `backend/tests/integration/vendor-history.test.ts` — FR-013, FR-014, SC-005
   (NFR-AUD-03).
 - [ ] T040 [P] [US5] Web: History tab for Buyers and Admins (states, pagination, changed
-  fields before → after); hidden for Approvers — `frontend/src/pages/vendors/
-  VendorHistory.test.tsx` — FR-016.
+  fields before → after); hidden for Approvers — `frontend/tests/
+  vendor-history-page.test.tsx` — FR-016.
 - [ ] T041 [US5] Audit repository `listEntityHistory(entityType, entityId, page)` and
   `countEntityHistory` — `backend/src/audit/repository.ts`.
 - [ ] T042 [US5] Service `listVendorHistory` (404 when the vendor doesn't exist), operation
@@ -299,7 +300,11 @@ role and anonymous.
   number (no ORM loops); `VACUUM ANALYZE`; list page per status filter with and without
   `q`, history page: no `Seq Scan` on `vendors`/`audit_entries`, no `Sort` over more than
   page + offset rows, asserted on `EXPLAIN (ANALYZE, FORMAT JSON)` held in memory only
-  (never written to disk); counts captured. Record the seed and run time —
+  (never written to disk); counts captured. The `q` prefix-search plan is also checked
+  with `SET plan_cache_mode = force_generic_plan` and bound parameters (a prepared
+  statement): if it does a `Seq Scan`, switch the filter to a range on `name_key`
+  (`>= key AND < key || chr(1114111)`) and drop the `LIKE` escaping. Record the seed and
+  run time —
   `backend/tests/plans/vendors.plan.test.ts` — R11, SC-006.
 - [ ] T046 Plan writer using `EXPLAIN (COSTS OFF)` (shape only: no costs, timings, rows
   or buffers), the `plans:vendors` script entry, and the committed plans; running it twice
