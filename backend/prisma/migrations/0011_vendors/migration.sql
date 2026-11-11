@@ -12,6 +12,8 @@
 CREATE FUNCTION vendor_name_key(name text) RETURNS text
 LANGUAGE sql
 IMMUTABLE STRICT PARALLEL SAFE
+SECURITY INVOKER
+SET search_path = pg_catalog, pg_temp
 RETURN lower(btrim(regexp_replace(
   normalize(name, NFC),
   '[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+',

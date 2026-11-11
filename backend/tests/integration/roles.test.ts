@@ -37,6 +37,20 @@ const EXPECTED_RELATION_GRANTS = [
   'users po_app INSERT',
   'users po_app SELECT',
   'users po_app UPDATE',
+  // Vendors (0011): INSERT and UPDATE are per column, below; never DELETE.
+  'vendors po_app SELECT',
+];
+
+// po_app writes a vendor's editable columns, and on update also its status and version;
+// never id, name_key (generated) or the timestamps (data-model.md, slice 2).
+const VENDOR_EDITABLE_COLUMNS = [
+  'advance_percent',
+  'contact_email',
+  'contact_name',
+  'contact_phone',
+  'name',
+  'net_days',
+  'payment_term_type',
 ];
 
 // INSERT on audit_entries is granted per column, never on id, so no writer can choose an
@@ -157,11 +171,15 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'sessions.last_used_at po_app UPDATE',
       'sessions.revoke_reason po_app UPDATE',
       'sessions.revoked_at po_app UPDATE',
+      ...VENDOR_EDITABLE_COLUMNS.map((col) => `vendors.${col} po_app INSERT`),
+      ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
+        (col) => `vendors.${col} po_app UPDATE`,
+      ),
     ].sort();
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
-  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC)', async () => {
+  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except vendor_name_key to po_app', async () => {
     const { admin } = await freshDb();
     const grants = await rows<{ grant: string }>(
       admin,
@@ -170,7 +188,8 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
          CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
         WHERE n.nspname = 'public' AND a.grantee <> p.proowner`,
     );
-    expect(grants).toEqual([]);
+    // The list's prefix filter runs vendor_name_key($q) as po_app (research R2, slice 2).
+    expect(grants).toEqual([{ grant: 'vendor_name_key po_app' }]);
   });
 
   it('[NFR-AUD-02] the schema and database grant only USAGE and CONNECT to the two roles', async () => {
@@ -242,6 +261,8 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'audit_entries require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',
+      'vendors require_actor_context O',
+      'vendors vendors_set_updated_at O',
     ]);
   });
 });
