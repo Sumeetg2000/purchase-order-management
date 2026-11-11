@@ -25,11 +25,20 @@ export const DEEP_PAGE = 4;
 
 const vendorId = (n: string) => `md5('plan-vendor-' || ${n})::uuid`;
 
+/** ANALYZE samples 300 rows per target unit: at the maximum, it reads every seeded row. */
+const FULL_SAMPLE_STATISTICS_TARGET = 10_000;
+
 /**
  * Seeds both tables, one INSERT … SELECT each, as the superuser with row triggers off (the
- * fill trigger would stamp every entry with one timestamp), then VACUUM ANALYZE.
+ * fill trigger would stamp every entry with one timestamp), then VACUUM ANALYZE. Autovacuum
+ * is off on both tables and ANALYZE reads every row, so the statistics, and so the plans,
+ * are the same on every run, not drawn from a random sample.
  */
 export async function seedVendorPlanData(superuser: pg.Client): Promise<void> {
+  await superuser.query(
+    'ALTER TABLE vendors SET (autovacuum_enabled = false); ' +
+      'ALTER TABLE audit_entries SET (autovacuum_enabled = false)',
+  );
   await superuser.query('BEGIN');
   await superuser.query('SET LOCAL session_replication_role = replica');
   await superuser.query(
@@ -64,7 +73,9 @@ export async function seedVendorPlanData(superuser: pg.Client): Promise<void> {
        FROM generate_series(1, ${String(AUDIT_ENTRY_COUNT)}) AS n`,
   );
   await superuser.query('COMMIT');
+  await superuser.query(`SET default_statistics_target = ${String(FULL_SAMPLE_STATISTICS_TARGET)}`);
   await superuser.query('VACUUM ANALYZE vendors, audit_entries');
+  await superuser.query('RESET default_statistics_target');
 }
 
 /** The id the history queries read: vendor 1, the one with the most entries. */

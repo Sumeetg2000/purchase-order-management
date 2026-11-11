@@ -1,0 +1,5 @@
+-- SELECT id::text, name, contact_name AS "contactName", contact_email AS "contactEmail", contact_phone AS "contactPhone", payment_term_type AS "paymentTermType", net_days AS "netDays", advance_percent AS "advancePercent", status, deactivated_at AS "deactivatedAt", version, created_at AS "createdAt", updated_at AS "updatedAt" FROM vendors ORDER BY vendors.name_key LIMIT $1 OFFSET $2
+-- values: [20,60]
+
+Limit
+  ->  Index Scan using vendors_name_key_key on vendors

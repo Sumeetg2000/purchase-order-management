@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM audit_entries WHERE entity_type = $1 AND entity_id = $2
+-- values: ["vendor","b8aea4c4-2105-94c3-e87c-c8d031377730"]
+
+Aggregate
+  ->  Index Only Scan using audit_entries_entity_idx on audit_entries
+        Index Cond: ((entity_type = 'vendor'::text) AND (entity_id = 'b8aea4c4-2105-94c3-e87c-c8d031377730'::text))

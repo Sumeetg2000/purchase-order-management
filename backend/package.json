@@ -11,6 +11,8 @@
     "test": "vitest run --project unit --project integration",
     "test:plans": "vitest run --project plans --coverage.enabled=false --outputFile.json=../reports/vitest-plans.json",
     "pretest:plans": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
+    "plans:vendors": "tsx scripts/plans-vendors.ts",
+    "preplans:vendors": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "generate": "prisma generate",
     "migrate": "node dist/migrate/run.js",
     "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"

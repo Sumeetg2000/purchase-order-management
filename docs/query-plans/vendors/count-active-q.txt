@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM vendors WHERE status = $1 AND name_key >= vendor_name_key($2) AND name_key < vendor_name_key($3) || chr($4::int)
+-- values: ["ACTIVE","wil","wil",1114111]
+
+Aggregate
+  ->  Index Only Scan using vendors_status_name_key_idx on vendors
+        Index Cond: ((status = 'ACTIVE'::text) AND (name_key >= 'wil'::text) AND (name_key < 'wil􏿿'::text))
