@@ -1,5 +1,6 @@
 import { API_PATH_PREFIX } from '@po/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
+import { focusManager } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages, fieldMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
@@ -289,6 +290,38 @@ describe('[FR-VEN-01] edit vendor form', () => {
       expect(put(seen)).toHaveLength(2);
     });
     expect(put(seen)[1]?.headers.get('If-Match')).toBe('"3"');
+  });
+
+  it('[NFR-FE-09] a background refetch of a newer version keeps the edits and their version', async () => {
+    let reads = 0;
+    const seen = editApi({
+      [`GET /vendors/${ACME_ID}`]: () => {
+        reads += 1;
+        return reads === 1
+          ? json(200, current, { ETag: '"1"' })
+          : json(200, { ...current, contactName: 'Meera Iyer', version: 3 }, { ETag: '"3"' });
+      },
+      [`PUT /vendors/${ACME_ID}`]: () => problem(409, 'VERSION_CONFLICT'),
+    });
+    const { user } = renderApp(EDIT_PATH);
+    await user.type(await screen.findByLabelText('Vendor name'), ' Ltd');
+    // The user switches tabs and comes back: the query refetches on focus.
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await waitFor(() => {
+      expect(reads).toBe(2);
+    });
+    focusManager.setFocused(undefined);
+    expect(screen.getByLabelText('Vendor name')).toHaveValue('Acme Supplies Ltd');
+    expect(screen.getByLabelText('Contact name')).toHaveValue('Ravi Shah');
+    // The save still claims the version the edits were made on, so it is refused as stale.
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      errorMessages.VERSION_CONFLICT.message,
+    );
+    expect(put(seen)[0]?.headers.get('If-Match')).toBe('"1"');
   });
 
   it('[FR-VEN-01] a duplicate name links to the existing vendor', async () => {

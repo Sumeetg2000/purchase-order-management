@@ -321,11 +321,17 @@ export function NewVendor() {
   );
 }
 
-/** Edit a vendor, Buyers only: a full replacement sent with If-Match. */
+/**
+ * Edit a vendor, Buyers only: a full replacement sent with If-Match. The form keeps the
+ * version it started from: a background refetch that finds a newer one neither resets the
+ * edits nor moves their If-Match (the save is then refused as stale and offers Reload);
+ * only Reload, after the guard's prompt, starts the form afresh from what is stored now.
+ */
 export function EditVendor() {
   const { id = '' } = useParams();
   const vendor = useVendor(id);
   const states = useQueryStates(vendor, { loadingLabel: 'Loading the vendor' });
+  const [editing, setEditing] = useState<Vendor>();
   if (states.view) {
     return (
       <>
@@ -335,10 +341,11 @@ export function EditVendor() {
       </>
     );
   }
-  const current = states.data;
+  // The first version loaded is the one edited; React re-renders at once with it set.
+  if (editing === undefined) setEditing(states.data);
+  const current = editing ?? states.data;
   return (
     <VendorEditor
-      // A reloaded version starts the form afresh from what is stored now.
       key={current.version}
       heading="Edit vendor"
       submitLabel="Save changes"
@@ -352,7 +359,11 @@ export function EditVendor() {
           }),
         )
       }
-      reload={() => void vendor.refetch()}
+      reload={() =>
+        void vendor.refetch().then((result) => {
+          if (result.data) setEditing(result.data);
+        })
+      }
     />
   );
 }
