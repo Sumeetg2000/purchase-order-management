@@ -144,7 +144,7 @@ describe('[NFR-AUD-03] vendor history', () => {
     const h = await vendorsHarness();
     const created = await h.createVendor(vendorBody());
     const id = (created.body as { id: string }).id;
-    await h.query('UPDATE users SET name = $1 WHERE id = $2', ['Bea Renamed', h.buyer.id]);
+    expect((await h.send('patch', '/me', h.jar, { name: 'Bea Renamed' })).status).toBe(200);
 
     const [entry] = ((await history(h, id)).body as HistoryPage).items;
     expect(entry?.actor.name).toBe('Bea Buyer');
