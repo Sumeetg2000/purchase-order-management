@@ -177,7 +177,7 @@ jobs:
       APP_ORIGIN: https://localhost:8443
       E2E_BASE_URL: https://localhost:8443
     steps:
-      # SC-001 measures from a clean checkout, so the clock starts before the build.
+      # The start-time budget is measured from a clean checkout, so the clock starts before the build.
       - name: Record start time
         run: echo "SMOKE_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

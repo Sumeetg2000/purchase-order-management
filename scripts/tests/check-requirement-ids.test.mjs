@@ -31,6 +31,10 @@ describe('[NFR-DEV-01] requirement-ID ban', () => {
     assert.deepEqual(flagged('src/commented.ts'), ['T072']);
   });
 
+  it('[NFR-DEV-01] spec-level IDs (FR-NNN, NFR-NNN, SC-NNN) in a comment fail too', () => {
+    assert.deepEqual(flagged('src/spec-ids.ts'), ['FR-011', 'FR-012', 'NFR-004', 'SC-006']);
+  });
+
   it('[NFR-DEV-01] the same ID in a test file passes', () => {
     assert.deepEqual(flagged('src/leaky.test.ts'), []);
   });
@@ -46,7 +50,11 @@ describe('[NFR-DEV-01] requirement-ID ban', () => {
   });
 
   it('[NFR-DEV-01] nothing else is flagged', () => {
-    assert.deepEqual(violations.map((v) => v.path).sort(), ['src/commented.ts', 'src/leaky.ts']);
+    assert.deepEqual([...new Set(violations.map((v) => v.path))].sort(), [
+      'src/commented.ts',
+      'src/leaky.ts',
+      'src/spec-ids.ts',
+    ]);
   });
 
   it('[NFR-DEV-01] an allowlist entry covers only its own token, and a directory entry covers the directory', () => {
