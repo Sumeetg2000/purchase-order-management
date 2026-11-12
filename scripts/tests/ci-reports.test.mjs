@@ -5,13 +5,26 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { parse } from 'yaml';
 
-const ci = parse(readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'));
+const workflow = (file) =>
+  parse(readFileSync(new URL(`../../.github/workflows/${file}`, import.meta.url), 'utf8'));
+const ci = workflow('ci.yml');
 
-/** The artifact names a job uploads. */
-const uploads = (job) =>
-  (job.steps ?? [])
+/** The input a reusable workflow's `${{ inputs.<name> }}` refers to, from the caller. */
+const resolve = (value, inputs) =>
+  String(value).replace(/\$\{\{\s*inputs\.([\w-]+)\s*\}\}/g, (_, name) => inputs[name]);
+
+/** The artifact names a job uploads, through a reusable workflow it calls. */
+const uploads = (job) => {
+  if (job.uses?.startsWith('./.github/workflows/')) {
+    const called = workflow(job.uses.slice('./.github/workflows/'.length));
+    return Object.values(called.jobs).flatMap((inner) =>
+      uploads(inner).map((name) => resolve(name, job.with ?? {})),
+    );
+  }
+  return (job.steps ?? [])
     .filter((step) => String(step.uses ?? '').startsWith('actions/upload-artifact@'))
     .map((step) => step.with.name);
+};
 
 describe('[NFR-DEV-01] CI test reports reach the traceability check', () => {
   it('[NFR-DEV-01] the plans job uploads its report as reports-plans', () => {

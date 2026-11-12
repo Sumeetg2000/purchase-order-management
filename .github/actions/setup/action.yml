@@ -1,0 +1,19 @@
+name: Set up Node
+description: >-
+  Node from .nvmrc and, unless install is false, npm ci with the npm cache. The caller
+  checks out first (with its own fetch depth); this action never does.
+inputs:
+  install:
+    description: Run npm ci (with the npm cache). False for jobs that only run a Node script.
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+        cache: ${{ inputs.install == 'true' && 'npm' || '' }}
+    - if: inputs.install == 'true'
+      shell: bash
+      run: npm ci

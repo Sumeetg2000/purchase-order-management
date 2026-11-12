@@ -1,0 +1,44 @@
+name: plans
+
+# Query plans at the ADR-0012 sizes (slice 2 research R11), called by ci.yml and
+# nightly.yml. PostgreSQL 17.11 through Testcontainers, as the api job.
+on:
+  workflow_call:
+    inputs:
+      report-name:
+        description: Name of the uploaded plan test report artifact.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  plans:
+    name: plans
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: npm run test:plans
+      - run: npm run plans:vendors
+      - name: Plan drift check
+        run: |
+          drift="$(git status --porcelain -- docs/query-plans/vendors)"
+          if [[ -n "$drift" ]]; then
+            echo "$drift"
+            git diff -- docs/query-plans/vendors
+            echo "::error::The vendor query plans differ from the committed ones. Run npm run plans:vendors, review the change and commit it."
+            exit 1
+          fi
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.report-name }}
+          path: reports/vitest-plans.json
+          if-no-files-found: warn
+          retention-days: 14
