@@ -1,15 +1,15 @@
 name: Contract breaking changes
 
-# Public repository: pull requests to main and pushes to main only. Never
-# pull_request_target, never secrets, read-only token (ADR-0020).
+# Public repository: pull requests to main only. Never pull_request_target, never
+# secrets, read-only token (ADR-0020). No push run: main only changes through approved
+# PRs and the PR run is the gate; a push run can't see the PR's label, so it would fail
+# every approved breaking merge (ADR-0008).
 # Separate from ci.yml so that adding the `breaking` label or editing the PR description
 # reruns only this check (ADR-0008), not the whole suite.
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled, edited]
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -32,7 +32,7 @@ jobs:
       - name: Breaking changes against the base
         env:
           # Read from the event payload; never interpolated into the script.
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BREAKING_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'breaking') }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: scripts/contract-breaking.sh "$BASE_SHA"

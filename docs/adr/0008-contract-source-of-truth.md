@@ -15,6 +15,9 @@
 - oasdiff compares against `main`. Breaking changes fail unless the PR is labelled breaking
   and explains why. That exception applies only while our frontend (regenerated in the same
   PR) is the only consumer. With any external client, use `/api/v2`.
+- The check runs on pull requests only (amended 2026-11-12): main only changes through
+  approved PRs and the PR run is the gate; a push run can't see the PR's label, so it would
+  fail every approved breaking merge.
 - **Error and field codes are extensible** (amended 2026-11-03): the `ErrorCode` and field
   code enums are published as `x-extensible-enum`, not `enum`. Codes grow with every
   slice, and a client must handle a code it doesn't know: the web app shows the
