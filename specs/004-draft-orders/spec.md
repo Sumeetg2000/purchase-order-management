@@ -67,6 +67,14 @@ Traceability:
   slice. The Admin user detail's open-order counts (draft, pending, approved with open
   lines) arrive together in slice 6, when each can be non-zero; ADR-0019 is amended to
   match (2026-11-12).
+- Q: Once a Buyer deletes a draft, can they still open its timeline? → A: No; only an
+  Admin, by the order's id. The former owner gets `404`, and the delete dialog warns
+  "You won't be able to see this draft or its history again."
+- Q: What is a line description, and how large may an order request be? → A: A
+  description is single-line plain text: control characters (line breaks and tabs
+  included) are refused, and "500 characters" counts Unicode code points. The request
+  limit for order writes must fit the largest valid order (500 lines × 500 four-byte
+  characters), proven by a test that sends it, and the proxy's limit matches the API's.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -210,8 +218,9 @@ owner's list and returns `404`; an Admin reading its timeline by order id sees
    VERSION_REQUIRED`, and nothing is deleted.
 3. **Given** a deleted draft's PO number, **Then** no later order ever receives it.
 4. **Given** the web app, **Then** deleting asks for confirmation in a dialog naming the
-   PO number, vendor, line count and total and stating "This permanently deletes the
-   draft", with the safe choice focused.
+   PO number, vendor, line count and total, stating "This permanently deletes the
+   draft" and "You won't be able to see this draft or its history again", with the safe
+   choice focused.
 
 ---
 
@@ -284,8 +293,13 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - A Buyer whose BUYER role is removed while editing: the next save is refused (`403`, or
   `403 NO_ROLE_ASSIGNED` if no role is left); their orders are kept.
 - A unit price of `0` is allowed (a free item); a quantity of `0` is not.
-- A description of only whitespace is refused; descriptions are stored and shown as plain
-  text, never HTML.
+- A description of only whitespace, or containing a control character (a line break or a
+  tab included), is refused with `400`; 500 code points of four-byte characters (emoji)
+  are accepted. Descriptions are stored and shown as plain text, never HTML.
+- The largest valid order (500 lines, each description 500 four-byte characters) is
+  accepted on create and edit: the order-write request limit fits it, and the proxy in
+  front of the API has the same limit. A body over that limit → `413
+  PAYLOAD_TOO_LARGE`.
 - An order id that isn't a UUID → `400`; a well-formed id the caller can't read → `404`.
 - A page past the last returns empty `items` with the correct `total`.
 - A raw-SQL status change of a draft is refused (no transition out of `DRAFT` exists until
@@ -298,7 +312,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 **Raising and editing**
 
 - **FR-001** (FR-PO-01, FR-PO-02, FR-ACT-01): A Buyer MUST be able to create an order
-  with a vendor and 1–500 lines (description 1–500 characters, quantity a whole number
+  with a vendor and 1–500 lines (description 1–500 Unicode code points after trimming,
+  single-line plain text with no control characters, quantity a whole number
   1–1,000,000, unit price 0–999,999,999.9999 with at most 4 decimal places). It is
   created in `DRAFT`, owned by the caller. Besides its lines, an order carries only its
   vendor: there are no other header fields.
@@ -463,7 +478,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
   taken at submit (slice 4).
 - **Idempotency-Key is required** on create: a create without one is refused with `400`
   (field code `REQUIRED`), so the web app's lost-response retry can't create duplicates.
-- **Descriptions** are trimmed and must be 1–500 characters after trimming.
+- **Descriptions** are trimmed, then must be 1–500 Unicode code points with no control
+  characters (Clarifications, 2026-11-12).
 - **Delete reason** is optional plain text, at most 500 characters, `null` when absent,
   and `""` is refused (ADR-0007's one form for "no value").
 - **Header**: an order has no header fields besides its vendor (Clarifications,
