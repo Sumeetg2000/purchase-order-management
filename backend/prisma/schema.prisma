@@ -154,7 +154,7 @@ model RateLimitCounter {
 // INSERT or UPDATE grant on it. The CHECKs, the trigger and the column grants live in the
 // migration; tests/integration/vendor-schema.test.ts pins them.
 model Vendor {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String    @id @db.Uuid
   name            String
   nameKey         String?   @unique(map: "vendors_name_key_key") @default(dbgenerated("vendor_name_key(name)")) @map("name_key")
   contactName     String    @map("contact_name")
@@ -169,6 +169,6 @@ model Vendor {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  @@index([status, nameKey, id], map: "vendors_status_name_key_idx")
+  @@index([status, nameKey], map: "vendors_status_name_key_idx")
   @@map("vendors")
 }

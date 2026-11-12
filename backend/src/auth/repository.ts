@@ -4,6 +4,7 @@ import type { UserStatus } from '@po/contracts';
 import { userRolesOf, userStatusOf } from '../users/codes.js';
 import type { AuthUser } from '../users/repository.js';
 import { SESSION_REVOKE_REASONS, type SessionRevokeReason } from './constants.js';
+import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 
 // Sessions and refresh tokens (migration 0008_sessions, research R5 and R6). Times come
 // from the API's clock, passed in, so lifetimes are testable.
@@ -23,7 +24,7 @@ export async function findSessionIdByRefreshToken(
   return token?.sessionId ?? null;
 }
 
-export interface NewSession {
+interface NewSession {
   id: string;
   userId: string;
   now: Date;
@@ -32,7 +33,7 @@ export interface NewSession {
   ip: string;
 }
 
-export interface NewRefreshToken {
+interface NewRefreshToken {
   id: string;
   sessionId: string;
   tokenHash: Buffer;
@@ -73,7 +74,7 @@ function revokeReasonOf(value: string | null): SessionRevokeReason | null {
 }
 
 /** A refresh token with its session and its user's status, as the refresh decides on. */
-export interface LockedRefreshToken {
+interface LockedRefreshToken {
   tokenId: string;
   rotatedAt: Date | null;
   tokenExpiresAt: Date;
@@ -167,7 +168,7 @@ export async function revokeUserSessions(
 }
 
 /** An access token's session and user, as every authenticated request checks them. */
-export interface AuthSession {
+interface AuthSession {
   user: AuthUser;
   revokedAt: Date | null;
   revokeReason: SessionRevokeReason | null;
@@ -231,7 +232,7 @@ export async function revokeOtherUserSessions(
 }
 
 /** A session as its user's list shows it. */
-export interface LiveSession {
+interface LiveSession {
   id: string;
   createdAt: Date;
   lastUsedAt: Date;
@@ -252,10 +253,10 @@ function liveSessionsOf(userId: string, now: Date) {
 /** A page of a user's live sessions, most recently used first, and how many there are. */
 export async function listLiveSessions(
   prisma: AppPrismaClient,
-  filter: { userId: string; now: Date; offset: number; limit: number },
-): Promise<{ sessions: LiveSession[]; total: number }> {
+  filter: { userId: string; now: Date } & PageArgs,
+): Promise<RowsAndTotal<LiveSession>> {
   const where = liveSessionsOf(filter.userId, filter.now);
-  const [sessions, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.session.findMany({
       where,
       orderBy: [{ lastUsedAt: 'desc' }, { id: 'desc' }],
@@ -265,7 +266,7 @@ export async function listLiveSessions(
     }),
     prisma.session.count({ where }),
   ]);
-  return { sessions, total };
+  return { rows, total };
 }
 
 /** Locks one of a user's live sessions; false if it isn't theirs or has ended. */
@@ -283,7 +284,7 @@ export async function lockLiveSession(
 }
 
 /** What a password change re-checks under its locks before it writes. */
-export interface PasswordChangeState {
+interface PasswordChangeState {
   passwordHash: string | null;
   lockedUntil: Date | null;
   userStatus: UserStatus;

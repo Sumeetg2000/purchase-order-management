@@ -1,7 +1,7 @@
 import type { AppPrismaClient } from '../db/client.js';
 import type { RateLimitBucket } from './buckets.js';
 
-export interface RateLimitWindow {
+interface RateLimitWindow {
   bucket: RateLimitBucket;
   key: string;
   windowStart: Date;

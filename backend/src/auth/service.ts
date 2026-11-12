@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   AppError,
+  oneOf,
   PUBLIC_REVOKE_REASONS,
   USER_STATUS,
   type ChangePasswordBody,
@@ -56,6 +57,7 @@ import {
   touchSession,
 } from './repository.js';
 import { SYSTEM_ACTOR } from '../users/actor.js';
+import { pageArgs, toPage } from '../lib/pagination.js';
 
 // Who is calling (ADR-0017, research R1). The authorize step calls these; it never touches
 // a repository itself.
@@ -135,7 +137,7 @@ export function createAuthService(deps: {
 
 // --- Sessions: login, refresh, logout (ADR-0017, research R5, R6, R9) ---------------------
 
-export interface LoginInput {
+interface LoginInput {
   email: string;
   password: string;
 }
@@ -195,7 +197,7 @@ function wrongCurrentPassword(): AppError {
 }
 
 function isPublicRevokeReason(reason: string | null): reason is PublicRevokeReason {
-  return (PUBLIC_REVOKE_REASONS as readonly (string | null)[]).includes(reason);
+  return oneOf(PUBLIC_REVOKE_REASONS, reason);
 }
 
 /** SESSION_REVOKED, naming the reason only when the user may be told it. */
@@ -533,27 +535,21 @@ export function createSessionService(deps: SessionServiceDependencies): SessionS
     },
 
     listSessions: async (user, query) => {
-      const { sessions, total } = await withDatabase(() =>
+      const result = await withDatabase(() =>
         listLiveSessions(deps.prisma, {
           userId: user.userId,
           now: clock.now(),
-          offset: (query.page - 1) * query.pageSize,
-          limit: query.pageSize,
+          ...pageArgs(query),
         }),
       );
-      return {
-        items: sessions.map((session) => ({
-          id: session.id,
-          createdAt: session.createdAt.toISOString(),
-          lastUsedAt: session.lastUsedAt.toISOString(),
-          userAgent: session.userAgent,
-          ip: session.ip,
-          current: session.id === user.sessionId,
-        })),
-        page: query.page,
-        pageSize: query.pageSize,
-        total,
-      };
+      return toPage(query, result, (session) => ({
+        id: session.id,
+        createdAt: session.createdAt.toISOString(),
+        lastUsedAt: session.lastUsedAt.toISOString(),
+        userAgent: session.userAgent,
+        ip: session.ip,
+        current: session.id === user.sessionId,
+      }));
     },
 
     revokeSession: async (user, sessionId, ctx) => {

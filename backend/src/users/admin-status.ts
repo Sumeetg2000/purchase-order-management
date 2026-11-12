@@ -26,7 +26,7 @@ export class AdminStatusRefusedError extends Error {
   }
 }
 
-export type AdminStatusChange =
+type AdminStatusChange =
   { changed: true; email: string; sessionsRevoked: number } | { changed: false; email: string };
 
 /**

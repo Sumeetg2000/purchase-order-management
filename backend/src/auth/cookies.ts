@@ -61,7 +61,7 @@ export function clearSessionCookies(res: Response): void {
   }
 }
 
-export interface RequestCookies {
+interface RequestCookies {
   access?: string;
   refresh?: string;
   csrf?: string;

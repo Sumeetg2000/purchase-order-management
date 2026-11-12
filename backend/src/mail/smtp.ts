@@ -3,7 +3,7 @@ import type { ApiConfig } from '../config/api.js';
 import type { Mailer } from './mailer.js';
 import { renderMail } from './template.js';
 
-export type SmtpSettings = Pick<
+type SmtpSettings = Pick<
   ApiConfig,
   | 'APP_ENV'
   | 'SMTP_HOST'

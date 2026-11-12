@@ -29,7 +29,7 @@ import type { RequestContext } from '../lib/request-context.js';
 import type { MailDispatcher } from '../mail/dispatcher.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import { emailOneTimeLink } from '../tokens/email-link.js';
-import { adminActor } from '../users/actor.js';
+import { runAs } from '../users/actor.js';
 import {
   findManagedUser,
   listUsers,
@@ -37,6 +37,7 @@ import {
   updateManagedUser,
   type ManagedUser,
 } from '../users/repository.js';
+import { pageArgs, toPage } from '../lib/pagination.js';
 
 // Admin user management (ADR-0016): the user list and detail, role and activation
 // changes, and the admin-initiated reset email. Admins never set or see a password.
@@ -54,7 +55,7 @@ export interface AdminUsersService {
   sendPasswordReset(admin: AuthenticatedUser, id: string, ctx: RequestContext): Promise<void>;
 }
 
-export interface AdminUsersServiceDependencies {
+interface AdminUsersServiceDependencies {
   prisma: AppPrismaClient;
   transactions: TransactionRunner;
   mail: MailDispatcher;
@@ -110,14 +111,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
     ctx: RequestContext,
     work: (tx: AuditedTransaction, hooks: TransactionHooks) => Promise<T>,
   ): Promise<T> {
-    return deps.transactions.run(
-      {
-        actor: adminActor({ id: admin.userId, name: admin.name, email: admin.email }),
-        requestId: ctx.requestId,
-        logger: ctx.logger,
-      },
-      work,
-    );
+    return runAs(deps.transactions, admin, ROLE.ADMIN, ctx, work);
   }
 
   /** Closes the user's open access request to match the change, and audits it. */
@@ -164,16 +158,15 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
 
   return {
     listUsers: async (query) => {
-      const { users, total } = await withDatabase(() =>
+      const result = await withDatabase(() =>
         listUsers(deps.prisma, {
           role: query.role,
           status: query.status,
           q: query.q,
-          offset: (query.page - 1) * query.pageSize,
-          limit: query.pageSize,
+          ...pageArgs(query),
         }),
       );
-      return { items: users.map(toItem), page: query.page, pageSize: query.pageSize, total };
+      return toPage(query, result, toItem);
     },
 
     getUser: async (id) => {

@@ -1,3 +1,5 @@
+import { oneOf } from './one-of.js';
+
 // The session cookie names and the CSRF header (ADR-0017 "Tokens and cookies"). Shared by
 // the API, the OpenAPI document and the web app, which reads the CSRF cookie.
 
@@ -13,5 +15,5 @@ export const CSRF_EXEMPT_METHODS = ['GET', 'HEAD', 'OPTIONS'] as const;
 
 /** Whether a request with this HTTP method must carry the CSRF header. */
 export function requiresCsrf(method: string): boolean {
-  return !(CSRF_EXEMPT_METHODS as readonly string[]).includes(method.toUpperCase());
+  return !oneOf(CSRF_EXEMPT_METHODS, method.toUpperCase());
 }

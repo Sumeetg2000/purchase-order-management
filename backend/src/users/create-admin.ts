@@ -16,7 +16,7 @@ export class EmailInUseError extends Error {
   readonly code: CliErrorCode = 'EMAIL_IN_USE';
 }
 
-export interface CreatedAdmin {
+interface CreatedAdmin {
   email: string;
   /** The set-password link, shown once and never stored. */
   link: string;

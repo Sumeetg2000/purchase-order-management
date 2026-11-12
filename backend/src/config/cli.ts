@@ -1,4 +1,3 @@
-import type { z } from 'zod';
 import {
   appEnv,
   databaseUrl,
@@ -18,5 +17,3 @@ export const cliConfig = defineProcessConfig({
   },
   forbidden: (key) => key === 'MAINTENANCE_DATABASE_URL' || isPrivilegedDatabaseKey(key),
 });
-
-export type CliConfig = z.output<typeof cliConfig.schema>;

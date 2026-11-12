@@ -8,9 +8,8 @@ import { withTransaction, type AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { insertUserIfAbsent } from '../users/repository.js';
 import { SYSTEM_ACTOR } from '../users/actor.js';
-import { writeAudit } from '../audit/write.js';
-import { insertVendor, setVendorStatus } from '../vendors/repository.js';
-import { fieldsOf, toSnapshot } from '../vendors/snapshot.js';
+import { changeAuditedStatus, createAuditedVendor, TRANSITIONS } from '../vendors/service.js';
+import { fieldsOf } from '../vendors/snapshot.js';
 
 // Demo data for local stacks (migrate step 4 with SEED_DEMO_DATA=true): two Buyers and one
 // Approver, never an admin, and five demo vendors. Users and vendors that exist are left as
@@ -117,24 +116,10 @@ export function seedDemoVendors(options: SeedOptions): Promise<number> {
   return asSystem(options, 'vendors', async (tx) => {
     let created = 0;
     for (const { inactive, ...body } of DEMO_VENDORS) {
-      const row = await insertVendor(tx, fieldsOf(body));
+      const row = await createAuditedVendor(tx, fieldsOf(body));
       if (!row) continue;
       created += 1;
-      await writeAudit(tx, {
-        action: 'VENDOR_CREATED',
-        entityType: 'vendor',
-        entityId: row.id,
-        details: { before: null, after: toSnapshot(row) },
-      });
-      if (inactive) {
-        const changed = await setVendorStatus(tx, row.id, 'INACTIVE');
-        await writeAudit(tx, {
-          action: 'VENDOR_DEACTIVATED',
-          entityType: 'vendor',
-          entityId: row.id,
-          details: { before: toSnapshot(row), after: toSnapshot(changed) },
-        });
-      }
+      if (inactive) await changeAuditedStatus(tx, row, TRANSITIONS.deactivate);
     }
     return created;
   });

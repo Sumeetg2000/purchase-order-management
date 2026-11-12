@@ -1,5 +1,6 @@
 import {
   AppError,
+  SELF_ACTING_ROLE,
   USER_STATUS,
   type EmailBody,
   type SignupBody,
@@ -24,7 +25,7 @@ import type { MailDispatcher } from '../mail/dispatcher.js';
 import { logSecurityEvent } from '../observability/security-log.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { emailOneTimeLink } from '../tokens/email-link.js';
-import { selfActor, SYSTEM_ACTOR } from '../users/actor.js';
+import { SYSTEM_ACTOR, userActor } from '../users/actor.js';
 import { consumeToken, type TokenPurpose } from '../tokens/one-time.js';
 import {
   activateUser,
@@ -40,7 +41,7 @@ import {
 // Account self-service (ADR-0017): signup, verification by link, forgot-password, and
 // setting a password by link.
 
-export interface ResetPasswordInput {
+interface ResetPasswordInput {
   token: string;
   newPassword: string;
 }
@@ -84,7 +85,7 @@ class PasswordRefused extends Error {
   }
 }
 
-export interface AccountsServiceDependencies {
+interface AccountsServiceDependencies {
   prisma: AppPrismaClient;
   transactions: TransactionRunner;
   rateLimiter: RateLimiter;
@@ -168,7 +169,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
             }
             throw error;
           }
-          await actAs(tx, selfActor(user), ctx.requestId);
+          await actAs(tx, userActor({ ...user, userId: user.id }, SELF_ACTING_ROLE), ctx.requestId);
           await writeAudit(tx, {
             action: 'USER_SIGNED_UP',
             entityType: 'user',
@@ -203,7 +204,11 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
             }
             // Already active (a reset verified it first): the link has nothing left to do.
             if (user.status !== USER_STATUS.UNVERIFIED) return undefined;
-            await actAs(tx, selfActor(user), ctx.requestId);
+            await actAs(
+              tx,
+              userActor({ ...user, userId: user.id }, SELF_ACTING_ROLE),
+              ctx.requestId,
+            );
             await activateUser(tx, user.id);
             await writeAudit(tx, {
               action: 'USER_EMAIL_VERIFIED',
@@ -287,7 +292,7 @@ export function createAccountsService(deps: AccountsServiceDependencies): Accoun
           // Deactivated since the link was sent: refused, and the rollback leaves it unused,
           // as verify-email does.
           if (user.status === USER_STATUS.DEACTIVATED) throw new AppError('ACCOUNT_DEACTIVATED');
-          await actAs(tx, selfActor(user), ctx.requestId);
+          await actAs(tx, userActor({ ...user, userId: user.id }, SELF_ACTING_ROLE), ctx.requestId);
           await setPasswordAfterReset(tx, user.id, passwordHash);
           if (user.status === USER_STATUS.UNVERIFIED) {
             await activateUser(tx, user.id);

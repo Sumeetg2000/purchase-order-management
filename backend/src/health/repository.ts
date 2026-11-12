@@ -1,12 +1,12 @@
 import type { AppPrismaClient } from '../db/client.js';
 
-export interface MigrationRow {
+interface MigrationRow {
   migration_name: string;
   finished: boolean;
   rolled_back: boolean;
 }
 
-export interface HealthRepository {
+interface HealthRepository {
   /** Prisma's migration table; one query proves the database answers. */
   migrationRows: () => Promise<MigrationRow[]>;
 }

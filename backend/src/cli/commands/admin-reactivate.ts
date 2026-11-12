@@ -7,7 +7,7 @@ import { parseEmailArg } from './email-arg.js';
 
 export const USAGE_LINE = 'admin:reactivate --email <email>';
 
-export interface AdminReactivateArgs {
+interface AdminReactivateArgs {
   email: string;
 }
 

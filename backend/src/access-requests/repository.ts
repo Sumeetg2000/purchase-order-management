@@ -6,6 +6,7 @@ import {
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
+import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 
 // Access requests (migration 0009_access_requests, ADR-0016). A user has at most one open
 // request; decided ones stay as they were.
@@ -129,8 +130,8 @@ function withUser(
 /** A page of requests, newest activity first, and the number of matches. */
 export async function listAccessRequests(
   prisma: AppPrismaClient,
-  filter: { status?: AccessRequestStatus | undefined; offset: number; limit: number },
-): Promise<{ requests: AdminAccessRequestRow[]; total: number }> {
+  filter: { status?: AccessRequestStatus | undefined } & PageArgs,
+): Promise<RowsAndTotal<AdminAccessRequestRow>> {
   const where = filter.status ? { status: filter.status } : {};
   const [rows, total] = await Promise.all([
     prisma.accessRequest.findMany({
@@ -142,7 +143,7 @@ export async function listAccessRequests(
     }),
     prisma.accessRequest.count({ where }),
   ]);
-  return { requests: rows.map(withUser), total };
+  return { rows: rows.map(withUser), total };
 }
 
 /** The user a request belongs to, or null if there is no such request. */

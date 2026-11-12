@@ -13,7 +13,7 @@ const LINK_EMAILS = {
   VERIFY_EMAIL: { template: verifyEmailTemplate, link: verifyEmailLink },
 } as const satisfies Record<TokenPurpose, unknown>;
 
-export interface LinkMailer {
+interface LinkMailer {
   mail: MailDispatcher;
   /** APP_ORIGIN, for the link. */
   appOrigin: string;

@@ -1,4 +1,10 @@
-import { AppError, USER_STATUS, type Me, type OwnAccessRequest } from '@po/contracts';
+import {
+  AppError,
+  SELF_ACTING_ROLE,
+  USER_STATUS,
+  type Me,
+  type OwnAccessRequest,
+} from '@po/contracts';
 import {
   findLatestAccessRequest,
   openOrUpdateAccessRequest,
@@ -11,7 +17,7 @@ import { withDatabase, type TransactionRunner } from '../db/transaction.js';
 import type { RequestContext } from '../lib/request-context.js';
 import type { RateLimiter } from '../rate-limit/service.js';
 import { toMe } from '../users/me.js';
-import { selfActor } from '../users/actor.js';
+import { runAs } from '../users/actor.js';
 import { findProfile, lockUser, updateUserName } from '../users/repository.js';
 
 // The caller's own profile and access request (ADR-0016). Slice 1 US4 adds the edit.
@@ -53,27 +59,20 @@ export function createProfileService(deps: {
     },
 
     updateMe: async (user, name, ctx) => {
-      const saved = await deps.transactions.run(
-        {
-          actor: selfActor({ id: user.userId, name: user.name, email: user.email }),
-          requestId: ctx.requestId,
-          logger: ctx.logger,
-        },
-        async (tx) => {
-          // Locked, so the name audited as "before" is the one this edit replaces.
-          const current = await lockUser(tx, user.userId);
-          if (!current) throw new Error(`authenticated user ${user.userId} not found`);
-          if (current.name === name) return current;
-          const updated = await updateUserName(tx, user.userId, name);
-          await writeAudit(tx, {
-            action: 'USER_PROFILE_UPDATED',
-            entityType: 'user',
-            entityId: user.userId,
-            details: { before: current.name, after: updated.name },
-          });
-          return updated;
-        },
-      );
+      const saved = await runAs(deps.transactions, user, SELF_ACTING_ROLE, ctx, async (tx) => {
+        // Locked, so the name audited as "before" is the one this edit replaces.
+        const current = await lockUser(tx, user.userId);
+        if (!current) throw new Error(`authenticated user ${user.userId} not found`);
+        if (current.name === name) return current;
+        const updated = await updateUserName(tx, user.userId, name);
+        await writeAudit(tx, {
+          action: 'USER_PROFILE_UPDATED',
+          entityType: 'user',
+          entityId: user.userId,
+          details: { before: current.name, after: updated.name },
+        });
+        return updated;
+      });
       return toMe(saved);
     },
 
@@ -85,31 +84,24 @@ export function createProfileService(deps: {
 
     sendAccessRequest: async (user, message, ctx) => {
       await deps.rateLimiter.hit('access-request-user', user.userId);
-      const request = await deps.transactions.run(
-        {
-          actor: selfActor({ id: user.userId, name: user.name, email: user.email }),
-          requestId: ctx.requestId,
-          logger: ctx.logger,
-        },
-        async (tx) => {
-          // One send at a time per user, so two can't both open a request; and the user is
-          // checked again under the lock, since an admin may have granted a role or
-          // deactivated them since the authorize step read the user. Deactivation is said
-          // as such, as the authorize step would on the next request.
-          const locked = await lockUser(tx, user.userId);
-          if (!locked) throw new Error(`authenticated user ${user.userId} not found`);
-          if (locked.status !== USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_DEACTIVATED');
-          if (locked.roles.length > 0) throw new AppError('FORBIDDEN');
-          const saved = await openOrUpdateAccessRequest(tx, { userId: user.userId, message });
-          await writeAudit(tx, {
-            action: 'ACCESS_REQUESTED',
-            entityType: 'access_request',
-            entityId: saved.id,
-            details: { requestId: saved.id, message: saved.message },
-          });
-          return saved;
-        },
-      );
+      const request = await runAs(deps.transactions, user, SELF_ACTING_ROLE, ctx, async (tx) => {
+        // One send at a time per user, so two can't both open a request; and the user is
+        // checked again under the lock, since an admin may have granted a role or
+        // deactivated them since the authorize step read the user. Deactivation is said
+        // as such, as the authorize step would on the next request.
+        const locked = await lockUser(tx, user.userId);
+        if (!locked) throw new Error(`authenticated user ${user.userId} not found`);
+        if (locked.status !== USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_DEACTIVATED');
+        if (locked.roles.length > 0) throw new AppError('FORBIDDEN');
+        const saved = await openOrUpdateAccessRequest(tx, { userId: user.userId, message });
+        await writeAudit(tx, {
+          action: 'ACCESS_REQUESTED',
+          entityType: 'access_request',
+          entityId: saved.id,
+          details: { requestId: saved.id, message: saved.message },
+        });
+        return saved;
+      });
       return toOwnAccessRequest(request);
     },
   };

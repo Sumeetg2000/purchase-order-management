@@ -65,5 +65,3 @@ export const migrateConfig = defineProcessConfig({
     }
   },
 });
-
-export type MigrateConfig = z.output<typeof migrateConfig.schema>;

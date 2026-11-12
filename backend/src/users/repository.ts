@@ -4,12 +4,13 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { userRolesOf, userStatusOf } from './codes.js';
+import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 
 // Users (ADR-0016): the bootstrap and admin:create, login bookkeeping, the profile, and
 // the admin screens. Emails arrive lower-cased (users_email_lower requires it); the
 // callers normalise them once.
 
-export interface UserSummary {
+interface UserSummary {
   id: string;
   email: string;
   roles: string[];
@@ -91,7 +92,7 @@ async function lockOne<T extends { id: string; roles: UserRole[]; status: UserSt
 }
 
 /** What a password check needs about a user: login, change-password, verify-email. */
-export interface LoginUser {
+interface LoginUser {
   id: string;
   name: string;
   email: string;
@@ -127,8 +128,7 @@ export async function lockLoginUser(tx: AuditedTransaction, id: string): Promise
 }
 
 /** `justLocked`: this attempt locked the account, not one before it. */
-export type FailedLogin =
-  { locked: true; lockedUntil: Date; justLocked: boolean } | { locked: false };
+type FailedLogin = { locked: true; lockedUntil: Date; justLocked: boolean } | { locked: false };
 
 /**
  * Counts a wrong password in one atomic statement (research R9): the attempt that
@@ -162,7 +162,7 @@ export async function recordFailedLogin(
   return { locked: true, lockedUntil: current?.lockedUntil ?? user.lockUntil, justLocked: false };
 }
 
-export type SuccessfulLogin = { ok: true } | { ok: false; lockedUntil: Date };
+type SuccessfulLogin = { ok: true } | { ok: false; lockedUntil: Date };
 
 /**
  * A successful login: the count resets, the time is kept and an old hash is upgraded.
@@ -291,13 +291,11 @@ const MANAGED = {
   version: true,
 } as const;
 
-export interface UserListFilter {
+interface UserListFilter extends PageArgs {
   role?: UserRole | 'NONE' | undefined;
   status?: UserStatus | undefined;
   /** A case-insensitive prefix of the name or email, matched literally. */
   q?: string | undefined;
-  offset: number;
-  limit: number;
 }
 
 /** LIKE's wildcards and its escape character, escaped so the text matches literally. */
@@ -313,7 +311,7 @@ function likePrefix(text: string): string {
 export async function listUsers(
   prisma: AppPrismaClient,
   filter: UserListFilter,
-): Promise<{ users: ManagedUser[]; total: number }> {
+): Promise<RowsAndTotal<ManagedUser>> {
   const conditions: Prisma.Sql[] = [];
   if (filter.role === 'NONE') conditions.push(Prisma.sql`roles = '{}'`);
   else if (filter.role) conditions.push(Prisma.sql`${filter.role} = ANY (roles)`);
@@ -335,8 +333,7 @@ export async function listUsers(
        LIMIT ${filter.limit} OFFSET ${filter.offset}`,
     prisma.$queryRaw<{ total: bigint }[]>`SELECT count(*) AS total FROM users ${where}`,
   ]);
-  const users = rows.map(parsed);
-  return { users, total: Number(count?.total ?? 0) };
+  return { rows: rows.map(parsed), total: Number(count?.total ?? 0) };
 }
 
 export async function findManagedUser(

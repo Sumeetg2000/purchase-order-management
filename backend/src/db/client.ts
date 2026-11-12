@@ -3,7 +3,7 @@ import { PrismaClient } from '../generated/prisma/client.js';
 
 export type AppPrismaClient = PrismaClient;
 
-export interface PrismaClientOptions {
+interface PrismaClientOptions {
   url: string;
   /** Maximum pool connections (DB_POOL_SIZE). */
   poolSize: number;

@@ -14,7 +14,7 @@ import { purgeTasks } from './registry.js';
 // are chained.
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
-export interface MaintenanceLoopOptions {
+interface MaintenanceLoopOptions {
   /** One purge run; it logs its own outcome. */
   run: () => Promise<unknown>;
   logger: Logger;

@@ -1,4 +1,4 @@
-import { accessProblem, OPERATIONS, type OperationContract } from '@po/contracts';
+import { accessProblem, oneOf, OPERATIONS, type OperationContract } from '@po/contracts';
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
@@ -81,7 +81,7 @@ export function validateRoutes(
   for (const route of routes) {
     const label = describeRoute(route);
     const access: unknown = route.access;
-    if (!(ACCESS_LEVELS as readonly unknown[]).includes(access)) {
+    if (!oneOf(ACCESS_LEVELS, access)) {
       throw new RouteRegistrationError(
         `Route ${label} declares no valid access level (expected one of: ${ACCESS_LEVELS.join(', ')})`,
       );

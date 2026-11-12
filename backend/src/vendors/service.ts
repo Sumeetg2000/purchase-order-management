@@ -1,5 +1,6 @@
 import {
   AppError,
+  ROLE,
   type Page,
   type PageQuery,
   type Vendor,
@@ -10,7 +11,7 @@ import {
 } from '@po/contracts';
 import { z } from 'zod';
 import type { AuthenticatedUser } from '../auth/service.js';
-import { countEntityHistory, listEntityHistory } from '../audit/repository.js';
+import { listEntityHistory } from '../audit/repository.js';
 import { writeAudit } from '../audit/write.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { violatedConstraint } from '../db/errors.js';
@@ -19,19 +20,17 @@ import {
   type AuditedTransaction,
   type TransactionRunner,
 } from '../db/transaction.js';
+import { pageArgs, toPage } from '../lib/pagination.js';
 import type { RequestContext } from '../lib/request-context.js';
-import { buyerActor } from '../users/actor.js';
+import { runAs } from '../users/actor.js';
 import {
-  countVendors,
-  findClash,
-  findVendor,
   findVendorByNameKey,
   insertVendor,
   listVendors,
-  lockVendor,
-  lockVendorShared,
+  selectVendor,
   setVendorStatus,
   updateVendor,
+  type VendorFields,
 } from './repository.js';
 import { toHistoryItem } from './history.js';
 import {
@@ -41,6 +40,7 @@ import {
   toSnapshot,
   toVendor,
   type VendorOrderSnapshot,
+  type VendorRow,
 } from './snapshot.js';
 
 // The shared vendor list (ADR-0005): Buyers add vendors; every role reads them.
@@ -73,7 +73,7 @@ export interface VendorsService {
 }
 
 /** A status change: where it starts, where it ends, and its audit action. */
-const TRANSITIONS = {
+export const TRANSITIONS = {
   deactivate: { from: 'ACTIVE', to: 'INACTIVE', action: 'VENDOR_DEACTIVATED' },
   reactivate: { from: 'INACTIVE', to: 'ACTIVE', action: 'VENDOR_REACTIVATED' },
 } as const satisfies Record<
@@ -104,7 +104,9 @@ export async function requireActiveVendor(
   vendorId: string,
   path: string,
 ): Promise<VendorOrderSnapshot> {
-  const row = z.uuid().safeParse(vendorId).success ? await lockVendorShared(tx, vendorId) : null;
+  const row = z.uuid().safeParse(vendorId).success
+    ? await selectVendor(tx, vendorId, 'share')
+    : null;
   if (!row) {
     throw new AppError('VALIDATION_FAILED', { details: [{ path, code: 'VENDOR_NOT_FOUND' }] });
   }
@@ -112,10 +114,75 @@ export async function requireActiveVendor(
   return toOrderSnapshot(row);
 }
 
+/**
+ * Inserts the vendor and audits it, or returns null when its name key is taken (research
+ * R3). Shared by the API and the demo seed, so both record a creation the same way.
+ */
+export async function createAuditedVendor(
+  tx: AuditedTransaction,
+  fields: VendorFields,
+): Promise<VendorRow | null> {
+  const created = await insertVendor(tx, fields);
+  if (!created) return null;
+  await writeAudit(tx, {
+    action: 'VENDOR_CREATED',
+    entityType: 'vendor',
+    entityId: created.id,
+    details: { before: null, after: toSnapshot(created) },
+  });
+  return created;
+}
+
+/**
+ * Moves the locked vendor along `transition` and audits it; the caller has checked the
+ * version and the state (research R8). Shared by the API and the demo seed.
+ */
+export async function changeAuditedStatus(
+  tx: AuditedTransaction,
+  current: VendorRow,
+  transition: (typeof TRANSITIONS)[keyof typeof TRANSITIONS],
+): Promise<VendorRow> {
+  const changed = await setVendorStatus(tx, current.id, transition.to);
+  await writeAudit(tx, {
+    action: transition.action,
+    entityType: 'vendor',
+    entityId: current.id,
+    details: { before: toSnapshot(current), after: toSnapshot(changed) },
+  });
+  return changed;
+}
+
 /** The unique constraint on vendors.name_key (migration 0011). */
 const NAME_KEY_CONSTRAINT = 'vendors_name_key_key';
 
-export interface VendorsServiceDependencies {
+/**
+ * The error for a name whose key was taken: DUPLICATE_VENDOR_NAME naming the vendor that
+ * holds it, or, when that vendor was renamed away in between (research R3), the retryable
+ * CONCURRENCY_RETRY_EXHAUSTED, since the name is free again and a retry wins.
+ */
+async function duplicateNameError(
+  db: AuditedTransaction | AppPrismaClient,
+  name: string,
+  cause?: unknown,
+): Promise<AppError> {
+  const existing = await findVendorByNameKey(db, name);
+  return existing
+    ? new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: existing, cause })
+    : new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause });
+}
+
+/** Locks the vendor and checks the client's version: NOT_FOUND, then VERSION_CONFLICT. */
+async function lockCurrent(
+  tx: AuditedTransaction,
+  { id, version }: { id: string; version: number },
+): Promise<VendorRow> {
+  const current = await selectVendor(tx, id, 'update');
+  if (!current) throw new AppError('NOT_FOUND');
+  if (current.version !== version) throw new AppError('VERSION_CONFLICT');
+  return current;
+}
+
+interface VendorsServiceDependencies {
   prisma: AppPrismaClient;
   transactions: TransactionRunner;
 }
@@ -127,33 +194,24 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
     ctx: RequestContext,
     fn: (tx: AuditedTransaction) => Promise<T>,
   ): Promise<T> {
-    const actor = buyerActor({ id: buyer.userId, name: buyer.name, email: buyer.email });
-    return deps.transactions.run({ actor, requestId: ctx.requestId, logger: ctx.logger }, fn);
+    return runAs(deps.transactions, buyer, ROLE.BUYER, ctx, fn);
   }
 
   /** Lock → 404 → version → state → update and audit (research R8). */
-  function changeStatus(
+  async function changeStatus(
     transition: (typeof TRANSITIONS)[keyof typeof TRANSITIONS],
     buyer: AuthenticatedUser,
-    { id, version }: { id: string; version: number },
+    target: { id: string; version: number },
     ctx: RequestContext,
   ): Promise<Vendor> {
-    return asBuyer(buyer, ctx, async (tx) => {
-      const current = await lockVendor(tx, id);
-      if (!current) throw new AppError('NOT_FOUND');
-      if (current.version !== version) throw new AppError('VERSION_CONFLICT');
+    const row = await asBuyer(buyer, ctx, async (tx) => {
+      const current = await lockCurrent(tx, target);
       if (statusOf(current) !== transition.from) {
         throw new AppError('INVALID_STATE_TRANSITION');
       }
-      const changed = await setVendorStatus(tx, id, transition.to);
-      await writeAudit(tx, {
-        action: transition.action,
-        entityType: 'vendor',
-        entityId: id,
-        details: { before: toSnapshot(current), after: toSnapshot(changed) },
-      });
-      return toVendor(changed);
+      return changeAuditedStatus(tx, current, transition);
     });
+    return toVendor(row);
   }
 
   return {
@@ -163,58 +221,35 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
       changeStatus(TRANSITIONS.reactivate, buyer, target, ctx),
 
     listVendors: async (query) => {
-      const filter = { status: query.status, q: query.q };
-      const [rows, total] = await withDatabase(() =>
-        Promise.all([
-          listVendors(deps.prisma, {
-            ...filter,
-            offset: (query.page - 1) * query.pageSize,
-            limit: query.pageSize,
-          }),
-          countVendors(deps.prisma, filter),
-        ]),
+      const result = await withDatabase(() =>
+        listVendors(deps.prisma, { status: query.status, q: query.q, ...pageArgs(query) }),
       );
-      return { items: rows.map(toVendor), page: query.page, pageSize: query.pageSize, total };
+      return toPage(query, result, toVendor);
     },
 
     listVendorHistory: async (id, query) => {
       const entity = { entityType: 'vendor', entityId: id } as const;
-      const [vendor, rows, total] = await withDatabase(() =>
+      const [vendor, history] = await withDatabase(() =>
         Promise.all([
-          findVendor(deps.prisma, id),
-          listEntityHistory(deps.prisma, entity, {
-            offset: (query.page - 1) * query.pageSize,
-            limit: query.pageSize,
-          }),
-          countEntityHistory(deps.prisma, entity),
+          selectVendor(deps.prisma, id),
+          listEntityHistory(deps.prisma, entity, pageArgs(query)),
         ]),
       );
       if (!vendor) throw new AppError('NOT_FOUND');
-      return { items: rows.map(toHistoryItem), page: query.page, pageSize: query.pageSize, total };
+      return toPage(query, history, toHistoryItem);
     },
 
     getVendor: async (id) => {
-      const row = await withDatabase(() => findVendor(deps.prisma, id));
+      const row = await withDatabase(() => selectVendor(deps.prisma, id));
       if (!row) throw new AppError('NOT_FOUND');
       return toVendor(row);
     },
 
     createVendor: async (buyer, body, ctx) => {
       const row = await asBuyer(buyer, ctx, async (tx) => {
-        const created = await insertVendor(tx, fieldsOf(body));
-        if (!created) {
-          // The insert waited for any in-flight one, so the winner is visible now (R3).
-          const existing = await findVendorByNameKey(tx, body.name);
-          // Renamed away in between (research R3): the name is free again, so a retry wins.
-          if (!existing) throw new AppError('CONCURRENCY_RETRY_EXHAUSTED');
-          throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: existing });
-        }
-        await writeAudit(tx, {
-          action: 'VENDOR_CREATED',
-          entityType: 'vendor',
-          entityId: created.id,
-          details: { before: null, after: toSnapshot(created) },
-        });
+        const created = await createAuditedVendor(tx, fieldsOf(body));
+        // The insert waited for any in-flight one, so the winner is visible now (R3).
+        if (!created) throw await duplicateNameError(tx, body.name);
         return created;
       });
       return toVendor(row);
@@ -223,11 +258,11 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
     updateVendor: async (buyer, { id, version, body }, ctx) => {
       try {
         const row = await asBuyer(buyer, ctx, async (tx) => {
-          const current = await lockVendor(tx, id);
-          if (!current) throw new AppError('NOT_FOUND');
-          if (current.version !== version) throw new AppError('VERSION_CONFLICT');
-          const clash = await findClash(tx, body.name, id);
-          if (clash) throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: clash });
+          const current = await lockCurrent(tx, { id, version });
+          const holder = await findVendorByNameKey(tx, body.name);
+          if (holder && holder.id !== current.id) {
+            throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: holder });
+          }
           const updated = await updateVendor(tx, id, fieldsOf(body));
           await writeAudit(tx, {
             action: 'VENDOR_UPDATED',
@@ -242,10 +277,7 @@ export function createVendorsService(deps: VendorsServiceDependencies): VendorsS
         if (violatedConstraint(error) !== NAME_KEY_CONSTRAINT) throw error;
         // A concurrent rename committed the key after our clash check (research R3): the
         // transaction has rolled back, so the winner is read on its own.
-        const existing = await withDatabase(() => findVendorByNameKey(deps.prisma, body.name));
-        // Renamed away in between: the name is free again, so a retry wins.
-        if (!existing) throw new AppError('CONCURRENCY_RETRY_EXHAUSTED', { cause: error });
-        throw new AppError('DUPLICATE_VENDOR_NAME', { existingVendor: existing, cause: error });
+        throw await withDatabase(() => duplicateNameError(deps.prisma, body.name, error));
       }
     },
   };

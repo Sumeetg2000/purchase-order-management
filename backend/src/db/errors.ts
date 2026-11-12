@@ -107,7 +107,7 @@ function isConnectionError(error: unknown): boolean {
   return typeof code === 'string' && CONNECTION_ERROR_CODES.has(code);
 }
 
-export type DbErrorClass = 'unavailable' | 'retryable' | 'other';
+type DbErrorClass = 'unavailable' | 'retryable' | 'other';
 
 /** Classifies an error for the transaction helper: give up with 503, retry, or rethrow. */
 export function classifyDbError(error: unknown): DbErrorClass {
@@ -132,12 +132,11 @@ export function classifyDbError(error: unknown): DbErrorClass {
 }
 
 /**
- * Constraint name → the error a client gets when it is violated. Each slice adds the
- * constraints its business rules rely on (for example a duplicate vendor name).
+ * Constraint name → the error a client gets when it is violated, for a constraint whose
+ * error needs nothing but its name. One whose error needs a read, like the vendor name key
+ * (DUPLICATE_VENDOR_NAME names the holder), is mapped by its service instead.
  */
-export type ConstraintErrors = Readonly<Record<string, () => AppError>>;
-
-export const CONSTRAINT_ERRORS: ConstraintErrors = {};
+type ConstraintErrors = Readonly<Record<string, () => AppError>>;
 
 // Our trigger functions raise custom SQLSTATEs in class PO (research R6). Each one means a
 // bug in our code, never a client error, so all of them map to INTERNAL_ERROR:
@@ -148,7 +147,7 @@ export const CONSTRAINT_ERRORS: ConstraintErrors = {};
 //   PO004 AUDIT_RETENTION_ACTIVE  deleting an audit entry inside its 8-year retention
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 
-export interface MapDbErrorOptions {
+interface MapDbErrorOptions {
   logger: Logger;
   constraints?: ConstraintErrors;
 }
@@ -160,7 +159,7 @@ export interface MapDbErrorOptions {
  */
 export function mapDbError(
   error: unknown,
-  { logger, constraints = CONSTRAINT_ERRORS }: MapDbErrorOptions,
+  { logger, constraints = {} }: MapDbErrorOptions,
 ): AppError | undefined {
   if (error instanceof DatabaseUnavailableError) {
     logger.warn({ err: error }, 'database unavailable');
