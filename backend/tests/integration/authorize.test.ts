@@ -181,14 +181,24 @@ describe('[NFR-AUTH-01] authentication', () => {
     expect(res.body).toMatchObject({ code: 'ACCESS_TOKEN_EXPIRED' });
   });
 
-  it('[NFR-AUTH-01] a valid token for a user that does not exist is 401 UNAUTHENTICATED', async () => {
-    const { app, seed, admin } = await setup();
-    const user = await seed('{BUYER}');
-    await admin.query('SET session_replication_role = replica');
-    await admin.query('DELETE FROM refresh_tokens; DELETE FROM sessions; DELETE FROM users');
-    const res = await as(app, user).get('/probe/me');
-    expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED' });
-  });
+  it.each([
+    ['its session was purged', 'DELETE FROM refresh_tokens; DELETE FROM sessions'],
+    [
+      'its user does not exist',
+      'DELETE FROM refresh_tokens; DELETE FROM sessions; DELETE FROM users',
+    ],
+  ])(
+    '[NFR-AUTH-01] a valid token whose session row is gone (%s) is 401 SESSION_EXPIRED',
+    async (_case, sql) => {
+      const { app, seed, admin } = await setup();
+      const user = await seed('{BUYER}');
+      await admin.query('SET session_replication_role = replica');
+      await admin.query(sql);
+      const res = await as(app, user).get('/probe/me');
+      expect(res.status).toBe(401);
+      expect(res.body).toMatchObject({ code: 'SESSION_EXPIRED' });
+    },
+  );
 
   it('[SC-006] a deactivated user is refused on the very next request, with a valid token', async () => {
     const { app, seed } = await setup();

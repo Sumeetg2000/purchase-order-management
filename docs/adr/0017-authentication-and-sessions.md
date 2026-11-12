@@ -21,7 +21,8 @@
   2026-11-05 (**owner decision**: verify-email requires the password chosen at signup, so
   a squatter's password never opens an account its mailbox owner verified) · amended
   2026-11-06 (**owner decision**: Linux WebKit doesn't treat `http://localhost` as secure,
-  so the end-to-end stack runs over HTTPS)
+  so the end-to-end stack runs over HTTPS) · amended 2026-11-12 (audit: a valid token whose
+  session row is gone → `SESSION_EXPIRED` on every path)
 - **Brief:** §6 ("every action tied to a real, authenticated user; no anonymous path")
 - **Principles:** III, IX, XIII
 
@@ -72,7 +73,10 @@ answer to an in-app access request (ADR-0016).
   - a user who is not `ACTIVE` → `401 ACCOUNT_DEACTIVATED`
   - a revoked session → `401 SESSION_REVOKED`, with the reason only when it is public
   - a session past its idle or absolute end → `401 SESSION_EXPIRED`
-  - a session that no longer exists, or isn't the token's user's → `401 UNAUTHENTICATED`
+  - a session that no longer exists, or isn't the token's user's → `401 SESSION_EXPIRED`
+    (amended 2026-11-12): a valid token's session row is gone only once the purge has
+    removed it, long after it ended. Every path says so, the password change included,
+    which reads the session again under its lock.
   - a missing role → `403`
 - The web app ends the session on `SESSION_REVOKED` or `SESSION_EXPIRED` from any call, as
   it does on `ACCOUNT_DEACTIVATED`, and shows its message (ADR-0018).

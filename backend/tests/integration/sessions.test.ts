@@ -193,50 +193,66 @@ describe('[FR-ACC-04] change password', () => {
     expect((await h.login(user.email, PASSWORD)).status).toBe(429);
   });
 
-  it('[FR-ACC-04] a session revoked while the change runs is refused, and the password stays', async () => {
-    const h = await accountsHarness();
-    const user = await h.seedUser();
-    await h.loggedIn(user);
-    const [row] = await h.query<{ id: string }>('SELECT id::text FROM sessions');
-    // As if a reset or logout-all landed after the authorize step read the session.
-    await h.query(`UPDATE sessions SET revoked_at = now(), revoke_reason = 'PASSWORD_RESET'`);
-    const prisma = createPrismaClient({
-      url: h.db.url('po_app'),
-      poolSize: 2,
-      connectionTimeoutMs: 2_000,
-    });
-    try {
-      const sessions = createSessionService({
-        prisma,
-        transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
-        accessTokens: createAccessTokens({
-          signingKey: Buffer.alloc(32, 1).toString('base64url'),
-          keyId: 'test-1',
-          clock: h.clock,
-        }),
-        rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
-        clock: h.clock,
-        csrfSecret: Buffer.alloc(32, 2).toString('base64url'),
+  it.each([
+    [
+      // A reset or logout-all landed after the authorize step read the session.
+      'revoked',
+      `UPDATE sessions SET revoked_at = now(), revoke_reason = 'PASSWORD_RESET'`,
+      { code: 'SESSION_REVOKED', reason: 'PASSWORD_RESET' },
+    ],
+    [
+      // The purge removed it: no session row stands behind the token any more.
+      'purged',
+      'DELETE FROM refresh_tokens; DELETE FROM sessions',
+      { code: 'SESSION_EXPIRED' },
+    ],
+  ])(
+    '[FR-ACC-04] a session %s while the change runs is refused, and the password stays',
+    async (_change, sql, refusal) => {
+      const h = await accountsHarness();
+      const user = await h.seedUser();
+      await h.loggedIn(user);
+      const [row] = await h.query<{ id: string }>('SELECT id::text FROM sessions');
+      await h.query('SET session_replication_role = replica');
+      await h.query(sql);
+      const prisma = createPrismaClient({
+        url: h.db.url('po_app'),
+        poolSize: 2,
+        connectionTimeoutMs: 2_000,
       });
-      const stale = {
-        userId: user.id,
-        sessionId: row?.id ?? '',
-        name: user.name,
-        email: user.email,
-        roles: ['BUYER' as const],
-      };
-      await expect(
-        sessions.changePassword(
-          stale,
-          { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
-          { requestId: 'req-race', logger: testLogger(), ip: '10.0.0.1', userAgent: 'test' },
-        ),
-      ).rejects.toMatchObject({ code: 'SESSION_REVOKED', reason: 'PASSWORD_RESET' });
-    } finally {
-      await prisma.$disconnect();
-    }
-    expect((await h.login(user.email, PASSWORD)).status).toBe(200);
-  });
+      try {
+        const sessions = createSessionService({
+          prisma,
+          transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 2_000 }),
+          accessTokens: createAccessTokens({
+            signingKey: Buffer.alloc(32, 1).toString('base64url'),
+            keyId: 'test-1',
+            clock: h.clock,
+          }),
+          rateLimiter: createRateLimiter({ prisma, clock: h.clock }),
+          clock: h.clock,
+          csrfSecret: Buffer.alloc(32, 2).toString('base64url'),
+        });
+        const stale = {
+          userId: user.id,
+          sessionId: row?.id ?? '',
+          name: user.name,
+          email: user.email,
+          roles: ['BUYER' as const],
+        };
+        await expect(
+          sessions.changePassword(
+            stale,
+            { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+            { requestId: 'req-race', logger: testLogger(), ip: '10.0.0.1', userAgent: 'test' },
+          ),
+        ).rejects.toMatchObject(refusal);
+      } finally {
+        await prisma.$disconnect();
+      }
+      expect((await h.login(user.email, PASSWORD)).status).toBe(200);
+    },
+  );
 
   it('[FR-ACC-04] needs the CSRF header', async () => {
     const h = await accountsHarness();
