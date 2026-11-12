@@ -134,7 +134,7 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
   it('[NFR-FE-09] shows an error and its actions inside the dialog, with the request id', async () => {
     const reload = vi.fn();
     await openDialog({
-      error: { code: 'SERVICE_UNAVAILABLE', correlationId: 'req-dialog-0001' },
+      error: { problem: { code: 'SERVICE_UNAVAILABLE', correlationId: 'req-dialog-0001' } },
       errorActions: [{ label: 'Reload order', onPress: reload }],
     });
     const dialog = screen.getByRole('alertdialog');
@@ -182,7 +182,7 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
     const pending = deferred();
     const { user } = await openDialog({
       onConfirm: () => pending.promise,
-      error: { code: 'SERVICE_UNAVAILABLE' },
+      error: { problem: { code: 'SERVICE_UNAVAILABLE' } },
       errorActions: [{ label: 'Reload order', onPress: vi.fn() }],
     });
     await user.click(screen.getByRole('button', { name: 'Cancel order' }));
@@ -193,7 +193,7 @@ describe('[NFR-FE-09] ConfirmDialog', () => {
   it('[NFR-FE-05] has no axe violations, plain or with a reason and an error', async () => {
     const { dialog } = await openDialog({
       reason: { label: 'Reason for cancelling', minLength: 5, maxLength: 200 },
-      error: { code: 'INTERNAL_ERROR', correlationId: 'req-dialog-0002' },
+      error: { problem: { code: 'INTERNAL_ERROR', correlationId: 'req-dialog-0002' } },
     });
     expect(await axeViolations(dialog)).toEqual([]);
   });

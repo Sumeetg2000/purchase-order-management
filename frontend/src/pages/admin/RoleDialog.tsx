@@ -12,7 +12,7 @@ import { api } from '../../api/app-client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ErrorState } from '../../components/ErrorState';
 import { Loading } from '../../components/Loading';
-import { problemFrom } from '../../errors/problem';
+import { failureFrom } from '../../errors/problem';
 import { roleSetLabel } from '../../format/roles';
 import { classes } from '../../styles/classes';
 import css from './admin.module.css';
@@ -73,7 +73,7 @@ export function RoleDialog({ user, onDone, onClose }: RoleDialogProps) {
       onClose={onClose}
       error={action.error}
       errorActions={
-        action.error?.code === 'VERSION_CONFLICT'
+        action.error?.problem.code === 'VERSION_CONFLICT'
           ? [
               {
                 label: 'Reload',
@@ -87,7 +87,7 @@ export function RoleDialog({ user, onDone, onClose }: RoleDialogProps) {
       }
     >
       {detail.isError ? (
-        <ErrorState problem={problemFrom(detail.error)} />
+        <ErrorState {...failureFrom(detail.error)} />
       ) : !current ? (
         <Loading label="Loading the user" />
       ) : (

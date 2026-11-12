@@ -210,7 +210,7 @@ describe('[NFR-FE-09] change password', () => {
         name: 'Change password',
       }),
     );
-    expect(await screen.findByText(/Too many attempts/)).toBeInTheDocument();
+    expect(await screen.findByText(/too many requests/)).toBeInTheDocument();
     expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument();
     expect(seen.filter((r) => r.url.endsWith('/change-password'))).toHaveLength(2);
   });

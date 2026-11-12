@@ -1,5 +1,5 @@
 import { NetworkError, ProblemError } from '../api/client';
-import type { ProblemLike } from './messages';
+import type { FailureLike, ProblemLike } from './messages';
 
 /**
  * What an error screen shows for any error. An API error keeps its own problem and request
@@ -11,4 +11,12 @@ export function problemFrom(error: unknown): ProblemLike {
   if (error instanceof ProblemError) return error.problem;
   if (error instanceof NetworkError) return { code: 'SERVICE_UNAVAILABLE' };
   return { code: 'INTERNAL_ERROR' };
+}
+
+/** As problemFrom, with the wait a failed read's Retry-After gave, for an error screen. */
+export function failureFrom(error: unknown): FailureLike {
+  const problem = problemFrom(error);
+  return error instanceof ProblemError && error.retryAfterSeconds !== undefined
+    ? { problem, retryAfterSeconds: error.retryAfterSeconds }
+    : { problem };
 }

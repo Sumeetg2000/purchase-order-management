@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import { useFragmentToken } from '../../auth/fragment-token';
 import { api } from '../../api/app-client';
 import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
-import { PASSWORD_RULE, sentenceFor } from '../../errors/messages';
+import { messageForProblem, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -89,12 +89,13 @@ export function ResetPassword() {
           </TextField>
           {failure && (
             <p role="alert" className={styles.alert}>
-              {failureMessage(failure)}
-              {NEW_LINK_CODES.includes(failure.problem.code) && (
+              {NEW_LINK_CODES.includes(failure.problem.code) ? (
+                // The link is the next step, in place of the message's own.
                 <>
-                  {' '}
-                  <RequestNewLink />
+                  {messageForProblem(failure.problem).message} <RequestNewLink />
                 </>
+              ) : (
+                failureMessage(failure)
               )}
             </p>
           )}

@@ -94,9 +94,19 @@ export function createApiClient({
 export class ProblemError extends Error {
   override readonly name = 'ProblemError';
 
-  constructor(readonly problem: Problem) {
+  constructor(
+    readonly problem: Problem,
+    /** The response's Retry-After, in seconds, when it had one. */
+    readonly retryAfterSeconds?: number,
+  ) {
     super(problem.title);
   }
+}
+
+/** A response's Retry-After in seconds, or undefined when it has none. */
+export function retryAfterOf(response: Response): number | undefined {
+  const seconds = Number(response.headers.get('Retry-After') ?? Number.NaN);
+  return Number.isFinite(seconds) ? seconds : undefined;
 }
 
 /** An openapi-fetch result's data, or a ProblemError built from its error response. */
@@ -106,7 +116,10 @@ export function dataOrThrow<T>(
     | { data?: never; error: unknown; response: Response },
 ): T {
   if (result.error !== undefined) {
-    throw new ProblemError(parseProblem(result.response, result.error));
+    throw new ProblemError(
+      parseProblem(result.response, result.error),
+      retryAfterOf(result.response),
+    );
   }
   return result.data as T;
 }

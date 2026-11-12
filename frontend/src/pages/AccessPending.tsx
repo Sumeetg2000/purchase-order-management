@@ -9,7 +9,7 @@ import { failureMessage, submit } from '../api/submit';
 import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
 import { ErrorState } from '../components/ErrorState';
 import { Loading } from '../components/Loading';
-import { problemFrom } from '../errors/problem';
+import { failureFrom, problemFrom } from '../errors/problem';
 import { formatDate } from '../format/date';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
@@ -61,7 +61,7 @@ export function AccessPending() {
       ) : refused ? (
         <Loading label="Loading your account" />
       ) : request.isError ? (
-        <ErrorState problem={problemFrom(request.error)} />
+        <ErrorState {...failureFrom(request.error)} />
       ) : (
         <>
           <RequestStatus request={request.data} />
@@ -101,7 +101,7 @@ function MessageForm() {
     const outcome = await submit(() => api.POST('/me/access-request', { body: { message } }));
     setPending(false);
     if (!outcome.ok) {
-      setFailure(failureMessage(outcome));
+      setFailure(failureMessage(outcome, { labels: { 'body.message': 'Message' } }));
       return;
     }
     queryClient.setQueryData(ACCESS_REQUEST_KEY, outcome.data);

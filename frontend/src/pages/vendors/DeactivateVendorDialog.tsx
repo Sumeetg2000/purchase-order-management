@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ProblemLike } from '../../errors/messages';
+import type { ApiFailure } from '../../api/submit';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { isStaleStatusCode, useChangeVendorStatus } from './queries';
 
@@ -17,13 +17,13 @@ export interface DeactivateVendorDialogProps {
  */
 export function DeactivateVendorDialog({ vendor, onClose, onReload }: DeactivateVendorDialogProps) {
   const change = useChangeVendorStatus();
-  const [error, setError] = useState<ProblemLike>();
+  const [error, setError] = useState<ApiFailure>();
 
   const confirm = async () => {
     setError(undefined);
     const outcome = await change(vendor, 'deactivate');
     if (outcome.ok) onClose();
-    else setError(outcome.problem);
+    else setError(outcome);
   };
 
   return (
@@ -36,7 +36,7 @@ export function DeactivateVendorDialog({ vendor, onClose, onReload }: Deactivate
       onClose={onClose}
       error={error}
       errorActions={
-        error && isStaleStatusCode(error.code)
+        error && isStaleStatusCode(error.problem.code)
           ? [
               {
                 label: 'Reload',

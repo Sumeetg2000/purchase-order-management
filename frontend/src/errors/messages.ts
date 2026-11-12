@@ -1,5 +1,6 @@
 import {
   isErrorCode,
+  isFieldCode,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
@@ -49,15 +50,16 @@ export const errorMessages = {
 
   // Slice 1: accounts and sessions (contracts/errors.md).
   SIGNUP_DOMAIN_NOT_ALLOWED: { message: 'Use your company email address to sign up.' },
-  TOKEN_EXPIRED: { message: 'This link has expired. Request a new one.' },
+  // A page whose link or form for a new one follows shows the message alone.
+  TOKEN_EXPIRED: { message: 'This link has expired.', action: 'Request a new one.' },
   TOKEN_USED: { message: 'This link has already been used.', action: 'Log in instead.' },
   TOKEN_SUPERSEDED: { message: 'A newer link was sent. Use the latest email.' },
   INVALID_TOKEN: {
     message: "This link isn't valid. Check that you opened the whole link from the email.",
   },
   UNAUTHENTICATED: { message: 'Please log in.' },
-  // Never shown: the app refreshes the session and retries.
-  ACCESS_TOKEN_EXPIRED: { message: 'Please log in.' },
+  // Shown only if the silent refresh can't run: it normally renews the login and retries.
+  ACCESS_TOKEN_EXPIRED: { message: 'Your login has expired. Please log in again.' },
   SESSION_EXPIRED: { message: 'Your session has expired. Please log in again.' },
   SESSION_REVOKED: { message: "You've been logged out. Please log in again." },
   PASSWORD_NOT_SET: {
@@ -103,14 +105,21 @@ export const errorMessages = {
     message: 'This request has already been handled.',
     action: 'Reload to see its status.',
   },
-  ACCOUNT_LOCKED: { message: 'Too many failed attempts.', action: 'Try again in a few minutes.' },
-  RATE_LIMITED: { message: 'Too many attempts.', action: 'Try again in a few minutes.' },
+  ACCOUNT_LOCKED: {
+    message: 'This account is locked after too many failed login attempts.',
+    action: 'Try again in a few minutes.',
+  },
+  RATE_LIMITED: {
+    message: "You've made too many requests in a short time.",
+    action: 'Wait a few minutes, then try again.',
+  },
   // Slice 2 (specs/003-vendors/contracts/errors.md). The form adds a link to the
   // existing vendor, from the problem's existingVendor.
   DUPLICATE_VENDOR_NAME: { message: 'A vendor with this name already exists.' },
+  // Neutral: vendors use it now, orders from slice 4.
   INVALID_STATE_TRANSITION: {
-    message: "This vendor's status has already changed.",
-    action: 'Reload to see it.',
+    message: 'Its status has already changed.',
+    action: 'Reload to see the current status.',
   },
   VENDOR_INACTIVE: {
     message: 'This vendor is deactivated.',
@@ -131,9 +140,17 @@ export const RETRYABLE_CODES = [
   'CONCURRENCY_RETRY_EXHAUSTED',
 ] as const satisfies readonly ErrorCode[];
 
+/** A field error of a problem: the field's path and its field code. */
+export interface FieldErrorLike {
+  path: string;
+  code: string;
+}
+
 /** The fields of a problem document a screen needs. */
 export interface ProblemLike {
   code: string;
+  /** The fields refused, on VALIDATION_FAILED. */
+  details?: readonly FieldErrorLike[] | undefined;
   correlationId?: string | undefined;
   /** Why a session was revoked, on SESSION_REVOKED only. */
   reason?: string | undefined;
@@ -192,18 +209,72 @@ export const PASSWORD_RULE = `Use ${String(PASSWORD_MIN_LENGTH)} to ${String(PAS
 
 const SECONDS_PER_MINUTE = 60;
 
+/** Codes whose Retry-After says how long to wait (ADR-0017). */
+const WAIT_CODES: readonly string[] = [
+  'ACCOUNT_LOCKED',
+  'RATE_LIMITED',
+] satisfies readonly ErrorCode[];
+
+/** The next step of a validation failure whose field errors are all said at form level. */
+const CORRECT_THEM = 'Correct them and try again.';
+
+/** A failed call as a page has it: the problem, and the wait from Retry-After if any. */
+export interface FailureLike {
+  problem: ProblemLike;
+  retryAfterSeconds?: number | undefined;
+}
+
+/** The fields a form shows, for saying a validation failure at form level. */
+export interface FormFields {
+  /** Paths whose errors the page shows next to their own field. */
+  highlighted?: readonly string[];
+  /** Labels for paths said at form level, such as { 'body.email': 'Email' }. */
+  labels?: Readonly<Record<string, string>>;
+}
+
+/** What a field error says; a code this build doesn't know reads as not valid. */
+export function fieldMessageFor(code: string): string {
+  return isFieldCode(code) ? fieldMessages[code] : fieldMessages.INVALID_FORMAT;
+}
+
 /**
- * A problem's message and next step as one sentence pair. For a lockout or rate limit
- * with Retry-After, the wait is given in whole minutes, rounded up (ADR-0017).
+ * What a failure tells the user, as a message and a next step. A lockout or rate limit
+ * with Retry-After gives the wait in whole minutes, rounded up (ADR-0017). A validation
+ * failure says at form level each field error the page doesn't show by its field, and
+ * mentions highlighted fields only when the page highlights one.
  */
-export function sentenceFor(problem: ProblemLike, retryAfterSeconds?: number): string {
+export function describeFailure(failure: FailureLike, form: FormFields = {}): ErrorMessage {
+  const { problem, retryAfterSeconds } = failure;
   const { message, action } = messageForProblem(problem);
-  if (
-    retryAfterSeconds !== undefined &&
-    (problem.code === 'ACCOUNT_LOCKED' || problem.code === 'RATE_LIMITED')
-  ) {
+  if (retryAfterSeconds !== undefined && WAIT_CODES.includes(problem.code)) {
     const minutes = Math.max(1, Math.ceil(retryAfterSeconds / SECONDS_PER_MINUTE));
-    return `${message} Try again in ${String(minutes)} minute${minutes === 1 ? '' : 's'}.`;
+    return {
+      message,
+      action: `Try again in ${String(minutes)} minute${minutes === 1 ? '' : 's'}.`,
+    };
   }
+  if (problem.code !== 'VALIDATION_FAILED') return action ? { message, action } : { message };
+  const highlighted = form.highlighted ?? [];
+  const details = problem.details ?? [];
+  const unshown = details.filter((detail) => !highlighted.includes(detail.path));
+  const said = unshown.map((detail) => {
+    const label = form.labels?.[detail.path];
+    const text = fieldMessageFor(detail.code);
+    return label ? `${label}: ${text}` : text;
+  });
+  const anyHighlighted = details.length > unshown.length;
+  return {
+    message: [message, ...said].join(' '),
+    action: anyHighlighted ? errorMessages.VALIDATION_FAILED.action : CORRECT_THEM,
+  };
+}
+
+/** A failure's message and next step as one sentence pair. */
+export function sentenceFor(problem: ProblemLike, retryAfterSeconds?: number): string {
+  return sentenceOf(describeFailure({ problem, retryAfterSeconds }));
+}
+
+/** A message and its next step as one sentence pair. */
+export function sentenceOf({ message, action }: ErrorMessage): string {
   return action ? `${message} ${action}` : message;
 }

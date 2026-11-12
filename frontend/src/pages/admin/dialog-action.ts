@@ -1,7 +1,6 @@
 import type { ErrorCode } from '@po/contracts';
 import { useState } from 'react';
-import { submit } from '../../api/submit';
-import type { ProblemLike } from '../../errors/messages';
+import { submit, type ApiFailure } from '../../api/submit';
 import { useRefreshAdmin } from './queries';
 
 /** Failures meaning someone else got there first. A version conflict has its own Reload. */
@@ -12,11 +11,11 @@ const STALE_CODES: ReadonlySet<string> = new Set([
 
 /**
  * One admin action from a dialog: on success every admin read refreshes and `done` runs;
- * on failure the problem stays in `error`, for the dialog to show inside it.
+ * on failure it stays in `error`, for the dialog to show inside it.
  */
 export function useDialogAction() {
   const refresh = useRefreshAdmin();
-  const [error, setError] = useState<ProblemLike>();
+  const [error, setError] = useState<ApiFailure>();
   async function run(
     call: () => Promise<{ data?: unknown; error?: unknown; response: Response }>,
     done: () => void,
@@ -24,7 +23,7 @@ export function useDialogAction() {
     setError(undefined);
     const outcome = await submit(call);
     if (!outcome.ok) {
-      setError(outcome.problem);
+      setError(outcome);
       // Changed or gone under the admin: the lists behind the dialog are out of date.
       if (STALE_CODES.has(outcome.problem.code)) await refresh();
       return;

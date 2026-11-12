@@ -9,8 +9,8 @@ import {
   TextArea,
   TextField,
 } from 'react-aria-components';
-import type { ProblemLike } from '../errors/messages';
-import { problemFrom } from '../errors/problem';
+import type { FailureLike, FormFields } from '../errors/messages';
+import { failureFrom } from '../errors/problem';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
 import css from './ConfirmDialog.module.css';
@@ -41,7 +41,9 @@ export interface ConfirmDialogProps {
    * Shown inside the dialog with its mapped message and next step. A rejected onConfirm is
    * shown the same way when the caller passes no error.
    */
-  error?: ProblemLike | undefined;
+  error?: FailureLike | undefined;
+  /** Labels for the dialog's fields, so a field error names the field it is about. */
+  errorLabels?: FormFields['labels'];
   /** Extra actions for the error, such as reloading after a version conflict. */
   errorActions?: readonly { label: string; onPress: () => void }[];
 }
@@ -62,13 +64,14 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
   error,
+  errorLabels,
   errorActions = [],
 }: ConfirmDialogProps) {
   const bodyId = useId();
   const [reasonText, setReasonText] = useState('');
   const [pending, setPending] = useState(false);
   // A rejected onConfirm, shown inside the dialog until the next attempt.
-  const [failure, setFailure] = useState<ProblemLike | undefined>();
+  const [failure, setFailure] = useState<FailureLike | undefined>();
   // The state update lands after the event, so a ref stops a second press of a double
   // click from calling onConfirm again.
   const pendingRef = useRef(false);
@@ -87,7 +90,7 @@ export function ConfirmDialog({
       await onConfirm(reason ? trimmed : undefined);
     } catch (error) {
       // Never an unhandled rejection: the dialog stays open and says what happened.
-      setFailure(problemFrom(error));
+      setFailure(failureFrom(error));
     } finally {
       pendingRef.current = false;
       setPending(false);
@@ -123,7 +126,7 @@ export function ConfirmDialog({
               <TextArea rows={3} />
             </TextField>
           )}
-          {shownError && <ErrorState problem={shownError} />}
+          {shownError && <ErrorState {...shownError} labels={errorLabels} />}
           <div className={styles.actions}>
             {errorActions.map((action) => (
               <Button

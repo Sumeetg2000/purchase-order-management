@@ -116,6 +116,27 @@ describe('[FR-VEN-01] add vendor form', () => {
     expect(screen.getByLabelText('Vendor name')).not.toHaveAccessibleDescription();
   });
 
+  it('[NFR-FE-01] an error on a path with no field of its own is said at form level too', async () => {
+    formApi({
+      'POST /vendors': () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [
+            { path: 'body.contactEmail', code: 'INVALID_FORMAT' },
+            { path: 'body.paymentTerms.type', code: 'INVALID_FORMAT' },
+          ],
+        }),
+    });
+    const { user } = renderApp('/vendors/new');
+    await fillRequired(user);
+    await user.click(screen.getByRole('button', { name: 'Add vendor' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      `Some of the details are not valid. Payment terms: ${fieldMessages.INVALID_FORMAT} Check the highlighted fields and try again.`,
+    );
+    expect(screen.getByLabelText('Contact email')).toHaveAccessibleDescription(
+      fieldMessages.INVALID_FORMAT,
+    );
+  });
+
   it('[FR-VEN-01] a duplicate name links to the existing vendor', async () => {
     formApi({
       'POST /vendors': () =>

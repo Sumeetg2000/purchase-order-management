@@ -69,7 +69,7 @@ export function ForgotPassword() {
                   {messageForProblem(failure.problem).message} <Link to="/signup">Sign up</Link>
                 </>
               ) : (
-                failureMessage(failure)
+                failureMessage(failure, { labels: { 'body.email': 'Email' } })
               )}
             </p>
           )}

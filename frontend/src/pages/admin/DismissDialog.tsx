@@ -42,6 +42,7 @@ export function DismissDialog({ request, onDone, onClose }: DismissDialogProps) 
       onConfirm={confirm}
       onClose={onClose}
       error={action.error}
+      errorLabels={{ 'body.note': 'Note' }}
     >
       <p>They&apos;ll see that their request was dismissed, with your note if you add one.</p>
       <TextField

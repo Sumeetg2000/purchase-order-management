@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { Input, Label, TextField } from 'react-aria-components';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, submit } from '../../api/submit';
+import { failureMessage, submit, type ApiFailure } from '../../api/submit';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
 import { safeReturnTo, type LoginState } from '../../auth/return-to';
 import { clearEndedSession } from '../../auth/session-events';
@@ -14,7 +14,10 @@ import css from './account.module.css';
 import { FORGOT_PASSWORD_PATH, type ForgotPasswordState } from './forgot-password-link';
 
 const styles = classes(css, 'page', 'form', 'field', 'notice', 'alert');
-const controls = classes(controlsCss, 'primary');
+const controls = classes(controlsCss, 'primary', 'link');
+
+/** The login's fields, for a field error said at form level: the page highlights none. */
+const LABELS = { 'body.email': 'Email', 'body.password': 'Password' } as const;
 
 /** Login: each failure says exactly what went wrong (ADR-0017, ADR-0018). */
 export function Login() {
@@ -33,16 +36,18 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<string>();
+  const [failure, setFailure] = useState<ApiFailure>();
+  const [resentTo, setResentTo] = useState<string>();
 
   async function logIn(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setFailure(undefined);
+    setResentTo(undefined);
     const outcome = await submit(() => api.POST('/auth/login', { body: { email, password } }));
     setPending(false);
     if (!outcome.ok) {
-      setFailure(failureMessage(outcome));
+      setFailure(outcome);
       return;
     }
     const data = outcome.data;
@@ -52,6 +57,65 @@ export function Login() {
     queryClient.clear();
     queryClient.setQueryData(CURRENT_USER_KEY, data);
     await navigate(safeReturnTo(params.get('returnTo')), { replace: true });
+  }
+
+  async function resendVerification() {
+    setPending(true);
+    const outcome = await submit(() => api.POST('/auth/resend-verification', { body: { email } }));
+    setPending(false);
+    if (outcome.ok) {
+      setFailure(undefined);
+      setResentTo(email);
+    } else {
+      setFailure(outcome);
+    }
+  }
+
+  const forgotPassword = (label: string) => (
+    <Link to={FORGOT_PASSWORD_PATH} state={{ email } satisfies ForgotPasswordState}>
+      {label}
+    </Link>
+  );
+
+  /** Each refusal's own next step, as a link or button in place of its message's action. */
+  function failureContent(shown: ApiFailure): ReactNode {
+    const { message } = messageForProblem(shown.problem);
+    switch (shown.problem.code) {
+      case 'ACCOUNT_NOT_FOUND':
+        return (
+          <>
+            {message} <Link to="/signup">Sign up</Link>
+          </>
+        );
+      case 'INCORRECT_PASSWORD':
+        return (
+          <>
+            {message} {forgotPassword('Forgot your password?')}
+          </>
+        );
+      case 'PASSWORD_NOT_SET':
+        return (
+          <>
+            {message} {forgotPassword('Reset your password')}
+          </>
+        );
+      case 'ACCOUNT_NOT_VERIFIED':
+        return (
+          <>
+            {message}{' '}
+            <button
+              type="button"
+              className={controls.link}
+              disabled={pending}
+              onClick={() => void resendVerification()}
+            >
+              Send a new verification email
+            </button>
+          </>
+        );
+      default:
+        return failureMessage(shown, { labels: LABELS });
+    }
   }
 
   return (
@@ -88,7 +152,12 @@ export function Login() {
         </TextField>
         {failure && (
           <p role="alert" className={styles.alert}>
-            {failure}
+            {failureContent(failure)}
+          </p>
+        )}
+        {resentTo && (
+          <p role="status" className={styles.notice}>
+            We sent a new verification link to {resentTo}.
           </p>
         )}
         <button type="submit" className={controls.primary} disabled={pending}>

@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { api } from '../../api/app-client';
 import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
 import { useFragmentToken } from '../../auth/fragment-token';
-import { sentenceFor } from '../../errors/messages';
+import { messageForProblem, sentenceFor } from '../../errors/messages';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -80,7 +80,10 @@ export function VerifyEmail() {
             </TextField>
             {failure && (
               <p role="alert" className={styles.alert}>
-                {failureMessage(failure)}
+                {failure.problem.code === 'TOKEN_EXPIRED'
+                  ? // The form below is the next step, in place of the message's own.
+                    messageForProblem(failure.problem).message
+                  : failureMessage(failure)}
               </p>
             )}
             <button type="submit" className={controls.primary} disabled={pending}>
@@ -108,7 +111,7 @@ function ResendForm() {
     const outcome = await submit(() => api.POST('/auth/resend-verification', { body: { email } }));
     setPending(false);
     if (outcome.ok) setSentTo(email);
-    else setFailure(failureMessage(outcome));
+    else setFailure(failureMessage(outcome, { labels: { 'body.email': 'Work email' } }));
   }
 
   if (sentTo) {

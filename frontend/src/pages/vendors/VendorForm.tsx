@@ -84,6 +84,13 @@ const FIELD_PATHS = {
 
 const TEXT_KEYS = Object.keys(FIELD_PATHS) as TextKey[];
 
+/** Paths with no text field of their own, named when their error is said at form level. */
+const UNMAPPED_LABELS = {
+  body: 'Vendor',
+  'body.paymentTerms': 'Payment terms',
+  'body.paymentTerms.type': 'Payment terms',
+} as const;
+
 /** The form's text for a stored vendor; a missing phone is an empty field. */
 function draftOf(vendor: Vendor): Draft {
   const terms = vendor.paymentTerms;
@@ -201,7 +208,17 @@ function VendorEditor({
       setErrors(found);
       setExisting(outcome.problem.existingVendor);
       setConflict(outcome.problem.code === 'VERSION_CONFLICT');
-      if (Object.keys(found).length === 0) setFailure(failureMessage(outcome));
+      // A field error with no field here (an unmapped path) is said at form level, with
+      // the highlighted ones left to their fields.
+      const highlighted: readonly string[] = TEXT_KEYS.filter(
+        (key) => found[key] !== undefined,
+      ).map((key) => FIELD_PATHS[key]);
+      const unshown = (outcome.problem.details ?? []).some(
+        (detail) => !highlighted.includes(detail.path),
+      );
+      if (highlighted.length === 0 || unshown) {
+        setFailure(failureMessage(outcome, { highlighted, labels: UNMAPPED_LABELS }));
+      }
       return;
     }
     guard.release();

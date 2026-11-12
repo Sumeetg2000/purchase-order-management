@@ -11,6 +11,7 @@ import { ErrorState } from '../src/components/ErrorState';
 import { Loading } from '../src/components/Loading';
 import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
 import { errorMessages, RETRYABLE_CODES } from '../src/errors/messages';
+import { failureFrom } from '../src/errors/problem';
 import { useQueryStates } from '../src/hooks/useQueryStates';
 import { axeViolations } from './support/axe';
 
@@ -46,6 +47,35 @@ describe('[NFR-FE-01] page states', () => {
     expect(screen.getByText('req-state-0002')).toBeInTheDocument();
     expect(screen.getByText(/Request ID/)).toBeInTheDocument();
     expect(await axeViolations(document.body)).toEqual([]);
+  });
+
+  it('[NFR-FE-02] ErrorState says why a session was revoked', () => {
+    render(<ErrorState problem={{ code: 'SESSION_REVOKED', reason: 'PASSWORD_CHANGED' }} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You were logged out because your password was changed. Please log in again.',
+    );
+  });
+
+  it("[NFR-FE-01] ErrorState gives the wait from a failed read's Retry-After", () => {
+    const response = new Response(null, {
+      status: 429,
+      headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '120' },
+    });
+    const body = {
+      type: 'about:blank',
+      title: 'x',
+      status: 429,
+      code: 'RATE_LIMITED',
+      correlationId: 'req-state-0009',
+    };
+    let thrown: unknown;
+    try {
+      dataOrThrow({ error: body, response });
+    } catch (error) {
+      thrown = error;
+    }
+    render(<ErrorState {...failureFrom(thrown)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Try again in 2 minutes.');
   });
 
   it.each(ERROR_CODES.map((code) => [code]))(

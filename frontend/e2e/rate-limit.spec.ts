@@ -25,5 +25,5 @@ test('[NFR-SEC-08] forgot-password past its per-email limit is refused with the 
   const response = await refused;
   expect(response.status()).toBe(429);
   expect(await response.json()).toMatchObject({ code: 'RATE_LIMITED' });
-  await expect(alert).toContainText('Too many attempts.');
+  await expect(alert).toContainText("You've made too many requests in a short time.");
 });
