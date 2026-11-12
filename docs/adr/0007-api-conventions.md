@@ -17,7 +17,8 @@
   the slice 1 code review: a deeper offset overflowed Prisma's integer and answered 500) ·
   amended 2026-11-06 (slice 2, **owner decision**: a `409` about a clash with another
   resource names it in one typed extension member, `existingVendor` first; the vendor
-  field rules)
+  field rules) · amended 2026-11-12 (slice 3, **owner decisions**: line descriptions,
+  unit prices as strings, order list filters, the order-write body limit)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -29,6 +30,14 @@
   - Why: simplicity and page-number navigation. If deep pages get slow (measured at page
     100 in `docs/perf/`), a keyset or hybrid mode can be added, and the envelope can gain
     `nextCursor` without breaking existing clients.
+- **Order list filters** (amended 2026-11-12, owner decision): `status`, `vendorId`,
+  `poNumber` (case-insensitive prefix) and `createdFrom`/`createdTo` (inclusive calendar
+  dates in `Asia/Kolkata`; `createdFrom` after `createdTo` → `400 OUT_OF_RANGE`),
+  combinable, sorted `createdAt` descending then `id`. With `poNumber`, the list is sorted
+  by PO number descending instead, so the prefix range is walked on the index and stops at
+  the page whatever the prefix length; there is no minimum length. Text order equals
+  number order while a financial year stays under 1,000,000 orders; revisit if one
+  approaches it (ADR-0012's production dataset is 100k orders in all).
 - **Errors**: RFC 9457 problem+json with a stable `UPPER_SNAKE_CASE` `code` and field-level
   `details[{path, code}]`. There is one code registry.
 - **Statuses**: no 422.
@@ -54,8 +63,11 @@
 
 Field rules:
 - `quantity`: an integer, 1–1,000,000
-- `unit_price`: a decimal, 0 to 999,999,999.9999, with at most 4 places
-- `description`: 1–500 characters
+- `unit_price`: a decimal **string**, 0 to 999,999,999.9999, with at most 4 places, no sign
+  or exponent; a JSON number is refused (amended 2026-11-12)
+- `description` (order line): trimmed, then 1–500 Unicode code points, single-line plain
+  text: no control characters (line breaks and tabs included), well-formed Unicode
+  (amended 2026-11-12, owner decision)
 - an order has 1–500 lines, and the same line id may not appear twice
 - withdraw, reject and cancel `reason`: plain text, 1–500 characters
 - receipt `note`: plain text, 0–500 characters
@@ -116,7 +128,14 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ACCESS_REQUEST_NOT_OPEN`
   - `EMAIL_IN_USE`: signup with an email that already has an account
   - `ACCOUNT_ALREADY_VERIFIED`: resend-verification for an account that is verified
-- `413 PAYLOAD_TOO_LARGE`: a body over the size limit, refused before parsing.
+- `413 PAYLOAD_TOO_LARGE`: a body over the size limit, refused before parsing. The limit
+  is 1 MiB, except order create and edit: 4 MiB (amended 2026-11-12, owner decision),
+  sized by a test sending the largest valid order (500 lines × 500 four-byte characters)
+  both as raw UTF-8 (about 1.06 MB) and fully escaped (about 3.06 MB). nginx's
+  `client_max_body_size` equals the API's limit on each route, pinned by a test. An order
+  write's body is parsed only after authentication, CSRF and the route's role check pass;
+  a request refused before parsing is answered with `Connection: close` and its body is
+  never read (owner direction, 2026-11-12).
 - `423 ACCOUNT_LOCKED`, with `Retry-After` (seconds until the lockout ends).
 - `429 RATE_LIMITED`, with `Retry-After`.
 - `500 INTERNAL_ERROR`, with no internal details.

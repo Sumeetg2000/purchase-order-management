@@ -2,7 +2,7 @@
 
 - **Status:** Accepted · 2026-10-16 (store-vs-calculate confirmed by owner) · amended
   2026-10-20 (database-role, request-body and attack-suite details moved here from the
-  constitution)
+  constitution) · amended 2026-11-12 (the recompute count is per line statement; slice 3)
 - **Brief:** §3.3, §3.6, §4, §6 · Gaps G5, G10, Q6
 - **Principles:** I, VII
 
@@ -15,7 +15,10 @@ stored and kept in sync, and how drift is made impossible under a direct bypass.
 - `order.total`, `line.received_quantity` and `order.open_line_count` (lines with
   received < ordered; see ADR-0015) are stored. They are maintained only by
   statement-level triggers (with transition tables) in the same transaction as the source
-  change. The triggers recompute each affected row once and exit early when their input
+  change. The triggers recompute each affected row once per statement (amended
+  2026-11-12: PostgreSQL allows transition tables only on single-event triggers, so
+  insert, update and delete are three triggers; an edit runs at most one statement of
+  each, so it recomputes one to three times, never once per line) and exit early when their input
   columns didn't change. PostgreSQL doesn't allow transition tables together with column
   lists, so they use a column list where possible and otherwise compare old and new values
   first. A receipt never recomputes the total.
@@ -69,5 +72,6 @@ and as a privileged role:
 
 ## Tests
 The integrity attack suite (app role → permission denied; privileged role →
-`DERIVED_VALUE_READ_ONLY`); trigger counts (a 500-line PATCH = 1 recompute; receipt = 0;
+`DERIVED_VALUE_READ_ONLY`); trigger counts (a 500-line PATCH that only changes lines = 1 recompute, one that also
+adds and removes lines = 3; receipt = 0;
 status update = 0); reconciliation = 0 rows after the suites and seeds.

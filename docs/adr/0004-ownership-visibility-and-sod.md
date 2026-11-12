@@ -4,7 +4,9 @@
   constitution; no-role users and access requests; `DUPLICATE_APPROVER` removed; approval
   authority and owner transfer **not adopted**) · amended 2026-11-03 (POC scope, owner
   decision: no phone field, ADR-0016) · amended 2026-11-03 (**owner decision**: a route's
-  access level is checked before validation, like `NO_ROLE_ASSIGNED`)
+  access level is checked before validation, like `NO_ROLE_ASSIGNED`) · amended 2026-11-12
+  (slice 3, **owner decision**: deleted-draft timelines, the Buyer+Approver order list,
+  the Admin message on order writes)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -74,15 +76,16 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Action | Owner Buyer | Other Buyer | Approver | Admin | No role |
 |---|---|---|---|---|---|
 | Read or maintain vendors | read and write | read and write | read | read | 403 `NO_ROLE_ASSIGNED` |
-| Create order | ✓ | ✓ | 403 | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Create order | ✓ | ✓ | 403 | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Read `DRAFT` order | ✓ | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Read non-draft order | ✓ | 404 | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
-| Edit, submit, withdraw, delete | ✓ (state rules apply) | 404 | 403 `NOT_ORDER_OWNER` (if readable) | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Edit, submit, withdraw, delete | ✓ (state rules apply) | 404 | 403 `NOT_ORDER_OWNER` (if readable) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Approve or reject | 403 `SELF_APPROVAL` (if also Approver) | 404 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Cancel approved order | 403 `SELF_APPROVAL` (if also Approver) | 404 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Record receipt | ✓ | 404 | 403 `NOT_ORDER_OWNER` | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Outstanding report and order lists | own orders | — | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
 | Order audit timeline | own orders | 404 | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
+| Timeline of a deleted draft (by order id) | 404 (former owner) | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Vendor history | ✓ | ✓ | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Read approval policy | ✓ | ✓ | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Pending-approvals count (approver queue `total`) | 403 | 403 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
@@ -94,6 +97,16 @@ cell changes a permission, so it needs sign-off (Principle X).
 | `PATCH /api/admin/users/:id`, send reset email | 403 | 403 | 403 | ✓ (except on an Admin or themself → 409) | 403 `NO_ROLE_ASSIGNED` |
 | `GET /api/admin/access-requests`, dismiss | 403 | 403 | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 
+- **Cells added 2026-11-12** (slice 3, owner decision):
+  - **Deleted drafts**: the order row is gone, so only an Admin can still read its
+    timeline, by the order's id; the former owner gets `404` like everyone else. The
+    delete dialog warns the owner of this.
+  - **Buyer+Approver order list**: one list holding their own orders (any state) and every
+    non-draft order. Slice 4 revisits it together with the approval queue.
+  - **Admin on an order write** (create, edit, delete, and later submit and withdraw):
+    `403 FORBIDDEN` at route level, before validation, never `NOT_ORDER_OWNER`; the
+    problem's `detail` and the web app's message say "Admins can view orders but not
+    change them." Clients still branch on `code`.
 - **Public endpoints** (no session): login, signup, verify-email, resend-verification,
   forgot-password and reset-password. Refresh, logout and logout-all are authenticated by
   the refresh cookie.

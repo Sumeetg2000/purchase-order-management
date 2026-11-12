@@ -269,10 +269,13 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 2. **Given** an Approver, **When** they read a draft, **Then** `404`; **when** they create
    an order, **Then** `403` before the body is validated.
 3. **Given** an Admin, **When** they read any draft or its timeline, **Then** it succeeds;
-   **when** they create, edit or delete an order, **Then** `403`.
+   **when** they create, edit or delete an order, **Then** `403 FORBIDDEN` with the
+   message "Admins can view orders but not change them."
 4. **Given** a user with no role, **Then** every order endpoint returns `403
    NO_ROLE_ASSIGNED`, even with an invalid body; **given** no session, **Then** `401`.
-5. **Given** a Buyer+Approver who owns a draft, **Then** they act on it as its owner.
+5. **Given** a Buyer+Approver who owns a draft, **Then** they act on it as its owner,
+   and their order list holds their own orders and every non-draft order, in one list
+   (ADR-0004, 2026-11-12; slice 4 revisits it with the approval queue).
 
 ---
 
@@ -281,8 +284,9 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - Two edits of the same draft at the same moment with the same version: exactly one
   succeeds; the other gets `409 VERSION_CONFLICT`. An edit racing a delete: one wins; the
   other gets `409 VERSION_CONFLICT` or `404`.
-- 50 concurrent creates get 50 distinct PO numbers. A failed or rolled-back create may
-  leave a gap in the sequence; gaps are acceptable, never reuse.
+- 50 concurrent creates get 50 distinct, consecutive PO numbers. A failed, refused or
+  rolled-back create leaves no gap, and a replayed create takes no number: only deleted
+  drafts leave gaps, and numbers are never reused (ADR-0001, amended 2026-11-12).
 - The first order after 1 April 00:00 IST is numbered in the new financial year, starting
   at `000001`; one at 31 March 23:59:59 IST belongs to the old one (injected database
   clock).
@@ -320,7 +324,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - **FR-002** (FR-PO-05): Every order MUST get a PO number `PO-{FY}-{seq:06d}` at creation,
   by the Indian financial year in `Asia/Kolkata` from the database clock, restarting at 1
   each year. Numbers are unique, never reused (deleted drafts included) and never
-  editable, by any path.
+  editable, by any path. A number is taken in the same transaction as the create, so a
+  create that fails takes none: the only gaps are deleted drafts.
 - **FR-003** (FR-VEN-02): Create and edit MUST refuse a missing vendor (`400`, field code
   `VENDOR_NOT_FOUND`) and an inactive one (`409 VENDOR_INACTIVE`), checked against the
   vendor locked in the same transaction (the slice 2 vendor check).
@@ -372,7 +377,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 **Reading, lists and timelines**
 
 - **FR-015** (FR-OWN-01, NFR-PERF-01): Order lists MUST be paginated per ADR-0007, sorted
-  newest first (created time, then id), scoped in the database to what the caller can
+  newest first (created time, then id), or by PO number descending when the PO-number
+  filter is given (owner decision, 2026-11-12), scoped in the database to what the caller can
   read (Buyer: own orders; Admin: all; Approver: non-draft only), and filterable per
   FR-016, each filter backed by an index, with no query whose count grows with page size
   or line count.
@@ -400,9 +406,10 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 
 **Performance**
 
-- **FR-021** (NFR-PERF-03): Trigger-count tests MUST show that a 500-line edit recomputes
-  the total and open-line count once, and a status-only or timestamp-only update recomputes
-  nothing.
+- **FR-021** (NFR-PERF-03): Trigger-count tests MUST show that the total and open-line
+  count are recomputed once per line statement, never once per line: a 500-line edit that
+  only changes lines recomputes once, one that also adds and removes lines at most three
+  times, and a status-only, vendor-only or timestamp-only update recomputes nothing.
 - **FR-022**: Creating or replacing a 500-line order MUST meet ADR-0012's p95 of 500 ms,
   and "My orders" for the busiest buyer its 150 ms. The page and count query plans for
   every order list and the order timeline MUST be committed at ADR-0012's dataset sizes.
@@ -484,6 +491,9 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
   and `""` is refused (ADR-0007's one form for "no value").
 - **Header**: an order has no header fields besides its vendor (Clarifications,
   2026-11-12).
+- **Order writes' bodies** (up to 4 MiB) are read only after authentication, CSRF and the
+  role check pass; an unauthenticated or forbidden write is refused without its body
+  being read (owner direction, 2026-11-12).
 - **Approver lists** are empty in this slice (no non-draft orders exist); their cells are
   still tested.
 - **Order timeline for Admins** uses the same endpoint as for owners; the

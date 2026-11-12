@@ -1,13 +1,15 @@
 # ADR-0006: Concurrency and transaction strategy
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (details moved here from the
-  constitution) · amended 2026-11-06 (vendors carry a `version`; slice 2)
+  constitution) · amended 2026-11-06 (vendors carry a `version`; slice 2) · amended
+  2026-11-12 (the PO counter row is locked last; replays leave no gap; slice 3)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
 ## Decision
 - Lock, then read, then decide (`SELECT … FOR UPDATE`), or one conditional statement. Never
-  decide on an unlocked read. Lock order: order → lines (id asc) → vendor. The triggers
+  decide on an unlocked read. Lock order: order → lines (id asc) → vendor → PO number
+  counter row (a create only, as its last write, ADR-0001). The triggers
   that maintain received quantity lock the line themselves, so even raw SQL can't
   over-receive.
 - One short transaction per command, with no network calls. Writes are batched. Pool size,
@@ -33,8 +35,9 @@
     would make concurrent receipts on different lines conflict needlessly.
 - `Idempotency-Key` on creates of orders and receipts. Replaying a key returns the original
   result. A reused key with a different body → `409 IDEMPOTENCY_KEY_REUSED`. Keys are kept
-  for 24 hours. PO numbers are allocated before the create transaction (ADR-0001),
-  so a replay that reaches allocation can leave a gap.
+  for 24 hours. The key, the order and its PO number commit or roll back in one
+  transaction, so a replay never allocates and leaves no gap (ADR-0001, amended
+  2026-11-12).
 
 ## Tests (assert business outcomes)
 50 parallel receipts on one line; edit vs submit (the final status matches the final

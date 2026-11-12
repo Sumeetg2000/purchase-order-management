@@ -19,7 +19,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | §3.1, §3.5 | Vendor snapshot on submit; later vendor edits don't change locked orders | FR-VEN-03 | 0005 | vendor edit after approval leaves snapshot unchanged | Todo |
 | §3.2 | An order has 1–500 lines (description, quantity, unit price) | FR-PO-01 | 0009 | no lines → 400; empty PATCH set → 400; 501 lines → 400 | Todo |
 | §3.2 | Initial state is `DRAFT`; routing on submit by total | FR-PO-02 | 0001 | create → `DRAFT`; submit routes at/above/below thresholds | Todo |
-| §1 | PO number `PO-{FY}-{seq:06d}` (Indian FY, Asia/Kolkata) assigned at creation, unique, never reused, never editable | FR-PO-05 | 0001 | 50 concurrent creates unique; no reuse after delete; poNumber in body → 400; raw-SQL change rejected; FY boundary 31 Mar 23:59:59 IST → `2025-26`, 1 Apr 00:00 IST → `2026-27` starting at `000001` (injected clock); format regex | Todo |
+| §1 | PO number `PO-{FY}-{seq:06d}` (Indian FY, Asia/Kolkata) assigned at creation, unique, never reused, never editable | FR-PO-05 | 0001 | 50 concurrent creates unique and consecutive; rolled-back or refused create leaves no gap; replay allocates nothing; no reuse after delete; poNumber in body → 400; raw-SQL change rejected; FY boundary 31 Mar 23:59:59 IST → `2025-26`, 1 Apr 00:00 IST → `2026-27` starting at `000001` (injected clock); format regex | Todo |
 | §3.2 | Draft line edits keep line identity; audit diff per line | FR-PO-06 | 0009 | update+insert+delete in one PATCH; stable IDs; foreign/duplicate id → 400 | Todo |
 | §3.3 | Total always derived, never editable, on any code path | FR-PO-03 | 0003 | integrity attack suite (total paths); total in body → 400; privileged UPDATE → `DERIVED_VALUE_READ_ONLY` | Todo |
 | §3.3 | Exact money arithmetic, no drift | FR-PO-07 | 0010 | 0.1×3; 7×0.0125; 500 fractional lines; limits; INR formatting | Todo |
@@ -67,7 +67,7 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 | Pool/timeouts → 503 | NFR-CON-02 | 0006 | simulated pool timeout → 503 | Done |
 | Contract: generated OpenAPI, drift, typed errors, breaking check | NFR-API-01 | 0008 | contract tests; drift CI; oasdiff CI | Done |
 | Central DB/ORM error mapping; no message matching | NFR-API-02 | 0007 | mapping tests; lint guard | Done |
-| Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH = 1 recompute; receipt = 0; status update = 0 | Todo |
+| Trigger efficiency | NFR-PERF-03 | 0003 | 500-line PATCH changing lines only = 1 recompute, with adds and removes = 3 (one per line statement); receipt = 0; status update = 0 | Todo |
 | Production-scale latency targets | NFR-PERF-04 | 0012 | load job (median of 3 runs) | Todo |
 | Config validation, health/readiness, logs, security baseline; local vs deployment profiles | NFR-OPS-02 | 0020 | invalid config exits; `APP_ENV=production` with `SEED_DEMO_DATA=true` or SMTP host `mailpit` → exits; readiness DB-down; `/metrics` via nginx → 404, not on any host-published port, served on the internal port; API/CLI refuse owner, superuser and maintenance credentials, and a non-`po_app` URL; maintenance refuses everything but its own URL; gitleaks fails on a committed fake secret; headers; CORS denied by default | Done |
 | Cookie auth: HttpOnly/Secure/SameSite=Strict cookies, scoped paths, no token readable by JS | NFR-SEC-01 | 0017 | cookie flags and paths asserted; no token in any response body | Done |
