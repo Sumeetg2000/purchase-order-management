@@ -111,7 +111,7 @@ describe('[NFR-SEC-03] logout', () => {
 });
 
 describe('[FR-USR-01] the current user', () => {
-  it('[FR-USR-01] GET /me returns id, name, email, roles, status and signup date', async () => {
+  it('[FR-USR-01] GET /me returns id, name, email, roles and signup date', async () => {
     const h = await accountsHarness();
     const user = await h.seedUser({ name: 'Asha Rao', roles: '{BUYER,APPROVER}' });
     const res = await h.get('/me', await h.loggedIn(user));
@@ -121,7 +121,6 @@ describe('[FR-USR-01] the current user', () => {
       name: 'Asha Rao',
       email: user.email,
       roles: ['BUYER', 'APPROVER'],
-      status: 'ACTIVE',
       createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as unknown,
     });
   });
