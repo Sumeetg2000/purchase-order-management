@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { failureMessage, type ApiFailure } from '../../api/submit';
 import { useCurrentUser } from '../../auth/current-user';
+import { formatDate } from '../../format/date';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -136,6 +137,12 @@ export function VendorDetail() {
           <span className={styles.term}>Payment terms</span>
           <span>{formatPaymentTerms(vendor.paymentTerms)}</span>
         </li>
+        {vendor.deactivatedAt !== null && (
+          <li>
+            <span className={styles.term}>Deactivated</span>
+            <span>{formatDate(vendor.deactivatedAt)}</span>
+          </li>
+        )}
       </ul>
     </>
   );

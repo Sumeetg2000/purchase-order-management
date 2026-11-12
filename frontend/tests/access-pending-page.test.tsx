@@ -16,9 +16,7 @@ afterEach(() => {
 const request = (extra: Record<string, unknown> = {}) => ({
   status: 'OPEN',
   message: 'Please add me as a buyer',
-  createdAt: '2026-11-02T06:30:00.000Z',
   updatedAt: '2026-11-02T06:30:00.000Z',
-  decidedAt: null,
   adminNote: null,
   ...extra,
 });
@@ -71,7 +69,6 @@ describe('[NFR-FE-08] Access pending', () => {
           200,
           request({
             status: 'DISMISSED',
-            decidedAt: '2026-11-03T06:30:00.000Z',
             adminNote: '<b>Ask your manager</b> first',
           }),
         ),

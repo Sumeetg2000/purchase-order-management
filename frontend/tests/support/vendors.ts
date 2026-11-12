@@ -12,8 +12,6 @@ export const vendor = (extra: Record<string, unknown> = {}) => ({
   status: 'ACTIVE',
   deactivatedAt: null,
   version: 1,
-  createdAt: '2026-11-01T09:00:00.000Z',
-  updatedAt: '2026-11-01T09:00:00.000Z',
   ...extra,
 });
 

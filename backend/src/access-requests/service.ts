@@ -39,15 +39,13 @@ function toAdminAccessRequest(row: AdminAccessRequestRow): AdminAccessRequest {
     id: row.id,
     status: row.status,
     message: row.message,
-    createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    decidedAt: row.decidedAt?.toISOString() ?? null,
     adminNote: row.adminNote,
     user: {
       id: row.user.id,
       name: row.user.name,
       email: row.user.email,
-      signedUpAt: row.user.createdAt.toISOString(),
+      createdAt: row.user.createdAt.toISOString(),
     },
   };
 }

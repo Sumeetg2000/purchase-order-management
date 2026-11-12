@@ -6,7 +6,7 @@ import { api } from '../../api/app-client';
 import { failureMessage, fieldFailure, submit } from '../../api/submit';
 import { CURRENT_USER_KEY, useCurrentUser, type CurrentUser } from '../../auth/current-user';
 import { formatDate } from '../../format/date';
-import { roleSetLabel, STATUS_LABELS } from '../../format/roles';
+import { roleSetLabel } from '../../format/roles';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -112,10 +112,6 @@ function DetailsForm({
         <li>
           <span className={styles.term}>Role</span>
           <span>{roleSetLabel(user.roles)}</span>
-        </li>
-        <li>
-          <span className={styles.term}>Status</span>
-          <span>{STATUS_LABELS[user.status]}</span>
         </li>
         <li>
           <span className={styles.term}>Signed up</span>

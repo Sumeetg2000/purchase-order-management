@@ -27,8 +27,6 @@ describe('[FR-VEN-01] create a vendor', () => {
       status: 'ACTIVE',
       deactivatedAt: null,
       version: 1,
-      createdAt: expect.any(String) as unknown,
-      updatedAt: expect.any(String) as unknown,
     });
     expect(res.get('ETag')).toBe('"1"');
     expect(res.get('Location')).toBe(`${API_PATH_PREFIX}/vendors/${id}`);

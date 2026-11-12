@@ -1,15 +1,17 @@
 import { z } from 'zod';
-import { USER_ROLES, USER_STATUSES } from '../users.js';
+import { USER_ROLES } from '../users.js';
 import { userName } from './auth.js';
 
-/** The caller's own profile (ADR-0016). No phone: none is stored (amended 2026-11-03). */
+/**
+ * The caller's own profile (ADR-0016). No phone: none is stored (amended 2026-11-03). No
+ * status: only an active user can read it (ADR-0008, amended 2026-11-12).
+ */
 export const me = z
   .strictObject({
     id: z.uuid(),
     name: z.string(),
     email: z.string(),
     roles: z.array(z.enum(USER_ROLES)),
-    status: z.enum(USER_STATUSES),
     createdAt: z.iso.datetime(),
   })
   .meta({ id: 'Me' });

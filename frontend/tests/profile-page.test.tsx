@@ -48,7 +48,7 @@ function profileApi(handlers: Record<string, Handler> = {}) {
 }
 
 describe('[NFR-FE-08] profile details', () => {
-  it('[FR-USR-01] shows the name to edit, and email, roles, status and signup date read-only', async () => {
+  it('[FR-USR-01] shows the name to edit, and email, roles and signup date read-only', async () => {
     profileApi();
     renderApp('/profile');
     expect(await screen.findByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument();
@@ -56,7 +56,8 @@ describe('[NFR-FE-08] profile details', () => {
     const details = screen.getByRole('list', { name: 'Account' });
     expect(within(details).getByText('asha@example.local')).toBeInTheDocument();
     expect(within(details).getByText('Buyer')).toBeInTheDocument();
-    expect(within(details).getByText('Active')).toBeInTheDocument();
+    // No status: only an active user can see their profile.
+    expect(within(details).queryByText('Status')).toBeNull();
     expect(within(details).getByText('1 November 2026')).toBeInTheDocument();
   });
 

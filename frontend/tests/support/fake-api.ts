@@ -36,7 +36,6 @@ export const ME = {
   name: 'Asha Rao',
   email: 'asha@example.local',
   roles: ['BUYER'],
-  status: 'ACTIVE',
   createdAt: '2026-11-01T09:00:00.000Z',
 };
 

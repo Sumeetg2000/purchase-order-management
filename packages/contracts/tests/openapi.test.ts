@@ -281,6 +281,22 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     });
   });
 
+  it('[NFR-API-01] every database-backed operation declares the 503 codes a database failure answers', () => {
+    // Liveness never reaches the database; readiness reports its own SERVICE_UNAVAILABLE.
+    const noDatabase = new Set(['getHealth', 'getReadiness']);
+    for (const operation of Object.values(OPERATIONS) as OperationContract[]) {
+      if (noDatabase.has(operation.operationId)) continue;
+      const method = operation.method;
+      const path = operation.path.replace(/:(\w+)/g, '{$1}');
+      const unavailable = at(doc, 'paths', path, method, 'responses', '503');
+      expect(unavailable['x-error-codes'], operation.operationId).toEqual([
+        'SERVICE_UNAVAILABLE',
+        'CONCURRENCY_RETRY_EXHAUSTED',
+      ]);
+    }
+    expect(at(doc, 'paths', '/healthz', 'get', 'responses')).not.toHaveProperty('503');
+  });
+
   it('[NFR-API-01] declares the X-Request-Id header on success and error responses', () => {
     const header = { $ref: '#/components/headers/XRequestId' };
     expect(at(doc, 'paths', '/healthz', 'get', 'responses', '200', 'headers')).toEqual({

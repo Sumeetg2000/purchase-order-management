@@ -24,15 +24,13 @@ const request = (extra: Record<string, unknown> = {}) => ({
   id: '0192e4a0-0000-7000-8000-0000000000f1',
   status: 'OPEN',
   message: '<b>Please</b> add me as a buyer',
-  createdAt: '2026-11-02T06:30:00.000Z',
   updatedAt: '2026-11-02T06:30:00.000Z',
-  decidedAt: null,
   adminNote: null,
   user: {
     id: NIA_ID,
     name: 'Nia New',
     email: 'nia@example.local',
-    signedUpAt: '2026-11-01T06:30:00.000Z',
+    createdAt: '2026-11-01T06:30:00.000Z',
   },
   ...extra,
 });
@@ -91,7 +89,6 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
             request({
               status: 'DISMISSED',
               adminNote: 'Ask your manager',
-              decidedAt: '2026-11-03T06:30:00.000Z',
             }),
           ]),
         ),

@@ -34,9 +34,7 @@ function toOwnAccessRequest(request: AccessRequest): OwnAccessRequest {
   return {
     status: request.status,
     message: request.message,
-    createdAt: request.createdAt.toISOString(),
     updatedAt: request.updatedAt.toISOString(),
-    decidedAt: request.decidedAt?.toISOString() ?? null,
     adminNote: request.adminNote,
   };
 }
@@ -96,11 +94,12 @@ export function createProfileService(deps: {
         async (tx) => {
           // One send at a time per user, so two can't both open a request; and the user is
           // checked again under the lock, since an admin may have granted a role or
-          // deactivated them since the authorize step read the user.
+          // deactivated them since the authorize step read the user. Deactivation is said
+          // as such, as the authorize step would on the next request.
           const locked = await lockUser(tx, user.userId);
-          if (!locked || locked.roles.length > 0 || locked.status !== USER_STATUS.ACTIVE) {
-            throw new AppError('FORBIDDEN');
-          }
+          if (!locked) throw new Error(`authenticated user ${user.userId} not found`);
+          if (locked.status !== USER_STATUS.ACTIVE) throw new AppError('ACCOUNT_DEACTIVATED');
+          if (locked.roles.length > 0) throw new AppError('FORBIDDEN');
           const saved = await openOrUpdateAccessRequest(tx, { userId: user.userId, message });
           await writeAudit(tx, {
             action: 'ACCESS_REQUESTED',

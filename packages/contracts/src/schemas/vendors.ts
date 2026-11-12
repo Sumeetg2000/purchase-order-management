@@ -66,8 +66,6 @@ export const vendor = z
     status: z.enum(VENDOR_STATUSES),
     deactivatedAt: z.iso.datetime().nullable(),
     version: z.int(),
-    createdAt: z.iso.datetime(),
-    updatedAt: z.iso.datetime(),
   })
   .meta({ id: 'Vendor' });
 

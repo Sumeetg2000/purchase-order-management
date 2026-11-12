@@ -232,8 +232,6 @@ describe('[FR-VEN-01] vendor list query and responses', () => {
       status: 'INACTIVE',
       deactivatedAt: '2026-11-06T10:00:00.000Z',
       version: 2,
-      createdAt: '2026-11-06T09:00:00.000Z',
-      updatedAt: '2026-11-06T10:00:00.000Z',
     };
     expect(failures(vendor, item)).toEqual([]);
     expect(failures(vendor, { ...item, nameKey: 'acme supplies' })).toEqual([
@@ -253,7 +251,7 @@ describe('[FR-VEN-01] vendor list query and responses', () => {
       failures(vendorHistoryItem, {
         id: '42',
         action: 'VENDOR_CREATED',
-        occurredAt: item.createdAt,
+        occurredAt: '2026-11-06T09:00:00.000Z',
         actor: { type: 'USER', name: 'Asha', email: 'asha@example.local', role: 'BUYER' },
         before: null,
         after: snapshot,

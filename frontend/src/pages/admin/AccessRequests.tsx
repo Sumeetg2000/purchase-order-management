@@ -109,7 +109,7 @@ export function AccessRequests() {
                     <br />
                     <span className={styles.muted}>{request.user.email}</span>
                   </td>
-                  <td>{formatDate(request.user.signedUpAt)}</td>
+                  <td>{formatDate(request.user.createdAt)}</td>
                   <td className={styles.message}>{request.message}</td>
                   <td>{STATUS_LABELS[request.status]}</td>
                   <td>{formatDate(request.updatedAt)}</td>
