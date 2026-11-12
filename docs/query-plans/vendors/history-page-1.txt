@@ -1,0 +1,6 @@
+-- SELECT id::text, action, occurred_at AS "occurredAt", actor_type AS "actorType", actor_name AS "actorName", actor_email AS "actorEmail", acting_role AS "actingRole", details FROM audit_entries WHERE entity_type = $1 AND entity_id = $2 ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC LIMIT $3 OFFSET $4
+-- values: ["vendor","b8aea4c4-2105-94c3-e87c-c8d031377730",20,0]
+
+Limit
+  ->  Index Scan using audit_entries_entity_idx on audit_entries
+        Index Cond: ((entity_type = 'vendor'::text) AND (entity_id = 'b8aea4c4-2105-94c3-e87c-c8d031377730'::text))

@@ -66,6 +66,8 @@ const ROUTES = [
   route('post', '/probe/me', 'user', { request: { body } }),
   route('post', '/probe/request', 'no-role', { request: { body } }),
   route('post', '/probe/admin', 'admin', { request: { body } }),
+  route('post', '/probe/buyer', 'role', { roles: ['BUYER'], request: { body } }),
+  route('get', '/probe/buyer-or-admin', 'role', { roles: ['BUYER', 'ADMIN'] }),
   route('post', '/probe/refresh', 'refresh'),
   route('patch', '/probe/versioned', 'admin', { ifMatch: 'required', request: { body } }),
   route('post', '/probe/password', 'user', {
@@ -327,6 +329,93 @@ describe('[NFR-AUTH-02] access levels and check precedence', () => {
         testOnlyRoutes: [route('get', '/probe/me', 'user')],
       }),
     ).toThrow(RouteRegistrationError);
+  });
+});
+
+describe('[FR-ACT-01] the role access level', () => {
+  const sent = [{ name: 'x' }, { wrong: true }, '{"name":'];
+
+  it('[FR-ACT-01] a role route serves exactly its roles, a dual-role user included', async () => {
+    const { app, seed } = await setup();
+    for (const roles of ['{BUYER}', '{BUYER,APPROVER}']) {
+      const res = await as(app, await seed(roles))
+        .post('/probe/buyer')
+        .send({ name: 'x' });
+      expect(res.status, roles).toBe(200);
+    }
+    for (const roles of ['{BUYER}', '{ADMIN}']) {
+      expect((await as(app, await seed(roles)).get('/probe/buyer-or-admin')).status, roles).toBe(
+        200,
+      );
+    }
+  });
+
+  it('[FR-ACT-01] no role is 403 NO_ROLE_ASSIGNED, before body validation', async () => {
+    const { app, seed } = await setup();
+    const none = await seed('{}');
+    for (const body of sent) {
+      const res = await as(app, none)
+        .post('/probe/buyer')
+        .set('Content-Type', 'application/json')
+        .send(body);
+      expect(res.status, JSON.stringify(body)).toBe(403);
+      expect(res.body).toMatchObject({ code: 'NO_ROLE_ASSIGNED' });
+    }
+    expect((await as(app, none).get('/probe/buyer-or-admin')).body).toMatchObject({
+      code: 'NO_ROLE_ASSIGNED',
+    });
+  });
+
+  it('[FR-ACT-01] a role outside the list is 403 FORBIDDEN, before body validation', async () => {
+    const { app, seed } = await setup();
+    for (const roles of ['{APPROVER}', '{ADMIN}']) {
+      const user = await seed(roles);
+      for (const body of sent) {
+        const res = await as(app, user)
+          .post('/probe/buyer')
+          .set('Content-Type', 'application/json')
+          .send(body);
+        expect(res.status, `${roles} ${JSON.stringify(body)}`).toBe(403);
+        expect(res.body).toMatchObject({ code: 'FORBIDDEN' });
+      }
+    }
+    const approver = await seed('{APPROVER}');
+    expect((await as(app, approver).get('/probe/buyer-or-admin')).body).toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('[FR-ACT-01] an anonymous caller is 401 UNAUTHENTICATED', async () => {
+    const { app } = await setup();
+    const res = await request(app)
+      .post('/probe/buyer')
+      .set('Origin', APP_ORIGIN)
+      .send({ wrong: true });
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED' });
+  });
+
+  it('[FR-ACT-01] a route whose access and roles disagree fails at startup', () => {
+    const auth = {
+      service: {} as never,
+      csrfSecret: CSRF_SECRET,
+    };
+    for (const bad of [
+      route('get', '/probe/bad', 'role'),
+      route('get', '/probe/bad', 'role', { roles: [] }),
+      route('get', '/probe/bad', 'admin', { roles: ['ADMIN'] }),
+    ]) {
+      expect(
+        () =>
+          createTestApp({
+            logger: testLogger(),
+            appOrigin: APP_ORIGIN,
+            auth,
+            testOnlyRoutes: [bad],
+          }),
+        JSON.stringify({ access: bad.access, roles: bad.roles }),
+      ).toThrow(RouteRegistrationError);
+    }
   });
 });
 

@@ -2,7 +2,7 @@
 # Smoke test for the running compose stack (`docker compose up -d --wait` first).
 # Checks service state, health and readiness through the edge, the SPA, the maintenance
 # first run, Mailpit, and that /metrics is internal only (contracts/metrics.md).
-# Prints the elapsed start time (SC-001): from SMOKE_STARTED_AT (epoch seconds, set
+# Prints the elapsed start time (the slice 0 start-time budget): from SMOKE_STARTED_AT (epoch seconds, set
 # before `docker compose up`) or, failing that, from the db container's start.
 set -euo pipefail
 
@@ -213,7 +213,7 @@ eventually "no host-published port serves Prometheus content" no_published_port_
 eventually "api:9464/metrics answers inside the network" internal_metrics
 eventually "maintenance logged its first purge run with both tables" maintenance_ran
 eventually "Mailpit API answers on 127.0.0.1:8025" body_contains "http://127.0.0.1:8025/api/v1/info" '"Version"'
-# SC-001's start time is measured here, before the checks below restart the API.
+# The start-time budget is measured here, before the checks below restart the API.
 ready_at="$(date +%s)"
 eventually "the api's mail reaches Mailpit over SMTP" api_mail_reaches_mailpit
 eventually "a 3 MB POST gets the edge's problem+json 413" oversized_post
@@ -234,7 +234,7 @@ if [[ -z "$started" ]]; then
   fi
 fi
 if [[ -n "$started" ]]; then
-  echo "smoke: stack ready $((ready_at - started))s after start (SC-001 budget: 600s)"
+  echo "smoke: stack ready $((ready_at - started))s after start (start-time budget: 600s)"
 else
   echo "smoke: start time unknown (no db container)"
 fi

@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { API_BASE_URL, createApiClient, parseProblem } from '../src/api/client';
@@ -15,14 +16,14 @@ function jsonResponse(status: number, body: unknown, type = 'application/json') 
 
 describe('[NFR-API-01] generated API client', () => {
   it('[NFR-API-01] calls the API under the same prefix the OpenAPI document declares', () => {
-    expect(API_BASE_URL).toBe('/api');
+    expect(API_BASE_URL).toBe(API_PATH_PREFIX);
     expect(document.servers.map((s) => s.url)).toEqual([API_BASE_URL]);
   });
 
   it('[NFR-API-01] sends typed requests to the documented paths', async () => {
     const urls: string[] = [];
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       fetch: (input: Request) => {
         urls.push(input.url);
         return Promise.resolve(jsonResponse(200, { status: 'ok' }));
@@ -30,7 +31,7 @@ describe('[NFR-API-01] generated API client', () => {
     });
     const { data } = await client.GET('/healthz');
     expect(data).toEqual({ status: 'ok' });
-    expect(urls).toEqual(['http://localhost/api/healthz']);
+    expect(urls).toEqual([`http://localhost${API_PATH_PREFIX}/healthz`]);
   });
 
   it('[NFR-API-01] parses a problem document from an error response', async () => {
@@ -42,7 +43,7 @@ describe('[NFR-API-01] generated API client', () => {
       correlationId: 'req-client-0001',
     };
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       fetch: () => Promise.resolve(jsonResponse(503, problem, 'application/problem+json')),
     });
     const { error, response } = await client.GET('/readyz');

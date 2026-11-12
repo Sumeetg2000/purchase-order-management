@@ -17,7 +17,7 @@ describe('[NFR-API-02] error code registry', () => {
     for (const code of ERROR_CODES) expect(code).toMatch(/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/);
   });
 
-  it('[NFR-API-02] holds exactly the slice 0 and slice 1 codes with their statuses', () => {
+  it('[NFR-API-02] holds exactly the slice 0 to slice 2 codes with their statuses', () => {
     const statuses = Object.fromEntries(ERROR_CODES.map((c) => [c, ERROR_REGISTRY[c].status]));
     expect(statuses).toEqual({
       VALIDATION_FAILED: 400,
@@ -54,6 +54,10 @@ describe('[NFR-API-02] error code registry', () => {
       ACCESS_REQUEST_NOT_OPEN: 409,
       ACCOUNT_LOCKED: 423,
       RATE_LIMITED: 429,
+      // Slice 2 (specs/003-vendors/contracts/errors.md)
+      DUPLICATE_VENDOR_NAME: 409,
+      INVALID_STATE_TRANSITION: 409,
+      VENDOR_INACTIVE: 409,
     });
   });
 
@@ -70,6 +74,15 @@ describe('[NFR-API-02] error code registry', () => {
     }
   });
 
+  it('[FR-VEN-01] only DUPLICATE_VENDOR_NAME names a clash member, existingVendor', () => {
+    for (const code of ERROR_CODES) {
+      const entry: ErrorDefinition = ERROR_REGISTRY[code];
+      expect(entry.clash, code).toBe(
+        code === 'DUPLICATE_VENDOR_NAME' ? 'existingVendor' : undefined,
+      );
+    }
+  });
+
   it('[NFR-FE-02] the public revoke reasons are exactly password changed, password reset and roles changed', () => {
     expect([...PUBLIC_REVOKE_REASONS]).toEqual([
       'PASSWORD_CHANGED',
@@ -78,7 +91,7 @@ describe('[NFR-API-02] error code registry', () => {
     ]);
   });
 
-  it('[NFR-VAL-01] lists the slice 0 and slice 1 field codes', () => {
+  it('[NFR-VAL-01] lists the slice 0 to slice 2 field codes', () => {
     expect([...FIELD_CODES].sort()).toEqual(
       [
         'MALFORMED_JSON',
@@ -96,6 +109,7 @@ describe('[NFR-API-02] error code registry', () => {
         'PASSWORD_TOO_COMMON',
         'INCORRECT_PASSWORD',
         'PASSWORD_UNCHANGED',
+        'VENDOR_NOT_FOUND',
       ].sort(),
     );
   });
@@ -117,6 +131,15 @@ describe('[NFR-API-02] AppError', () => {
     );
     expect(new AppError('SESSION_REVOKED').reason).toBeUndefined();
     expect(() => new AppError('SESSION_EXPIRED', { reason: 'ROLES_CHANGED' })).toThrow(TypeError);
+  });
+
+  it('[FR-VEN-01] carries existingVendor on DUPLICATE_VENDOR_NAME only', () => {
+    const existingVendor = { id: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f', name: 'Acme Supplies' };
+    expect(new AppError('DUPLICATE_VENDOR_NAME', { existingVendor }).existingVendor).toEqual(
+      existingVendor,
+    );
+    expect(new AppError('DUPLICATE_VENDOR_NAME').existingVendor).toBeUndefined();
+    expect(() => new AppError('VERSION_CONFLICT', { existingVendor })).toThrow(TypeError);
   });
 
   it('[NFR-API-02] refuses an unregistered code at compile time and at run time', () => {
@@ -162,6 +185,27 @@ describe('[NFR-API-02] problem schema', () => {
       expect(problemSchema.safeParse({ ...revoked, reason }).success, reason).toBe(false);
     }
     expect(problemSchema.safeParse({ ...valid, reason: 'PASSWORD_RESET' }).success).toBe(false);
+  });
+
+  it('[FR-VEN-01] accepts existingVendor { id, name } on DUPLICATE_VENDOR_NAME only', () => {
+    const duplicate = {
+      ...valid,
+      code: 'DUPLICATE_VENDOR_NAME',
+      status: 409,
+      title: 'Vendor name already used',
+    };
+    const existingVendor = { id: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f', name: 'Acme Supplies' };
+    expect(problemSchema.safeParse(duplicate).success).toBe(true);
+    expect(problemSchema.safeParse({ ...duplicate, existingVendor }).success).toBe(true);
+    expect(problemSchema.safeParse({ ...valid, existingVendor }).success).toBe(false);
+    expect(
+      problemSchema.safeParse({ ...duplicate, existingVendor: { ...existingVendor, id: 'x' } })
+        .success,
+    ).toBe(false);
+    expect(
+      problemSchema.safeParse({ ...duplicate, existingVendor: { ...existingVendor, extra: 1 } })
+        .success,
+    ).toBe(false);
   });
 
   it('[NFR-API-02] rejects an unknown code, a missing correlation id and extra fields', () => {

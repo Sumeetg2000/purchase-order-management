@@ -1,0 +1,6 @@
+-- SELECT id::text, name, contact_name AS "contactName", contact_email AS "contactEmail", contact_phone AS "contactPhone", payment_term_type AS "paymentTermType", net_days AS "netDays", advance_percent AS "advancePercent", status, deactivated_at AS "deactivatedAt", version, created_at AS "createdAt", updated_at AS "updatedAt" FROM vendors WHERE status = $1 AND name_key >= vendor_name_key($2) AND name_key < vendor_name_key($3) || chr($4::int) ORDER BY vendors.name_key LIMIT $5 OFFSET $6
+-- values: ["ACTIVE","wil","wil",1114111,20,0]
+
+Limit
+  ->  Index Scan using vendors_status_name_key_idx on vendors
+        Index Cond: ((status = 'ACTIVE'::text) AND (name_key >= 'wil'::text) AND (name_key < 'wil􏿿'::text))

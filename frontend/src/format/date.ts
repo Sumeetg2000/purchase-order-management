@@ -11,3 +11,17 @@ const LONG_DATE = new Intl.DateTimeFormat('en-IN', {
 export function formatDate(iso: string): string {
   return LONG_DATE.format(new Date(iso));
 }
+
+const DATE_TIME = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: 'Asia/Kolkata',
+});
+
+/** A moment, e.g. "11 November 2026 at 2:30 pm", in India's time zone. */
+export function formatDateTime(iso: string): string {
+  return DATE_TIME.format(new Date(iso));
+}

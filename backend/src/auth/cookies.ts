@@ -1,4 +1,4 @@
-import { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
+import { ACCESS_COOKIE, API_PATH_PREFIX, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 import { parseCookie } from 'cookie';
 import type { CookieOptions, Request, Response } from 'express';
 import { SECOND_MS } from '../lib/time.js';
@@ -9,9 +9,9 @@ import { SECOND_MS } from '../lib/time.js';
 
 export { ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE } from '@po/contracts';
 
-/** The access cookie reaches the whole API; the refresh cookie only /api/auth. */
-const ACCESS_PATH = '/api';
-const REFRESH_PATH = '/api/auth';
+/** The access cookie reaches the whole API; the refresh cookie only its auth routes. */
+const ACCESS_PATH = API_PATH_PREFIX;
+const REFRESH_PATH = `${API_PATH_PREFIX}/auth`;
 /** The page reads the CSRF cookie, so it lives at the root. */
 const CSRF_PATH = '/';
 

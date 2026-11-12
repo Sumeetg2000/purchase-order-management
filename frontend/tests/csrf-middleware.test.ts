@@ -1,4 +1,4 @@
-import { CSRF_COOKIE, CSRF_HEADER } from '@po/contracts';
+import { API_PATH_PREFIX, CSRF_COOKIE, CSRF_HEADER } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import { createApiClient, csrfMiddleware, readCookie } from '../src/api/client';
 
@@ -9,7 +9,7 @@ const CSRF = 'a'.repeat(43);
 
 async function sent(method: string, cookies: string): Promise<string | null> {
   const middleware = csrfMiddleware(() => cookies);
-  const request = new Request('http://localhost/api/anything', { method });
+  const request = new Request(`http://localhost${API_PATH_PREFIX}/anything`, { method });
   const result = await middleware.onRequest?.({
     request,
     schemaPath: '/anything',
@@ -51,7 +51,7 @@ describe('[NFR-FE-02] CSRF header', () => {
   it('[NFR-FE-02] the API client applies it to its calls', async () => {
     const headers: (string | null)[] = [];
     const client = createApiClient({
-      baseUrl: 'http://localhost/api',
+      baseUrl: `http://localhost${API_PATH_PREFIX}`,
       cookies: () => `po_csrf=${CSRF}`,
       fetch: (request: Request) => {
         headers.push(request.headers.get(CSRF_HEADER));

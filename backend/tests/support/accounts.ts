@@ -152,7 +152,7 @@ export async function accountsHarness(start?: Date) {
 
   /** A state-changing call with the access cookie and the CSRF header. */
   function send(
-    method: 'post' | 'patch' | 'delete',
+    method: 'post' | 'put' | 'patch' | 'delete',
     path: string,
     jar: CookieJar,
     body?: unknown,

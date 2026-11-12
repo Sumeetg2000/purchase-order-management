@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM vendors WHERE status = $1
+-- values: ["ACTIVE"]
+
+Aggregate
+  ->  Seq Scan on vendors
+        Filter: (status = 'ACTIVE'::text)

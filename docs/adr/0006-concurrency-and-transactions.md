@@ -1,7 +1,7 @@
 # ADR-0006: Concurrency and transaction strategy
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (details moved here from the
-  constitution)
+  constitution) · amended 2026-11-06 (vendors carry a `version`; slice 2)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
@@ -24,6 +24,10 @@
     extra statuses. Clients branch on `code`.
   - Users carry a `version` too. The admin user update requires `If-Match` with the same
     rules (ADR-0016).
+  - Vendors carry a `version` too (amended 2026-11-06). Edit, deactivate and reactivate
+    require `If-Match` with the same rules. A vendor create takes no `Idempotency-Key`:
+    the unique normalised name already makes a retry answer `409 DUPLICATE_VENDOR_NAME`
+    naming the vendor the first attempt created (ADR-0005).
   - Receipts don't need `If-Match` and don't increment `version`. They are guarded by the
     line lock, the database constraint and `Idempotency-Key`. Requiring a version there
     would make concurrent receipts on different lines conflict needlessly.

@@ -1,4 +1,4 @@
-import { OPERATIONS, type OperationContract } from '@po/contracts';
+import { accessProblem, OPERATIONS, type OperationContract } from '@po/contracts';
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
@@ -51,6 +51,7 @@ function describeRoute(route: Pick<OperationContract, 'method' | 'path'>): strin
 const CONTRACT_FIELDS = [
   'summary',
   'access',
+  'roles',
   'ifMatch',
   'setsCookies',
   'request',
@@ -84,6 +85,10 @@ export function validateRoutes(
       throw new RouteRegistrationError(
         `Route ${label} declares no valid access level (expected one of: ${ACCESS_LEVELS.join(', ')})`,
       );
+    }
+    const accessMismatch = accessProblem(route);
+    if (accessMismatch) {
+      throw new RouteRegistrationError(`Route ${label} ${accessMismatch}`);
     }
     if (Object.keys(route.responses).length === 0) {
       throw new RouteRegistrationError(
@@ -138,7 +143,7 @@ function requestSteps(route: RouteDefinition, auth: AuthDependencies | undefined
       `Route ${describeRoute(route)} needs authentication, but the app has none`,
     );
   }
-  return [authenticate(route.access, auth), ...validate];
+  return [authenticate(route, auth), ...validate];
 }
 
 export function createApp({

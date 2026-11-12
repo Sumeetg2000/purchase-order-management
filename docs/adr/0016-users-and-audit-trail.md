@@ -6,7 +6,8 @@
   amended 2026-11-02 (POC: clear, specific error messages over anti-enumeration: login
   codes per status, ADR-0017) · amended 2026-11-03 (POC scope, owner decision: no phone
   field, so no phone purge and no `USER_PHONE_PURGED`; the admin lists' committed query
-  plans move to slice 7)
+  plans move to slice 7) · amended 2026-11-06 (owner decision: vendor contact details are
+  business data, kept in full in vendor audit entries)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -203,7 +204,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `PO_DRAFT_DELETED` | PO number, full contents |
 | `PO_CANCELLED` | reason, per line ordered and received |
 | `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter` |
-| `VENDOR_CREATED` / `VENDOR_UPDATED` / `VENDOR_DEACTIVATED` / `VENDOR_REACTIVATED` | before → after |
+| `VENDOR_CREATED` / `VENDOR_UPDATED` / `VENDOR_DEACTIVATED` / `VENDOR_REACTIVATED` | before → after(full vendor, contact name, email and phone included; see below) |
 | `APPROVAL_POLICY_CHANGED` | actorType `OPERATOR`; policy version and tiers before → after; `osUser`, `host` |
 | `USER_SIGNED_UP` | user id, email domain, initial role set |
 | `USER_EMAIL_VERIFIED` | how: verification link or completed reset |
@@ -233,6 +234,12 @@ Authentication events (logins, lockouts, password changes, session revocations) 
 - Under the DPDP Act 2023, audit actor snapshots (name and email) are kept for that period
   on the **legal-obligation** basis: they are part of the statutory record.
 - Session and security-log data has its own 90-day rule (ADR-0017, ADR-0020).
+- **Vendor contact details** (amended 2026-11-06, owner decision): a vendor's contact
+  name, email and phone are business contact data for a supplier, not a user's personal
+  data, so vendor entries keep them in full before → after. That lets a dispute show which
+  contact and terms applied. Principle IV's exclusion of unneeded personal data still
+  applies to users: no user phone exists, and user entries never carry more than the
+  actor snapshot and the changed fields.
 
 ### Visibility (paginated, read-only, filtered in SQL)
 - **Admin**: any order's timeline, plus an organisation-wide log filterable by actor,

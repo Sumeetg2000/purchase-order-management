@@ -1,4 +1,4 @@
-import type { UserRole, UserStatus } from '@po/contracts';
+import type { UserRole, UserStatus, VendorSnapshot } from '@po/contracts';
 
 // The audit event catalogue (ADR-0016). Each slice adds the events it records; slice 0
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
@@ -52,6 +52,24 @@ export interface AuditEventCatalogue {
   ACCESS_REQUEST_DISMISSED: {
     entityType: 'access_request';
     details: { requestId: string; note: string | null };
+  };
+  /** A Buyer added a vendor (slice 2). Contact details in full (ADR-0016, 2026-11-06). */
+  VENDOR_CREATED: {
+    entityType: 'vendor';
+    details: { before: null; after: VendorSnapshot };
+  };
+  /** Every accepted edit, even one that changes nothing, writes one and moves the version. */
+  VENDOR_UPDATED: {
+    entityType: 'vendor';
+    details: { before: VendorSnapshot; after: VendorSnapshot };
+  };
+  VENDOR_DEACTIVATED: {
+    entityType: 'vendor';
+    details: { before: VendorSnapshot; after: VendorSnapshot };
+  };
+  VENDOR_REACTIVATED: {
+    entityType: 'vendor';
+    details: { before: VendorSnapshot; after: VendorSnapshot };
   };
   ADMIN_CREATED: {
     entityType: 'user';

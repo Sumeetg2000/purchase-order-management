@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useBlocker } from 'react-router';
 import { LOGIN_PATH } from '../auth/return-to';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -11,6 +11,11 @@ export interface UnsavedChangesGuard {
    * cleared dirty flag only after React re-renders, so without this it would still ask.
    */
   release: () => void;
+  /**
+   * Discards the edits in place (a Reload after a version conflict): runs `discard` at once
+   * when nothing is unsaved, and otherwise only after the same prompt says to.
+   */
+  confirmDiscard: (discard: () => void) => void;
 }
 
 /**
@@ -55,24 +60,52 @@ export function useUnsavedChangesGuard(isDirty: boolean): UnsavedChangesGuard {
     guarding.current = false;
   }, []);
 
+  // The in-page discard waiting for an answer; a function in state, so wrapped.
+  const [pendingDiscard, setPendingDiscard] = useState<{ run: () => void }>();
+  const confirmDiscard = useCallback((discard: () => void) => {
+    if (guarding.current) setPendingDiscard({ run: discard });
+    else discard();
+  }, []);
+
   const dialog =
-    blocker.state === 'blocked' ? (
-      <ConfirmDialog
-        title="Discard your unsaved changes?"
-        confirmLabel="Discard changes"
-        cancelLabel="Keep editing"
-        tone="danger"
-        onConfirm={() => {
-          blocker.proceed();
-          return Promise.resolve();
+    pendingDiscard !== undefined ? (
+      <DiscardDialog
+        onDiscard={() => {
+          setPendingDiscard(undefined);
+          pendingDiscard.run();
         }}
-        onClose={() => {
+        onKeep={() => {
+          setPendingDiscard(undefined);
+        }}
+      />
+    ) : blocker.state === 'blocked' ? (
+      <DiscardDialog
+        onDiscard={() => {
+          blocker.proceed();
+        }}
+        onKeep={() => {
           blocker.reset();
         }}
-      >
-        Your changes on this page haven&apos;t been saved. If you leave now, they&apos;ll be lost.
-      </ConfirmDialog>
+      />
     ) : null;
 
-  return { dialog, release };
+  return { dialog, release, confirmDiscard };
+}
+
+function DiscardDialog({ onDiscard, onKeep }: { onDiscard: () => void; onKeep: () => void }) {
+  return (
+    <ConfirmDialog
+      title="Discard your unsaved changes?"
+      confirmLabel="Discard changes"
+      cancelLabel="Keep editing"
+      tone="danger"
+      onConfirm={() => {
+        onDiscard();
+        return Promise.resolve();
+      }}
+      onClose={onKeep}
+    >
+      Your changes on this page haven&apos;t been saved. If you leave now, they&apos;ll be lost.
+    </ConfirmDialog>
+  );
 }

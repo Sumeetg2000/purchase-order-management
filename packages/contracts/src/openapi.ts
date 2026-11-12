@@ -4,9 +4,15 @@ import {
   type ZodOpenApiOperationObject,
   type ZodOpenApiResponseObject,
 } from 'zod-openapi';
-import { ERROR_REGISTRY, type ErrorCode } from './errors.js';
+import { clashMemberOf, ERROR_REGISTRY, type ClashMember, type ErrorCode } from './errors.js';
 import { ETAG_PATTERN } from './etag.js';
-import { OPERATIONS, type Access, type OperationContract } from './operations.js';
+import {
+  accessProblem,
+  API_PATH_PREFIX,
+  OPERATIONS,
+  type Access,
+  type OperationContract,
+} from './operations.js';
 import { REQUEST_ID_PATTERN } from './request-id.js';
 import { problemSchema } from './schemas/problem.js';
 import { ACCESS_COOKIE, CSRF_HEADER, REFRESH_COOKIE, requiresCsrf } from './session-cookies.js';
@@ -41,6 +47,10 @@ const etagHeaders = responseHeaders.extend({
     .regex(ETAG_PATTERN)
     .meta({ description: "The resource's version; send it back in If-Match to update it." }),
 });
+
+const locationHeader = {
+  Location: z.string().meta({ description: 'The path of the created resource.' }),
+};
 
 const maybeCookieHeaders = responseHeaders.extend({
   'Set-Cookie': z.string().optional().meta({
@@ -84,6 +94,7 @@ const CREDENTIAL: Readonly<Record<Access, SecurityScheme | undefined>> = {
   user: 'accessCookie',
   'no-role': 'accessCookie',
   admin: 'accessCookie',
+  role: 'accessCookie',
 };
 
 /** Security requirements: the credential, plus the CSRF header on unsafe methods. */
@@ -119,6 +130,7 @@ const ACCESS_CODES: Readonly<Record<Access, readonly ErrorCode[]>> = {
   user: SESSION_CODES,
   'no-role': [...SESSION_CODES, 'FORBIDDEN'],
   admin: [...SESSION_CODES, 'NO_ROLE_ASSIGNED', 'FORBIDDEN'],
+  role: [...SESSION_CODES, 'NO_ROLE_ASSIGNED', 'FORBIDDEN'],
 };
 
 /** Codes whose responses say when to try again (lockout, rate limits). */
@@ -140,19 +152,37 @@ function toOpenApiPath(path: string): string {
   return path.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
 }
 
+/** The headers of a success response; a 201 also says where the new resource is. */
+function successHeaders(operation: OperationContract, status: number) {
+  const headers =
+    operation.setsCookies === 'sometimes'
+      ? maybeCookieHeaders
+      : operation.setsCookies
+        ? cookieHeaders
+        : operation.etag
+          ? etagHeaders
+          : responseHeaders;
+  return status === 201 ? headers.extend(locationHeader) : headers;
+}
+
+/** The clash members an error response's codes may carry, by code (ADR-0007). */
+function problemMembers(codes: readonly ErrorCode[]): Record<string, ClashMember[]> | undefined {
+  const members: Record<string, ClashMember[]> = {};
+  for (const code of codes) {
+    const member = clashMemberOf(code);
+    if (member) members[code] = [member];
+  }
+  return Object.keys(members).length > 0 ? members : undefined;
+}
+
 function operationObject(operation: OperationContract): ZodOpenApiOperationObject {
+  const problem = accessProblem(operation);
+  if (problem) throw new TypeError(`Operation ${operation.operationId} ${problem}`);
   const responses: Record<string, ZodOpenApiResponseObject> = {};
   for (const [status, schema] of Object.entries(operation.responses)) {
     responses[status] = {
       description: SUCCESS_DESCRIPTIONS[Number(status)] ?? 'Success',
-      headers:
-        operation.setsCookies === 'sometimes'
-          ? maybeCookieHeaders
-          : operation.setsCookies
-            ? cookieHeaders
-            : operation.etag
-              ? etagHeaders
-              : responseHeaders,
+      headers: successHeaders(operation, Number(status)),
       // A void response (204, or a 202 that only acknowledges) has no body, so no content
       // type either.
       ...(schema._zod.def.type === 'void' ? {} : { content: { 'application/json': { schema } } }),
@@ -164,11 +194,13 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
     byStatus.set(status, [...(byStatus.get(status) ?? []), code]);
   }
   for (const [status, codes] of [...byStatus].sort(([a], [b]) => a - b)) {
+    const members = problemMembers(codes);
     responses[String(status)] = {
       description: `Problem document with code ${codes.join(' or ')}.`,
       headers: codes.some((code) => RETRY_AFTER_CODES.has(code)) ? retryHeaders : responseHeaders,
       content: { 'application/problem+json': { schema: problemSchema } },
       'x-error-codes': codes,
+      ...(members ? { 'x-problem-members': members } : {}),
     };
   }
   responses['default'] = problemResponse;
@@ -180,6 +212,7 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
     operationId: operation.operationId,
     summary: operation.summary,
     'x-access': operation.access,
+    ...(operation.roles ? { 'x-roles': operation.roles } : {}),
     ...(requirements ? { security: requirements } : {}),
     ...(params || query || header
       ? {
@@ -214,7 +247,7 @@ export function buildOpenApiDocument(
     info: { title: 'Vendor & Purchase Order Management API', version: '0.1.0' },
     servers: [
       {
-        url: '/api',
+        url: API_PATH_PREFIX,
         description:
           'Same-origin prefix. nginx (and the Vite dev proxy) strips /api before forwarding.',
       },

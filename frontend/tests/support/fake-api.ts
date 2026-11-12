@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { vi } from 'vitest';
 
 // A stand-in for the API in component tests: a handler per "METHOD /path" answers each
@@ -46,7 +47,7 @@ export function fakeApi(handlers: Record<string, Handler>) {
     'fetch',
     vi.fn(async (request: Request) => {
       seen.push(request.clone());
-      const key = `${request.method} ${new URL(request.url).pathname.replace(/^\/api/, '')}`;
+      const key = `${request.method} ${new URL(request.url).pathname.slice(API_PATH_PREFIX.length)}`;
       const handler = handlers[key];
       if (!handler) throw new Error(`fake API has no handler for ${key}`);
       return handler(request);

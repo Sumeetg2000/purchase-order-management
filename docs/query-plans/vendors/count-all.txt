@@ -1,0 +1,5 @@
+-- SELECT count(*) AS total FROM vendors
+-- values: []
+
+Aggregate
+  ->  Seq Scan on vendors

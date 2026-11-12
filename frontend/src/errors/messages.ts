@@ -105,6 +105,17 @@ export const errorMessages = {
   },
   ACCOUNT_LOCKED: { message: 'Too many failed attempts.', action: 'Try again in a few minutes.' },
   RATE_LIMITED: { message: 'Too many attempts.', action: 'Try again in a few minutes.' },
+  // Slice 2 (specs/003-vendors/contracts/errors.md). The form adds a link to the
+  // existing vendor, from the problem's existingVendor.
+  DUPLICATE_VENDOR_NAME: { message: 'A vendor with this name already exists.' },
+  INVALID_STATE_TRANSITION: {
+    message: "This vendor's status has already changed.",
+    action: 'Reload to see it.',
+  },
+  VENDOR_INACTIVE: {
+    message: 'This vendor is deactivated.',
+    action: 'Reactivate it or choose another vendor.',
+  },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
 
 /** The words for each public revoke reason, in "You were logged out because …". */
@@ -126,6 +137,8 @@ export interface ProblemLike {
   correlationId?: string | undefined;
   /** Why a session was revoked, on SESSION_REVOKED only. */
   reason?: string | undefined;
+  /** The vendor a name clashed with, on DUPLICATE_VENDOR_NAME only. */
+  existingVendor?: { id: string; name: string } | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -171,6 +184,7 @@ export const fieldMessages = {
   PASSWORD_TOO_COMMON: 'This password is too common. Choose another.',
   INCORRECT_PASSWORD: 'Incorrect password.',
   PASSWORD_UNCHANGED: 'Your new password must be different from your current one.',
+  VENDOR_NOT_FOUND: 'This vendor no longer exists.',
 } as const satisfies Record<FieldCode, string>;
 
 /** The password rule, as account pages state it next to a new-password field. */

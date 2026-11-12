@@ -1,5 +1,6 @@
 import {
   carriesRevokeReason,
+  clashMemberOf,
   ERROR_REGISTRY,
   isErrorCode,
   type ErrorCode,
@@ -18,9 +19,16 @@ export interface AppErrorOptions {
   detail?: string;
   /** Why a session was revoked; only for codes whose registry entry allows a reason. */
   reason?: PublicRevokeReason;
+  /** The vendor a name clashed with; only for codes whose clash member is existingVendor. */
+  existingVendor?: ExistingVendor;
   /** Seconds until a retry can succeed, sent as Retry-After (lockout, rate limits). */
   retryAfterSeconds?: number;
   cause?: unknown;
+}
+
+export interface ExistingVendor {
+  id: string;
+  name: string;
 }
 
 /** The one error type the API throws on purpose. Its status comes from the registry. */
@@ -31,6 +39,7 @@ export class AppError extends Error {
   readonly details: readonly FieldError[] | undefined;
   readonly detail: string | undefined;
   readonly reason: PublicRevokeReason | undefined;
+  readonly existingVendor: ExistingVendor | undefined;
   readonly retryAfterSeconds: number | undefined;
 
   constructor(code: ErrorCode, options: AppErrorOptions = {}) {
@@ -40,12 +49,16 @@ export class AppError extends Error {
     if (options.reason !== undefined && !carriesRevokeReason(code)) {
       throw new TypeError(`Error code ${code} can't carry a revoke reason`);
     }
+    if (options.existingVendor !== undefined && clashMemberOf(code) !== 'existingVendor') {
+      throw new TypeError(`Error code ${code} can't carry existingVendor`);
+    }
     super(code, options.cause === undefined ? undefined : { cause: options.cause });
     this.code = code;
     this.status = ERROR_REGISTRY[code].status;
     this.details = options.details;
     this.detail = options.detail;
     this.reason = options.reason;
+    this.existingVendor = options.existingVendor;
     this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }

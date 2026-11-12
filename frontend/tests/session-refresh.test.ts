@@ -1,3 +1,4 @@
+import { API_PATH_PREFIX } from '@po/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { createRefresher, expiredAccessMiddleware } from '../src/auth/refresh';
 import { NetworkError } from '../src/api/client';
@@ -6,7 +7,7 @@ import type { ProblemLike } from '../src/errors/messages';
 // The web app refreshes only on ACCESS_TOKEN_EXPIRED, once at a time within the tab, and
 // retries each waiting request once (ADR-0018, amended 2026-11-03; research R17).
 
-const BASE = 'http://localhost/api';
+const BASE = `http://localhost${API_PATH_PREFIX}`;
 
 function problem(status: number, code: string, extra: Record<string, unknown> = {}) {
   return new Response(
@@ -32,7 +33,7 @@ function fakeApi(options: { refreshWith?: () => Response; answers: (() => Respon
   const fetch = vi.fn((request: Request) => {
     const path = new URL(request.url).pathname;
     calls.push(`${request.method} ${path}`);
-    if (path === '/api/auth/refresh') {
+    if (path === `${API_PATH_PREFIX}/auth/refresh`) {
       return Promise.resolve(
         (options.refreshWith ?? (() => new Response(null, { status: 204 })))(),
       );
@@ -78,7 +79,11 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
     });
     const res = await t.call('/orders', '1');
     expect(res.status).toBe(200);
-    expect(t.calls).toEqual(['POST /api/orders', 'POST /api/auth/refresh', 'POST /api/orders']);
+    expect(t.calls).toEqual([
+      `POST ${API_PATH_PREFIX}/orders`,
+      `POST ${API_PATH_PREFIX}/auth/refresh`,
+      `POST ${API_PATH_PREFIX}/orders`,
+    ]);
   });
 
   it.each([
@@ -93,7 +98,11 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
       });
       const res = await t.call(path, '1');
       expect(res.status).toBe(200);
-      expect(t.calls).toEqual([`POST /api${path}`, 'POST /api/auth/refresh', `POST /api${path}`]);
+      expect(t.calls).toEqual([
+        `POST ${API_PATH_PREFIX}${path}`,
+        `POST ${API_PATH_PREFIX}/auth/refresh`,
+        `POST ${API_PATH_PREFIX}${path}`,
+      ]);
     },
   );
 
@@ -119,7 +128,7 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
       const t = setup({ answers: [() => problem(401, code)] });
       const res = await t.call('/orders', '1');
       expect(res.status, code).toBe(401);
-      expect(t.calls, code).toEqual(['POST /api/orders']);
+      expect(t.calls, code).toEqual([`POST ${API_PATH_PREFIX}/orders`]);
     }
   });
 
@@ -207,7 +216,7 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
       const t = setup({ answers: [() => problem(401, code, extra)] });
       await t.call('/orders', '1');
       expect(t.ended).toEqual([expect.objectContaining({ code })]);
-      expect(t.calls).toEqual(['POST /api/orders']);
+      expect(t.calls).toEqual([`POST ${API_PATH_PREFIX}/orders`]);
     },
   );
 
@@ -215,7 +224,7 @@ describe('[NFR-FE-02] refresh on ACCESS_TOKEN_EXPIRED', () => {
     const t = setup({ answers: [() => problem(401, 'ACCOUNT_DEACTIVATED')] });
     await t.call('/orders', '1');
     expect(t.ended).toEqual([expect.objectContaining({ code: 'ACCOUNT_DEACTIVATED' })]);
-    expect(t.calls).toEqual(['POST /api/orders']);
+    expect(t.calls).toEqual([`POST ${API_PATH_PREFIX}/orders`]);
   });
 
   it('[FR-ACC-08] NO_ROLE_ASSIGNED from any call routes to Access pending, without a refresh', async () => {

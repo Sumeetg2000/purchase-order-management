@@ -1,11 +1,11 @@
-import { carriesRevokeReason, ERROR_REGISTRY, type AppError } from '@po/contracts';
+import { carriesRevokeReason, clashMemberOf, ERROR_REGISTRY, type AppError } from '@po/contracts';
 import type { Response } from 'express';
 import { requestIdOf } from './middleware/correlation.js';
 
 /**
  * Writes an AppError as an RFC 9457 problem document (ADR-0007): title and status from
- * the registry, the request's correlation id, and field details where the code allows
- * them. Records the code for the error metrics.
+ * the registry, the request's correlation id, and field details, a revoke reason or a
+ * clash member where the code allows them. Records the code for the error metrics.
  */
 export function sendProblem(res: Response, error: AppError): void {
   const entry = ERROR_REGISTRY[error.code];
@@ -26,6 +26,9 @@ export function sendProblem(res: Response, error: AppError): void {
       ...(entry.fieldDetails && error.details?.length ? { details: error.details } : {}),
       ...(carriesRevokeReason(error.code) && error.reason !== undefined
         ? { reason: error.reason }
+        : {}),
+      ...(clashMemberOf(error.code) === 'existingVendor' && error.existingVendor !== undefined
+        ? { existingVendor: error.existingVendor }
         : {}),
     });
 }

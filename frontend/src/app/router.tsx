@@ -1,3 +1,4 @@
+import { OPERATIONS, ROLE } from '@po/contracts';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RequireRole } from '../auth/RequireRole';
 import { RequireUser } from '../auth/RequireUser';
@@ -37,6 +38,50 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
             import('../pages/admin/AccessRequests').then((m) => m.AccessRequests),
           ),
           errorElement: <RouteErrorBoundary />,
+        },
+      ],
+    },
+    // Vendors: read by every role; added and edited by Buyers (slice 2, ADR-0004).
+    {
+      path: 'vendors',
+      children: [
+        {
+          index: true,
+          lazy: lazyPage(() => import('../pages/vendors/VendorsList').then((m) => m.VendorsList)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: ':id',
+          lazy: lazyPage(() => import('../pages/vendors/VendorDetail').then((m) => m.VendorDetail)),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          // The history's roles are the API operation's (ADR-0004); others get the 403 page.
+          element: <RequireRole requires={OPERATIONS.listVendorHistory.roles} />,
+          children: [
+            {
+              path: ':id/history',
+              lazy: lazyPage(() =>
+                import('../pages/vendors/VendorHistory').then((m) => m.VendorHistory),
+              ),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
+          element: <RequireRole requires={ROLE.BUYER} />,
+          children: [
+            {
+              path: 'new',
+              lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.NewVendor)),
+              errorElement: <RouteErrorBoundary />,
+            },
+            {
+              path: ':id/edit',
+              lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.EditVendor)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
         },
       ],
     },

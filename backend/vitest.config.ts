@@ -1,10 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
-// Two projects: unit tests run without Docker; integration tests share one PostgreSQL
-// container started by the global setup (research R19). Both load the suite-wide checks:
-// no token-shaped value in any log line (SC-003), and every API error response in the
-// standard shape with a matching correlation id (SC-002).
+// Two projects in the default run: unit tests run without Docker; integration tests share
+// one PostgreSQL container started by the global setup (research R19). Both load the
+// suite-wide checks: no token-shaped value in any log line, and every API error
+// response in the standard shape with a matching correlation id. A third project,
+// plans, runs only on request.
 const suiteChecks = ['tests/support/log-capture.ts', 'tests/support/response-audit.ts'];
 export default defineConfig({
   test: {
@@ -39,6 +40,18 @@ export default defineConfig({
           setupFiles: [...suiteChecks, 'tests/support/setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 120_000,
+        },
+      },
+      {
+        // Query-plan tests seed the ADR-0012 sizes, so they run outside the default
+        // `npm test` (only through `npm run test:plans`, its own CI job and nightly).
+        test: {
+          name: 'plans',
+          include: ['tests/plans/**/*.test.ts'],
+          globalSetup: ['tests/support/global-setup.ts'],
+          setupFiles: [...suiteChecks, 'tests/support/setup.ts'],
+          testTimeout: 600_000,
+          hookTimeout: 600_000,
         },
       },
     ],

@@ -2,6 +2,7 @@
 // the operation contracts. The OpenAPI generator is a separate entry, @po/contracts/openapi.
 export * from './access-requests.js';
 export * from './app-error.js';
+export * from './audit.js';
 export * from './email.js';
 export * from './errors.js';
 export * from './etag.js';
@@ -16,6 +17,8 @@ export * from './schemas/me.js';
 export * from './schemas/pagination.js';
 export * from './schemas/problem.js';
 export * from './schemas/sessions.js';
+export * from './schemas/vendors.js';
 export * from './session-cookies.js';
 export * from './sessions.js';
 export * from './users.js';
+export * from './vendors.js';

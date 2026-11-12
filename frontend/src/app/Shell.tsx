@@ -33,6 +33,7 @@ export function Shell() {
           <NavLink to="/" end>
             Home
           </NavLink>
+          {user && user.roles.length > 0 && <NavLink to="/vendors">Vendors</NavLink>}
           {user?.roles.includes(ROLE.ADMIN) && <UsersLink />}
           <NavLink to="/profile">Profile</NavLink>
         </nav>

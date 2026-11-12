@@ -7,14 +7,20 @@ export const TASK_ID = /\bT\d{3}\b/g;
 /** A requirement ID: FR-<AREA>-NN or NFR-<AREA>-NN. */
 export const REQUIREMENT_ID = /\bN?FR-[A-Z]+-\d+\b/g;
 
+/**
+ * A spec-level ID: FR-NNN, NFR-NNN or SC-NNN (a slice spec's requirement or success
+ * criterion). Banned outside test names like the others, never a traceability row.
+ */
+export const SPEC_ID = /\b(?:N?FR|SC)-\d{3}\b/g;
+
 /** Every requirement ID in a piece of text, in order of appearance. */
 export function requirementIds(text) {
   return [...text.matchAll(REQUIREMENT_ID)].map((m) => m[0]);
 }
 
-/** Every task or requirement ID in a piece of text, with its offset. */
+/** Every task, requirement or spec-level ID in a piece of text, with its offset. */
 export function bannedIds(text) {
-  return [...text.matchAll(TASK_ID), ...text.matchAll(REQUIREMENT_ID)]
+  return [...text.matchAll(TASK_ID), ...text.matchAll(REQUIREMENT_ID), ...text.matchAll(SPEC_ID)]
     .map((m) => ({ match: m[0], index: m.index }))
     .sort((a, b) => a.index - b.index);
 }

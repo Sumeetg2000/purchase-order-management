@@ -8,7 +8,13 @@ export interface ErrorDefinition {
   fieldDetails: boolean;
   /** Whether the problem may carry a public revoke `reason` (ADR-0017). */
   revokeReason?: true;
+  /** The member naming the existing resource a request clashed with (ADR-0007). */
+  clash?: ClashMember;
 }
+
+/** One typed member per clash kind (ADR-0007, amended 2026-11-06). */
+export const CLASH_MEMBERS = ['existingVendor'] as const;
+export type ClashMember = (typeof CLASH_MEMBERS)[number];
 
 export const ERROR_REGISTRY = {
   VALIDATION_FAILED: { status: 400, title: 'Validation failed', fieldDetails: true },
@@ -67,6 +73,21 @@ export const ERROR_REGISTRY = {
   },
   ACCOUNT_LOCKED: { status: 423, title: 'Account locked', fieldDetails: false },
   RATE_LIMITED: { status: 429, title: 'Too many requests', fieldDetails: false },
+
+  // Slice 2: vendors (specs/003-vendors/contracts/errors.md).
+  DUPLICATE_VENDOR_NAME: {
+    status: 409,
+    title: 'Vendor name already used',
+    fieldDetails: false,
+    clash: 'existingVendor',
+  },
+  INVALID_STATE_TRANSITION: {
+    status: 409,
+    title: 'Invalid state transition',
+    fieldDetails: false,
+  },
+  // First route: order create, slice 3.
+  VENDOR_INACTIVE: { status: 409, title: 'Vendor deactivated', fieldDetails: false },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;
@@ -87,6 +108,12 @@ export function carriesRevokeReason(code: ErrorCode): boolean {
   return entry.revokeReason === true;
 }
 
+/** The clash member a problem with this code may carry, if any. */
+export function clashMemberOf(code: ErrorCode): ClashMember | undefined {
+  const entry: ErrorDefinition = ERROR_REGISTRY[code];
+  return entry.clash;
+}
+
 /** Codes inside `details[]` of `VALIDATION_FAILED`. */
 export const FIELD_CODES = [
   'MALFORMED_JSON',
@@ -105,6 +132,8 @@ export const FIELD_CODES = [
   'PASSWORD_TOO_COMMON',
   'INCORRECT_PASSWORD',
   'PASSWORD_UNCHANGED',
+  // Slice 2 (specs/003-vendors/contracts/errors.md)
+  'VENDOR_NOT_FOUND',
 ] as const;
 
 export type FieldCode = (typeof FIELD_CODES)[number];

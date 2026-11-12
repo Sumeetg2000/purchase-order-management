@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
-import { DEMO_PASSWORD, DEMO_USERS, seedDemoUsers } from '../../src/migrate/seed-demo.js';
+import {
+  DEMO_PASSWORD,
+  DEMO_USERS,
+  DEMO_VENDORS,
+  seedDemoUsers,
+  seedDemoVendors,
+} from '../../src/migrate/seed-demo.js';
 import { accountsHarness } from '../support/accounts.js';
 import { testLogger } from '../support/log-capture.js';
 
@@ -22,7 +28,9 @@ async function setup() {
   clients.push(prisma);
   const seed = (appEnv: 'local' | 'production' = 'local') =>
     seedDemoUsers({ prisma, appEnv, logger: testLogger() });
-  return { h, seed };
+  const seedVendors = (appEnv: 'local' | 'production' = 'local') =>
+    seedDemoVendors({ prisma, appEnv, logger: testLogger() });
+  return { h, seed, seedVendors };
 }
 
 describe('[NFR-OPS-01] demo users', () => {
@@ -66,5 +74,55 @@ describe('[NFR-OPS-01] demo users', () => {
     const { h, seed } = await setup();
     await expect(seed('production')).rejects.toThrow(/production/);
     expect(await h.query('SELECT id FROM users')).toEqual([]);
+  });
+});
+
+// Demo vendors (FR-018): one per payment-term type, one inactive, one without a phone,
+// created by the system through the audited path, never in production, created once.
+describe('[FR-VEN-01] demo vendors', () => {
+  it('[FR-VEN-01] covers each payment-term type, one inactive vendor and one without a phone', async () => {
+    const { h, seedVendors } = await setup();
+    expect(await seedVendors()).toBe(DEMO_VENDORS.length);
+    const rows = await h.query<{
+      name: string;
+      payment_term_type: string;
+      status: string;
+      contact_phone: string | null;
+    }>('SELECT name, payment_term_type, status, contact_phone FROM vendors ORDER BY name_key');
+    expect(rows).toHaveLength(5);
+    expect(new Set(rows.map((r) => r.payment_term_type))).toEqual(
+      new Set(['NET', 'ADVANCE', 'PARTIAL_ADVANCE']),
+    );
+    expect(rows.filter((r) => r.status === 'INACTIVE')).toHaveLength(1);
+    expect(rows.filter((r) => r.contact_phone === null)).toHaveLength(1);
+  });
+
+  it('[FR-VEN-01] each vendor has a system-made created entry; the inactive one also a deactivation', async () => {
+    const { h, seedVendors } = await setup();
+    await seedVendors();
+    const entries = await h.query<{ action: string; actor_type: string }>(
+      `SELECT action, actor_type FROM audit_entries WHERE entity_type = 'vendor' ORDER BY id`,
+    );
+    expect(entries.filter((e) => e.action === 'VENDOR_CREATED')).toHaveLength(5);
+    expect(entries.filter((e) => e.action === 'VENDOR_DEACTIVATED')).toHaveLength(1);
+    expect(entries).toHaveLength(6);
+    expect(entries.every((e) => e.actor_type === 'SYSTEM')).toBe(true);
+  });
+
+  it('[FR-VEN-01] runs again without creating, changing or auditing anything', async () => {
+    const { h, seedVendors } = await setup();
+    await seedVendors();
+    const before = await h.query('SELECT id, version, status FROM vendors ORDER BY id');
+    expect(await seedVendors()).toBe(0);
+    expect(await h.query('SELECT id, version, status FROM vendors ORDER BY id')).toEqual(before);
+    expect(
+      await h.query(`SELECT count(*)::int AS n FROM audit_entries WHERE entity_type = 'vendor'`),
+    ).toEqual([{ n: 6 }]);
+  });
+
+  it('[FR-VEN-01] refuses to run in production', async () => {
+    const { h, seedVendors } = await setup();
+    await expect(seedVendors('production')).rejects.toThrow(/production/);
+    expect(await h.query('SELECT id FROM vendors')).toEqual([]);
   });
 });

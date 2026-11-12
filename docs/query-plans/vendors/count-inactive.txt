@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM vendors WHERE status = $1
+-- values: ["INACTIVE"]
+
+Aggregate
+  ->  Index Only Scan using vendors_status_name_key_idx on vendors
+        Index Cond: (status = 'INACTIVE'::text)

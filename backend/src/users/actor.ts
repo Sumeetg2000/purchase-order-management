@@ -25,3 +25,14 @@ export function adminActor(user: { id: string; name: string; email: string }): A
     actingRole: ROLE.ADMIN,
   };
 }
+
+/** A Buyer acting on shared data, such as a vendor (a Buyer who is also an Approver acts as Buyer). */
+export function buyerActor(user: { id: string; name: string; email: string }): ActorContext {
+  return {
+    type: 'USER',
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    actingRole: ROLE.BUYER,
+  };
+}

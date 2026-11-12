@@ -1,4 +1,5 @@
 import {
+  API_PATH_PREFIX,
   CSRF_COOKIE,
   CSRF_HEADER,
   ERROR_REGISTRY,
@@ -16,7 +17,7 @@ export { readCookie } from './cookies';
 // from the committed OpenAPI document (`npm run contract:types`). Same origin: nginx and
 // the Vite dev proxy forward /api to the API.
 
-export const API_BASE_URL = '/api';
+export const API_BASE_URL = API_PATH_PREFIX;
 
 /** The API couldn't be reached: offline, a dropped connection, DNS. There is no response. */
 export class NetworkError extends Error {
