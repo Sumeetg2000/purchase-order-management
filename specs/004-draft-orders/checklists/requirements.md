@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -35,5 +35,5 @@
   `Idempotency-Key` and database-role outcomes are named in the spec, because the
   constitution makes them part of the contract and the brief's §6 checks are stated in
   those terms. No framework, language or schema design appears.
-- Three markers are open: FR-001 (header fields), FR-016 (list filters), FR-024 (deferred
-  order counts). Resolve them with `/speckit-clarify` before `/speckit-plan`.
+- The three markers (FR-001 header fields, FR-016 list filters, FR-024 deferred order
+  counts) were resolved by the owner on 2026-11-12; see the spec's Clarifications.

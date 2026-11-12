@@ -54,6 +54,20 @@ Traceability:
   reload), NFR-FE-03, NFR-FE-06 (editor), NFR-FE-09 (delete-draft dialog, unsaved-changes
   guard)
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: Does an order carry any header field besides its vendor? → A: No. An order is its
+  vendor and its lines (§3.2); delivery fields stay deferred (ADR-0019).
+- Q: Which filters do order lists offer? → A: Status, vendor, PO-number prefix and a
+  created-date range, each run in the database and backed by an index.
+- Q: Do the order counts deferred to "the orders slice" land here? → A: The
+  vendor-deactivation dialog's count of the caller's drafts using the vendor lands in this
+  slice. The Admin user detail's open-order counts (draft, pending, approved with open
+  lines) arrive together in slice 6, when each can be non-zero; ADR-0019 is amended to
+  match (2026-11-12).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Raise a draft order (Priority: P1)
@@ -286,9 +300,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - **FR-001** (FR-PO-01, FR-PO-02, FR-ACT-01): A Buyer MUST be able to create an order
   with a vendor and 1–500 lines (description 1–500 characters, quantity a whole number
   1–1,000,000, unit price 0–999,999,999.9999 with at most 4 decimal places). It is
-  created in `DRAFT`, owned by the caller. An order's header holds [NEEDS CLARIFICATION:
-  does an order carry any header field besides its vendor? Proposed: none in this slice]
-  and nothing else.
+  created in `DRAFT`, owned by the caller. Besides its lines, an order carries only its
+  vendor: there are no other header fields.
 - **FR-002** (FR-PO-05): Every order MUST get a PO number `PO-{FY}-{seq:06d}` at creation,
   by the Indian financial year in `Asia/Kolkata` from the database clock, restarting at 1
   each year. Numbers are unique, never reused (deleted drafts included) and never
@@ -348,9 +361,10 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
   read (Buyer: own orders; Admin: all; Approver: non-draft only), and filterable per
   FR-016, each filter backed by an index, with no query whose count grows with page size
   or line count.
-- **FR-016**: Order lists MUST offer these filters: [NEEDS CLARIFICATION: which filters
-  do order lists offer in this slice? Proposed: status, vendor, PO-number prefix and a
-  created-date range].
+- **FR-016**: Order lists MUST offer these filters, combinable: status (one of the five
+  states); vendor (by id); PO-number prefix (case-insensitive); and a created-date range
+  (`from` and `to`, inclusive calendar dates in `Asia/Kolkata`, either optional, `from`
+  not after `to`, otherwise `400`).
 - **FR-017** (FR-OWN-01): Reading one order MUST return its vendor (id, name, status),
   owner, status, PO number, lines in display order with line totals, the total and the
   version; a caller who can't read it gets `404`.
@@ -388,12 +402,10 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
   has loading, empty and error states, errors are handled by `code`, creates send an
   `Idempotency-Key` that is reused on retry, and nothing can be sent twice by a double
   click.
-- **FR-024**: [NEEDS CLARIFICATION: do the order counts deferred to "the orders slice"
-  land here? These are the vendor-deactivation dialog's count of the caller's drafts using
-  the vendor (ADR-0018), and the Admin user detail's open-order counts (ADR-0019:
-  draft, pending, approved with open lines). Proposed: the vendor dialog's draft count
-  now, and the Admin user detail's counts all at once in slice 6, when every one of them
-  can be non-zero]
+- **FR-024**: The vendor-deactivation dialog MUST show how many of the caller's draft
+  orders use the vendor (ADR-0018), read from the server and scoped to the caller's own
+  drafts. The Admin user detail's open-order counts are not part of this slice: they
+  arrive together in slice 6 (ADR-0019, amended 2026-11-12).
 - **FR-025**: End-to-end tests MUST cover: a Buyer raises a multi-line order and sees the
   exact total; edits it (change, add, remove a line); a version conflict and reload;
   deletes a draft through the dialog; a second Buyer can't see it; an Admin reads it.
@@ -454,6 +466,8 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - **Descriptions** are trimmed and must be 1–500 characters after trimming.
 - **Delete reason** is optional plain text, at most 500 characters, `null` when absent,
   and `""` is refused (ADR-0007's one form for "no value").
+- **Header**: an order has no header fields besides its vendor (Clarifications,
+  2026-11-12).
 - **Approver lists** are empty in this slice (no non-draft orders exist); their cells are
   still tested.
 - **Order timeline for Admins** uses the same endpoint as for owners; the
