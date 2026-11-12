@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import type { ApiFailure } from '../../api/submit';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { isStaleStatusCode, useChangeVendorStatus } from './queries';
+import { reloadAction, useDialogAction } from '../../hooks/useDialogAction';
+import { changeVendorStatus, isStaleStatusCode, useVendorSaved } from './queries';
 
 export interface DeactivateVendorDialogProps {
   vendor: { id: string; name: string; version: number };
@@ -16,15 +15,17 @@ export interface DeactivateVendorDialogProps {
  * stops; focus starts on "Keep active". The caller's draft count joins in slice 3.
  */
 export function DeactivateVendorDialog({ vendor, onClose, onReload }: DeactivateVendorDialogProps) {
-  const change = useChangeVendorStatus();
-  const [error, setError] = useState<ApiFailure>();
+  const saved = useVendorSaved();
+  const action = useDialogAction();
 
-  const confirm = async () => {
-    setError(undefined);
-    const outcome = await change(vendor, 'deactivate');
-    if (outcome.ok) onClose();
-    else setError(outcome);
-  };
+  const confirm = () =>
+    action.run(
+      () => changeVendorStatus(vendor, 'deactivate'),
+      (changed) => {
+        saved(changed);
+        onClose();
+      },
+    );
 
   return (
     <ConfirmDialog
@@ -34,20 +35,11 @@ export function DeactivateVendorDialog({ vendor, onClose, onReload }: Deactivate
       tone="danger"
       onConfirm={confirm}
       onClose={onClose}
-      error={error}
-      errorActions={
-        error && isStaleStatusCode(error.problem.code)
-          ? [
-              {
-                label: 'Reload',
-                onPress: () => {
-                  onReload();
-                  onClose();
-                },
-              },
-            ]
-          : []
-      }
+      error={action.error}
+      errorActions={reloadAction(action.error, isStaleStatusCode, () => {
+        onReload();
+        onClose();
+      })}
     >
       Orders using it can&apos;t be submitted or approved until it&apos;s reactivated.
     </ConfirmDialog>

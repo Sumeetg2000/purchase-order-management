@@ -1,4 +1,3 @@
-import { OPERATIONS, ROLE } from '@po/contracts';
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RequireRole } from '../auth/RequireRole';
 import { RequireUser } from '../auth/RequireUser';
@@ -25,7 +24,7 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
     { index: true, lazy: lazyPage(() => import('../pages/Home').then((m) => m.Home)) },
     {
       path: 'admin/users',
-      element: <RequireRole requires="ADMIN" />,
+      element: <RequireRole operation="listUsers" />,
       children: [
         {
           index: true,
@@ -57,7 +56,7 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
         },
         {
           // The history's roles are the API operation's (ADR-0004); others get the 403 page.
-          element: <RequireRole requires={OPERATIONS.listVendorHistory.roles} />,
+          element: <RequireRole operation="listVendorHistory" />,
           children: [
             {
               path: ':id/history',
@@ -69,13 +68,18 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           ],
         },
         {
-          element: <RequireRole requires={ROLE.BUYER} />,
+          element: <RequireRole operation="createVendor" />,
           children: [
             {
               path: 'new',
               lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.NewVendor)),
               errorElement: <RouteErrorBoundary />,
             },
+          ],
+        },
+        {
+          element: <RequireRole operation="updateVendor" />,
+          children: [
             {
               path: ':id/edit',
               lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.EditVendor)),

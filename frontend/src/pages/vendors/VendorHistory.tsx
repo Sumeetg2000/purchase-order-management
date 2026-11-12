@@ -1,11 +1,11 @@
 import type { VendorAuditAction, VendorHistoryItem, VendorSnapshot } from '@po/contracts';
-import { useParams, useSearchParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Pager } from '../../components/Pager';
 import { formatDateTime } from '../../format/date';
 import { ACTING_ROLE_LABELS } from '../../format/roles';
+import { useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
-import { pageParam, toSearch } from '../admin/search-params';
 import { formatPaymentTerms } from './payment-terms';
 import { useVendor, useVendorHistory } from './queries';
 import { VENDOR_STATUS_LABELS } from './status';
@@ -55,8 +55,10 @@ function actorOf({ actor }: VendorHistoryItem): string {
  */
 export function VendorHistory() {
   const { id = '' } = useParams();
-  const [params, setParams] = useSearchParams();
-  const page = pageParam(params.get('page'));
+  const {
+    params: { page },
+    setPage,
+  } = useListParams({});
   const name = useVendor(id).data?.name;
   const states = useQueryStates(useVendorHistory(id, page), {
     loadingLabel: 'Loading the history',
@@ -100,9 +102,7 @@ export function VendorHistory() {
             page={states.data.page}
             pageSize={states.data.pageSize}
             total={states.data.total}
-            onPage={(next) => {
-              setParams(toSearch({ page: next === 1 ? undefined : next }));
-            }}
+            onPage={setPage}
           />
         </>
       )}

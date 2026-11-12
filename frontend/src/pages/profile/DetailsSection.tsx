@@ -3,10 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, TextField } from 'react-aria-components';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit } from '../../api/submit';
+import { failureMessage } from '../../api/submit';
 import { CURRENT_USER_KEY, useCurrentUser, type CurrentUser } from '../../auth/current-user';
 import { formatDate } from '../../format/date';
 import { roleSetLabel } from '../../format/roles';
+import { useApiForm } from '../../hooks/useApiForm';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -24,6 +25,8 @@ const styles = classes(
   'alert',
 );
 const controls = classes(controlsCss, 'primary');
+
+const NAME_PATH = 'body.name';
 
 /** The name, the only field a user edits (saved with no dialog), and the rest read-only. */
 export function DetailsSection() {
@@ -46,24 +49,15 @@ function DetailsForm({
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(user.name);
-  const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<string>();
-  const [fieldError, setFieldError] = useState<string>();
+  const form = useApiForm();
+  const fieldError = form.fieldError(NAME_PATH);
+  const failure = form.failure && !fieldError ? failureMessage(form.failure) : undefined;
   const guard = useUnsavedChangesGuard(name.trim() !== user.name);
 
   async function save(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
-    setFieldError(undefined);
-    const outcome = await submit(() => api.PATCH('/me', { body: { name } }));
-    setPending(false);
-    if (!outcome.ok) {
-      const field = fieldFailure(outcome, 'body.name');
-      if (field) setFieldError(field);
-      else setFailure(failureMessage(outcome));
-      return;
-    }
+    const outcome = await form.send(() => api.PATCH('/me', { body: { name } }));
+    if (!outcome?.ok) return;
     guard.release();
     onSaved(true);
     queryClient.setQueryData(CURRENT_USER_KEY, outcome.data);
@@ -99,7 +93,7 @@ function DetailsForm({
           </p>
         )}
         <div>
-          <button type="submit" className={controls.primary} disabled={pending}>
+          <button type="submit" className={controls.primary} disabled={form.pending}>
             Save name
           </button>
         </div>

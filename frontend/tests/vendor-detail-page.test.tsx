@@ -51,11 +51,11 @@ describe('[FR-VEN-01] vendor detail status actions', () => {
     expect(within(top).queryByRole('button', { name: 'Reactivate' })).toBeNull();
   });
 
-  it('[FR-VEN-01] an inactive vendor shows when it was deactivated', async () => {
+  it('[FR-VEN-01] an inactive vendor shows since when it is inactive', async () => {
     detailApi(['APPROVER'], 'INACTIVE');
     renderApp(`/vendors/${ACME_ID}`);
     const details = await screen.findByRole('list', { name: 'Vendor details' });
-    expect(within(details).getByText('Deactivated')).toBeInTheDocument();
+    expect(within(details).getByText('Inactive since')).toBeInTheDocument();
     expect(within(details).getByText('10 November 2026')).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe('[FR-VEN-01] vendor detail status actions', () => {
     detailApi(['APPROVER'], 'ACTIVE');
     renderApp(`/vendors/${ACME_ID}`);
     const details = await screen.findByRole('list', { name: 'Vendor details' });
-    expect(within(details).queryByText('Deactivated')).toBeNull();
+    expect(within(details).queryByText('Inactive since')).toBeNull();
   });
 
   it('[FR-VEN-01] a Buyer reactivates an inactive vendor with no dialog, sending If-Match', async () => {

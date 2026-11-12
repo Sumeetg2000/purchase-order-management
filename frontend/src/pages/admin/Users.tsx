@@ -6,12 +6,13 @@ import {
   USER_STATUSES,
   type AdminUserItem,
 } from '@po/contracts';
-import { useState, type SyntheticEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { useState } from 'react';
 import { useCurrentUser } from '../../auth/current-user';
 import { Pager } from '../../components/Pager';
+import { SearchField } from '../../components/SearchField';
 import { formatDate } from '../../format/date';
 import { ROLE_LABELS, roleSetLabel, STATUS_LABELS } from '../../format/roles';
+import { pickOne, TEXT, useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -19,7 +20,6 @@ import css from './admin.module.css';
 import { AdminTabs } from './AdminTabs';
 import { useUserList } from './queries';
 import { RoleDialog } from './RoleDialog';
-import { oneOf, pageParam, toSearch } from './search-params';
 import { ActivationDialog, ResetDialog } from './UserDialogs';
 
 const styles = classes(css, 'filters', 'filter', 'table', 'muted', 'actions', 'done');
@@ -36,13 +36,11 @@ type Dialog =
  * Admin rows are read-only, and the admin's own row offers no actions.
  */
 export function Users() {
-  const [params, setParams] = useSearchParams();
-  const filters = {
-    role: oneOf(params.get('role'), ROLE_FILTERS),
-    status: oneOf(params.get('status'), USER_STATUSES),
-    q: params.get('q')?.trim() || undefined,
-    page: pageParam(params.get('page')),
-  };
+  const {
+    params: filters,
+    show,
+    setPage,
+  } = useListParams({ role: ROLE_FILTERS, status: USER_STATUSES, q: TEXT });
   const me = useCurrentUser().data;
   const list = useUserList(filters);
   const states = useQueryStates(list, {
@@ -53,9 +51,6 @@ export function Users() {
   const [dialog, setDialog] = useState<Dialog>();
   const [done, setDone] = useState<string>();
 
-  const show = (next: Partial<typeof filters>) => {
-    setParams(toSearch({ ...filters, page: 1, ...next }));
-  };
   const close = () => {
     setDialog(undefined);
   };
@@ -63,12 +58,6 @@ export function Users() {
     setDialog(undefined);
     setDone(message);
   };
-
-  function applySearch(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const q = new FormData(event.currentTarget).get('q');
-    show({ q: typeof q === 'string' ? q.trim() || undefined : undefined });
-  }
 
   return (
     <>
@@ -79,14 +68,16 @@ export function Users() {
         role="search"
         aria-label="Filter users"
         className={styles.filters}
-        onSubmit={applySearch}
+        onSubmit={(event) => {
+          event.preventDefault();
+        }}
       >
         <label className={styles.filter}>
           Role
           <select
             value={filters.role ?? ''}
             onChange={(event) => {
-              show({ role: oneOf(event.target.value, ROLE_FILTERS) });
+              show({ role: pickOne(event.target.value, ROLE_FILTERS) });
             }}
           >
             <option value="">Any role</option>
@@ -102,7 +93,7 @@ export function Users() {
           <select
             value={filters.status ?? ''}
             onChange={(event) => {
-              show({ status: oneOf(event.target.value, USER_STATUSES) });
+              show({ status: pickOne(event.target.value, USER_STATUSES) });
             }}
           >
             <option value="">Any status</option>
@@ -113,21 +104,15 @@ export function Users() {
             ))}
           </select>
         </label>
-        <label className={styles.filter}>
-          Name or email starts with
-          {/* Uncontrolled and keyed by the URL's search, so it follows Back and Forward;
-              the URL changes only when the form is sent. */}
-          <input
-            key={filters.q ?? ''}
-            type="search"
-            name="q"
-            defaultValue={filters.q ?? ''}
-            maxLength={USER_SEARCH_MAX_LENGTH}
-          />
-        </label>
-        <button type="submit" className={controls.button}>
-          Search
-        </button>
+        <SearchField
+          label="Name or email starts with"
+          className={styles.filter}
+          value={filters.q}
+          maxLength={USER_SEARCH_MAX_LENGTH}
+          onSearch={(q) => {
+            show({ q }, { replace: true });
+          }}
+        />
       </form>
       {done && (
         <p role="status" className={styles.done}>
@@ -176,9 +161,7 @@ export function Users() {
             page={states.data.page}
             pageSize={states.data.pageSize}
             total={states.data.total}
-            onPage={(page) => {
-              setParams(toSearch({ ...filters, page }));
-            }}
+            onPage={setPage}
           />
         </>
       )}

@@ -2,9 +2,10 @@ import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, TextField } from 'react-aria-components';
 import { Link } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
+import { failureMessage } from '../../api/submit';
 import { useFragmentToken } from '../../auth/fragment-token';
 import { messageForProblem, sentenceFor } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -22,28 +23,19 @@ const PASSWORD_PATH = 'body.password';
 export function VerifyEmail() {
   const token = useFragmentToken();
   const [password, setPassword] = useState('');
-  const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
-  const [failure, setFailure] = useState<ApiFailure>();
-  const [fieldError, setFieldError] = useState<string>();
+  const form = useApiForm();
+  const fieldError = form.fieldError(PASSWORD_PATH);
+  // A field's own error shows on the field; anything else on the form.
+  const failure = fieldError === undefined ? form.failure : undefined;
 
   async function confirm(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    setPending(true);
-    setFailure(undefined);
-    setFieldError(undefined);
-    const outcome = await submit(() =>
+    const outcome = await form.send(() =>
       api.POST('/auth/verify-email', { body: { token, password } }),
     );
-    setPending(false);
-    if (outcome.ok) {
-      setDone(true);
-      return;
-    }
-    const field = fieldFailure(outcome, PASSWORD_PATH);
-    if (field) setFieldError(field);
-    else setFailure(outcome);
+    if (outcome?.ok) setDone(true);
   }
 
   return (
@@ -69,7 +61,8 @@ export function VerifyEmail() {
               value={password}
               onChange={(value) => {
                 setPassword(value);
-                setFieldError(undefined);
+                // The field's error no longer applies; a form-level one stays.
+                if (fieldError !== undefined) form.clearFailure();
               }}
               isInvalid={fieldError !== undefined}
               isRequired
@@ -86,7 +79,7 @@ export function VerifyEmail() {
                   : failureMessage(failure)}
               </p>
             )}
-            <button type="submit" className={controls.primary} disabled={pending}>
+            <button type="submit" className={controls.primary} disabled={form.pending}>
               Confirm email
             </button>
           </form>
@@ -100,18 +93,17 @@ export function VerifyEmail() {
 /** Asks for a new verification link, to the address the user gives. */
 function ResendForm() {
   const [email, setEmail] = useState('');
-  const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
-  const [failure, setFailure] = useState<string>();
+  const form = useApiForm();
+  const failure =
+    form.failure && failureMessage(form.failure, { labels: { 'body.email': 'Work email' } });
 
   async function resend(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
-    const outcome = await submit(() => api.POST('/auth/resend-verification', { body: { email } }));
-    setPending(false);
-    if (outcome.ok) setSentTo(email);
-    else setFailure(failureMessage(outcome, { labels: { 'body.email': 'Work email' } }));
+    const outcome = await form.send(() =>
+      api.POST('/auth/resend-verification', { body: { email } }),
+    );
+    if (outcome?.ok) setSentTo(email);
   }
 
   if (sentTo) {
@@ -139,7 +131,7 @@ function ResendForm() {
           {failure}
         </p>
       )}
-      <button type="submit" className={controls.primary} disabled={pending}>
+      <button type="submit" className={controls.primary} disabled={form.pending}>
         Send a new link
       </button>
     </form>

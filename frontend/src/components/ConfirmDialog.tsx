@@ -34,7 +34,7 @@ export interface ConfirmDialogProps {
   /** Keeps confirm disabled, e.g. until the dialog's own choice is made or its data loads. */
   confirmDisabled?: boolean;
   /** Called once per press, with the trimmed reason when one is required. */
-  onConfirm: (reason?: string) => Promise<void>;
+  onConfirm: (reason?: string) => Promise<unknown>;
   /** Escape, an outside click and the safe button call it, except while pending. */
   onClose: () => void;
   /**

@@ -237,7 +237,9 @@ describe('[NFR-FE-08] sessions', () => {
     const there = within(table)
       .getByRole('cell', { name: /Firefox on Windows/ })
       .closest('tr') as HTMLElement;
-    expect(within(there).getByRole('cell', { name: '3 November 2026' })).toBeInTheDocument();
+    expect(
+      within(there).getByRole('cell', { name: '3 November 2026 at 12:00 pm' }),
+    ).toBeInTheDocument();
   });
 
   it('[FR-ACC-06] revoking another session confirms with its device and last use, then refreshes the list', async () => {
@@ -255,7 +257,7 @@ describe('[NFR-FE-08] sessions', () => {
     );
     const dialog = await screen.findByRole('alertdialog', { name: 'Revoke this session?' });
     expect(
-      within(dialog).getByText('Firefox on Windows, last used 3 November 2026.'),
+      within(dialog).getByText('Firefox on Windows, last used 3 November 2026 at 12:00 pm.'),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Revoke session' }));
     expect(await screen.findByText('Session revoked.')).toBeInTheDocument();

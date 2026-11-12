@@ -2,7 +2,9 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { etagFor, type ErrorCode, type VendorStatusFilter } from '@po/contracts';
 import { api } from '../../api/app-client';
 import { dataOrThrow } from '../../api/client';
-import { submit } from '../../api/submit';
+import { definedParams } from '../../api/query-params';
+import type { paths } from '../../api/schema';
+import { VERSIONED_STALE_TIME_MS } from '../../app/stale-times';
 
 // The vendor screens' reads (ADR-0018). Every key starts with VENDORS_KEY, so a change
 // refreshes the list and the open vendor at once.
@@ -11,6 +13,8 @@ export const VENDORS_KEY = ['vendors'] as const;
 
 export const vendorKey = (id: string) => [...VENDORS_KEY, 'vendor', id] as const;
 
+export type Vendor = paths['/vendors/{id}']['get']['responses'][200]['content']['application/json'];
+
 export interface VendorListParams {
   /** Left out for the API's default, ACTIVE. */
   status?: VendorStatusFilter | undefined;
@@ -18,12 +22,8 @@ export interface VendorListParams {
   page?: number | undefined;
 }
 
-export function useVendorList({ status, q, page }: VendorListParams) {
-  const query = {
-    ...(status === undefined ? {} : { status }),
-    ...(q ? { q } : {}),
-    ...(page === undefined || page === 1 ? {} : { page }),
-  };
+export function useVendorList(params: VendorListParams) {
+  const query = definedParams(params);
   return useQuery({
     queryKey: [...VENDORS_KEY, 'list', query],
     queryFn: async () => dataOrThrow(await api.GET('/vendors', { params: { query } })),
@@ -35,6 +35,8 @@ export function useVendor(id: string) {
   return useQuery({
     queryKey: vendorKey(id),
     queryFn: async () => dataOrThrow(await api.GET('/vendors/{id}', { params: { path: { id } } })),
+    // Edit and the status actions send the version this read shows.
+    staleTime: VERSIONED_STALE_TIME_MS,
   });
 }
 
@@ -49,33 +51,29 @@ export function isStaleStatusCode(code: string): boolean {
   return (STALE_STATUS_CODES as ReadonlySet<string>).has(code);
 }
 
-/**
- * Deactivate or reactivate, sent with the version the page shows. On success the open
- * vendor takes the answer and every list refreshes.
- */
-export function useChangeVendorStatus() {
+/** After a vendor is saved: the open vendor takes the answer and every list refreshes. */
+export function useVendorSaved() {
   const queryClient = useQueryClient();
-  return async (vendor: { id: string; version: number }, action: 'deactivate' | 'reactivate') => {
-    const params = {
-      path: { id: vendor.id },
-      header: { 'If-Match': etagFor(vendor.version) },
-    };
-    const outcome = await submit(() =>
-      action === 'deactivate'
-        ? api.POST('/vendors/{id}/deactivate', { params })
-        : api.POST('/vendors/{id}/reactivate', { params }),
-    );
-    if (outcome.ok) {
-      queryClient.setQueryData(vendorKey(vendor.id), outcome.data);
-      void queryClient.invalidateQueries({ queryKey: [...VENDORS_KEY, 'list'] });
-    }
-    return outcome;
+  return (vendor: Vendor) => {
+    queryClient.setQueryData(vendorKey(vendor.id), vendor);
+    void queryClient.invalidateQueries({ queryKey: [...VENDORS_KEY, 'list'] });
   };
+}
+
+/** Deactivate or reactivate, sent with the version the page shows. */
+export function changeVendorStatus(
+  vendor: { id: string; version: number },
+  action: 'deactivate' | 'reactivate',
+) {
+  const params = { path: { id: vendor.id }, header: { 'If-Match': etagFor(vendor.version) } };
+  return action === 'deactivate'
+    ? api.POST('/vendors/{id}/deactivate', { params })
+    : api.POST('/vendors/{id}/reactivate', { params });
 }
 
 /** One page of a vendor's history, newest first (Buyers and Admins). */
 export function useVendorHistory(id: string, page: number) {
-  const query = page === 1 ? {} : { page };
+  const query = definedParams({ page });
   return useQuery({
     queryKey: [...vendorKey(id), 'history', query],
     queryFn: async () =>

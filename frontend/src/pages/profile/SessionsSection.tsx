@@ -3,18 +3,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../../api/app-client';
 import { dataOrThrow } from '../../api/client';
-import { failureMessage, submit } from '../../api/submit';
 import { useLogOutHere } from '../../auth/log-out-here';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Pager } from '../../components/Pager';
-import { formatDate } from '../../format/date';
+import { formatDateTime } from '../../format/date';
 import { describeDevice } from '../../format/device';
+import { useDialogAction } from '../../hooks/useDialogAction';
+import { useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './profile.module.css';
 
-const styles = classes(css, 'section', 'table', 'current', 'notice', 'alert', 'row');
+const styles = classes(css, 'section', 'table', 'current', 'notice', 'row');
 const controls = classes(controlsCss, 'button', 'danger');
 
 const SESSIONS_KEY = ['own-sessions'] as const;
@@ -25,7 +26,10 @@ type Dialog = { kind: 'revoke'; session: SessionItem } | { kind: 'everywhere' };
 export function SessionsSection() {
   const queryClient = useQueryClient();
   const logOutHere = useLogOutHere();
-  const [page, setPage] = useState(1);
+  const {
+    params: { page },
+    setPage,
+  } = useListParams({});
   const sessions = useQuery({
     queryKey: [...SESSIONS_KEY, page],
     queryFn: async () =>
@@ -37,20 +41,19 @@ export function SessionsSection() {
   });
   const states = useQueryStates(sessions, { loadingLabel: 'Loading your sessions' });
   const [dialog, setDialog] = useState<Dialog>();
-  const [failure, setFailure] = useState<string>();
+  const action = useDialogAction();
   const [done, setDone] = useState(false);
 
   const close = () => {
     setDialog(undefined);
-    setFailure(undefined);
+    action.clearError();
   };
 
   async function revoke(session: SessionItem) {
-    const outcome = await submit(() =>
+    const revoked = await action.run(() =>
       api.DELETE('/auth/sessions/{id}', { params: { path: { id: session.id } } }),
     );
-    if (!outcome.ok) {
-      setFailure(failureMessage(outcome));
+    if (!revoked) {
       void queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
       return;
     }
@@ -67,12 +70,7 @@ export function SessionsSection() {
   }
 
   async function logOutEverywhere() {
-    const outcome = await submit(() => api.POST('/auth/logout-all'));
-    if (!outcome.ok) {
-      setFailure(failureMessage(outcome));
-      return;
-    }
-    await logOutHere();
+    if (await action.run(() => api.POST('/auth/logout-all'))) await logOutHere();
   }
 
   return (
@@ -118,8 +116,8 @@ export function SessionsSection() {
                       {session.current && <span className={styles.current}>This device</span>}
                     </td>
                     <td>{session.ip}</td>
-                    <td>{formatDate(session.createdAt)}</td>
-                    <td>{formatDate(session.lastUsedAt)}</td>
+                    <td>{formatDateTime(session.createdAt)}</td>
+                    <td>{formatDateTime(session.lastUsedAt)}</td>
                     <td>
                       <button
                         type="button"
@@ -153,18 +151,14 @@ export function SessionsSection() {
           tone="danger"
           onConfirm={() => revoke(dialog.session)}
           onClose={close}
+          error={action.error}
         >
           <p>
             {describeDevice(dialog.session.userAgent)}, last used{' '}
-            {formatDate(dialog.session.lastUsedAt)}.
+            {formatDateTime(dialog.session.lastUsedAt)}.
           </p>
           {dialog.session.current && (
             <p>This is the session you&apos;re using: revoking it logs you out here.</p>
-          )}
-          {failure && (
-            <p role="alert" className={styles.alert}>
-              {failure}
-            </p>
           )}
         </ConfirmDialog>
       )}
@@ -175,13 +169,9 @@ export function SessionsSection() {
           tone="danger"
           onConfirm={logOutEverywhere}
           onClose={close}
+          error={action.error}
         >
           <p>Every device, including this one, will be logged out.</p>
-          {failure && (
-            <p role="alert" className={styles.alert}>
-              {failure}
-            </p>
-          )}
         </ConfirmDialog>
       )}
     </section>

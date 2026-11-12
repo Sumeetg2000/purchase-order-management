@@ -3,11 +3,12 @@ import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { Input, Label, TextField } from 'react-aria-components';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, submit, type ApiFailure } from '../../api/submit';
+import { failureMessage, type ApiFailure } from '../../api/submit';
 import { CURRENT_USER_KEY } from '../../auth/current-user';
 import { safeReturnTo, type LoginState } from '../../auth/return-to';
 import { clearEndedSession } from '../../auth/session-events';
 import { messageForProblem } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -35,21 +36,15 @@ export function Login() {
   }, [loggedOut, queryClient]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<ApiFailure>();
+  const form = useApiForm();
+  const { pending, failure } = form;
   const [resentTo, setResentTo] = useState<string>();
 
   async function logIn(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
     setResentTo(undefined);
-    const outcome = await submit(() => api.POST('/auth/login', { body: { email, password } }));
-    setPending(false);
-    if (!outcome.ok) {
-      setFailure(outcome);
-      return;
-    }
+    const outcome = await form.send(() => api.POST('/auth/login', { body: { email, password } }));
+    if (!outcome?.ok) return;
     const data = outcome.data;
     clearEndedSession();
     // Logging in is the only way another user arrives in this tab: nothing cached for the
@@ -60,14 +55,14 @@ export function Login() {
   }
 
   async function resendVerification() {
-    setPending(true);
-    const outcome = await submit(() => api.POST('/auth/resend-verification', { body: { email } }));
-    setPending(false);
-    if (outcome.ok) {
-      setFailure(undefined);
+    // The refusal that offers this stays on show while it is sent.
+    const outcome = await form.send(
+      () => api.POST('/auth/resend-verification', { body: { email } }),
+      { keepFailure: true },
+    );
+    if (outcome?.ok) {
+      form.clearFailure();
       setResentTo(email);
-    } else {
-      setFailure(outcome);
     }
   }
 

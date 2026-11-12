@@ -2,14 +2,15 @@ import { PASSWORD_MAX_LENGTH } from '@po/contracts';
 import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit } from '../../api/submit';
+import { fieldFailure } from '../../api/submit';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { PASSWORD_RULE } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './profile.module.css';
 
-const styles = classes(css, 'section', 'form', 'field', 'hint', 'fieldError', 'notice', 'alert');
+const styles = classes(css, 'section', 'form', 'field', 'hint', 'fieldError', 'notice');
 const controls = classes(controlsCss, 'primary');
 
 const FIELDS = { current: 'body.currentPassword', next: 'body.newPassword' } as const;
@@ -19,7 +20,7 @@ export function PasswordSection() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const [failure, setFailure] = useState<string>();
+  const form = useApiForm();
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof typeof FIELDS, string | undefined>>
   >({});
@@ -28,18 +29,18 @@ export function PasswordSection() {
   function ask(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setChanged(false);
-    setFailure(undefined);
+    form.clearFailure();
     setFieldErrors({});
     setConfirming(true);
   }
 
   async function change() {
-    setFailure(undefined);
-    const outcome = await submit(() =>
+    const outcome = await form.send(() =>
       api.POST('/auth/change-password', {
         body: { currentPassword: current, newPassword: next },
       }),
     );
+    if (!outcome) return;
     if (!outcome.ok) {
       const errors = {
         current: fieldFailure(outcome, FIELDS.current),
@@ -49,8 +50,6 @@ export function PasswordSection() {
         // A field's own error belongs on the form, next to the field.
         setFieldErrors(errors);
         setConfirming(false);
-      } else {
-        setFailure(failureMessage(outcome));
       }
       return;
     }
@@ -118,13 +117,9 @@ export function PasswordSection() {
           onClose={() => {
             setConfirming(false);
           }}
+          error={form.failure}
         >
           <p>Your other sessions will be logged out.</p>
-          {failure && (
-            <p role="alert" className={styles.alert}>
-              {failure}
-            </p>
-          )}
         </ConfirmDialog>
       )}
     </section>

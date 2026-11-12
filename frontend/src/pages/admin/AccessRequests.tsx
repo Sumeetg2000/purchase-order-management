@@ -5,9 +5,9 @@ import {
   type AdminAccessRequest,
 } from '@po/contracts';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import { Pager } from '../../components/Pager';
 import { formatDate } from '../../format/date';
+import { pickOne, useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -16,7 +16,6 @@ import { AdminTabs } from './AdminTabs';
 import { DismissDialog } from './DismissDialog';
 import { useAccessRequestList } from './queries';
 import { RoleDialog } from './RoleDialog';
-import { oneOf, pageParam, toSearch } from './search-params';
 
 const styles = classes(css, 'filters', 'filter', 'table', 'muted', 'message', 'actions', 'done');
 const controls = classes(controlsCss, 'button');
@@ -34,11 +33,7 @@ type Dialog = { kind: 'assign' | 'dismiss'; request: AdminAccessRequest };
  * role" and "Dismiss" on open ones. Messages and notes are text, never HTML.
  */
 export function AccessRequests() {
-  const [params, setParams] = useSearchParams();
-  const filters = {
-    status: oneOf(params.get('status'), ACCESS_REQUEST_STATUSES),
-    page: pageParam(params.get('page')),
-  };
+  const { params: filters, show, setPage } = useListParams({ status: ACCESS_REQUEST_STATUSES });
   const list = useAccessRequestList(filters);
   const states = useQueryStates(list, {
     loadingLabel: 'Loading access requests',
@@ -69,7 +64,7 @@ export function AccessRequests() {
           <select
             value={filters.status ?? ''}
             onChange={(event) => {
-              setParams(toSearch({ status: oneOf(event.target.value, ACCESS_REQUEST_STATUSES) }));
+              show({ status: pickOne(event.target.value, ACCESS_REQUEST_STATUSES) });
             }}
           >
             <option value="">Any status</option>
@@ -148,9 +143,7 @@ export function AccessRequests() {
             page={states.data.page}
             pageSize={states.data.pageSize}
             total={states.data.total}
-            onPage={(page) => {
-              setParams(toSearch({ ...filters, page }));
-            }}
+            onPage={setPage}
           />
         </>
       )}

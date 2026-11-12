@@ -1,6 +1,7 @@
 import {
   isErrorCode,
   isFieldCode,
+  oneOf,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
@@ -164,7 +165,7 @@ export function messageFor(code: string): ErrorMessage {
 }
 
 function isPublicRevokeReason(value: unknown): value is PublicRevokeReason {
-  return (PUBLIC_REVOKE_REASONS as readonly unknown[]).includes(value);
+  return oneOf(PUBLIC_REVOKE_REASONS, value);
 }
 
 /**
@@ -181,7 +182,7 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
 }
 
 export function isRetryable(code: string): boolean {
-  return (RETRYABLE_CODES as readonly string[]).includes(code);
+  return oneOf(RETRYABLE_CODES, code);
 }
 
 /** What a field error says, by field code (ADR-0007), next to the field. */
