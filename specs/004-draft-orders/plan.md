@@ -157,11 +157,13 @@ it.
 
 ## Story order for `/speckit-tasks`
 
-0. **Foundational**: migration 0013 (tables, grants, triggers, reconciliation); contracts
+0. **Foundational**: migration 0013 part 1 (tables, grants, indexes, reconciliation); contracts
    (money, constants, schemas, read-only guard, codes, operations, inventory); per-route
    body limit and nginx; audit events; frontend routes and messages.
 1. **US2 The total can never drift** (P1), first because every other story's tests
-   assume it: integrity attack suite, trigger counts, reconciliation, PO number triggers.
+   assume it: trigger tests, integrity attack suite and trigger counts seen failing on
+   part 1, then migration 0013 part 2 (the derived-value and rule triggers, same file),
+   then PO number allocation.
 2. **US1 Raise a draft** (P1): create with idempotency and PO numbers; editor (create).
 3. **US3 Edit a draft** (P1): line diff, `If-Match`, `PO_EDITED`; editor (edit), guard,
    conflict reload.
@@ -178,7 +180,8 @@ Each story: tests first, seen failing against real PostgreSQL, then code.
 - `LEFTHOOK_EXCLUDE=eslint` only for test-first commits importing code not yet written.
 - Docs touched: `docs/traceability.md` statuses (FR-PO-01/02/03/04/05/06/07, FR-VEN-02
   create/edit part, FR-SM-02, NFR-DATA-01, NFR-PERF-03 line part, FR-RPT-03 line part,
-  NFR-AUD-01 raise part, NFR-AUD-03 order part, NFR-FE-01/03/06/09 parts),
+  NFR-AUD-01 raise part, NFR-AUD-03 order part, NFR-FE-01/03/06/09 parts, FR-OWN-01, FR-ACT-01, NFR-AUTH-01/02
+  draft cells, NFR-VAL-01, NFR-CON-01/03, NFR-PERF-01 order parts),
   `docs/query-plans/orders/`.
 
 ## Complexity Tracking
