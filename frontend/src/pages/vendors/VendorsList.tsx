@@ -1,18 +1,17 @@
 import {
-  ROLE,
   VENDOR_NAME_MAX,
   VENDOR_STATUS_FILTER_DEFAULT,
   VENDOR_STATUS_FILTERS,
   type VendorStatusFilter,
 } from '@po/contracts';
-import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { useCurrentUser } from '../../auth/current-user';
+import { Link } from 'react-router';
+import { useCan } from '../../auth/can';
 import { Pager } from '../../components/Pager';
+import { SearchField } from '../../components/SearchField';
+import { pickOne, TEXT, useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
-import { oneOf, pageParam, toSearch } from '../admin/search-params';
 import { formatPaymentTerms } from './payment-terms';
 import { useVendorList } from './queries';
 import { VENDOR_FILTER_LABELS, VENDOR_STATUS_LABELS } from './status';
@@ -20,9 +19,6 @@ import css from './vendors.module.css';
 
 const styles = classes(css, 'header', 'filters', 'filter', 'table', 'muted', 'stack');
 const controls = classes(controlsCss, 'primary');
-
-/** How long the name search waits after the last keystroke before it searches. */
-export const VENDOR_SEARCH_DEBOUNCE_MS = 300;
 
 /** The words for "vendor" under a filter: "active vendor", "inactive vendor", "vendor". */
 const FILTER_NOUN = {
@@ -36,14 +32,17 @@ const FILTER_NOUN = {
  * search and page, all in the URL. Active vendors by default; Buyers can add one.
  */
 export function VendorsList() {
-  const [params, setParams] = useSearchParams();
-  const filters = {
-    status: oneOf(params.get('status'), VENDOR_STATUS_FILTERS),
-    q: params.get('q')?.trim() || undefined,
-    page: pageParam(params.get('page')),
-  };
+  // ACTIVE is the API's default, so the URL leaves it out.
+  const {
+    params: filters,
+    show,
+    setPage,
+  } = useListParams(
+    { status: VENDOR_STATUS_FILTERS, q: TEXT },
+    { defaults: { status: VENDOR_STATUS_FILTER_DEFAULT } },
+  );
   const status = filters.status ?? VENDOR_STATUS_FILTER_DEFAULT;
-  const isBuyer = useCurrentUser().data?.roles.includes(ROLE.BUYER) ?? false;
+  const canAdd = useCan('createVendor');
   const list = useVendorList(filters);
   const noun = FILTER_NOUN[status];
   const states = useQueryStates(list, {
@@ -55,24 +54,17 @@ export function VendorsList() {
           title: `No ${noun}s`,
           description:
             status === 'INACTIVE'
-              ? 'Deactivated vendors appear here.'
+              ? 'Inactive vendors appear here.'
               : 'Vendors appear here once a Buyer adds them.',
         },
   });
-
-  const show = (next: Partial<typeof filters>, replace = false) => {
-    const merged = { ...filters, page: 1, ...next };
-    // ACTIVE is the API's default, so the URL leaves it out.
-    const statusParam = merged.status === VENDOR_STATUS_FILTER_DEFAULT ? undefined : merged.status;
-    setParams(toSearch({ status: statusParam, q: merged.q, page: merged.page }), { replace });
-  };
 
   return (
     <>
       <title>Vendors · Purchase Orders</title>
       <div className={styles.header}>
         <h1>Vendors</h1>
-        {isBuyer && (
+        {canAdd && (
           <Link to="/vendors/new" className={controls.primary}>
             Add vendor
           </Link>
@@ -91,7 +83,7 @@ export function VendorsList() {
           <select
             value={status}
             onChange={(event) => {
-              show({ status: oneOf(event.target.value, VENDOR_STATUS_FILTERS) });
+              show({ status: pickOne(event.target.value, VENDOR_STATUS_FILTERS) });
             }}
           >
             {VENDOR_STATUS_FILTERS.map((value) => (
@@ -101,10 +93,13 @@ export function VendorsList() {
             ))}
           </select>
         </label>
-        <NameSearch
+        <SearchField
+          label="Name starts with"
+          className={styles.filter}
           value={filters.q}
+          maxLength={VENDOR_NAME_MAX}
           onSearch={(q) => {
-            show({ q }, true);
+            show({ q }, { replace: true });
           }}
         />
       </form>
@@ -145,64 +140,10 @@ export function VendorsList() {
             page={states.data.page}
             pageSize={states.data.pageSize}
             total={states.data.total}
-            onPage={(page) => {
-              show({ page });
-            }}
+            onPage={setPage}
           />
         </>
       )}
     </>
-  );
-}
-
-/**
- * The name prefix box: searches a moment after typing stops, and follows the URL when it
- * changes another way (Back, Forward), without disturbing the text being typed.
- */
-function NameSearch({
-  value,
-  onSearch,
-}: {
-  value: string | undefined;
-  onSearch: (q: string | undefined) => void;
-}) {
-  const [text, setText] = useState(value ?? '');
-  // The last value this box put in the URL, so its own update doesn't reset the text.
-  const sent = useRef(value);
-  useEffect(() => {
-    if (value !== sent.current) {
-      sent.current = value;
-      setText(value ?? '');
-    }
-  }, [value]);
-
-  const search = useRef(onSearch);
-  useEffect(() => {
-    search.current = onSearch;
-  });
-  useEffect(() => {
-    const q = text.trim() || undefined;
-    if (q === sent.current) return;
-    const timer = setTimeout(() => {
-      sent.current = q;
-      search.current(q);
-    }, VENDOR_SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [text]);
-
-  return (
-    <label className={styles.filter}>
-      Name starts with
-      <input
-        type="search"
-        value={text}
-        maxLength={VENDOR_NAME_MAX}
-        onChange={(event) => {
-          setText(event.target.value);
-        }}
-      />
-    </label>
   );
 }

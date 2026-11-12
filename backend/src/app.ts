@@ -15,7 +15,7 @@ import { createRateLimiter } from './rate-limit/service.js';
 // The API's Express app with every service wired from the config: what the server runs,
 // and what integration tests run against.
 
-export interface ApiAppOptions {
+interface ApiAppOptions {
   config: ApiConfig;
   prisma: AppPrismaClient;
   clock: Clock;

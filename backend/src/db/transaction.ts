@@ -147,7 +147,7 @@ export async function actAs(
 }
 
 /** Who acts and for which request; the runner adds the database and its limits. */
-export interface TransactionContext {
+interface TransactionContext {
   actor: ActorContext;
   requestId: string;
   logger: Logger;

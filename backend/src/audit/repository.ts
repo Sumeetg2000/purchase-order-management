@@ -1,11 +1,12 @@
 import type { AppPrismaClient } from '../db/client.js';
+import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 import type { AuditAction, AuditEventCatalogue } from './events.js';
 
 // Reads of the audit trail by entity (research R10): one entity's entries, newest first,
 // served by audit_entries_entity_idx (entity_type, entity_id, occurred_at DESC, id DESC).
 // Writes go only through writeAudit.
 
-export type AuditEntityType = AuditEventCatalogue[AuditAction]['entityType'];
+type AuditEntityType = AuditEventCatalogue[AuditAction]['entityType'];
 
 /** An entry as stored, the actor as the trigger snapshotted them at the time. */
 export interface EntityHistoryRow {
@@ -19,36 +20,33 @@ export interface EntityHistoryRow {
   details: unknown;
 }
 
-export interface EntityRef {
+interface EntityRef {
   entityType: AuditEntityType;
   entityId: string;
 }
 
 /**
- * A page of the entity's entries, newest first; equal timestamps by id, newest first. The
- * sort names the table: a bare `id` would mean the selected `id::text` and sort as text.
+ * A page of the entity's entries, newest first, and how many it has; equal timestamps by
+ * id, newest first. The sort names the table: a bare `id` would mean the selected
+ * `id::text` and sort as text.
  */
-export function listEntityHistory(
+export async function listEntityHistory(
   prisma: AppPrismaClient,
   { entityType, entityId }: EntityRef,
-  { offset, limit }: { offset: number; limit: number },
-): Promise<EntityHistoryRow[]> {
-  return prisma.$queryRaw<EntityHistoryRow[]>`
-    SELECT id::text, action, occurred_at AS "occurredAt", actor_type AS "actorType",
-           actor_name AS "actorName", actor_email AS "actorEmail",
-           acting_role AS "actingRole", details
-      FROM audit_entries
-     WHERE entity_type = ${entityType} AND entity_id = ${entityId}
-     ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC
-     LIMIT ${limit} OFFSET ${offset}`;
-}
-
-export async function countEntityHistory(
-  prisma: AppPrismaClient,
-  { entityType, entityId }: EntityRef,
-): Promise<number> {
-  const [row] = await prisma.$queryRaw<{ total: bigint }[]>`
-    SELECT count(*) AS total FROM audit_entries
-     WHERE entity_type = ${entityType} AND entity_id = ${entityId}`;
-  return Number(row?.total ?? 0);
+  { offset, limit }: PageArgs,
+): Promise<RowsAndTotal<EntityHistoryRow>> {
+  const [rows, [count]] = await Promise.all([
+    prisma.$queryRaw<EntityHistoryRow[]>`
+      SELECT id::text, action, occurred_at AS "occurredAt", actor_type AS "actorType",
+             actor_name AS "actorName", actor_email AS "actorEmail",
+             acting_role AS "actingRole", details
+        FROM audit_entries
+       WHERE entity_type = ${entityType} AND entity_id = ${entityId}
+       ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+    prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) AS total FROM audit_entries
+       WHERE entity_type = ${entityType} AND entity_id = ${entityId}`,
+  ]);
+  return { rows, total: Number(count?.total ?? 0) };
 }

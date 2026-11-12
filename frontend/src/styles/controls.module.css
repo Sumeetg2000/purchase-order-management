@@ -33,3 +33,24 @@
   border-color: var(--color-danger);
   color: var(--color-on-accent);
 }
+
+/* A button that reads as a link, for an action inside a sentence. */
+.link {
+  font: inherit;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.link:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

@@ -1,8 +1,8 @@
 import { NavLink, Outlet } from 'react-router';
 import { api } from '../api/app-client';
+import { useCan } from '../auth/can';
 import { useCurrentUser } from '../auth/current-user';
 import { useLogOutHere } from '../auth/log-out-here';
-import { ROLE } from '@po/contracts';
 import { useOpenRequestCount } from '../pages/admin/queries';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
@@ -15,6 +15,8 @@ const controls = classes(controlsCss, 'button');
 export function Shell() {
   const user = useCurrentUser().data;
   const logOutHere = useLogOutHere();
+  const canListVendors = useCan('listVendors');
+  const canListUsers = useCan('listUsers');
 
   async function logOut() {
     // Whatever the API answers, this browser is logged out: its cookies are cleared or dead.
@@ -33,8 +35,8 @@ export function Shell() {
           <NavLink to="/" end>
             Home
           </NavLink>
-          {user && user.roles.length > 0 && <NavLink to="/vendors">Vendors</NavLink>}
-          {user?.roles.includes(ROLE.ADMIN) && <UsersLink />}
+          {canListVendors && <NavLink to="/vendors">Vendors</NavLink>}
+          {canListUsers && <UsersLink />}
           <NavLink to="/profile">Profile</NavLink>
         </nav>
         {user && (

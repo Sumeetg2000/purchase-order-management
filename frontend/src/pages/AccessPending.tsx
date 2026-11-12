@@ -5,12 +5,13 @@ import { Label, TextArea, TextField } from 'react-aria-components';
 import { Navigate } from 'react-router';
 import { api } from '../api/app-client';
 import { dataOrThrow } from '../api/client';
-import { failureMessage, submit } from '../api/submit';
+import { failureMessage } from '../api/submit';
 import { CURRENT_USER_KEY, useCurrentUser } from '../auth/current-user';
 import { ErrorState } from '../components/ErrorState';
 import { Loading } from '../components/Loading';
-import { problemFrom } from '../errors/problem';
+import { failureFrom, problemFrom } from '../errors/problem';
 import { formatDate } from '../format/date';
+import { useApiForm } from '../hooks/useApiForm';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
 import css from './account/account.module.css';
@@ -61,7 +62,7 @@ export function AccessPending() {
       ) : refused ? (
         <Loading label="Loading your account" />
       ) : request.isError ? (
-        <ErrorState problem={problemFrom(request.error)} />
+        <ErrorState {...failureFrom(request.error)} />
       ) : (
         <>
           <RequestStatus request={request.data} />
@@ -91,19 +92,14 @@ function RequestStatus({ request }: { request: OwnAccessRequest | null }) {
 function MessageForm() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
-  const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<string>();
+  const form = useApiForm();
+  const failure =
+    form.failure && failureMessage(form.failure, { labels: { 'body.message': 'Message' } });
 
   async function send(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
-    const outcome = await submit(() => api.POST('/me/access-request', { body: { message } }));
-    setPending(false);
-    if (!outcome.ok) {
-      setFailure(failureMessage(outcome));
-      return;
-    }
+    const outcome = await form.send(() => api.POST('/me/access-request', { body: { message } }));
+    if (!outcome?.ok) return;
     queryClient.setQueryData(ACCESS_REQUEST_KEY, outcome.data);
     setMessage('');
   }
@@ -125,7 +121,7 @@ function MessageForm() {
           {failure}
         </p>
       )}
-      <button type="submit" className={controls.primary} disabled={pending}>
+      <button type="submit" className={controls.primary} disabled={form.pending}>
         Send
       </button>
     </form>

@@ -40,7 +40,7 @@ const WARNING_EVENTS: ReadonlySet<SecurityEvent> = new Set([
 
 /** Who acted: the user themself, an admin, or the system (a refresh-token reuse). */
 export const SECURITY_ACTORS = ['USER', 'ADMIN', 'SYSTEM'] as const;
-export type SecurityActor = (typeof SECURITY_ACTORS)[number];
+type SecurityActor = (typeof SECURITY_ACTORS)[number];
 
 /** The only fields a security line may carry. */
 export const SECURITY_FIELDS = [
@@ -58,7 +58,7 @@ export const SECURITY_FIELDS = [
   'errorCode',
   'responseCode',
 ] as const;
-export type SecurityField = (typeof SECURITY_FIELDS)[number];
+type SecurityField = (typeof SECURITY_FIELDS)[number];
 
 export type SecurityEventFields = Partial<
   Record<Exclude<SecurityField, 'by'>, unknown> & { by: SecurityActor }

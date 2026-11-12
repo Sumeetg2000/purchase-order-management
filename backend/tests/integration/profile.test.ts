@@ -22,7 +22,6 @@ describe('[FR-USR-01] profile edit', () => {
       name: 'Asha R. Rao',
       email: user.email,
       roles: ['BUYER'],
-      status: 'ACTIVE',
       createdAt: expect.any(String) as unknown,
     });
     expect((await h.get('/me', jar)).body).toMatchObject({ name: 'Asha R. Rao' });

@@ -373,6 +373,9 @@ describe('[FR-ACC-08] a verified user with no role', () => {
       name: '',
       password: NEW_PASSWORD,
     });
-    expect((await h.get('/me', jar)).body).toMatchObject({ roles: [], status: 'ACTIVE' });
+    expect((await h.get('/me', jar)).body).toMatchObject({ roles: [] });
+    expect(
+      await h.query('SELECT status FROM users WHERE email = $1', ['ravi@example.local']),
+    ).toEqual([{ status: 'ACTIVE' }]);
   });
 });

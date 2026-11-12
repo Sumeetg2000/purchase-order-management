@@ -2,6 +2,8 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import type { AccessRequestStatus, RoleFilter, UserStatus } from '@po/contracts';
 import { api } from '../../api/app-client';
 import { dataOrThrow } from '../../api/client';
+import { definedParams } from '../../api/query-params';
+import { VERSIONED_STALE_TIME_MS } from '../../app/stale-times';
 
 // The admin screens' reads (ADR-0016, ADR-0018). Every key starts with ADMIN_KEY, so an
 // admin action refreshes the lists, the open detail and the Users badge at once.
@@ -23,20 +25,8 @@ export interface AccessRequestListParams {
   page?: number | undefined;
 }
 
-/**
- * Only the parameters that are set, in the given order, and no page 1 (the default), so
- * request URLs stay short and stable.
- */
-function defined<T extends object>(params: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
-  return Object.fromEntries(
-    Object.entries(params).filter(
-      ([key, value]) => value !== undefined && value !== '' && !(key === 'page' && value === 1),
-    ),
-  ) as { [K in keyof T]?: Exclude<T[K], undefined> };
-}
-
 export function useUserList(params: UserListParams) {
-  const query = defined(params);
+  const query = definedParams(params);
   return useQuery({
     queryKey: [...ADMIN_KEY, 'users', query],
     queryFn: async () => dataOrThrow(await api.GET('/admin/users', { params: { query } })),
@@ -50,7 +40,7 @@ export function useUserDetail(id: string) {
     queryFn: async () =>
       dataOrThrow(await api.GET('/admin/users/{id}', { params: { path: { id } } })),
     // A dialog reads the version it will send; it must be the current one.
-    staleTime: 0,
+    staleTime: VERSIONED_STALE_TIME_MS,
   });
 }
 
@@ -67,7 +57,7 @@ export function useActiveApproverCount(enabled: boolean) {
 }
 
 export function useAccessRequestList(params: AccessRequestListParams) {
-  const query = defined(params);
+  const query = definedParams(params);
   return useQuery({
     queryKey: [...ADMIN_KEY, 'access-requests', query],
     queryFn: async () =>
@@ -86,7 +76,8 @@ export function useOpenRequestCount(enabled: boolean) {
     },
     enabled,
     refetchInterval: OPEN_COUNT_REFRESH_MS,
-    refetchOnWindowFocus: true,
+    // Even within the default stale time: the badge is how admins notice new requests.
+    refetchOnWindowFocus: 'always',
   });
 }
 

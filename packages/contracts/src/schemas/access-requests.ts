@@ -16,9 +16,7 @@ export const ownAccessRequest = z
   .strictObject({
     status: z.enum(ACCESS_REQUEST_STATUSES),
     message: z.string(),
-    createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
-    decidedAt: z.iso.datetime().nullable(),
     adminNote: z.string().nullable(),
   })
   .meta({ id: 'OwnAccessRequest' });
@@ -30,7 +28,8 @@ export const adminAccessRequest = ownAccessRequest
       id: z.uuid(),
       name: z.string(),
       email: z.string(),
-      signedUpAt: z.iso.datetime(),
+      /** When the user signed up. */
+      createdAt: z.iso.datetime(),
     }),
   })
   .meta({ id: 'AdminAccessRequest' });

@@ -4,7 +4,7 @@
 
 import { DAY_SECONDS, HOUR_SECONDS, MINUTE_SECONDS } from '../lib/time.js';
 
-export interface RateLimitBucketDefinition {
+interface RateLimitBucketDefinition {
   name: string;
   /** Hits allowed per window; the next one is refused. */
   limit: number;

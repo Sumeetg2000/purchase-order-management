@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { Empty, type EmptyProps } from '../components/Empty';
 import { ErrorState } from '../components/ErrorState';
 import { Loading } from '../components/Loading';
-import { problemFrom } from '../errors/problem';
+import { failureFrom } from '../errors/problem';
 
 export interface QueryStateOptions<T> {
   loadingLabel: string;
@@ -34,9 +34,7 @@ export function useQueryStates<T>(
   const retry = () => {
     void query.refetch();
   };
-  const error = query.isError ? (
-    <ErrorState problem={problemFrom(query.error)} onRetry={retry} />
-  ) : null;
+  const error = query.isError ? <ErrorState {...failureFrom(query.error)} onRetry={retry} /> : null;
 
   if (query.data === undefined) {
     if (error) return { view: error, data: undefined, notice: null };

@@ -59,8 +59,8 @@ async function withActor(client: pg.Client, sql: string, params: unknown[] = [])
 function insertNamed(client: pg.Client, name: string) {
   return withActor(
     client,
-    `INSERT INTO vendors (name, contact_name, contact_email, payment_term_type, net_days)
-     VALUES ($1, 'Ravi', 'ravi@acme.example', 'NET', 30)`,
+    `INSERT INTO vendors (id, name, contact_name, contact_email, payment_term_type, net_days)
+     VALUES (gen_random_uuid(), $1, 'Ravi', 'ravi@acme.example', 'NET', 30)`,
     [name],
   );
 }

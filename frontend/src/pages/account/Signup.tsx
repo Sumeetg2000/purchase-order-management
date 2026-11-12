@@ -2,8 +2,9 @@ import { useState, type SyntheticEvent } from 'react';
 import { FieldError, Input, Label, Text, TextField } from 'react-aria-components';
 import { Link } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
+import { failureMessage } from '../../api/submit';
 import { messageForProblem, PASSWORD_RULE } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -20,23 +21,18 @@ export function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
-  const [failure, setFailure] = useState<ApiFailure>();
+  const form = useApiForm();
+  const { failure, fieldError } = form;
 
   async function signUp(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
-    const outcome = await submit(() =>
+    const outcome = await form.send(() =>
       api.POST('/auth/signup', { body: { name, email, password } }),
     );
-    setPending(false);
-    if (outcome.ok) setSentTo(email);
-    else setFailure(outcome);
+    if (outcome?.ok) setSentTo(email);
   }
 
-  const fieldError = (path: string) => (failure ? fieldFailure(failure, path) : undefined);
   const formError =
     failure && !Object.values(FIELDS).some((path) => fieldError(path))
       ? failureMessage(failure)
@@ -108,7 +104,7 @@ export function Signup() {
               )}
             </p>
           )}
-          <button type="submit" className={controls.primary} disabled={pending}>
+          <button type="submit" className={controls.primary} disabled={form.pending}>
             Sign up
           </button>
         </form>

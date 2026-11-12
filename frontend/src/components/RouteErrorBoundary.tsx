@@ -1,8 +1,8 @@
 import { Button } from 'react-aria-components';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 import { ChunkLoadError } from '../app/lazyPage';
-import type { ProblemLike } from '../errors/messages';
-import { problemFrom } from '../errors/problem';
+import type { FailureLike } from '../errors/messages';
+import { failureFrom } from '../errors/problem';
 import { classes } from '../styles/classes';
 import { ErrorState } from './ErrorState';
 import css from './states.module.css';
@@ -32,9 +32,9 @@ export function RouteErrorBoundary() {
       </div>
     );
   }
-  const problem: ProblemLike =
+  const failure: FailureLike =
     isRouteErrorResponse(error) && error.status === 404
-      ? { code: 'NOT_FOUND' }
-      : problemFrom(error);
-  return <ErrorState problem={problem} />;
+      ? { problem: { code: 'NOT_FOUND' } }
+      : failureFrom(error);
+  return <ErrorState {...failure} />;
 }

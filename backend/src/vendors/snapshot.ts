@@ -95,8 +95,6 @@ export function toVendor(row: VendorRow): Vendor {
     status: statusOf(row),
     deactivatedAt: row.deactivatedAt?.toISOString() ?? null,
     version: row.version,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
   };
 }
 

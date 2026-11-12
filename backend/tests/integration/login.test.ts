@@ -70,7 +70,6 @@ describe('[NFR-SEC-01] a successful login', () => {
       name: 'Asha Rao',
       email: user.email,
       roles: ['BUYER'],
-      status: 'ACTIVE',
       createdAt: expect.any(String) as unknown,
     });
     expect(JSON.stringify(res.body)).not.toMatch(TOKEN_SHAPED);

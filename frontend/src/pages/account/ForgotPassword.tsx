@@ -2,9 +2,10 @@ import { useState, type SyntheticEvent } from 'react';
 import { Input, Label, TextField } from 'react-aria-components';
 import { Link, useLocation } from 'react-router';
 import { api } from '../../api/app-client';
-import { failureMessage, submit, type ApiFailure } from '../../api/submit';
+import { failureMessage } from '../../api/submit';
 import { LOGIN_PATH } from '../../auth/return-to';
 import { messageForProblem } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -20,18 +21,14 @@ const controls = classes(controlsCss, 'primary');
 export function ForgotPassword() {
   const state = useLocation().state as ForgotPasswordState | null;
   const [email, setEmail] = useState(state?.email ?? '');
-  const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
-  const [failure, setFailure] = useState<ApiFailure>();
+  const form = useApiForm();
+  const failure = form.failure;
 
   async function send(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    setFailure(undefined);
-    const outcome = await submit(() => api.POST('/auth/forgot-password', { body: { email } }));
-    setPending(false);
-    if (outcome.ok) setSentTo(email);
-    else setFailure(outcome);
+    const outcome = await form.send(() => api.POST('/auth/forgot-password', { body: { email } }));
+    if (outcome?.ok) setSentTo(email);
   }
 
   return (
@@ -54,7 +51,7 @@ export function ForgotPassword() {
             value={email}
             onChange={(value) => {
               setEmail(value);
-              setFailure(undefined);
+              form.clearFailure();
             }}
             isRequired
           >
@@ -69,11 +66,11 @@ export function ForgotPassword() {
                   {messageForProblem(failure.problem).message} <Link to="/signup">Sign up</Link>
                 </>
               ) : (
-                failureMessage(failure)
+                failureMessage(failure, { labels: { 'body.email': 'Email' } })
               )}
             </p>
           )}
-          <button type="submit" className={controls.primary} disabled={pending}>
+          <button type="submit" className={controls.primary} disabled={form.pending}>
             Send reset link
           </button>
         </form>

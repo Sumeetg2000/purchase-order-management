@@ -35,7 +35,12 @@ const DIALOGS: Record<string, DialogDemo> = {
   error: {
     title: 'Approve order PO-2026-27-000123?',
     confirmLabel: 'Approve order',
-    error: { code: 'SERVICE_UNAVAILABLE', correlationId: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f' },
+    error: {
+      problem: {
+        code: 'SERVICE_UNAVAILABLE',
+        correlationId: '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f',
+      },
+    },
     body: 'The buyer can then record receipts against it.',
     onConfirm: () => wait(800),
   },

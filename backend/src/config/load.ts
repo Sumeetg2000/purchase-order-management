@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-export interface LoadConfigIo {
+interface LoadConfigIo {
   write: (line: string) => void;
   exit: (code: number) => void;
 }

@@ -16,7 +16,7 @@ const argsSchema = z.strictObject({
   name: z.string().trim().min(1).max(USER_NAME_MAX_LENGTH),
 });
 
-export type AdminCreateArgs = z.output<typeof argsSchema>;
+type AdminCreateArgs = z.output<typeof argsSchema>;
 
 /** Flags → validated arguments; throws CliError USAGE or INVALID_ARGUMENT. */
 export function parseAdminCreateArgs(argv: readonly string[]): AdminCreateArgs {

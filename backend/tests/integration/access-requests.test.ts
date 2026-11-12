@@ -45,9 +45,7 @@ describe('[FR-ACC-09] own access request', () => {
     expect(res.body).toEqual({
       status: 'OPEN',
       message: 'Please add me as a buyer',
-      createdAt: expect.any(String) as unknown,
       updatedAt: expect.any(String) as unknown,
-      decidedAt: null,
       adminNote: null,
     });
     expect((await read()).body).toEqual(res.body);
@@ -92,7 +90,6 @@ describe('[FR-ACC-09] own access request', () => {
     expect((await read()).body).toMatchObject({
       status: 'DISMISSED',
       adminNote: 'Ask your manager first',
-      decidedAt: expect.any(String) as unknown,
     });
     expect((await send('second')).body).toMatchObject({ status: 'OPEN', message: 'second' });
     expect(await h.query('SELECT status FROM access_requests ORDER BY created_at')).toEqual([
@@ -154,14 +151,15 @@ describe('[FR-ACC-08] what a no-role user may use', () => {
 
 describe('[FR-ACC-09] an admin change while a request is being sent', () => {
   it.each([
-    ['a role was granted', `UPDATE users SET roles = '{BUYER}' WHERE id = $1`],
+    ['a role was granted', 'FORBIDDEN', `UPDATE users SET roles = '{BUYER}' WHERE id = $1`],
     [
       'the user was deactivated',
+      'ACCOUNT_DEACTIVATED',
       `UPDATE users SET status = 'DEACTIVATED', deactivated_at = now() WHERE id = $1`,
     ],
   ])(
-    '[FR-ACC-09] %s: the send re-checks under the user lock, 403 FORBIDDEN, nothing opened',
-    async (_change, sql) => {
+    '[FR-ACC-09] %s: the send re-checks under the user lock and is refused with %s, nothing opened',
+    async (_change, code, sql) => {
       const h = await accountsHarness();
       const user = await h.seedUser({ roles: '{}' });
       // As if an admin changed the user after the authorize step read them.
@@ -192,7 +190,7 @@ describe('[FR-ACC-09] an admin change while a request is being sent', () => {
             ip: '10.0.0.1',
             userAgent: 'test',
           }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+        ).rejects.toMatchObject({ code });
       } finally {
         await prisma.$disconnect();
       }

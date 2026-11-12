@@ -50,7 +50,7 @@ Exit codes: 0 success, 1 usage or validation error, 2 refused by a rule,
 3 database unreachable, lock timeout or unexpected failure.
 `;
 
-export interface CliDeps {
+interface CliDeps {
   env: Record<string, string | undefined>;
   stdout: (text: string) => void;
   stderr: (text: string) => void;

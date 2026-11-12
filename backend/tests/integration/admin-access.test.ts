@@ -148,15 +148,13 @@ describe('[FR-ADM-06] admin access-request list', () => {
         id: newer.id,
         status: 'OPEN',
         message: 'second',
-        createdAt: expect.any(String) as unknown,
         updatedAt: expect.any(String) as unknown,
-        decidedAt: null,
         adminNote: null,
         user: {
           id: newer.user.id,
           name: 'Newer',
           email: newer.user.email,
-          signedUpAt: expect.any(String) as unknown,
+          createdAt: expect.any(String) as unknown,
         },
       },
       expect.objectContaining({ id: older.id, message: 'first' }),
@@ -192,11 +190,12 @@ describe('[FR-ADM-06] dismiss an access request', () => {
       id: request.id,
       status: 'DISMISSED',
       adminNote: 'Ask your manager first',
-      decidedAt: h.clock.now().toISOString(),
     });
     expect(
-      await h.query('SELECT decided_by FROM access_requests WHERE id = $1', [request.id]),
-    ).toEqual([{ decided_by: admin.id }]);
+      await h.query('SELECT decided_by, decided_at FROM access_requests WHERE id = $1', [
+        request.id,
+      ]),
+    ).toEqual([{ decided_by: admin.id, decided_at: h.clock.now() }]);
     const own = await h.get('/me/access-request', request.jar);
     expect(own.body).toMatchObject({ status: 'DISMISSED', adminNote: 'Ask your manager first' });
   });

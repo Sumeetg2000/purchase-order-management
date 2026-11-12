@@ -1,7 +1,9 @@
 # ADR-0008: Zod-first contract, generated OpenAPI
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-11-03 (error and field codes published as
-  `x-extensible-enum`, found while implementing slice 1)
+  `x-extensible-enum`, found while implementing slice 1) · amended 2026-11-12 (unread
+  response fields removed, a breaking change taken under the one-client exception; every
+  database-backed operation declares the database's 503 codes)
 - **Brief:** §5 · Gap G12 · Lesson 1
 - **Principles:** VI
 
@@ -20,6 +22,18 @@
   breaking (`response-property-enum-value-added`), so with plain enums every slice that
   adds a code would need the `breaking` label. Validation in code still accepts only the
   registry's codes.
+- **Unread response fields removed** (amended 2026-11-12, audit): `Me.status` (only an
+  active user can read `/me`), `Vendor.createdAt` and `Vendor.updatedAt`, and the access
+  request's `createdAt` and `decidedAt` (own and admin views). The admin view's
+  `user.signedUpAt` is renamed `user.createdAt`, as `Me` names it. The vendor detail page
+  now shows `deactivatedAt`. These are breaking changes, so the contract-breaking check
+  reports them: expected, under the exception above, since our frontend is the only client
+  and is regenerated in the same PR. The columns stay in the database (`decided_at` is
+  still written on a dismissal).
+- **Database failures are declared** (amended 2026-11-12, audit): every operation that
+  reads or writes the database lists `SERVICE_UNAVAILABLE` and
+  `CONCURRENCY_RETRY_EXHAUSTED` (ADR-0006) on its 503. Only liveness, which never reads it,
+  and readiness, which declares its own `SERVICE_UNAVAILABLE`, opt out.
 - Contract gate: Zod schemas and the OpenAPI diff are reviewed before any service code.
 
 ## Alternatives

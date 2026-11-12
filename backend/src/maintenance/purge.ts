@@ -21,9 +21,9 @@ export const PURGE_TABLES = [
   'sessions',
   'rate_limit_counters',
 ] as const;
-export type PurgeTable = (typeof PURGE_TABLES)[number];
+type PurgeTable = (typeof PURGE_TABLES)[number];
 
-export interface PurgeContext {
+interface PurgeContext {
   db: AppPrismaClient;
   /**
    * The run's reference time: limits are measured back from it. Unset, it is the
@@ -124,7 +124,7 @@ export const rateLimitCountersTask: PurgeTask = {
     ),
 };
 
-export interface PurgeCycleResult {
+interface PurgeCycleResult {
   counts: Partial<Record<PurgeTable, number>>;
   failed: PurgeTable[];
 }
@@ -162,11 +162,11 @@ export async function runPurgeCycle(
   return { counts, failed };
 }
 
-export type PurgeOutcome =
+type PurgeOutcome =
   | ({ status: 'complete' | 'failed' } & Pick<PurgeCycleResult, 'counts'>)
   | { status: 'already_running' };
 
-export interface PurgeOptions {
+interface PurgeOptions {
   tasks: readonly PurgeTask[];
   db: AppPrismaClient;
   /** The maintenance role's URL, for the connection that holds the run's lock. */

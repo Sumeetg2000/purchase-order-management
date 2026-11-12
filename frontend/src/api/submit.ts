@@ -1,13 +1,18 @@
-import type { FieldError } from '@po/contracts';
-import { fieldMessages, sentenceFor, type ProblemLike } from '../errors/messages';
+import {
+  describeFailure,
+  fieldMessageFor,
+  sentenceOf,
+  type FormFields,
+  type ProblemLike,
+} from '../errors/messages';
 import { problemFrom } from '../errors/problem';
-import { parseProblem } from './client';
+import { parseProblem, retryAfterOf } from './client';
 
 // One way for a form to call the API: an unreachable API, a problem and its Retry-After
 // all become one failure the page can show.
 
 export interface ApiFailure {
-  problem: ProblemLike & { details?: readonly FieldError[] | undefined };
+  problem: ProblemLike;
   retryAfterSeconds?: number;
 }
 
@@ -24,21 +29,25 @@ export async function submit<T>(
     return { ok: false, problem: problemFrom(thrown) };
   }
   if (result.error === undefined) return { ok: true, data: result.data as T };
-  const retryAfter = Number(result.response.headers.get('Retry-After') ?? Number.NaN);
+  const retryAfterSeconds = retryAfterOf(result.response);
   return {
     ok: false,
     problem: parseProblem(result.response, result.error),
-    ...(Number.isFinite(retryAfter) ? { retryAfterSeconds: retryAfter } : {}),
+    ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
   };
 }
 
-/** The failure as the page says it, the wait in minutes where there is one. */
-export function failureMessage(failure: ApiFailure): string {
-  return sentenceFor(failure.problem, failure.retryAfterSeconds);
+/**
+ * The failure as the page says it, the wait in minutes where there is one. `form` names
+ * the fields the page highlights itself and labels the rest, so a field error with no
+ * field of its own on the page is said here (describeFailure).
+ */
+export function failureMessage(failure: ApiFailure, form?: FormFields): string {
+  return sentenceOf(describeFailure(failure, form));
 }
 
 /** The message for a field's own error, if the failure names that field. */
 export function fieldFailure(failure: ApiFailure, path: string): string | undefined {
   const detail = failure.problem.details?.find((d) => d.path === path);
-  return detail && fieldMessages[detail.code];
+  return detail && fieldMessageFor(detail.code);
 }

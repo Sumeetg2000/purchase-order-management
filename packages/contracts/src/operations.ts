@@ -81,6 +81,11 @@ export interface OperationContract {
   responses: Readonly<Record<number, z.ZodType>>;
   /** Codes this operation returns beyond the ones every operation can return. */
   errors?: readonly ErrorCode[];
+  /**
+   * False opts out of the codes a database failure answers: liveness never reads the
+   * database, and readiness declares its own SERVICE_UNAVAILABLE.
+   */
+  databaseCodes?: false;
 }
 
 /**
@@ -105,6 +110,7 @@ export const OPERATIONS = {
     summary: 'Liveness. The process is up and serving.',
     access: 'public',
     responses: { 200: healthSchema },
+    databaseCodes: false,
   },
   getReadiness: {
     method: 'get',
@@ -114,6 +120,7 @@ export const OPERATIONS = {
     access: 'public',
     responses: { 200: readinessSchema },
     errors: ['SERVICE_UNAVAILABLE'],
+    databaseCodes: false,
   },
 
   // Slice 1, US1: sessions (ADR-0017, contracts/api.md).

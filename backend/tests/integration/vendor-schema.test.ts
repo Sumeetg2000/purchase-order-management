@@ -64,9 +64,9 @@ function insertVendor(client: pg.Client, row: Partial<VendorRow> = {}) {
   const v = { ...valid, ...row };
   return asApp(
     client,
-    `INSERT INTO vendors (name, contact_name, contact_email, contact_phone,
+    `INSERT INTO vendors (id, name, contact_name, contact_email, contact_phone,
                           payment_term_type, net_days, advance_percent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name_key, status, version`,
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7) RETURNING id, name_key, status, version`,
     [
       v.name,
       v.contact_name,
@@ -287,15 +287,15 @@ describe('[FR-VEN-01] vendors table (0011)', () => {
     const app = await (await database()).client('po_app');
     const error = await app
       .query(
-        `INSERT INTO vendors (name, contact_name, contact_email, payment_term_type, net_days)
-         VALUES ('Acme', 'Ravi', 'ravi@acme.example', 'NET', 30)`,
+        `INSERT INTO vendors (id, name, contact_name, contact_email, payment_term_type, net_days)
+         VALUES (gen_random_uuid(), 'Acme', 'Ravi', 'ravi@acme.example', 'NET', 30)`,
       )
       .catch((e: unknown) => e);
     expect(error).toMatchObject({ code: ACTOR_CONTEXT_REQUIRED });
   });
 });
 
-describe('[FR-VEN-01] vendors privileges (0011)', () => {
+describe('[FR-VEN-01] vendors privileges (0011, 0012)', () => {
   const writable = [
     'name',
     'contact_name',
@@ -306,7 +306,7 @@ describe('[FR-VEN-01] vendors privileges (0011)', () => {
     'advance_percent',
   ];
 
-  it('[FR-VEN-01] po_app inserts only the editable columns and updates those plus status and version', async () => {
+  it('[FR-VEN-01] po_app inserts the editable columns and the id, and updates the editable columns plus status and version', async () => {
     const admin = await (await database()).client('postgres');
     const { rows } = await admin.query<{ column: string; ins: boolean; upd: boolean }>(
       `SELECT attname AS column,
@@ -317,7 +317,8 @@ describe('[FR-VEN-01] vendors privileges (0011)', () => {
     );
     const inserts = rows.filter((r) => r.ins).map((r) => r.column);
     const updates = rows.filter((r) => r.upd).map((r) => r.column);
-    expect(inserts).toEqual(writable);
+    // The id is the app's UUIDv7 (migration 0012), ordered as the table declares it.
+    expect(inserts).toEqual(['id', ...writable]);
     expect(updates).toEqual([...writable, 'status', 'deactivated_at', 'version']);
   });
 
@@ -358,7 +359,7 @@ describe('[FR-VEN-01] vendors privileges (0011)', () => {
   });
 });
 
-describe('[FR-VEN-01] vendor list and history indexes (0011)', () => {
+describe('[FR-VEN-01] vendor list and history indexes (0011, 0012)', () => {
   async function indexDef(client: pg.Client, name: string): Promise<string | undefined> {
     const { rows } = await client.query<{ def: string }>(
       `SELECT regexp_replace(indexdef, '^CREATE (UNIQUE )?INDEX \\S+ ON \\S+ USING btree ', '\\1') AS def
@@ -371,7 +372,7 @@ describe('[FR-VEN-01] vendor list and history indexes (0011)', () => {
   it('[FR-VEN-01] the list and history indexes exist with their key order', async () => {
     const admin = await (await database()).client('postgres');
     expect(await indexDef(admin, 'vendors_name_key_key')).toBe('UNIQUE (name_key)');
-    expect(await indexDef(admin, 'vendors_status_name_key_idx')).toBe('(status, name_key, id)');
+    expect(await indexDef(admin, 'vendors_status_name_key_idx')).toBe('(status, name_key)');
     expect(await indexDef(admin, 'audit_entries_entity_idx')).toBe(
       '(entity_type, entity_id, occurred_at DESC, id DESC)',
     );

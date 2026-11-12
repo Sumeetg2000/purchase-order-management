@@ -1,6 +1,7 @@
 import { ERROR_CODES, PUBLIC_REVOKE_REASONS } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  describeFailure,
   errorMessages,
   fieldMessages,
   messageForProblem,
@@ -15,7 +16,11 @@ describe('[NFR-FE-01] web error messages', () => {
   });
 
   it('[FR-ACC-03] each failed one-time link says what happened', () => {
-    expect(errorMessages.TOKEN_EXPIRED.message).toBe('This link has expired. Request a new one.');
+    // The next step is separate, so a page whose link follows can leave it out.
+    expect(errorMessages.TOKEN_EXPIRED).toEqual({
+      message: 'This link has expired.',
+      action: 'Request a new one.',
+    });
     expect(errorMessages.TOKEN_USED.message).toBe('This link has already been used.');
     expect(errorMessages.TOKEN_SUPERSEDED.message).toBe(
       'A newer link was sent. Use the latest email.',
@@ -32,7 +37,7 @@ describe('[FR-VEN-01] vendor messages (specs/003-vendors/contracts/errors.md)', 
       'A vendor with this name already exists.',
     );
     expect(sentenceFor({ code: 'INVALID_STATE_TRANSITION' })).toBe(
-      "This vendor's status has already changed. Reload to see it.",
+      'Its status has already changed. Reload to see the current status.',
     );
     expect(sentenceFor({ code: 'VENDOR_INACTIVE' })).toBe(
       'This vendor is deactivated. Reactivate it or choose another vendor.',
@@ -76,5 +81,74 @@ describe('[NFR-FE-02] logged-out messages', () => {
     expect(messageForProblem({ code: 'NOT_FOUND', reason: 'PASSWORD_CHANGED' })).toEqual(
       errorMessages.NOT_FOUND,
     );
+  });
+});
+
+describe('[NFR-FE-01] messages that say exactly what happened', () => {
+  it('[NFR-SEC-05] a locked account says it is locked, and how long to wait', () => {
+    expect(sentenceFor({ code: 'ACCOUNT_LOCKED' })).toBe(
+      'This account is locked after too many failed login attempts. Try again in a few minutes.',
+    );
+    expect(sentenceFor({ code: 'ACCOUNT_LOCKED' }, 601)).toBe(
+      'This account is locked after too many failed login attempts. Try again in 11 minutes.',
+    );
+  });
+
+  it("[NFR-SEC-05] a rate limit has its own words, not the lockout's", () => {
+    expect(sentenceFor({ code: 'RATE_LIMITED' })).toBe(
+      "You've made too many requests in a short time. Wait a few minutes, then try again.",
+    );
+    expect(sentenceFor({ code: 'RATE_LIMITED' }, 60)).toBe(
+      "You've made too many requests in a short time. Try again in 1 minute.",
+    );
+  });
+
+  it('[NFR-FE-02] an expired login says so', () => {
+    expect(sentenceFor({ code: 'ACCESS_TOKEN_EXPIRED' })).toBe(
+      'Your login has expired. Please log in again.',
+    );
+  });
+
+  it('[NFR-FE-01] INVALID_STATE_TRANSITION names no entity, since orders reuse it', () => {
+    expect(sentenceFor({ code: 'INVALID_STATE_TRANSITION' })).not.toMatch(/vendor/i);
+  });
+});
+
+describe('[NFR-FE-01] validation failures with no highlighted field', () => {
+  const failure = (details: { path: string; code: string }[]) => ({
+    problem: { code: 'VALIDATION_FAILED', details },
+  });
+
+  it('[NFR-FE-01] says each field error at form level, with its label where the page gives one', () => {
+    expect(
+      describeFailure(
+        failure([
+          { path: 'body.email', code: 'INVALID_FORMAT' },
+          { path: 'body.extra', code: 'UNKNOWN_FIELD' },
+        ]),
+        { labels: { 'body.email': 'Email' } },
+      ),
+    ).toEqual({
+      message: `Some of the details are not valid. Email: ${fieldMessages.INVALID_FORMAT} ${fieldMessages.UNKNOWN_FIELD}`,
+      action: 'Correct them and try again.',
+    });
+  });
+
+  it('[NFR-FE-01] never mentions highlighted fields when none is highlighted', () => {
+    expect(sentenceFor({ code: 'VALIDATION_FAILED' })).not.toMatch(/highlighted/);
+    expect(describeFailure(failure([{ path: 'body.x', code: 'REQUIRED' }])).action).not.toMatch(
+      /highlighted/,
+    );
+  });
+
+  it('[NFR-FE-01] keeps "check the highlighted fields" when the page highlights them', () => {
+    const both = failure([
+      { path: 'body.name', code: 'REQUIRED' },
+      { path: 'body.extra', code: 'UNKNOWN_FIELD' },
+    ]);
+    expect(describeFailure(both, { highlighted: ['body.name'] })).toEqual({
+      message: `Some of the details are not valid. ${fieldMessages.UNKNOWN_FIELD}`,
+      action: 'Check the highlighted fields and try again.',
+    });
   });
 });

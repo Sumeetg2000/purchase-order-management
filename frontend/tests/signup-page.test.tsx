@@ -89,7 +89,7 @@ describe('[NFR-FE-08] signup page', () => {
     const { user } = renderApp('/signup');
     await fill(user);
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Too many attempts. Try again in 30 minutes.',
+      "You've made too many requests in a short time. Try again in 30 minutes.",
     );
   });
 

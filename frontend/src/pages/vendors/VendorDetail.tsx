@@ -1,14 +1,15 @@
-import { ROLE } from '@po/contracts';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { failureMessage, type ApiFailure } from '../../api/submit';
-import { useCurrentUser } from '../../auth/current-user';
+import { failureMessage } from '../../api/submit';
+import { useCan } from '../../auth/can';
+import { formatDate } from '../../format/date';
+import { useApiForm } from '../../hooks/useApiForm';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { formatPaymentTerms } from './payment-terms';
 import { DeactivateVendorDialog } from './DeactivateVendorDialog';
-import { isStaleStatusCode, useChangeVendorStatus, useVendor } from './queries';
+import { changeVendorStatus, isStaleStatusCode, useVendor, useVendorSaved } from './queries';
 import { VENDOR_STATUS_LABELS } from './status';
 import { VendorTabs } from './VendorTabs';
 import css from './vendors.module.css';
@@ -23,18 +24,18 @@ const controls = classes(controlsCss, 'button');
  */
 export function VendorDetail() {
   const { id = '' } = useParams();
-  const isBuyer = useCurrentUser().data?.roles.includes(ROLE.BUYER) ?? false;
+  const canEdit = useCan('updateVendor');
+  const canDeactivate = useCan('deactivateVendor');
+  const canReactivate = useCan('reactivateVendor');
   const query = useVendor(id);
   const states = useQueryStates(query, { loadingLabel: 'Loading the vendor' });
-  const change = useChangeVendorStatus();
+  const saved = useVendorSaved();
+  const reactivation = useApiForm();
+  const failure = reactivation.failure;
   const [deactivating, setDeactivating] = useState(false);
-  const [reactivating, setReactivating] = useState(false);
-  // The state update lands after the event; the ref stops a second press sending twice.
-  const reactivatingRef = useRef(false);
-  const [failure, setFailure] = useState<ApiFailure>();
 
   const reload = () => {
-    setFailure(undefined);
+    reactivation.clearFailure();
     void query.refetch();
   };
 
@@ -49,14 +50,8 @@ export function VendorDetail() {
   const vendor = states.data;
 
   const reactivate = async () => {
-    if (reactivatingRef.current) return;
-    reactivatingRef.current = true;
-    setReactivating(true);
-    setFailure(undefined);
-    const outcome = await change(vendor, 'reactivate');
-    reactivatingRef.current = false;
-    setReactivating(false);
-    if (!outcome.ok) setFailure(outcome);
+    const outcome = await reactivation.send(() => changeVendorStatus(vendor, 'reactivate'));
+    if (outcome?.ok) saved(outcome.data);
   };
 
   return (
@@ -66,34 +61,34 @@ export function VendorDetail() {
       <div className={styles.header}>
         <h1>{vendor.name}</h1>
         <span className={styles.badge}>{VENDOR_STATUS_LABELS[vendor.status]}</span>
-        {isBuyer && (
-          <>
-            <Link to={`/vendors/${vendor.id}/edit`} className={controls.button}>
-              Edit
-            </Link>
-            {vendor.status === 'ACTIVE' ? (
+        {canEdit && (
+          <Link to={`/vendors/${vendor.id}/edit`} className={controls.button}>
+            Edit
+          </Link>
+        )}
+        {vendor.status === 'ACTIVE'
+          ? canDeactivate && (
               <button
                 type="button"
                 className={controls.button}
                 onClick={() => {
-                  setFailure(undefined);
+                  reactivation.clearFailure();
                   setDeactivating(true);
                 }}
               >
                 Deactivate
               </button>
-            ) : (
+            )
+          : canReactivate && (
               <button
                 type="button"
                 className={controls.button}
-                disabled={reactivating}
+                disabled={reactivation.pending}
                 onClick={() => void reactivate()}
               >
-                {reactivating ? 'Reactivating…' : 'Reactivate'}
+                {reactivation.pending ? 'Reactivating…' : 'Reactivate'}
               </button>
             )}
-          </>
-        )}
       </div>
       {failure && (
         <div role="alert" className={styles.alert}>
@@ -136,6 +131,12 @@ export function VendorDetail() {
           <span className={styles.term}>Payment terms</span>
           <span>{formatPaymentTerms(vendor.paymentTerms)}</span>
         </li>
+        {vendor.deactivatedAt !== null && (
+          <li>
+            <span className={styles.term}>Inactive since</span>
+            <span>{formatDate(vendor.deactivatedAt)}</span>
+          </li>
+        )}
       </ul>
     </>
   );

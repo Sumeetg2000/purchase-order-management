@@ -24,15 +24,13 @@ const request = (extra: Record<string, unknown> = {}) => ({
   id: '0192e4a0-0000-7000-8000-0000000000f1',
   status: 'OPEN',
   message: '<b>Please</b> add me as a buyer',
-  createdAt: '2026-11-02T06:30:00.000Z',
   updatedAt: '2026-11-02T06:30:00.000Z',
-  decidedAt: null,
   adminNote: null,
   user: {
     id: NIA_ID,
     name: 'Nia New',
     email: 'nia@example.local',
-    signedUpAt: '2026-11-01T06:30:00.000Z',
+    createdAt: '2026-11-01T06:30:00.000Z',
   },
   ...extra,
 });
@@ -91,7 +89,6 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
             request({
               status: 'DISMISSED',
               adminNote: 'Ask your manager',
-              decidedAt: '2026-11-03T06:30:00.000Z',
             }),
           ]),
         ),
@@ -121,6 +118,21 @@ describe('[NFR-FE-08] admin Access requests tab', () => {
     const post = seen.find((r) => r.method === 'POST');
     expect(await post?.json()).toEqual({ note: 'Not yet' });
     expect(await screen.findByRole('heading', { name: 'No access requests' })).toBeInTheDocument();
+  });
+
+  it('[NFR-FE-01] a refused note is named inside the dialog, with no highlighted field to check', async () => {
+    adminApi({
+      [`POST /admin/access-requests/${request().id}/dismiss`]: () =>
+        problem(400, 'VALIDATION_FAILED', { details: [{ path: 'body.note', code: 'TOO_LONG' }] }),
+    });
+    const { user } = renderApp('/admin/users/access-requests');
+    await user.click(await screen.findByRole('button', { name: 'Dismiss request from Nia New' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.type(within(dialog).getByLabelText('Note for Nia New (optional)'), 'Not yet');
+    await user.click(within(dialog).getByRole('button', { name: 'Dismiss request' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('Some of the details are not valid. Note: This is too long.');
+    expect(alert).not.toHaveTextContent(/highlighted/);
   });
 
   it('[FR-ADM-06] a request already handled says so inside the dialog, and the list is read again', async () => {

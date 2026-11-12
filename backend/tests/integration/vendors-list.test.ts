@@ -67,8 +67,6 @@ describe('[FR-VEN-01] vendor list', () => {
         status: 'ACTIVE',
         deactivatedAt: null,
         version: 1,
-        createdAt: expect.any(String) as unknown,
-        updatedAt: expect.any(String) as unknown,
       },
     ]);
   });

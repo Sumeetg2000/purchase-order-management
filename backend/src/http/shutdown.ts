@@ -14,7 +14,7 @@ export const DRAIN_TIMEOUT_MS = 10_000;
  */
 export const MAIL_RESERVE_MS = 2_000;
 
-export interface ShutdownOptions {
+interface ShutdownOptions {
   /** Every listener of the process (API and metrics). */
   servers: readonly Server[];
   prisma: { $disconnect: () => Promise<void> };
@@ -28,7 +28,7 @@ export interface ShutdownOptions {
 }
 
 /** Mail still sending at shutdown, and the listener its handlers run on. */
-export interface ShutdownMail {
+interface ShutdownMail {
   dispatcher: Pick<MailDispatcher, 'settle'>;
   /**
    * The listener whose handlers dispatch mail (the API, not metrics); one of `servers`.
@@ -109,7 +109,7 @@ export function createShutdown({ servers, prisma, logger, drainTimeoutMs, mail }
   };
 }
 
-export interface SignalOptions {
+interface SignalOptions {
   logger: Logger;
   target?: NodeJS.EventEmitter;
   exit?: (code: number) => void;

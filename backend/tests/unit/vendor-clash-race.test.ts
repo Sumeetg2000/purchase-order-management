@@ -15,8 +15,7 @@ import { createCapture } from '../support/log-capture.js';
 const repository = vi.hoisted(() => ({
   insertVendor: vi.fn(),
   findVendorByNameKey: vi.fn(),
-  lockVendor: vi.fn(),
-  findClash: vi.fn(),
+  selectVendor: vi.fn(),
   updateVendor: vi.fn(),
 }));
 vi.mock('../../src/vendors/repository.js', () => repository);

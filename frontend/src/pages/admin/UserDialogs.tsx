@@ -1,10 +1,10 @@
 import { etagFor } from '@po/contracts';
 import { api } from '../../api/app-client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { ErrorState } from '../../components/ErrorState';
 import { Loading } from '../../components/Loading';
-import { problemFrom } from '../../errors/problem';
-import { useDialogAction } from './dialog-action';
+import { failureFrom } from '../../errors/problem';
+import { isVersionConflict, reloadAction } from '../../hooks/useDialogAction';
+import { useAdminDialogAction } from './dialog-action';
 import { useUserDetail } from './queries';
 
 // Deactivate, reactivate and send a reset (ADR-0018's admin dialogs).
@@ -29,7 +29,7 @@ export function ActivationDialog({
   onClose,
 }: UserDialogProps & { isActive: boolean }) {
   const detail = useUserDetail(user.id);
-  const action = useDialogAction();
+  const action = useAdminDialogAction();
   const current = detail.data;
 
   const confirm = async () => {
@@ -54,24 +54,13 @@ export function ActivationDialog({
       confirmDisabled={!current}
       onConfirm={confirm}
       onClose={onClose}
-      error={action.error}
-      errorActions={
-        action.error?.code === 'VERSION_CONFLICT'
-          ? [
-              {
-                label: 'Reload',
-                onPress: () => {
-                  action.clearError();
-                  void detail.refetch();
-                },
-              },
-            ]
-          : []
-      }
+      error={action.error ?? (detail.isError ? failureFrom(detail.error) : undefined)}
+      errorActions={reloadAction(action.error, isVersionConflict, () => {
+        action.clearError();
+        void detail.refetch();
+      })}
     >
-      {detail.isError ? (
-        <ErrorState problem={problemFrom(detail.error)} />
-      ) : !current ? (
+      {detail.isError ? null : !current ? (
         <Loading label="Loading the user" />
       ) : isActive ? (
         <p>They&apos;ll be able to log in again.</p>
@@ -84,7 +73,7 @@ export function ActivationDialog({
 
 /** Send password reset: the standard email; admins never see the link. */
 export function ResetDialog({ user, onDone, onClose }: UserDialogProps) {
-  const action = useDialogAction();
+  const action = useAdminDialogAction();
   const confirm = () =>
     action.run(
       () => api.POST('/admin/users/{id}/reset-password', { params: { path: { id: user.id } } }),

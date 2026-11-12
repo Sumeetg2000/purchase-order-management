@@ -66,9 +66,23 @@ describe('[FR-ACC-05] forgot-password page', () => {
     const { user } = renderApp('/forgot-password');
     await ask(user);
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Too many attempts. Try again in 25 minutes.',
+      "You've made too many requests in a short time. Try again in 25 minutes.",
     );
     expect(screen.getByRole('button', { name: 'Send reset link' })).toBeEnabled();
+  });
+
+  it('[NFR-FE-01] a field error is said at form level, with no highlighted field to check', async () => {
+    fakeApi({
+      'POST /auth/forgot-password': () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.email', code: 'TOO_LONG' }],
+        }),
+    });
+    const { user } = renderApp('/forgot-password');
+    await ask(user);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Some of the details are not valid. Email: This is too long.');
+    expect(alert).not.toHaveTextContent(/highlighted/);
   });
 
   it('[FR-ACC-05] links back to login', async () => {

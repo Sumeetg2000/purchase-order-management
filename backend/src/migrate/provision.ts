@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 
-export interface RolePasswords {
+interface RolePasswords {
   owner: string;
   app: string;
   maintenance: string;

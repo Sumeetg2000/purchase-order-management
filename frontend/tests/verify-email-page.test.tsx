@@ -69,7 +69,9 @@ describe('[NFR-FE-08] verify-email page', () => {
     fakeApi({ 'POST /auth/verify-email': () => problem(423, 'ACCOUNT_LOCKED') });
     const { user } = renderApp(`/verify-email#token=${TOKEN}`);
     await confirmWith(user, PASSWORD);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Too many failed attempts.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This account is locked after too many failed login attempts.',
+    );
   });
 
   it.each([
@@ -83,6 +85,25 @@ describe('[NFR-FE-08] verify-email page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it('[NFR-FE-01] a refused resend email is named at form level', async () => {
+    fakeApi({
+      'POST /auth/verify-email': () => problem(400, 'TOKEN_EXPIRED'),
+      'POST /auth/resend-verification': () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.email', code: 'INVALID_FORMAT' }],
+        }),
+    });
+    const { user } = renderApp(`/verify-email#token=${TOKEN}`);
+    await confirmWith(user, PASSWORD);
+    await user.type(await screen.findByLabelText('Work email'), 'ravi@example.local');
+    await user.click(screen.getByRole('button', { name: 'Send a new link' }));
+    expect(
+      await screen.findByText(
+        'Some of the details are not valid. Work email: This is not in the expected format. Correct them and try again.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('[FR-ACC-02] an expired link offers a new one, sent to the address given', async () => {
     const seen = fakeApi({
       'POST /auth/verify-email': () => problem(400, 'TOKEN_EXPIRED'),
@@ -90,9 +111,8 @@ describe('[NFR-FE-08] verify-email page', () => {
     });
     const { user } = renderApp(`/verify-email#token=${TOKEN}`);
     await confirmWith(user, PASSWORD);
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This link has expired. Request a new one.',
-    );
+    // The form below is the next step, so the message leaves out its own.
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^This link has expired\.$/);
     await user.type(screen.getByLabelText('Work email'), 'ravi@example.local');
     await user.click(screen.getByRole('button', { name: 'Send a new link' }));
     expect(await screen.findByRole('status')).toHaveTextContent(

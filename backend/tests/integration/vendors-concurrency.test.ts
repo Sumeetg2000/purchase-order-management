@@ -104,8 +104,8 @@ describe('[FR-VEN-01] concurrent vendor edits', () => {
     await barrier.query('BEGIN');
     await barrier.query('SET LOCAL session_replication_role = replica');
     await barrier.query(
-      `INSERT INTO vendors (name, contact_name, contact_email, payment_term_type, net_days)
-       VALUES ('Zenith Metals', 'X', 'x@x.example', 'NET', 30)`,
+      `INSERT INTO vendors (id, name, contact_name, contact_email, payment_term_type, net_days)
+       VALUES (gen_random_uuid(), 'Zenith Metals', 'X', 'x@x.example', 'NET', 30)`,
     );
     const racing = Promise.all([
       h.updateVendor(first, vendorBody({ name: 'Zenith Metals' }), 1),

@@ -65,7 +65,7 @@ describe('[NFR-FE-08] reset-password page', () => {
   });
 
   it.each([
-    ['TOKEN_EXPIRED', 'This link has expired. Request a new one.'],
+    ['TOKEN_EXPIRED', 'This link has expired.'],
     ['TOKEN_USED', 'This link has already been used.'],
     ['TOKEN_SUPERSEDED', 'A newer link was sent. Use the latest email.'],
     ['INVALID_TOKEN', "This link isn't valid."],
@@ -82,7 +82,8 @@ describe('[NFR-FE-08] reset-password page', () => {
       fakeApi({ 'POST /auth/reset-password': () => problem(400, code) });
       const { user } = renderPage();
       await choose(user, 'a brand new passphrase');
-      await screen.findByRole('alert');
+      // The link is the next step: the message doesn't also say to request one.
+      expect(await screen.findByRole('alert')).not.toHaveTextContent('Request a new one.');
       expect(screen.getByRole('link', { name: 'Request a new link' })).toHaveAttribute(
         'href',
         '/forgot-password',

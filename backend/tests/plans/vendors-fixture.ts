@@ -1,9 +1,9 @@
 import { PAGE_SIZE_DEFAULT, VENDOR_STATUS_FILTERS } from '@po/contracts';
 import type pg from 'pg';
-import { countEntityHistory, listEntityHistory } from '../../src/audit/repository.js';
+import { listEntityHistory } from '../../src/audit/repository.js';
 import type { AppPrismaClient } from '../../src/db/client.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
-import { countVendors, listVendors } from '../../src/vendors/repository.js';
+import { listVendors } from '../../src/vendors/repository.js';
 
 // The vendor query-plan data and queries (research R11), shared by the plan test and the
 // plan writer (`npm run plans:vendors`). Sizes from ADR-0012: 2,000 vendors (10 %
@@ -96,18 +96,27 @@ export interface PlanQuery {
   rowsBound: number;
 }
 
-/** The SQL a repository function sends, captured instead of run. */
-function captured(run: (db: AppPrismaClient) => Promise<unknown>): Prisma.Sql {
-  let sql: Prisma.Sql | undefined;
+/**
+ * The SQL a list function sends, captured instead of run: its page query, then its count
+ * (the repositories return both, RowsAndTotal).
+ */
+function captured(run: (db: AppPrismaClient) => Promise<unknown>): {
+  page: Prisma.Sql;
+  count: Prisma.Sql;
+} {
+  const sent: Prisma.Sql[] = [];
   const db = {
     $queryRaw: (strings: TemplateStringsArray, ...values: Prisma.Sql[]) => {
-      sql = Prisma.sql(strings, ...values);
+      sent.push(Prisma.sql(strings, ...values));
       return Promise.resolve([]);
     },
   } as unknown as AppPrismaClient;
   void run(db);
-  if (!sql) throw new Error('the repository function sent no query');
-  return sql;
+  const [page, count] = sent;
+  if (sent.length !== 2 || !page || !count) {
+    throw new Error(`a list function sent ${String(sent.length)} queries, not a page and a count`);
+  }
+  return { page, count };
 }
 
 /** Every vendor list and history query the API runs, with the values it binds. */
@@ -122,14 +131,14 @@ export function vendorPlanQueries(vendorId: string): PlanQuery[] {
         const offset = (page - 1) * limit;
         queries.push({
           name: `list-${suffix}-page-${String(page)}`,
-          sql: captured((db) => listVendors(db, { ...filter, offset, limit })),
+          sql: captured((db) => listVendors(db, { ...filter, offset, limit })).page,
           page: true,
           rowsBound: limit + offset,
         });
       }
       queries.push({
         name: `count-${suffix}`,
-        sql: captured((db) => countVendors(db, filter)),
+        sql: captured((db) => listVendors(db, { ...filter, offset: 0, limit })).count,
         page: false,
         rowsBound: 0,
       });
@@ -140,14 +149,14 @@ export function vendorPlanQueries(vendorId: string): PlanQuery[] {
     const offset = (page - 1) * limit;
     queries.push({
       name: `history-page-${String(page)}`,
-      sql: captured((db) => listEntityHistory(db, entity, { offset, limit })),
+      sql: captured((db) => listEntityHistory(db, entity, { offset, limit })).page,
       page: true,
       rowsBound: limit + offset,
     });
   }
   queries.push({
     name: 'history-count',
-    sql: captured((db) => countEntityHistory(db, entity)),
+    sql: captured((db) => listEntityHistory(db, entity, { offset: 0, limit })).count,
     page: false,
     rowsBound: 0,
   });

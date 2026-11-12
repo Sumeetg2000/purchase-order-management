@@ -1,6 +1,8 @@
 import type { ExistingVendor, VendorStatus, VendorStatusFilter } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
+import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
+import { uuidv7 } from '../lib/uuid.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PaymentTermColumns, VendorRow } from './snapshot.js';
 
@@ -32,9 +34,9 @@ export async function insertVendor(
   fields: VendorFields,
 ): Promise<VendorRow | null> {
   const [row] = await tx.$queryRaw<VendorRow[]>`
-    INSERT INTO vendors (name, contact_name, contact_email, contact_phone,
+    INSERT INTO vendors (id, name, contact_name, contact_email, contact_phone,
                          payment_term_type, net_days, advance_percent)
-    VALUES (${fields.name}, ${fields.contactName}, ${fields.contactEmail},
+    VALUES (${uuidv7()}::uuid, ${fields.name}, ${fields.contactName}, ${fields.contactEmail},
             ${fields.contactPhone}, ${fields.paymentTermType}, ${fields.netDays}::smallint,
             ${fields.advancePercent}::smallint)
     ON CONFLICT (name_key) DO NOTHING
@@ -55,22 +57,21 @@ export async function findVendorByNameKey(
   return row ?? null;
 }
 
-/** Locks the vendor row for an edit or a status change (research R8), or null. */
-export async function lockVendor(tx: AuditedTransaction, id: string): Promise<VendorRow | null> {
-  const [row] = await tx.$queryRaw<VendorRow[]>`
-    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid FOR UPDATE`;
-  return row ?? null;
-}
+/**
+ * Row locks a read can take: FOR UPDATE for an edit or a status change (research R8), FOR
+ * SHARE for an order's active check (research R9), where shared holders don't block each
+ * other and a FOR UPDATE waits.
+ */
+const LOCKS = { update: Prisma.sql`FOR UPDATE`, share: Prisma.sql`FOR SHARE` } as const;
 
-/** Another vendor whose name key equals that of `name`, or null (an edit's clash check). */
-export async function findClash(
-  tx: AuditedTransaction,
-  name: string,
-  exceptId: string,
-): Promise<ExistingVendor | null> {
-  const [row] = await tx.$queryRaw<ExistingVendor[]>`
-    SELECT id::text, name FROM vendors
-     WHERE name_key = vendor_name_key(${name}) AND id <> ${exceptId}::uuid`;
+/** The vendor, or null; under `lock` when given, which needs the caller's transaction. */
+export async function selectVendor(
+  db: AuditedTransaction | AppPrismaClient,
+  id: string,
+  lock?: keyof typeof LOCKS,
+): Promise<VendorRow | null> {
+  const [row] = await db.$queryRaw<VendorRow[]>`
+    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid ${lock ? LOCKS[lock] : Prisma.empty}`;
   return row ?? null;
 }
 
@@ -114,26 +115,7 @@ export async function setVendorStatus(
   return row;
 }
 
-/**
- * Reads the vendor under FOR SHARE for an order's active check (research R9), or null.
- * Shared holders don't block each other; a status change or edit (FOR UPDATE) waits.
- */
-export async function lockVendorShared(
-  tx: AuditedTransaction,
-  id: string,
-): Promise<VendorRow | null> {
-  const [row] = await tx.$queryRaw<VendorRow[]>`
-    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid FOR SHARE`;
-  return row ?? null;
-}
-
-export async function findVendor(prisma: AppPrismaClient, id: string): Promise<VendorRow | null> {
-  const [row] = await prisma.$queryRaw<VendorRow[]>`
-    SELECT ${COLUMNS} FROM vendors WHERE id = ${id}::uuid`;
-  return row ?? null;
-}
-
-export interface VendorListFilter {
+interface VendorListFilter {
   status: VendorStatusFilter;
   /** A name prefix, compared by name key. */
   q?: string | undefined;
@@ -163,24 +145,21 @@ function whereOf(filter: VendorListFilter): Prisma.Sql {
 }
 
 /**
- * A page of vendors sorted by name key. The key is unique (vendors_name_key_key), so it is
- * a total order and both name-key indexes serve it with no sort.
+ * A page of vendors sorted by name key, and the number of matches. The key is unique
+ * (vendors_name_key_key), so it is a total order and both name-key indexes serve it with
+ * no sort.
  */
-export function listVendors(
+export async function listVendors(
   prisma: AppPrismaClient,
-  filter: VendorListFilter & { offset: number; limit: number },
-): Promise<VendorRow[]> {
-  return prisma.$queryRaw<VendorRow[]>`
-    SELECT ${COLUMNS} FROM vendors ${whereOf(filter)}
-     ORDER BY vendors.name_key
-     LIMIT ${filter.limit} OFFSET ${filter.offset}`;
-}
-
-export async function countVendors(
-  prisma: AppPrismaClient,
-  filter: VendorListFilter,
-): Promise<number> {
-  const [row] = await prisma.$queryRaw<{ total: bigint }[]>`
-    SELECT count(*) AS total FROM vendors ${whereOf(filter)}`;
-  return Number(row?.total ?? 0);
+  filter: VendorListFilter & PageArgs,
+): Promise<RowsAndTotal<VendorRow>> {
+  const where = whereOf(filter);
+  const [rows, [count]] = await Promise.all([
+    prisma.$queryRaw<VendorRow[]>`
+      SELECT ${COLUMNS} FROM vendors ${where}
+       ORDER BY vendors.name_key
+       LIMIT ${filter.limit} OFFSET ${filter.offset}`,
+    prisma.$queryRaw<{ total: bigint }[]>`SELECT count(*) AS total FROM vendors ${where}`,
+  ]);
+  return { rows, total: Number(count?.total ?? 0) };
 }

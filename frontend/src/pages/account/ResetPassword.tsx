@@ -4,8 +4,9 @@ import { FieldError, Input, Label, Text, TextField } from 'react-aria-components
 import { Link } from 'react-router';
 import { useFragmentToken } from '../../auth/fragment-token';
 import { api } from '../../api/app-client';
-import { failureMessage, fieldFailure, submit, type ApiFailure } from '../../api/submit';
-import { PASSWORD_RULE, sentenceFor } from '../../errors/messages';
+import { failureMessage } from '../../api/submit';
+import { messageForProblem, PASSWORD_RULE, sentenceFor } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import css from './account.module.css';
@@ -33,28 +34,19 @@ function RequestNewLink() {
 export function ResetPassword() {
   const token = useFragmentToken();
   const [password, setPassword] = useState('');
-  const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
-  const [failure, setFailure] = useState<ApiFailure>();
-  const [fieldError, setFieldError] = useState<string>();
+  const form = useApiForm();
+  const fieldError = form.fieldError(PASSWORD_PATH);
+  // A field's own error shows on the field; anything else on the form.
+  const failure = fieldError === undefined ? form.failure : undefined;
 
   async function setNewPassword(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
-    setPending(true);
-    setFailure(undefined);
-    setFieldError(undefined);
-    const outcome = await submit(() =>
+    const outcome = await form.send(() =>
       api.POST('/auth/reset-password', { body: { token, newPassword: password } }),
     );
-    setPending(false);
-    if (outcome.ok) {
-      setDone(true);
-      return;
-    }
-    const field = fieldFailure(outcome, PASSWORD_PATH);
-    if (field) setFieldError(field);
-    else setFailure(outcome);
+    if (outcome?.ok) setDone(true);
   }
 
   return (
@@ -89,16 +81,17 @@ export function ResetPassword() {
           </TextField>
           {failure && (
             <p role="alert" className={styles.alert}>
-              {failureMessage(failure)}
-              {NEW_LINK_CODES.includes(failure.problem.code) && (
+              {NEW_LINK_CODES.includes(failure.problem.code) ? (
+                // The link is the next step, in place of the message's own.
                 <>
-                  {' '}
-                  <RequestNewLink />
+                  {messageForProblem(failure.problem).message} <RequestNewLink />
                 </>
+              ) : (
+                failureMessage(failure)
               )}
             </p>
           )}
-          <button type="submit" className={controls.primary} disabled={pending}>
+          <button type="submit" className={controls.primary} disabled={form.pending}>
             Set password
           </button>
         </form>

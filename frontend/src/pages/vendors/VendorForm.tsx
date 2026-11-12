@@ -7,8 +7,7 @@ import {
   VENDOR_NAME_MAX,
   type PaymentTermType,
 } from '@po/contracts';
-import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState, type SyntheticEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import {
   FieldError,
   Input,
@@ -21,20 +20,15 @@ import {
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../../api/app-client';
 import type { paths } from '../../api/schema';
-import {
-  failureMessage,
-  fieldFailure,
-  submit,
-  type ApiFailure,
-  type ApiOutcome,
-} from '../../api/submit';
+import { failureMessage, fieldFailure, type ApiFailure } from '../../api/submit';
 import { messageFor } from '../../errors/messages';
+import { useApiForm } from '../../hooks/useApiForm';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { PAYMENT_TERM_LABELS } from './payment-terms';
-import { useVendor, VENDORS_KEY, vendorKey } from './queries';
+import { useVendor, useVendorSaved, type Vendor } from './queries';
 import css from './vendors.module.css';
 
 const styles = classes(css, 'form', 'field', 'fieldError', 'radios', 'alert', 'actions');
@@ -60,8 +54,6 @@ type VendorBody = NonNullable<
   paths['/vendors']['post']['requestBody']
 >['content']['application/json'];
 
-type Vendor = paths['/vendors/{id}']['get']['responses'][200]['content']['application/json'];
-
 const EMPTY: Draft = {
   name: '',
   contactName: '',
@@ -83,6 +75,13 @@ const FIELD_PATHS = {
 } as const satisfies Record<TextKey, string>;
 
 const TEXT_KEYS = Object.keys(FIELD_PATHS) as TextKey[];
+
+/** Paths with no text field of their own, named when their error is said at form level. */
+const UNMAPPED_LABELS = {
+  body: 'Vendor',
+  'body.paymentTerms': 'Payment terms',
+  'body.paymentTerms.type': 'Payment terms',
+} as const;
 
 /** The form's text for a stored vendor; a missing phone is an empty field. */
 function draftOf(vendor: Vendor): Draft {
@@ -142,13 +141,31 @@ function fieldErrorsOf(failure: ApiFailure): FieldErrors {
   return errors;
 }
 
+/**
+ * The failure said at form level, if any: one with no field error, or one whose field
+ * errors include a path with no field here (an unmapped path), with the highlighted ones
+ * left to their fields.
+ */
+function formLevelMessage(failure: ApiFailure): string | undefined {
+  const found = fieldErrorsOf(failure);
+  const highlighted: readonly string[] = TEXT_KEYS.filter((key) => found[key] !== undefined).map(
+    (key) => FIELD_PATHS[key],
+  );
+  const unshown = (failure.problem.details ?? []).some(
+    (detail) => !highlighted.includes(detail.path),
+  );
+  return highlighted.length === 0 || unshown
+    ? failureMessage(failure, { highlighted, labels: UNMAPPED_LABELS })
+    : undefined;
+}
+
 interface VendorEditorProps {
   heading: string;
   submitLabel: string;
   initial: Draft;
   /** Where Cancel goes. */
   cancelTo: string;
-  send: (body: VendorBody) => Promise<ApiOutcome<Vendor>>;
+  send: (body: VendorBody) => Promise<{ data?: Vendor; error?: unknown; response: Response }>;
   /** Refetches the vendor after a version conflict; edit only. */
   reload?: () => void;
 }
@@ -167,14 +184,13 @@ function VendorEditor({
   reload,
 }: VendorEditorProps) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const saved = useVendorSaved();
+  const form = useApiForm();
   const [draft, setDraft] = useState<Draft>(initial);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [existing, setExisting] = useState<{ id: string; name: string }>();
-  const [failure, setFailure] = useState<string>();
-  const [conflict, setConflict] = useState(false);
-  const [pending, setPending] = useState(false);
-  const sending = useRef(false);
+  const failure = form.failure && formLevelMessage(form.failure);
+  const conflict = form.failure?.problem.code === 'VERSION_CONFLICT';
   const guard = useUnsavedChangesGuard(!sameDraft(draft, initial));
 
   function change(key: TextKey, value: string) {
@@ -186,27 +202,18 @@ function VendorEditor({
 
   async function save(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending.current) return;
-    sending.current = true;
-    setPending(true);
-    setFailure(undefined);
-    setConflict(false);
     setErrors({});
     setExisting(undefined);
-    const outcome = await send(bodyOf(draft));
-    sending.current = false;
-    setPending(false);
+    const body = bodyOf(draft);
+    const outcome = await form.send(() => send(body));
+    if (!outcome) return;
     if (!outcome.ok) {
-      const found = fieldErrorsOf(outcome);
-      setErrors(found);
+      setErrors(fieldErrorsOf(outcome));
       setExisting(outcome.problem.existingVendor);
-      setConflict(outcome.problem.code === 'VERSION_CONFLICT');
-      if (Object.keys(found).length === 0) setFailure(failureMessage(outcome));
       return;
     }
     guard.release();
-    queryClient.setQueryData(vendorKey(outcome.data.id), outcome.data);
-    void queryClient.invalidateQueries({ queryKey: [...VENDORS_KEY, 'list'] });
+    saved(outcome.data);
     void navigate(`/vendors/${outcome.data.id}`);
   }
 
@@ -289,7 +296,7 @@ function VendorEditor({
           </div>
         )}
         <div className={styles.actions}>
-          <button type="submit" className={controls.primary} disabled={pending}>
+          <button type="submit" className={controls.primary} disabled={form.pending}>
             {submitLabel}
           </button>
           <Link to={cancelTo}>Cancel</Link>
@@ -316,7 +323,7 @@ export function NewVendor() {
       submitLabel="Add vendor"
       initial={EMPTY}
       cancelTo="/vendors"
-      send={(body) => submit(() => api.POST('/vendors', { body }))}
+      send={(body) => api.POST('/vendors', { body })}
     />
   );
 }
@@ -352,12 +359,10 @@ export function EditVendor() {
       initial={draftOf(current)}
       cancelTo={`/vendors/${id}`}
       send={(body) =>
-        submit(() =>
-          api.PUT('/vendors/{id}', {
-            params: { path: { id }, header: { 'If-Match': etagFor(current.version) } },
-            body,
-          }),
-        )
+        api.PUT('/vendors/{id}', {
+          params: { path: { id }, header: { 'If-Match': etagFor(current.version) } },
+          body,
+        })
       }
       reload={() =>
         void vendor.refetch().then((result) => {

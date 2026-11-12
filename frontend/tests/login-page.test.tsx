@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -132,6 +132,64 @@ describe('[NFR-FE-08] login page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it.each([
+    ['ACCOUNT_NOT_FOUND', 404, 'Sign up', '/signup', 'Sign up instead.'],
+    ['INCORRECT_PASSWORD', 401, 'Forgot your password?', '/forgot-password', undefined],
+    [
+      'PASSWORD_NOT_SET',
+      401,
+      'Reset your password',
+      '/forgot-password',
+      'Use your set-password link, or reset your password.',
+    ],
+  ])('[NFR-FE-08] %s links to its next step', async (code, status, link, href, action) => {
+    fakeApi({
+      'GET /me': () => problem(401, 'UNAUTHENTICATED'),
+      'POST /auth/login': () => problem(status, code),
+    });
+    const { user } = renderAt('/login');
+    await submit(user, 'a wrong password');
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByRole('link', { name: link })).toHaveAttribute('href', href);
+    // The link is the next step, in place of the message's own.
+    if (action) expect(alert).not.toHaveTextContent(action);
+  });
+
+  it('[FR-ACC-02] an unverified account can send a new verification email from the login', async () => {
+    const seen = fakeApi({
+      'GET /me': () => problem(401, 'UNAUTHENTICATED'),
+      'POST /auth/login': () => problem(401, 'ACCOUNT_NOT_VERIFIED'),
+      'POST /auth/resend-verification': () => new Response(null, { status: 202 }),
+    });
+    const { user } = renderAt('/login');
+    await submit(user);
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent('Send a new verification email if you need one.');
+    await user.click(within(alert).getByRole('button', { name: 'Send a new verification email' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'We sent a new verification link to asha@example.local.',
+    );
+    const resend = seen.find((r) => r.url.endsWith('/auth/resend-verification'));
+    expect(await resend?.json()).toEqual({ email: 'asha@example.local' });
+  });
+
+  it('[NFR-FE-01] a field error is said in the form-level message, since login highlights no field', async () => {
+    fakeApi({
+      'GET /me': () => problem(401, 'UNAUTHENTICATED'),
+      'POST /auth/login': () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.email', code: 'INVALID_FORMAT' }],
+        }),
+    });
+    const { user } = renderAt('/login');
+    await submit(user);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Some of the details are not valid. Email: This is not in the expected format. Correct them and try again.',
+    );
+    expect(alert).not.toHaveTextContent(/highlighted/);
+  });
+
   it('[NFR-FE-08] a locked account says how many minutes to wait, from Retry-After', async () => {
     fakeApi({
       'GET /me': () => problem(401, 'UNAUTHENTICATED'),
@@ -141,7 +199,7 @@ describe('[NFR-FE-08] login page', () => {
     const { user } = renderAt('/login');
     await submit(user);
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Too many failed attempts. Try again in 11 minutes.',
+      'This account is locked after too many failed login attempts. Try again in 11 minutes.',
     );
   });
 

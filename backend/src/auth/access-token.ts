@@ -12,12 +12,12 @@ const ALGORITHM = 'HS256';
 
 const claimsSchema = z.object({ sub: z.uuid(), sid: z.uuid() });
 
-export interface AccessTokenSubject {
+interface AccessTokenSubject {
   userId: string;
   sessionId: string;
 }
 
-export type AccessTokenCheck =
+type AccessTokenCheck =
   | ({ ok: true } & AccessTokenSubject)
   | { ok: false; code: 'ACCESS_TOKEN_EXPIRED' | 'UNAUTHENTICATED' };
 

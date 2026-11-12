@@ -41,8 +41,9 @@ const EXPECTED_RELATION_GRANTS = [
   'vendors po_app SELECT',
 ];
 
-// po_app writes a vendor's editable columns, and on update also its status and version;
-// never id, name_key (generated) or the timestamps (data-model.md, slice 2).
+// po_app writes a vendor's editable columns, on insert also its id (a UUIDv7, migration
+// 0012), and on update also its status and version; never name_key (generated) or the
+// timestamps (data-model.md, slice 2).
 const VENDOR_EDITABLE_COLUMNS = [
   'advance_percent',
   'contact_email',
@@ -171,7 +172,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'sessions.last_used_at po_app UPDATE',
       'sessions.revoke_reason po_app UPDATE',
       'sessions.revoked_at po_app UPDATE',
-      ...VENDOR_EDITABLE_COLUMNS.map((col) => `vendors.${col} po_app INSERT`),
+      ...[...VENDOR_EDITABLE_COLUMNS, 'id'].map((col) => `vendors.${col} po_app INSERT`),
       ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
         (col) => `vendors.${col} po_app UPDATE`,
       ),

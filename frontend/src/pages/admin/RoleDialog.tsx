@@ -10,13 +10,13 @@ import { useState } from 'react';
 import { Label, RadioButton, RadioField, RadioGroup } from 'react-aria-components';
 import { api } from '../../api/app-client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { ErrorState } from '../../components/ErrorState';
 import { Loading } from '../../components/Loading';
-import { problemFrom } from '../../errors/problem';
+import { failureFrom } from '../../errors/problem';
 import { roleSetLabel } from '../../format/roles';
+import { isVersionConflict, reloadAction } from '../../hooks/useDialogAction';
 import { classes } from '../../styles/classes';
 import css from './admin.module.css';
-import { useDialogAction } from './dialog-action';
+import { useAdminDialogAction } from './dialog-action';
 import { useActiveApproverCount, useUserDetail } from './queries';
 
 const styles = classes(css, 'radios', 'warning');
@@ -38,7 +38,7 @@ export function RoleDialog({ user, onDone, onClose }: RoleDialogProps) {
   const detail = useUserDetail(user.id);
   const current = detail.data;
   const [choice, setChoice] = useState<AssignableRoleSet>();
-  const action = useDialogAction();
+  const action = useAdminDialogAction();
   const approverNow =
     current?.roles.includes(ROLE.APPROVER) === true && current.status === USER_STATUS.ACTIVE;
   const approvers = useActiveApproverCount(approverNow);
@@ -71,24 +71,13 @@ export function RoleDialog({ user, onDone, onClose }: RoleDialogProps) {
       confirmDisabled={!changed}
       onConfirm={confirm}
       onClose={onClose}
-      error={action.error}
-      errorActions={
-        action.error?.code === 'VERSION_CONFLICT'
-          ? [
-              {
-                label: 'Reload',
-                onPress: () => {
-                  action.clearError();
-                  void detail.refetch();
-                },
-              },
-            ]
-          : []
-      }
+      error={action.error ?? (detail.isError ? failureFrom(detail.error) : undefined)}
+      errorActions={reloadAction(action.error, isVersionConflict, () => {
+        action.clearError();
+        void detail.refetch();
+      })}
     >
-      {detail.isError ? (
-        <ErrorState problem={problemFrom(detail.error)} />
-      ) : !current ? (
+      {detail.isError ? null : !current ? (
         <Loading label="Loading the user" />
       ) : (
         <>

@@ -48,7 +48,7 @@ function profileApi(handlers: Record<string, Handler> = {}) {
 }
 
 describe('[NFR-FE-08] profile details', () => {
-  it('[FR-USR-01] shows the name to edit, and email, roles, status and signup date read-only', async () => {
+  it('[FR-USR-01] shows the name to edit, and email, roles and signup date read-only', async () => {
     profileApi();
     renderApp('/profile');
     expect(await screen.findByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument();
@@ -56,7 +56,8 @@ describe('[NFR-FE-08] profile details', () => {
     const details = screen.getByRole('list', { name: 'Account' });
     expect(within(details).getByText('asha@example.local')).toBeInTheDocument();
     expect(within(details).getByText('Buyer')).toBeInTheDocument();
-    expect(within(details).getByText('Active')).toBeInTheDocument();
+    // No status: only an active user can see their profile.
+    expect(within(details).queryByText('Status')).toBeNull();
     expect(within(details).getByText('1 November 2026')).toBeInTheDocument();
   });
 
@@ -209,7 +210,7 @@ describe('[NFR-FE-09] change password', () => {
         name: 'Change password',
       }),
     );
-    expect(await screen.findByText(/Too many attempts/)).toBeInTheDocument();
+    expect(await screen.findByText(/too many requests/)).toBeInTheDocument();
     expect(screen.queryByText('Incorrect password.')).not.toBeInTheDocument();
     expect(seen.filter((r) => r.url.endsWith('/change-password'))).toHaveLength(2);
   });
@@ -236,7 +237,9 @@ describe('[NFR-FE-08] sessions', () => {
     const there = within(table)
       .getByRole('cell', { name: /Firefox on Windows/ })
       .closest('tr') as HTMLElement;
-    expect(within(there).getByRole('cell', { name: '3 November 2026' })).toBeInTheDocument();
+    expect(
+      within(there).getByRole('cell', { name: '3 November 2026 at 12:00 pm' }),
+    ).toBeInTheDocument();
   });
 
   it('[FR-ACC-06] revoking another session confirms with its device and last use, then refreshes the list', async () => {
@@ -254,7 +257,7 @@ describe('[NFR-FE-08] sessions', () => {
     );
     const dialog = await screen.findByRole('alertdialog', { name: 'Revoke this session?' });
     expect(
-      within(dialog).getByText('Firefox on Windows, last used 3 November 2026.'),
+      within(dialog).getByText('Firefox on Windows, last used 3 November 2026 at 12:00 pm.'),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Revoke session' }));
     expect(await screen.findByText('Session revoked.')).toBeInTheDocument();

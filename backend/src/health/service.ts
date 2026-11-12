@@ -25,7 +25,7 @@ export interface HealthDependencies {
   timeoutMs?: number;
 }
 
-export type NotReady = 'database' | 'migrations';
+type NotReady = 'database' | 'migrations';
 
 export interface ReadinessService {
   /** What keeps the API from being ready, or undefined when it is. */

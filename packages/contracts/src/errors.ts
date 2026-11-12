@@ -1,3 +1,5 @@
+import { oneOf } from './one-of.js';
+
 // The single error code registry (ADR-0007). The API, the OpenAPI generator and the web
 // app's message map all read it. Each slice adds the codes it uses, never earlier.
 
@@ -99,7 +101,7 @@ export function isErrorCode(value: unknown): value is ErrorCode {
 }
 
 export function isFieldCode(value: unknown): value is FieldCode {
-  return typeof value === 'string' && (FIELD_CODES as readonly string[]).includes(value);
+  return oneOf(FIELD_CODES, value);
 }
 
 /** Whether a problem with this code may carry a public revoke `reason`. */

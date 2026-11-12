@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { isRetryable } from '../errors/messages';
 import { problemFrom } from '../errors/problem';
+import { DEFAULT_STALE_TIME_MS } from './stale-times';
 
 /**
  * Retries are automatic only for temporary failures (an unreachable API, 503-class codes);
@@ -13,6 +14,7 @@ export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        staleTime: DEFAULT_STALE_TIME_MS,
         retry: (failures, error) =>
           failures < MAX_AUTOMATIC_RETRIES && isRetryable(problemFrom(error).code),
       },

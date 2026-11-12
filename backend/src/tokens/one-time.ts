@@ -25,7 +25,7 @@ export function hashToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();
 }
 
-export interface IssuedToken {
+interface IssuedToken {
   /** The raw token, for the link. Never stored or logged outside the one-time link channel. */
   token: string;
   expiresAt: Date;
@@ -58,12 +58,12 @@ export async function issueToken(
 }
 
 /** Why a presented token can't be used; each is its own API code (ADR-0017, 2026-11-03). */
-export type TokenFailure = Extract<
+type TokenFailure = Extract<
   ErrorCode,
   'TOKEN_USED' | 'TOKEN_SUPERSEDED' | 'TOKEN_EXPIRED' | 'INVALID_TOKEN'
 >;
 
-export type ConsumedToken = { ok: true; userId: string } | { ok: false; code: TokenFailure };
+type ConsumedToken = { ok: true; userId: string } | { ok: false; code: TokenFailure };
 
 /**
  * Uses a token for its purpose, once. The row is locked first, so two concurrent uses of

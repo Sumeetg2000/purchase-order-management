@@ -33,7 +33,7 @@ export interface RunningApi {
  * Starts the API and its metrics listener from a validated config. Nothing here contacts
  * the mail server: an unreachable SMTP host fails sends, not startup.
  */
-export interface StartApiOptions {
+interface StartApiOptions {
   /** Tests move time with an injected clock; production runs on the system clock. */
   clock?: Clock;
 }

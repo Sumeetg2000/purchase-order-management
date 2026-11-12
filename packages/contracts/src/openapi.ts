@@ -133,18 +133,27 @@ const ACCESS_CODES: Readonly<Record<Access, readonly ErrorCode[]>> = {
   role: [...SESSION_CODES, 'NO_ROLE_ASSIGNED', 'FORBIDDEN'],
 };
 
+/** What a database failure answers, on any operation that reads or writes it (ADR-0006). */
+const DATABASE_CODES = [
+  'SERVICE_UNAVAILABLE',
+  'CONCURRENCY_RETRY_EXHAUSTED',
+] as const satisfies readonly ErrorCode[];
+
 /** Codes whose responses say when to try again (lockout, rate limits). */
 const RETRY_AFTER_CODES: ReadonlySet<ErrorCode> = new Set(['ACCOUNT_LOCKED', 'RATE_LIMITED']);
 
 /**
  * Codes any operation can return: validation, size and origin for bodies, its access
- * level's, and failure; then its own.
+ * level's, and failure; then its own; then the database's.
  */
 function errorCodes(operation: OperationContract): ErrorCode[] {
   const codes: ErrorCode[] = ['VALIDATION_FAILED', 'INTERNAL_ERROR'];
   if (requiresCsrf(operation.method)) codes.push('CSRF_REJECTED', 'PAYLOAD_TOO_LARGE');
   for (const code of ACCESS_CODES[operation.access]) if (!codes.includes(code)) codes.push(code);
   for (const code of operation.errors ?? []) if (!codes.includes(code)) codes.push(code);
+  if (operation.databaseCodes !== false) {
+    for (const code of DATABASE_CODES) if (!codes.includes(code)) codes.push(code);
+  }
   return codes;
 }
 

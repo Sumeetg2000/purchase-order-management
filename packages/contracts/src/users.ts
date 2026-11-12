@@ -1,3 +1,5 @@
+import { oneOf } from './one-of.js';
+
 // User roles, role sets and statuses (ADR-0016). The users table's CHECK constraints
 // (migration 0002_users) allow exactly these; a backend test compares them.
 
@@ -41,7 +43,7 @@ export function assignableRoleSet(roles: readonly UserRole[]): AssignableRoleSet
 }
 
 export function isUserRole(value: unknown): value is UserRole {
-  return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);
+  return oneOf(USER_ROLES, value);
 }
 
 export const USER_STATUSES = ['UNVERIFIED', 'ACTIVE', 'DEACTIVATED'] as const;

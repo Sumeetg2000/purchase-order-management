@@ -1,38 +1,47 @@
-import { ROLE, SELF_ACTING_ROLE } from '@po/contracts';
-import type { ActorContext } from '../db/transaction.js';
+import type { ActingRole } from '@po/contracts';
+import type {
+  ActorContext,
+  AuditedTransaction,
+  TransactionHooks,
+  TransactionRunner,
+} from '../db/transaction.js';
+import type { RequestContext } from '../lib/request-context.js';
 
 /** The system acting on its own: a token consumed, a login counted, a seed or bootstrap. */
 export const SYSTEM_ACTOR = { type: 'SYSTEM' } as const satisfies ActorContext;
 
-/** A user acting on their own account, as the audit records it (research R12). */
-export function selfActor(user: { id: string; name: string; email: string }): ActorContext {
+/** Who a user is, as the audit records them. */
+interface ActingUser {
+  userId: string;
+  name: string;
+  email: string;
+}
+
+/**
+ * A user acting in `role`: SELF on their own account (research R12), ADMIN on another
+ * user's, BUYER on shared data such as a vendor (a Buyer who is also an Approver acts as
+ * Buyer).
+ */
+export function userActor(user: ActingUser, role: ActingRole): ActorContext {
   return {
     type: 'USER',
-    userId: user.id,
+    userId: user.userId,
     name: user.name,
     email: user.email,
-    actingRole: SELF_ACTING_ROLE,
+    actingRole: role,
   };
 }
 
-/** An admin acting on another user's account. */
-export function adminActor(user: { id: string; name: string; email: string }): ActorContext {
-  return {
-    type: 'USER',
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    actingRole: ROLE.ADMIN,
-  };
-}
-
-/** A Buyer acting on shared data, such as a vendor (a Buyer who is also an Approver acts as Buyer). */
-export function buyerActor(user: { id: string; name: string; email: string }): ActorContext {
-  return {
-    type: 'USER',
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    actingRole: ROLE.BUYER,
-  };
+/** Runs `fn` in one audited transaction as `user` acting in `role`. */
+export function runAs<T>(
+  transactions: TransactionRunner,
+  user: ActingUser,
+  role: ActingRole,
+  ctx: Pick<RequestContext, 'requestId' | 'logger'>,
+  fn: (tx: AuditedTransaction, hooks: TransactionHooks) => Promise<T>,
+): Promise<T> {
+  return transactions.run(
+    { actor: userActor(user, role), requestId: ctx.requestId, logger: ctx.logger },
+    fn,
+  );
 }

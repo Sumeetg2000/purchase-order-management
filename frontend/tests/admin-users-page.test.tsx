@@ -101,7 +101,6 @@ describe('[NFR-FE-08] admin Users list', () => {
       expect(new URL(list.at(-1)?.url ?? '').search).toBe('?role=NONE&status=ACTIVE&page=2');
     });
     await u.type(screen.getByLabelText('Name or email starts with'), 'pri');
-    await u.click(screen.getByRole('button', { name: 'Search' }));
     await waitFor(() => {
       expect(router.state.location.search).toBe('?role=NONE&status=ACTIVE&q=pri');
     });
@@ -111,12 +110,12 @@ describe('[NFR-FE-08] admin Users list', () => {
 
   it('[FR-ADM-01] the search box follows the URL, e.g. after going back', async () => {
     adminApi();
-    const { user: u, router } = renderApp('/admin/users');
-    await u.type(await screen.findByLabelText('Name or email starts with'), 'pri');
-    await u.click(screen.getByRole('button', { name: 'Search' }));
-    await waitFor(() => {
-      expect(router.state.location.search).toBe('?q=pri');
+    const { router } = renderApp('/admin/users');
+    expect(await screen.findByLabelText('Name or email starts with')).toHaveValue('');
+    await act(async () => {
+      await router.navigate('/admin/users?q=pri');
     });
+    expect(screen.getByLabelText('Name or email starts with')).toHaveValue('pri');
     await act(async () => {
       await router.navigate(-1);
     });

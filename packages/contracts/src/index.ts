@@ -6,6 +6,7 @@ export * from './audit.js';
 export * from './email.js';
 export * from './errors.js';
 export * from './etag.js';
+export * from './one-of.js';
 export * from './operations.js';
 export * from './request-id.js';
 export * from './schemas/access-requests.js';

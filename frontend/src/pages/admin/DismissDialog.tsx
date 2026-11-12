@@ -5,7 +5,7 @@ import { api } from '../../api/app-client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { classes } from '../../styles/classes';
 import css from './admin.module.css';
-import { useDialogAction } from './dialog-action';
+import { useAdminDialogAction } from './dialog-action';
 
 const styles = classes(css, 'note');
 
@@ -18,7 +18,7 @@ export interface DismissDialogProps {
 /** Dismiss access request (ADR-0018), with an optional note the user will see. */
 export function DismissDialog({ request, onDone, onClose }: DismissDialogProps) {
   const [note, setNote] = useState('');
-  const action = useDialogAction();
+  const action = useAdminDialogAction();
   const { name } = request.user;
 
   const confirm = () => {
@@ -42,6 +42,7 @@ export function DismissDialog({ request, onDone, onClose }: DismissDialogProps) 
       onConfirm={confirm}
       onClose={onClose}
       error={action.error}
+      errorLabels={{ 'body.note': 'Note' }}
     >
       <p>They&apos;ll see that their request was dismissed, with your note if you add one.</p>
       <TextField
