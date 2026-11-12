@@ -172,12 +172,31 @@ describe('[FR-VEN-01] vendor_name_key: one name however it is cased or spaced', 
     }
   });
 
-  it('[FR-VEN-01] the ADR-0005 upgrade step recomputes every key, run as written', async () => {
+  it('[FR-VEN-01] the ADR-0005 upgrade step recomputes only the stale keys, run as written', async () => {
     const adr = readFileSync(new URL('../../../docs/adr/0005-vendors.md', import.meta.url), 'utf8');
-    const step = /```sql\n([\s\S]*?UPDATE vendors SET name = name;[\s\S]*?)```/.exec(adr)?.[1];
+    const step = /```sql\n([\s\S]*?UPDATE vendors SET name = name\b[^;]*;[\s\S]*?)```/.exec(
+      adr,
+    )?.[1];
     if (!step) throw new Error('ADR-0005 has no name-key upgrade step');
     const db = trackDatabase(await createTestDatabase());
-    await insertNamed(await db.client('postgres'), 'ÉCOLE Supplies');
+    const superuser = await db.client('postgres');
+    await insertNamed(superuser, 'ÉCOLE Supplies');
+    await insertNamed(superuser, 'Acme');
+    // Stands in for a PostgreSQL major upgrade whose new Unicode tables fold one stored
+    // name differently: École's stored key is now stale, Acme's is still current.
+    await superuser.query(
+      `CREATE OR REPLACE FUNCTION vendor_name_key(name text) RETURNS text
+       LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SECURITY INVOKER
+       SET search_path = pg_catalog, pg_temp
+       RETURN CASE WHEN name = 'Acme' THEN 'acme' ELSE 'new tables: ' || name END`,
+    );
+    const updatedAt = async () =>
+      (
+        await superuser.query<{ name: string; updated_at: Date }>(
+          'SELECT name, updated_at FROM vendors ORDER BY name',
+        )
+      ).rows;
+    const before = await updatedAt();
     const owner = await db.client('po_owner');
     await owner.query(
       step.replace('<your OS user>', 'ops').replace('<this host>', 'db-host').replace(/^ +/gm, ''),
@@ -186,6 +205,12 @@ describe('[FR-VEN-01] vendor_name_key: one name however it is cased or spaced', 
       'SELECT count(*)::int AS stale FROM vendors WHERE name_key IS DISTINCT FROM vendor_name_key(name)',
     );
     expect(rows).toEqual([{ stale: 0 }]);
+    const after = await updatedAt();
+    // A current key is left alone: no rewrite, no updated_at bump.
+    expect(after.find((v) => v.name === 'Acme')).toEqual(before.find((v) => v.name === 'Acme'));
+    expect(after.find((v) => v.name === 'ÉCOLE Supplies')?.updated_at).not.toEqual(
+      before.find((v) => v.name === 'ÉCOLE Supplies')?.updated_at,
+    );
   });
 
   it('[FR-VEN-01] a second vendor with any of these spellings clashes on vendors_name_key_key', async () => {
