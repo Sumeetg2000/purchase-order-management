@@ -250,6 +250,12 @@ reads `status <> 'DRAFT'` (empty in this slice); a Buyer+Approver reads the unio
 - **Timeline**: `listEntityHistory('ORDER', id)` from slice 2 on
   `audit_entries_entity_idx`; plan committed for the busiest order (500 lines, 50
   entries) and a page-1/count pair.
+- **Service timings** (FR-022, SC-005): `backend/tests/plans/orders.timing.test.ts` runs
+  the order service on the same fixture: 20 timed runs (after 3 warm-up) of raising a
+  500-line order and replacing all 500 of its lines, and 50 of the busiest Buyer's
+  first page. Results on 2026-11-13, a laptop on its power-saver profile, PostgreSQL in
+  Docker: create p95 **94 ms**, replace p95 **167 ms** (target 500 ms), busiest Buyer's
+  page p95 **8 ms** (target 150 ms).
 
 ## R8 Order-write body limit (owner direction 5)
 
