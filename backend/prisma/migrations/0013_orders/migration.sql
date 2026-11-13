@@ -59,12 +59,14 @@ CREATE TABLE order_lines (
   position integer NOT NULL
     CONSTRAINT order_lines_position_range CHECK (position BETWEEN 0 AND 499),
   -- LINE_DESCRIPTION_MAX code points (char_length counts them in UTF-8), trimmed, single
-  -- line plain text: no control characters (research R9).
+  -- line plain text: no control character (research R9). The class is Unicode's Cc, spelled
+  -- out, the same set the API refuses (\p{Cc}); [[:cntrl:]] would follow the database's
+  -- locale (glibc also counts U+2028 and U+2029). U+0000 can't be stored in text at all.
   description text NOT NULL
     CONSTRAINT order_lines_description_valid CHECK (
       description = btrim(description)
       AND char_length(description) BETWEEN 1 AND 500
-      AND description !~ '[[:cntrl:]]'),
+      AND description !~ '[\u0001-\u001f\u007f-\u009f]'),
   -- LINE_QUANTITY_MAX.
   quantity integer NOT NULL
     CONSTRAINT order_lines_quantity_range CHECK (quantity BETWEEN 1 AND 1000000),

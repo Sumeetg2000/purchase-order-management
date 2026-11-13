@@ -163,7 +163,7 @@ slice's draft PR) and a short summary stop.
   `Idempotency-Key` header support and the generator changes (no order operation yet) —
   `packages/contracts/src/errors.ts`, `operations.ts`, `openapi.ts` — T009 green;
   regenerate `openapi.json` (don't open it); breaking-change check green.
-- [ ] T013 [P] Constants ↔ SQL pin tests, seen failing then green against T003: every
+- [X] T013 [P] Constants ↔ SQL pin tests, seen failing then green against T003: every
   number and list in T010 equals its `CHECK`, column type or SQL literal
   (`ORDER_STATUSES`, line and description limits, quantity max, `UNIT_PRICE_MAX` =
   `numeric(13,4)` max, `PO_NUMBER_PATTERN`, `PO_NUMBER_TIME_ZONE` inside

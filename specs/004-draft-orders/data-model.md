@@ -20,7 +20,7 @@ in `Asia/Kolkata`, as `'2026-27'`. `STABLE` (time-zone data), `EXECUTE` to `po_a
 
 | Column | Type | Rule |
 |---|---|---|
-| `id` | `uuid` PK | `DEFAULT gen_random_uuid()` |
+| `id` | `uuid` PK | from the app (a UUIDv7, as every table since migration 0012); no default |
 | `po_number` | `text COLLATE "C"` | `UNIQUE`; `NULL` only inside the creating transaction (deferred check, R2); format `CHECK (po_number ~ '^PO-\d{4}-\d{2}-\d{6,}$')` |
 | `owner_id` | `uuid NOT NULL` | FK `users(id)`; never changes (trigger) |
 | `vendor_id` | `uuid NOT NULL` | FK `vendors(id)` |
@@ -33,27 +33,27 @@ in `Asia/Kolkata`, as `'2026-27'`. `STABLE` (time-zone data), `EXECUTE` to `po_a
 
 `approved_at` and the vendor snapshot columns arrive with slice 4.
 
-Grants: `po_app` `SELECT`, `INSERT (owner_id, vendor_id)`, `UPDATE (vendor_id, version,
+Grants: `po_app` `SELECT`, `INSERT (id, owner_id, vendor_id)`, `UPDATE (vendor_id, version,
 po_number)`, `DELETE`. No privilege on `total`, `open_line_count`, `status` (slice 4
-grants `status`), `id`, timestamps.
+grants `status`) or the timestamps.
 
 ## Table `order_lines`
 
 | Column | Type | Rule |
 |---|---|---|
-| `id` | `uuid` PK | `DEFAULT gen_random_uuid()` |
+| `id` | `uuid` PK | from the app (a UUIDv7); no default |
 | `order_id` | `uuid NOT NULL` | FK `purchase_orders(id) ON DELETE CASCADE` |
 | `position` | `integer NOT NULL` | `CHECK (position BETWEEN 0 AND 499)`; `UNIQUE (order_id, position) DEFERRABLE INITIALLY DEFERRED` |
-| `description` | `text NOT NULL` | `CHECK (description = btrim(description) AND char_length(description) BETWEEN 1 AND 500 AND description !~ '[[:cntrl:]]')` |
+| `description` | `text NOT NULL` | `CHECK (description = btrim(description) AND char_length(description) BETWEEN 1 AND 500 AND description !~ '[\u0001-\u001f\u007f-\u009f]')`: Unicode's Cc spelled out, so it doesn't follow the database locale |
 | `quantity` | `integer NOT NULL` | `CHECK (quantity BETWEEN 1 AND 1000000)` |
 | `unit_price` | `numeric(13,4) NOT NULL` | `CHECK (unit_price >= 0)` (the type caps it at 999,999,999.9999) |
 | `line_total` | `numeric(22,4)` | `GENERATED ALWAYS AS (quantity * unit_price) STORED` (INV-1) |
 | `received_quantity` | `integer NOT NULL DEFAULT 0` | `CHECK (received_quantity BETWEEN 0 AND quantity)` (INV-4); written only by slice 6's receipt trigger |
 
 Index: `(order_id, position)` (the unique constraint). Grants: `po_app` `SELECT`,
-`INSERT (order_id, position, description, quantity, unit_price)`, `UPDATE (position,
-description, quantity, unit_price)`, `DELETE`. No privilege on `line_total`,
-`received_quantity`, `id`.
+`INSERT (id, order_id, position, description, quantity, unit_price)`, `UPDATE (position,
+description, quantity, unit_price)`, `DELETE`. No privilege on `line_total` or
+`received_quantity`.
 
 ## Table `order_status_transitions`
 
