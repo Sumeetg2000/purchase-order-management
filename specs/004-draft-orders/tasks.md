@@ -210,11 +210,12 @@ slice's draft PR) and a short summary stop.
 - [X] T019 [P] Purge: idempotency keys older than `IDEMPOTENCY_KEY_TTL_HOURS` deleted
   under `po_maintenance`; test first, with the injected clock —
   `backend/src/maintenance/purge.ts`, `backend/tests/integration/purge.test.ts` — R5.
-- [ ] T020 [P] Web: messages for `IDEMPOTENCY_KEY_REUSED` and the three field codes;
+- [X] T020 [P] Web: messages for `IDEMPOTENCY_KEY_REUSED` and the three field codes;
   `FORBIDDEN` on an order write shows `ORDER_ADMIN_READ_ONLY_MESSAGE` when the signed-in
-  user is an Admin; routes `/orders`, `/orders/new`, `/orders/:id`, `/orders/:id/edit`
-  as lazy placeholders and a Shell nav entry; tests first —
-  `frontend/src/errors/messages.ts`, `frontend/src/app/router.tsx`, `Shell.tsx`,
+  user is an Admin (`messageForOrderWrite`); tests first. The routes and the Shell entry
+  moved to the stories that add their operations (T035 `/orders/new`, `/orders/:id`; T044
+  `/orders/:id/edit`; T057 `/orders` and the nav entry, gated by `listOrders`) —
+  `frontend/src/errors/messages.ts`,
   `frontend/tests/error-messages.test.ts` — R11, R12.
 
 **Checkpoint**: schema (migration part 1, no rule triggers yet), reconciliation, contracts
@@ -355,8 +356,9 @@ one `PO_CREATED`.
   only; axe clean — `frontend/tests/order-editor.test.tsx` — FR-023 (NFR-FE-03,
   NFR-FE-04, NFR-FE-06).
 - [ ] T035 [US1] Web: `OrderEditor` (TanStack Virtual line table, keyboard reachable,
-  move up/down) for create, `OrderDetail` (header, lines, total in en-IN INR), queries —
-  `frontend/src/pages/orders/` — T034 green.
+  move up/down) for create, `OrderDetail` (header, lines, total in en-IN INR), queries,
+  routes `/orders/new` and `/orders/:id` — `frontend/src/pages/orders/`,
+  `frontend/src/app/router.tsx` — T034 green.
 
 **Checkpoint**: a Buyer can raise and read a draft end to end.
 
@@ -499,8 +501,9 @@ the owner added on 2026-11-12**.
   is debounced (one request after typing stops); detail Timeline tab —
   `frontend/tests/orders-list.test.tsx`, `frontend/tests/order-timeline.test.tsx` —
   FR-023 (NFR-FE-03, NFR-FE-04).
-- [ ] T057 [US5] Web: `OrdersList`, `OrderTimeline` — `frontend/src/pages/orders/` —
-  T056 green.
+- [ ] T057 [US5] Web: `OrdersList`, `OrderTimeline`, route `/orders` and the Shell's
+  "Orders" entry (shown when `useCan('listOrders')`) — `frontend/src/pages/orders/`,
+  `frontend/src/app/router.tsx`, `Shell.tsx` — T056 green.
 
 ---
 
