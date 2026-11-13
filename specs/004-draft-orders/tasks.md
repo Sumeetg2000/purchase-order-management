@@ -513,7 +513,7 @@ the owner added on 2026-11-12**.
 
 **Independent test**: delete via the dialog; `404` afterwards; Admin reads its timeline.
 
-- [ ] T058 [P] [US4] Delete tests, seen failing: `DELETE /orders/not-a-uuid` → `400`;
+- [X] T058 [P] [US4] Delete tests, seen failing: `DELETE /orders/not-a-uuid` → `400`;
   with and without a reason (no body, `{}`,
   `{"reason":null}`), order and lines gone, one `PO_DRAFT_DELETED` with PO number, full
   lines, total, reason; stale/missing `If-Match`; edit racing delete (barrier) → one wins,
@@ -523,11 +523,11 @@ the owner added on 2026-11-12**.
   `backend/tests/integration/orders-delete.test.ts`,
   `backend/tests/concurrency/orders.test.ts` — FR-007, FR-018, FR-020 (FR-SM-02,
   FR-PO-05, NFR-AUD-03).
-- [ ] T059 [US4] Repository delete (after lock, cascade), service `deleteOrder` (lock →
+- [X] T059 [US4] Repository delete (after lock, cascade), service `deleteOrder` (lock →
   404 → version → `PO_DRAFT_DELETED` → delete); timeline read scope for a deleted order
   (no order row: Admin only, everyone else `404`) — `backend/src/orders/repository.ts`,
   `service.ts`.
-- [ ] T060 [US4] Operation `deleteOrder` (BUYER, `ifMatch`, optional body): contract,
+- [X] T060 [US4] Operation `deleteOrder` (BUYER, `ifMatch`, optional body): contract,
   route, OpenAPI list, body inventory, matrix pins — `packages/contracts/src/
   operations.ts`, `backend/src/orders/routes.ts`,
   `backend/tests/integration/authorization-matrix.test.ts` — T058 green.

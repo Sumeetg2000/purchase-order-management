@@ -138,6 +138,11 @@ export async function lockOrderLines(tx: AuditedTransaction, orderId: string): P
     SELECT 1 FROM order_lines WHERE order_id = ${orderId}::uuid ORDER BY id FOR UPDATE`;
 }
 
+/** Deletes the order, its lines with it (ON DELETE CASCADE); the caller holds its lock. */
+export async function deleteOrderRow(tx: AuditedTransaction, id: string): Promise<void> {
+  await tx.$executeRaw`DELETE FROM purchase_orders WHERE id = ${id}::uuid`;
+}
+
 /** Moves the order to its new vendor and next version; the caller checked the version. */
 export async function bumpOrder(
   tx: AuditedTransaction,

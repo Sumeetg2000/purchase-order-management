@@ -29,6 +29,7 @@ import { sessionItem } from './schemas/sessions.js';
 import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
 import {
   createOrderBody,
+  deleteOrderBody,
   editOrderBody,
   order,
   orderListItem,
@@ -565,5 +566,21 @@ export const OPERATIONS = {
     request: { params: idParams, body: editOrderBody },
     responses: { 200: order },
     errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'VENDOR_INACTIVE'],
+  },
+
+  // Slice 3, US4: delete a draft, with an optional reason (no body is no reason).
+  deleteOrder: {
+    method: 'delete',
+    path: '/orders/:id',
+    operationId: 'deleteOrder',
+    summary:
+      'Delete a draft with its current version and an optional reason; its audit record stays.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    ifMatch: 'required',
+    request: { params: idParams, body: deleteOrderBody },
+    responses: { 204: z.void() },
+    errors: ['NOT_FOUND', 'VERSION_CONFLICT'],
   },
 } as const satisfies Record<string, OperationContract>;

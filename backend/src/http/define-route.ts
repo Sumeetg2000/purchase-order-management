@@ -169,7 +169,11 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
     }
     for (const [part, prefix] of PARTS) {
       const schema = route.request?.[part];
-      const raw: unknown = req[part];
+      // A DELETE's body is optional: none reads as an empty one (contracts/api.md).
+      const raw: unknown =
+        part === 'body' && route.method === 'delete' && schema && req.body === undefined
+          ? {}
+          : req[part];
       if (!schema) {
         details.push(...undeclared(part, prefix, raw));
         input[part] = raw;

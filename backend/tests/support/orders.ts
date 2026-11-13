@@ -40,6 +40,12 @@ export async function ordersHarness() {
     return h.send('patch', `/orders/${id}`, as, body, headers);
   }
 
+  /** DELETE /orders/:id; `version` null sends no If-Match, `body` undefined none. */
+  function deleteOrder(id: string, version: number | null, body?: unknown, as: CookieJar = h.jar) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('delete', `/orders/${id}`, as, body, headers);
+  }
+
   function getOrder(id: string, as: CookieJar = h.jar) {
     return h.get(`/orders/${id}`, as);
   }
@@ -70,7 +76,17 @@ export async function ordersHarness() {
     );
   }
 
-  return { ...h, vendorId, orderBody, createOrder, editOrder, getOrder, count, orderAudit };
+  return {
+    ...h,
+    vendorId,
+    orderBody,
+    createOrder,
+    editOrder,
+    deleteOrder,
+    getOrder,
+    count,
+    orderAudit,
+  };
 }
 
 export type OrdersHarness = Awaited<ReturnType<typeof ordersHarness>>;

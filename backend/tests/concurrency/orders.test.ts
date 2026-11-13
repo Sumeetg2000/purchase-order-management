@@ -26,6 +26,27 @@ describe('[NFR-CON-03] concurrent order requests', () => {
     expect(stored.version).toBe(2);
   });
 
+  it('[NFR-CON-03] an edit racing a delete: one wins, the other is 409 or 404, and the state is one of them', async () => {
+    const h = await ordersHarness();
+    const order = (await h.createOrder(h.orderBody([lineBody({ quantity: 1 })]))).body as Order;
+    const line = order.lines[0];
+    const [edit, del] = await Promise.all([
+      h.editOrder(
+        order.id,
+        h.orderBody([
+          { id: line?.id, description: line?.description, quantity: 2, unitPrice: '1' },
+        ]),
+        1,
+      ),
+      h.deleteOrder(order.id, 1),
+    ]);
+    const statuses = [edit.status, del.status];
+    expect(statuses.filter((s) => s === 200 || s === 204)).toHaveLength(1);
+    expect(statuses.filter((s) => s === 409 || s === 404)).toHaveLength(1);
+    const read = await h.getOrder(order.id);
+    expect(read.status).toBe(del.status === 204 ? 404 : 200);
+  });
+
   it('[FR-PO-05] 50 concurrent creates get 50 distinct, consecutive PO numbers', async () => {
     const h = await ordersHarness();
     const results = await Promise.all(

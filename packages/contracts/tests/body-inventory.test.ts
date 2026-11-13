@@ -73,6 +73,7 @@ const EXPECTED: BodyInventory = {
   reactivateVendor: 'no body',
   createOrder: { vendorId: 'required', lines: 'required' },
   editOrder: { vendorId: 'required', lines: 'required' },
+  deleteOrder: { reason: 'optional' },
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {

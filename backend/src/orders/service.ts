@@ -30,6 +30,7 @@ import { diffLines, type LineChange } from './line-diff.js';
 import {
   bumpOrder,
   deleteOrderLines,
+  deleteOrderRow,
   insertOrder,
   insertOrderLines,
   listOrders,
@@ -71,6 +72,15 @@ export interface OrdersService {
     target: { id: string; version: number; body: EditOrderBody },
     ctx: RequestContext,
   ): Promise<Order>;
+  /**
+   * Deletes a draft when `version` is current; its PO number is never given again, and
+   * PO_DRAFT_DELETED keeps its full contents and the reason (or null).
+   */
+  deleteOrder(
+    buyer: AuthenticatedUser,
+    target: { id: string; version: number; reason: string | null },
+    ctx: RequestContext,
+  ): Promise<void>;
   /** The orders the caller may read, filtered and paged in the database (research R7). */
   listOrders(user: AuthenticatedUser, query: OrderListQuery): Promise<Page<OrderListItem>>;
   /** An order's audit entries, newest first, for those who may read it; else NOT_FOUND. */
@@ -309,12 +319,45 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
       return { items, page, pageSize, total };
     },
 
+    deleteOrder: (buyer, { id, version, reason }, ctx) =>
+      runAs(deps.transactions, buyer, ROLE.BUYER, ctx, async (tx) => {
+        const locked = await lockOrder(tx, id);
+        if (!locked || !canRead(buyer, locked)) throw new AppError('NOT_FOUND');
+        // Not reachable while every order is a draft only its owner reads (as for edit).
+        if (locked.ownerId !== buyer.userId) throw new AppError('FORBIDDEN');
+        if (locked.status !== 'DRAFT') throw new AppError('INVALID_STATE_TRANSITION');
+        if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+        const stored = await selectOrder(tx, id);
+        if (!stored) throw new Error(`order ${id} vanished under its lock`);
+        const order = toOrder(stored);
+        // The entry first, in the same transaction: it outlives the order (Principle IV).
+        await writeAudit(tx, {
+          action: 'PO_DRAFT_DELETED',
+          entityType: 'order',
+          entityId: id,
+          orderId: id,
+          poNumber: order.poNumber,
+          details: {
+            poNumber: order.poNumber,
+            vendor: { id: order.vendor.id, name: order.vendor.name },
+            lines: auditLines(order),
+            total: order.total,
+            reason,
+          },
+        });
+        await deleteOrderRow(tx, id);
+      }),
+
     listOrderTimeline: async (user, id, query) => {
       const order = await withDatabase(() => selectOrderAccess(deps.prisma, id));
-      if (!order || !canRead(user, order)) throw new AppError('NOT_FOUND');
+      // A deleted draft has no row: only an Admin reads its timeline, by its id (ADR-0004,
+      // 2026-11-12); an id that never was an order has no entries, so it is 404 to all.
+      const admin = user.roles.includes(ROLE.ADMIN);
+      if (order ? !canRead(user, order) : !admin) throw new AppError('NOT_FOUND');
       const { rows, total } = await withDatabase(() =>
         listEntityHistory(deps.prisma, { entityType: 'order', entityId: id }, pageArgs(query)),
       );
+      if (!order && total === 0) throw new AppError('NOT_FOUND');
       return {
         items: rows.map(toTimelineItem),
         page: query.page,

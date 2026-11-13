@@ -3,6 +3,7 @@ import {
   etagFor,
   OPERATIONS,
   type CreateOrderBody,
+  type DeleteOrderBody,
   type EditOrderBody,
   type OrderListQuery,
   type PageQuery,
@@ -71,6 +72,18 @@ export function orderRoutes(orders: OrdersService): RouteDefinition[] {
         };
         const order = await orders.editOrder(authOf(res), target, requestContext(req, res));
         res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.deleteOrder,
+      handler: async (req, res) => {
+        const target = {
+          id: idParamOf(req),
+          version: ifMatchVersionOf(res),
+          reason: (req.body as DeleteOrderBody).reason ?? null,
+        };
+        await orders.deleteOrder(authOf(res), target, requestContext(req, res));
+        res.status(204).end();
       },
     }),
   ];
