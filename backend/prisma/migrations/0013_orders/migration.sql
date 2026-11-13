@@ -202,10 +202,11 @@ END
 $$;
 
 -- Lines change only on drafts (FR-012). received_quantity alone is exempt: slice 6's
--- receipts change it on approved orders, through their own trigger.
+-- receipts change it on approved orders, through their own trigger. Called only from the
+-- line triggers, which run as po_owner.
 CREATE FUNCTION order_lines_require_drafts(order_ids uuid[]) RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
