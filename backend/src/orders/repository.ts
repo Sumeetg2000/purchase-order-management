@@ -54,7 +54,7 @@ export async function insertOrder(
 
 /**
  * Inserts the lines in one statement, positions in array order from `firstPosition`, so the
- * order's total is recomputed once whatever the line count (FR-021). Prices go as text.
+ * order's total is recomputed once whatever the line count. Prices go as text.
  */
 export async function insertOrderLines(
   tx: AuditedTransaction,
