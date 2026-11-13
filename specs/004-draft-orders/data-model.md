@@ -106,7 +106,11 @@ purchase_orders_po_number_key             UNIQUE (po_number)   -- COLLATE "C" co
 New SQLSTATEs `PO005`–`PO011`, all `INTERNAL_ERROR` in `db/errors.ts` (a reached trigger
 is a bug: the service checks first).
 
-## Reconciliation query (`backend/src/db/reconciliation.sql`, run by `npm test`'s global teardown and every seed)
+## Reconciliation query (`backend/src/db/reconciliation.sql`, run after every test on each test database and after every seed)
+
+Test databases are dropped after each test, so the shared `afterEach` in
+`backend/tests/support/setup.ts` runs the query on each tracked database before dropping
+it and fails the test on any row (tasks T006).
 
 Returns one row per violation, zero rows when consistent:
 - INV-1: `line_total <> quantity * unit_price`

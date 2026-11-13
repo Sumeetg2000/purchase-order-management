@@ -180,7 +180,10 @@ slice's draft PR) and a short summary stop.
   role, 413) is answered with `Connection: close` and **its body is not read**: a raw
   `http.request` declaring `Content-Length: 4194304` and writing only the first 1 KiB
   gets the response while still holding the rest, and the server socket's `bytesRead`
-  stays under 64 KiB — `backend/tests/integration/body-limit.test.ts` — R8 (NFR-VAL-01).
+  stays under 64 KiB; a **chunked** body (`Transfer-Encoding: chunked`, no
+  `Content-Length`) over the operation's limit → `413 PAYLOAD_TOO_LARGE` and is never
+  parsed (the handler and the JSON parser never see it, the socket closes) —
+  `backend/tests/integration/body-limit.test.ts` — R8 (NFR-VAL-01).
 - [ ] T015 Per-route parser: `parseJson(limit)` built per operation from
   `bodyLimitBytes`, mounted after authorization; refusals before parsing set
   `Connection: close` and drop the `req.resume()` drain — `backend/src/http/
@@ -297,7 +300,8 @@ triggers don't exist yet; T025 adds them to the same, still unreleased migration
 one `PO_CREATED`.
 
 - [ ] T027 [P] [US1] Create tests, seen failing: success shape, `201`, `Location`,
-  `ETag: "1"`, lines in the order sent, exact `0.3000` and `0.0875`; vendor missing →
+  `ETag: "1"`, lines in the order sent, exact `0.3000` and `0.0875`; `GET
+  /orders/not-a-uuid` → `400` (`INVALID_FORMAT` on the id), never `404` or `500`; vendor missing →
   `400 VENDOR_NOT_FOUND`, inactive → `409 VENDOR_INACTIVE`, nothing written; each field
   rule of T008 through the API → `400` naming every failing field; `READ_ONLY_FIELD` /
   `UNKNOWN_FIELD`; missing or non-UUID `Idempotency-Key` → `400` (`REQUIRED`,
@@ -318,8 +322,9 @@ one `PO_CREATED`.
   the same 4 MiB `POST /api/orders` with no session, with a session but no CSRF token,
   and as an Admin, writing only the first 1 KiB → `401`, `403 CSRF_REJECTED`, `403
   FORBIDDEN` (detail `ORDER_ADMIN_READ_ONLY_MESSAGE`) each with `Connection: close`
-  before the rest is sent, server socket `bytesRead` under 64 KiB; any other route still
-  refuses a body over 1 MiB — `backend/tests/integration/order-body-limit.test.ts` — R8
+  before the rest is sent, server socket `bytesRead` under 64 KiB; the largest order
+  plus padding sent **chunked** past 4 MiB → `413`, never parsed, no order written; any
+  other route still refuses a body over 1 MiB — `backend/tests/integration/order-body-limit.test.ts` — R8
   (NFR-VAL-01).
 - [ ] T030 [P] [US1] Attack suite, API part (appended), seen failing: `total`,
   `lineTotal`, `openLineCount`, `poNumber`, `receivedQuantity` in a create body →
@@ -343,10 +348,12 @@ one `PO_CREATED`.
   `backend/tests/integration/authorization-matrix.test.ts` — T027–T030 green.
 - [ ] T034 [P] [US1] Web tests, seen failing: editor (create) renders, adds and removes
   lines, shows live line totals and total from `money.ts`, row-level errors inline, save
-  disabled while invalid or pending; one `Idempotency-Key` per attempt reused on retry;
+  disabled while invalid or pending, so a double click sends one request; the web app
+  sends an `Idempotency-Key` on every create (asserted on the MSW request), one per
+  attempt, reused on retry; loading, empty and error states;
   `VENDOR_INACTIVE` banner focuses the vendor picker; vendor picker lists active vendors
   only; axe clean — `frontend/tests/order-editor.test.tsx` — FR-023 (NFR-FE-03,
-  NFR-FE-06).
+  NFR-FE-04, NFR-FE-06).
 - [ ] T035 [US1] Web: `OrderEditor` (TanStack Virtual line table, keyboard reachable,
   move up/down) for create, `OrderDetail` (header, lines, total in en-IN INR), queries —
   `frontend/src/pages/orders/` — T034 green.
@@ -369,7 +376,8 @@ one `PO_CREATED`.
   `backend/tests/unit/line-diff.property.test.ts` — R6 (FR-PO-06).
 - [ ] T037 [US3] Pure line diff — `backend/src/orders/line-diff.ts` — T036 green.
 - [ ] T038 [P] [US3] Edit tests, seen failing: spec scenarios 1–5 (ids kept, array order
-  = display order, version +1, `ETag`); stale `If-Match` → `409 VERSION_CONFLICT`,
+  = display order, version +1, `ETag`); `PATCH /orders/not-a-uuid` → `400`; stale
+  `If-Match` → `409 VERSION_CONFLICT`,
   missing → `400 VERSION_REQUIRED`; foreign/duplicate line id; empty set; missing and
   inactive vendor; a draft whose vendor was deactivated may switch to an active one; a
   no-op save → version unchanged, no audit entry; `PO_EDITED` details per data-model.md
@@ -452,7 +460,8 @@ the owner added on 2026-11-12**.
   FR-016, FR-024 (FR-OWN-01, NFR-PERF-01).
 - [ ] T050 [P] [US5] Timeline tests, seen failing: owner and Admin read it paginated,
   newest first, each item actor, capacity, time, details; other Buyer and Approver →
-  `404` — `backend/tests/integration/orders-timeline.test.ts` — FR-018 (NFR-AUD-03).
+  `404`; an Admin asking for the timeline of a well-formed id that never existed → `404`
+  (not an empty page); `GET /orders/not-a-uuid/timeline` → `400` — `backend/tests/integration/orders-timeline.test.ts` — FR-018 (NFR-AUD-03).
 - [ ] T051 [US5] Repository list/count with the scope and filter predicates of R7 (one
   page query, one `COUNT`, one line-count query); timeline via `listEntityHistory('ORDER',
   id)`; services `listOrders`, `listOrderTimeline` — `backend/src/orders/repository.ts`,
@@ -485,9 +494,11 @@ the owner added on 2026-11-12**.
   `docs/query-plans/orders/*.txt`, `.github/workflows/plans.yml` — T054 green.
 - [ ] T056 [P] [US5] Web tests, seen failing: `/orders` list with filters in the URL
   (status, vendor combo box, debounced PO prefix, date range), page numbers, "Sorted by
-  PO number" note with a prefix, en-IN totals, loading/empty/error; detail Timeline tab —
+  PO number" note with a prefix, en-IN totals, loading/empty/error; the URL round-trips
+  every filter and the page (reload and back/forward restore them); the PO-prefix search
+  is debounced (one request after typing stops); detail Timeline tab —
   `frontend/tests/orders-list.test.tsx`, `frontend/tests/order-timeline.test.tsx` —
-  FR-023 (NFR-FE-03).
+  FR-023 (NFR-FE-03, NFR-FE-04).
 - [ ] T057 [US5] Web: `OrdersList`, `OrderTimeline` — `frontend/src/pages/orders/` —
   T056 green.
 
@@ -499,7 +510,8 @@ the owner added on 2026-11-12**.
 
 **Independent test**: delete via the dialog; `404` afterwards; Admin reads its timeline.
 
-- [ ] T058 [P] [US4] Delete tests, seen failing: with and without a reason (no body, `{}`,
+- [ ] T058 [P] [US4] Delete tests, seen failing: `DELETE /orders/not-a-uuid` → `400`;
+  with and without a reason (no body, `{}`,
   `{"reason":null}`), order and lines gone, one `PO_DRAFT_DELETED` with PO number, full
   lines, total, reason; stale/missing `If-Match`; edit racing delete (barrier) → one wins,
   the other `409` or `404`; the next create gets a new number, never the deleted one;
@@ -552,7 +564,7 @@ the owner added on 2026-11-12**.
   `npm run e2e:local`.
 - [ ] T069 Traceability: FR-PO-01/02/03/04/05/06/07, FR-SM-02, NFR-DATA-01, FR-VEN-02
   (create/edit part), NFR-PERF-03 and FR-RPT-03 (line parts), NFR-AUD-01 (raise),
-  NFR-AUD-03 (order part), NFR-FE-01/03/06/09 (parts), FR-OWN-01, FR-ACT-01, NFR-AUTH-01 and
+  NFR-AUD-03 (order part), NFR-FE-01/03/04/06/09 (parts), FR-OWN-01, FR-ACT-01, NFR-AUTH-01 and
   NFR-AUTH-02 (draft cells), NFR-VAL-01, NFR-CON-01, NFR-CON-03 and NFR-PERF-01 (order
   parts) updated with their passing tests; `npm run check:traceability` green —
   `docs/traceability.md`.

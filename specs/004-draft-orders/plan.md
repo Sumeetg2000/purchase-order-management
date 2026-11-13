@@ -138,7 +138,8 @@ backend/tests/
 │   idempotency.test.ts, order-body-limit.test.ts, authorization-matrix (rows)
 ├── integrity/attack-suite.test.ts, trigger-count.test.ts, reconciliation.test.ts
 ├── concurrency/orders.test.ts
-└── plans/orders-fixture.ts, orders.plan.test.ts   # + scripts/plans-orders.ts, docs/query-plans/orders/
+└── plans/orders-fixture.ts, orders.plan.test.ts,  # + scripts/plans-orders.ts, docs/query-plans/orders/
+    orders.timing.test.ts                         # 500-line create/replace and busiest-buyer page p95
 deploy/nginx/default.conf       # /api/orders 4m, /api/ 1m (R8)
 .github/workflows/plans.yml     # + plans:orders drift check
 
@@ -180,7 +181,7 @@ Each story: tests first, seen failing against real PostgreSQL, then code.
 - `LEFTHOOK_EXCLUDE=eslint` only for test-first commits importing code not yet written.
 - Docs touched: `docs/traceability.md` statuses (FR-PO-01/02/03/04/05/06/07, FR-VEN-02
   create/edit part, FR-SM-02, NFR-DATA-01, NFR-PERF-03 line part, FR-RPT-03 line part,
-  NFR-AUD-01 raise part, NFR-AUD-03 order part, NFR-FE-01/03/06/09 parts, FR-OWN-01, FR-ACT-01, NFR-AUTH-01/02
+  NFR-AUD-01 raise part, NFR-AUD-03 order part, NFR-FE-01/03/04/06/09 parts, FR-OWN-01, FR-ACT-01, NFR-AUTH-01/02
   draft cells, NFR-VAL-01, NFR-CON-01/03, NFR-PERF-01 order parts),
   `docs/query-plans/orders/`.
 

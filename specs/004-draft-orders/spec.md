@@ -501,10 +501,12 @@ timeline against owner Buyer, other Buyer, Approver, Admin, no role and anonymou
 - **Query plans**: this slice builds the order part of the production dataset generator
   needed for its list and timeline plans (ADR-0012); receipts in that dataset arrive with
   slice 6.
-- **No new error codes are expected**: `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`,
+- **Error codes come from the ADRs**: `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`,
   `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`, `VERSION_REQUIRED`, `VERSION_CONFLICT`,
-  `VENDOR_INACTIVE`, `IDEMPOTENCY_KEY_REUSED` and `DERIVED_VALUE_READ_ONLY` are in the
-  ADRs. Planning adds any missing registry entry.
+  `VENDOR_INACTIVE`, `IDEMPOTENCY_KEY_REUSED` and `DERIVED_VALUE_READ_ONLY` are all
+  defined there; those not yet in the registry are added by this slice (one error code,
+  `IDEMPOTENCY_KEY_REUSED`, and three field codes; `DERIVED_VALUE_READ_ONLY` is a
+  database error that maps to `INTERNAL_ERROR`). No code outside the ADRs is invented.
 - **Infrastructure**: no new services or dependencies beyond a decimal library if the
   contracts package lacks one (an ADR-0020 addition if so).
 
