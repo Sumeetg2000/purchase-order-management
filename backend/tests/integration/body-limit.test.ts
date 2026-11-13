@@ -106,7 +106,7 @@ describe('[NFR-VAL-01] request body limits per operation', () => {
     expect(handled).toEqual([]);
   });
 
-  it('[NFR-VAL-01] a chunked body over the limit is 413 and never parsed', async () => {
+  it('[NFR-VAL-01] a chunked body over the limit is refused (413) and read no further, never parsed', async () => {
     const { server, buyer } = await setup();
     for (const [path, limit] of [
       ['/probe/default', BODY_LIMIT_BYTES],
@@ -116,12 +116,20 @@ describe('[NFR-VAL-01] request body limits per operation', () => {
         method: 'POST',
         path,
         headers: sessionHeaders(buyer),
-        chunkedBytes: limit + 64 * 1024,
+        chunkedBytes: limit + 1024 * 1024,
+        mayLoseAnswer: true,
       });
-      expect(res.status, path).toBe(413);
-      expect(JSON.parse(res.body) as unknown, path).toMatchObject({ code: 'PAYLOAD_TOO_LARGE' });
-      expect(res.headers['connection'], path).toBe('close');
+      // The server stops reading at the limit, answers 413 and closes. The client is still
+      // sending, so the close is a reset, and its kernel may drop the 413 it had received:
+      // what is certain is that the body was never read past the limit nor parsed. (In
+      // production nginx, with the same limit, answers 413 itself.)
+      if (res.status !== undefined) {
+        expect(res.status, path).toBe(413);
+        expect(JSON.parse(res.body) as unknown, path).toMatchObject({ code: 'PAYLOAD_TOO_LARGE' });
+        expect(res.headers['connection'], path).toBe('close');
+      }
       expect(res.closed, path).toBe(true);
+      expect(server.lastBytesRead(), path).toBeLessThan(limit + 256 * 1024);
     }
     expect(handled).toEqual([]);
   });

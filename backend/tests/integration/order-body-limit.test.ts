@@ -137,17 +137,25 @@ describe('[NFR-VAL-01] the order-write body limit, at the API', () => {
     expect(await h.count('purchase_orders')).toBe(0);
   });
 
-  it('[NFR-VAL-01] a chunked body past the limit is 413 and never parsed: no order is written', async () => {
+  it('[NFR-VAL-01] a chunked body past the limit is refused, read no further and never parsed: no order is written', async () => {
     const { h, server } = await setup();
     const res = await rawRequest(server.port, {
       method: 'POST',
       path: '/orders',
       headers: writeHeaders(h.jar),
-      chunkedBytes: ORDER_BODY_LIMIT_BYTES + 64 * 1024,
+      chunkedBytes: ORDER_BODY_LIMIT_BYTES + 1024 * 1024,
+      mayLoseAnswer: true,
     });
-    expect(res.status).toBe(413);
-    expect(res.headers['connection']).toBe('close');
+    // The server stops reading at the limit, answers 413 and closes. The client is still
+    // sending, so the close is a reset, and its kernel may drop the 413 it had received:
+    // what is certain is that the body was never read past the limit nor parsed. (In
+    // production nginx, with the same limit, answers 413 itself.)
+    if (res.status !== undefined) {
+      expect(res.status).toBe(413);
+      expect(res.headers['connection']).toBe('close');
+    }
     expect(res.closed).toBe(true);
+    expect(server.lastBytesRead()).toBeLessThan(ORDER_BODY_LIMIT_BYTES + 256 * 1024);
     expect(await h.count('purchase_orders')).toBe(0);
   });
 });

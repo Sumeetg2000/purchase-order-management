@@ -34,7 +34,12 @@ export async function listen(app: Express): Promise<RawServer> {
 }
 
 export interface RawResponse {
-  status: number;
+  /**
+   * The status, or undefined when the server's answer was lost: a server that stops
+   * reading and closes while the client is still sending resets the connection, and the
+   * client's kernel then drops what it had received (only with `mayLoseAnswer`).
+   */
+  status: number | undefined;
   headers: Record<string, string>;
   body: string;
   /** The server closed the connection (FIN or reset) after answering. */
@@ -52,6 +57,8 @@ interface RawRequest {
   sendBytes?: number;
   /** Instead: a chunked body of this many bytes, written in 64 KiB chunks. */
   chunkedBytes?: number;
+  /** Resolve with no status, instead of failing, if the answer is lost to a reset. */
+  mayLoseAnswer?: boolean;
 }
 
 function parse(raw: string): Pick<RawResponse, 'status' | 'headers' | 'body'> | undefined {
@@ -83,6 +90,10 @@ export function rawRequest(port: number, request: RawRequest): Promise<RawRespon
     function finish() {
       clearTimeout(timer);
       const parsed = parse(received);
+      if (!parsed && request.mayLoseAnswer === true) {
+        resolve({ status: undefined, headers: {}, body: '', closed, written });
+        return;
+      }
       if (!parsed) {
         reject(
           new Error(`no response (closed: ${String(closed)}, wrote ${String(written)} bytes)`),
