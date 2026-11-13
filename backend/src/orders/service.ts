@@ -202,7 +202,7 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
           return before;
         }
 
-        // At most one statement each, whatever the line count (FR-004): the total is
+        // At most one statement each, whatever the line count: the total is
         // recomputed once per statement.
         const added = diff.added.map((line) => ({ id: uuidv7(), ...line }));
         await insertOrderLines(tx, id, added);
