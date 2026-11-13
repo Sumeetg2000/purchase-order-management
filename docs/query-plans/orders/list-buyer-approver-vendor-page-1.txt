@@ -1,0 +1,28 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM ((SELECT created_at, id FROM purchase_orders WHERE vendor_id = $1::uuid AND owner_id = $2::uuid ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $3::uuid AND owner_id <> $4::uuid AND status = 'PENDING_APPROVAL' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $5::uuid AND owner_id <> $6::uuid AND status = 'APPROVED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $7::uuid AND owner_id <> $8::uuid AND status = 'REJECTED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $9::uuid AND owner_id <> $10::uuid AND status = 'CANCELLED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20)) k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 0) k JOIN purchase_orders o ON o.id = k.id
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Nested Loop
+  ->  Limit
+        ->  Merge Append
+              Sort Key: purchase_orders.created_at DESC, purchase_orders.id DESC
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_owner_vendor_created_idx on purchase_orders
+                          Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                          Index Cond: (status = 'PENDING_APPROVAL'::text)
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                          Index Cond: (status = 'APPROVED'::text)
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                          Index Cond: (status = 'REJECTED'::text)
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_4
+                          Index Cond: (status = 'CANCELLED'::text)
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = purchase_orders.id)

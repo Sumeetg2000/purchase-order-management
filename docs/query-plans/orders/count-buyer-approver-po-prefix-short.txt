@@ -1,0 +1,24 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int) AND owner_id = $4::uuid UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $5 AND po_number < $6 || chr($7::int) AND owner_id <> $8::uuid AND status = 'PENDING_APPROVAL' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $9 AND po_number < $10 || chr($11::int) AND owner_id <> $12::uuid AND status = 'APPROVED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $13 AND po_number < $14 || chr($15::int) AND owner_id <> $16::uuid AND status = 'REJECTED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $17 AND po_number < $18 || chr($19::int) AND owner_id <> $20::uuid AND status = 'CANCELLED') c
+-- values: ["PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Append
+        ->  Subquery Scan on "*SELECT* 1"
+              ->  Index Only Scan using purchase_orders_owner_po_number_idx on purchase_orders
+                    Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+        ->  Subquery Scan on "*SELECT* 2"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                    Index Cond: (status = 'PENDING_APPROVAL'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+        ->  Subquery Scan on "*SELECT* 3"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                    Index Cond: (status = 'APPROVED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+        ->  Subquery Scan on "*SELECT* 4"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                    Index Cond: (status = 'REJECTED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+        ->  Subquery Scan on "*SELECT* 5"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_4
+                    Index Cond: (status = 'CANCELLED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))

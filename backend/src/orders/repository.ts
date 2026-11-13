@@ -275,7 +275,16 @@ function branchSql(branch: Branch, filters: Prisma.Sql[], columns: Prisma.Sql): 
   return Prisma.sql`SELECT ${columns} FROM purchase_orders ${where}`;
 }
 
-const PAGE_COLUMNS = Prisma.sql`id, po_number, status, owner_id, vendor_id, total, created_at`;
+/**
+ * A page bound as an SQL literal, not a parameter: the contract has checked it (a page
+ * size of at most 50), and a generic plan that can't see the LIMIT may plan for the whole
+ * table.
+ */
+function pageNumber(value: number): Prisma.Sql {
+  if (!Number.isSafeInteger(value) || value < 0)
+    throw new RangeError(`bad page bound ${String(value)}`);
+  return Prisma.raw(String(value));
+}
 
 export interface OrderListSql {
   /** What the API runs: the page and the total in one statement, one snapshot. */
@@ -297,20 +306,43 @@ export function orderListSql(
 ): OrderListSql {
   const filters = filterConditions(filter);
   const branches = branchesOf(scope, filter.status);
-  const union = (columns: Prisma.Sql) =>
-    branches.length === 0
-      ? Prisma.sql`SELECT ${columns} FROM purchase_orders WHERE false`
-      : Prisma.join(
-          branches.map((b) => branchSql(b, filters, columns)),
-          ' UNION ALL ',
-        );
   const byPoNumber = filter.poNumber !== undefined;
   const order = (alias: string) =>
     byPoNumber
       ? Prisma.raw(`${alias}.po_number DESC`)
       : Prisma.raw(`${alias}.created_at DESC, ${alias}.id DESC`);
-  const page = Prisma.sql`SELECT o.* FROM (${union(PAGE_COLUMNS)}) o
-     ORDER BY ${order('o')} LIMIT ${limit} OFFSET ${offset}`;
+  /**
+   * The branches' union. For a page of a scope with several branches, each branch is cut
+   * to the page's end in its own index order first: PostgreSQL appends a union and sorts
+   * it rather than merging ordered scans, so without the cut it would sort every order of
+   * the caller's. With it, nothing past offset + limit is read from any branch.
+   */
+  const union = (columns: Prisma.Sql, cut?: number) =>
+    branches.length === 0
+      ? Prisma.sql`SELECT ${columns} FROM purchase_orders WHERE false`
+      : branches.length === 1 || cut === undefined
+        ? Prisma.join(
+            branches.map((b) => branchSql(b, filters, columns)),
+            ' UNION ALL ',
+          )
+        : Prisma.join(
+            branches.map(
+              (b) =>
+                Prisma.sql`(${branchSql(b, filters, columns)} ORDER BY ${order('purchase_orders')}
+                  LIMIT ${pageNumber(cut)})`,
+            ),
+            ' UNION ALL ',
+          );
+  // A deferred join: the page picks only its sort keys, which every list index holds, so
+  // it walks the index alone (an index-only scan) to the page and no further; only the
+  // page's own rows are then read from the table.
+  const keys = byPoNumber ? Prisma.sql`po_number` : Prisma.sql`created_at, id`;
+  const join = byPoNumber ? Prisma.sql`o.po_number = k.po_number` : Prisma.sql`o.id = k.id`;
+  const page = Prisma.sql`SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total,
+           o.created_at
+      FROM (SELECT k.* FROM (${union(keys, offset + limit)}) k
+             ORDER BY ${order('k')} LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}) k
+      JOIN purchase_orders o ON ${join}`;
   const count = Prisma.sql`SELECT count(*) FROM (${union(Prisma.sql`1 AS one`)}) c`;
   const statement = Prisma.sql`
     SELECT (${count})::int AS total,

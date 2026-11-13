@@ -1,0 +1,11 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM (SELECT created_at, id FROM purchase_orders WHERE false) k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 0) k JOIN purchase_orders o ON o.id = k.id
+-- values: []
+
+Nested Loop
+  ->  Limit
+        ->  Sort
+              Sort Key: created_at DESC, id DESC
+              ->  Result
+                    One-Time Filter: false
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = id)

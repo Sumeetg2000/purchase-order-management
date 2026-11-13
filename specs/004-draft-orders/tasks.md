@@ -473,14 +473,14 @@ the owner added on 2026-11-12**.
   own / readable / all) — `packages/contracts/src/operations.ts`,
   `backend/src/orders/routes.ts`, `backend/tests/integration/authorization-matrix.test.ts`
   — T049, T050 green.
-- [ ] T053 [US5] **Plan fixture** at the ADR-0012 sizes, as the superuser with row
+- [X] T053 [US5] **Plan fixture** at the ADR-0012 sizes, as the superuser with row
   triggers off, `INSERT … SELECT … FROM generate_series(…)` only: 2,000 vendors (top 20 ≈
   30 % of orders), 300 buyers (top 10 ≈ 25 %), one Admin, **100,000 orders and about
   1,000,000 lines** (1 % with 200–500 lines, the rest 1–15), totals and open-line counts
   set by the seed and **checked by the reconciliation query before planning**, about 2M
   audit entries (300k order entries); `VACUUM ANALYZE`; record seed time —
   `backend/tests/plans/orders-fixture.ts` — R7, FR-022.
-- [ ] T054 [US5] **Plan tests**, seen failing before the indexes are used as intended:
+- [X] T054 [US5] **Plan tests**, seen failing before the indexes are used as intended:
   for every list scope (Buyer busiest, Buyer+Approver, Admin) × each single filter, the
   PO prefix at `PO-2026-27-0012` and the short `PO-2026-27-`, two combined filters, page
   1 and page 100, each `COUNT`, the vendor dialog count, and the timeline (busiest order,
@@ -489,7 +489,7 @@ the owner added on 2026-11-12**.
   asserted on `EXPLAIN (ANALYZE, FORMAT JSON)` held in memory, generic plans for the
   prefix filter — `backend/tests/plans/orders.plan.test.ts` — R7, FR-015, FR-022
   (NFR-PERF-01).
-- [ ] T055 [US5] **Committed plans**: `EXPLAIN (COSTS OFF)` writer, `plans:orders` script
+- [X] T055 [US5] **Committed plans**: `EXPLAIN (COSTS OFF)` writer, `plans:orders` script
   (with its `pre` hook as `plans:vendors`), plans committed; running it twice leaves
   `git diff --exit-code docs/query-plans/orders` clean; the `plans` workflow runs it and
   checks drift — `backend/scripts/plans-orders.ts`, `backend/package.json`,

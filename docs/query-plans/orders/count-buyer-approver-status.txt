@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE owner_id = $1::uuid AND status = 'DRAFT') c
+-- values: ["884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_owner_status_created_idx on purchase_orders
+        Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (status = 'DRAFT'::text))

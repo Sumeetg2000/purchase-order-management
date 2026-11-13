@@ -212,6 +212,24 @@ reads `status <> 'DRAFT'` (empty in this slice); a Buyer+Approver reads the unio
     a short prefix); a minimum prefix length (rejected by the owner).
 - **Counts**: `COUNT(*)` with the same predicate, served by the same index
   (index-only where the visibility map allows).
+- **What the plan tests found, and the query now does** (2026-11-13, `orders.plan.test.ts`):
+  - *Deferred join*: the page picks only its sort keys (`created_at, id`, or `po_number`)
+    by an index-only scan, cut at `LIMIT … OFFSET`, then joins back for the page's rows.
+    Selecting whole rows, PostgreSQL chose a bitmap scan and a sort of every match at deep
+    pages (the busiest Buyer's 2,500 orders).
+  - *A cut per branch*: a scope of several branches (Buyer+Approver, Approver) unions
+    branches each `ORDER BY … LIMIT offset+limit` on its own index; uncut, PostgreSQL
+    appended the union and sorted every order of the caller's instead of merging.
+  - *Page bounds as literals*: `LIMIT` and `OFFSET` are checked integers written into the
+    SQL, so a generic plan sees the page size (as parameters, it read the whole table to
+    join back).
+  - *Rows and total in one statement*: `SELECT (count) AS total, (json_agg over the page)
+    AS items`, one snapshot, like `getOrder`.
+  - *Counts* read only the rows they count: a count of nearly every order may read the
+    table itself, which reads only matches too.
+  - *Combined filters* (status and vendor) stop at page 1 but, at a deep page, sort the
+    leading filter's matches (one vendor's or one Buyer's orders): no index holds both
+    columns. Every single filter and every scope stops at the page at page 100.
 - **Line count per row**: one `SELECT order_id, count(*) … WHERE order_id = ANY($page_ids)
   GROUP BY order_id` per page, on `(order_id, position)`. Not stored: another derived
   value to guard and reconcile for a display number.

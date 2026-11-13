@@ -1,0 +1,9 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $1::uuid AND status = 'DRAFT') c
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5"]
+
+Aggregate
+  ->  Bitmap Heap Scan on purchase_orders
+        Recheck Cond: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+        Filter: (status = 'DRAFT'::text)
+        ->  Bitmap Index Scan on purchase_orders_vendor_created_idx
+              Index Cond: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
