@@ -101,7 +101,7 @@ slice's draft PR) and a short summary stop.
 - [X] T004 Database error mapping: `PO005`–`PO011` named as in
   [errors.md](contracts/errors.md), each → `INTERNAL_ERROR`, logged as a bug —
   `backend/src/db/errors.ts`, `backend/tests/unit/db-errors.test.ts` (test first) — R4.
-- [ ] T005 Reconciliation query: INV-1, INV-2, INV-4, INV-5, INV-6 and `po_number IS
+- [X] T005 Reconciliation query: INV-1, INV-2, INV-4, INV-5, INV-6 and `po_number IS
   NULL` as `UNION ALL` branches (one row per violation); tests, seen failing, that plant
   each violation as the superuser with triggers off and get exactly its row; the query
   runs as `po_app` — `backend/src/db/reconciliation.sql`,
@@ -588,7 +588,8 @@ the owner added on 2026-11-12**.
 
 - Setup (T001) → Foundational (T002–T020) → US2 (T021–T026) → US1 → US3 → US6 → US5 →
   US4 → Polish.
-- Within Foundational: T002 → T003 → T004, T005 → T006; T007–T009 → T010–T012;
+- Within Foundational: T002 → T003 → T004, T005; T006 lands after T025 (before the
+  triggers, every raw draft keeps `total = 0`, so the per-test reconciliation would flag it); T007–T009 → T010–T012;
   T013 after T003 and T010; T014 → T015; T016–T020 after T012.
 - US2: T021–T024 (seen failing on part 1) → T025 (part 2) → T026. US1 needs T026's
   `po-number.ts`.

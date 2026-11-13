@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && tsc -b tsconfig.build.json && node -e \"require('node:fs').cpSync('src/auth/common-passwords.txt', 'dist/auth/common-passwords.txt')\"",
+    "build": "prisma generate && tsc -b tsconfig.build.json && node -e \"const fs = require('node:fs'); fs.cpSync('src/auth/common-passwords.txt', 'dist/auth/common-passwords.txt'); fs.cpSync('src/db/reconciliation.sql', 'dist/db/reconciliation.sql')\"",
     "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin": "node dist/cli/admin.js",
