@@ -11,13 +11,7 @@ import { runAs } from '../users/actor.js';
 import { requireActiveVendor } from '../vendors/service.js';
 import { auditLines, toOrder } from './order.js';
 import { assignPoNumber } from './po-number.js';
-import {
-  insertOrder,
-  insertOrderLines,
-  selectOrderHeader,
-  selectOrderLines,
-  type OrderHeaderRow,
-} from './repository.js';
+import { insertOrder, insertOrderLines, selectOrder, type OrderRow } from './repository.js';
 
 // Purchase orders (ADR-0001, ADR-0003, ADR-0004; specs/004-draft-orders). Drafts only in
 // this slice.
@@ -48,7 +42,7 @@ export interface OrdersService {
  */
 export function canRead(
   user: Pick<AuthenticatedUser, 'userId' | 'roles'>,
-  order: Pick<OrderHeaderRow, 'ownerId' | 'status'>,
+  order: Pick<OrderRow, 'ownerId' | 'status'>,
 ): boolean {
   return (
     order.ownerId === user.userId ||
@@ -93,14 +87,15 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
             unitPrice,
           })),
         );
-        const header = await selectOrderHeader(tx, id);
-        if (!header) throw new Error(`order ${id} vanished inside its own transaction`);
-        const lines = await selectOrderLines(tx, id);
+        // Read before the number: the total is derived by now, and the counter row is
+        // locked for as short a time as possible.
+        const stored = await selectOrder(tx, id);
+        if (!stored) throw new Error(`order ${id} vanished inside its own transaction`);
 
         // The last write before the audit entry: the counter row stays locked from here
         // to commit, whatever the line count (ADR-0001, amended 2026-11-12).
         const poNumber = await assignPoNumber(tx, id);
-        const order = toOrder({ ...header, poNumber }, lines);
+        const order = toOrder({ ...stored, poNumber });
         await writeAudit(tx, {
           action: 'PO_CREATED',
           entityType: 'order',
@@ -118,11 +113,9 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
       }),
 
     getOrder: async (user, id) => {
-      const [header, lines] = await withDatabase(() =>
-        Promise.all([selectOrderHeader(deps.prisma, id), selectOrderLines(deps.prisma, id)]),
-      );
-      if (!header || !canRead(user, header)) throw new AppError('NOT_FOUND');
-      return toOrder(header, lines);
+      const stored = await withDatabase(() => selectOrder(deps.prisma, id));
+      if (!stored || !canRead(user, stored)) throw new AppError('NOT_FOUND');
+      return toOrder(stored);
     },
   };
 }

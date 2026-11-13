@@ -1,11 +1,12 @@
 import { toMoney, type Order } from '@po/contracts';
 import type { AuditOrderLine } from '../audit/events.js';
-import type { OrderHeaderRow, OrderLineRow } from './repository.js';
+import type { OrderRow } from './repository.js';
 
 // Rows → the API's order (contracts/api.md). Amounts stay strings: toMoney checks and
 // normalises the database's text, never a float.
 
-export function toOrder(header: OrderHeaderRow, lines: readonly OrderLineRow[]): Order {
+export function toOrder(header: OrderRow): Order {
+  const lines = header.lines;
   if (header.poNumber === null) throw new Error(`order ${header.id} has no PO number`);
   return {
     id: header.id,
