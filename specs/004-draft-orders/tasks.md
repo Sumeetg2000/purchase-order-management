@@ -546,7 +546,7 @@ the owner added on 2026-11-12**.
   vendor" (omitted at 0, "Couldn't load your draft count" on error, never blocking); test
   first — `frontend/src/pages/vendors/DeactivateVendorDialog.tsx`,
   `frontend/tests/deactivate-vendor-dialog.test.tsx` — FR-024.
-- [ ] T064 [P] Demo seed: three drafts per demo Buyer through the service (`0.1 × 1` ×3,
+- [X] T064 [P] Demo seed: three drafts per demo Buyer through the service (`0.1 × 1` ×3,
   20 lines, one against a vendor then deactivated); refused in production; reconciliation
   zero after seeding; test extended — `backend/src/migrate/seed-demo.ts`,
   `backend/tests/integration/seed-demo.test.ts` — FR-026.

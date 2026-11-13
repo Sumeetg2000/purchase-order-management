@@ -16,3 +16,14 @@ export interface ReconciliationRow {
 export function readReconciliationSql(): string {
   return readFileSync(RECONCILIATION_SQL, 'utf8');
 }
+
+/** Fails when any stored derived value disagrees with what it is derived from. */
+export async function assertReconciled(db: {
+  $queryRawUnsafe: <T>(sql: string) => Promise<T>;
+}): Promise<void> {
+  const rows = await db.$queryRawUnsafe<ReconciliationRow[]>(readReconciliationSql());
+  if (rows.length > 0) {
+    const shown = rows.slice(0, 5).map((r) => `${r.invariant} ${r.entity_id}`);
+    throw new Error(`reconciliation found ${String(rows.length)} rows: ${shown.join(', ')}`);
+  }
+}
