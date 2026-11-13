@@ -106,7 +106,7 @@ export interface AuditEventCatalogue {
     entityType: 'order';
     details: { vendor: AuditOrderVendor; lines: AuditOrderLine[]; total: Money };
   };
-  /** An edit that changed something; a no-op save writes none (FR-020). */
+  /** An edit that changed something; a no-op save writes none. */
   PO_EDITED: {
     entityType: 'order';
     details: {

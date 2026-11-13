@@ -174,7 +174,7 @@ GRANT SELECT, DELETE ON TABLE idempotency_keys TO po_maintenance;
 -- derived columns, and nobody holds EXECUTE; the line triggers below call it. The
 -- transaction-local flag po.recompute names this transaction while it writes, so the
 -- guard lets exactly this write through. po.recompute_count counts the runs, for the
--- trigger-count tests (FR-021). Orders that no longer exist (a cascade) are skipped.
+-- trigger-count tests. Orders that no longer exist (a cascade) are skipped.
 CREATE FUNCTION recompute_orders(order_ids uuid[]) RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -201,7 +201,7 @@ BEGIN
 END
 $$;
 
--- Lines change only on drafts (FR-012). received_quantity alone is exempt: slice 6's
+-- Lines change only on drafts. received_quantity alone is exempt: slice 6's
 -- receipts change it on approved orders, through their own trigger. Called only from the
 -- line triggers, which run as po_owner.
 CREATE FUNCTION order_lines_require_drafts(order_ids uuid[]) RETURNS void
