@@ -45,7 +45,7 @@ function totalOf({ details }: Item): string | undefined {
 }
 
 /**
- * An order's timeline (FR-018): its entries newest first and paged, each with what
+ * An order's timeline: its entries newest first and paged, each with what
  * happened, who did it in what capacity, when, and the total it left.
  */
 export function OrderTimeline() {
