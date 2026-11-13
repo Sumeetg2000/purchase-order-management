@@ -42,6 +42,7 @@
   "dependencies": {
     "@po/contracts": "0.0.0",
     "@tanstack/react-query": "5.104.2",
+    "@tanstack/react-virtual": "3.14.23",
     "openapi-fetch": "0.17.0",
     "react": "19.3.1",
     "react-aria-components": "1.22.1",
