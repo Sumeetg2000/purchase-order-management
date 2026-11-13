@@ -1,4 +1,5 @@
 import type { AppPrismaClient } from '../db/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 import type { AuditAction, AuditEventCatalogue } from './events.js';
 
@@ -25,28 +26,53 @@ interface EntityRef {
   entityId: string;
 }
 
+/** The history's SQL: the statement the API runs, and its parts for the plan files. */
+export function entityHistorySql(
+  { entityType, entityId }: EntityRef,
+  { offset, limit }: PageArgs,
+): { statement: Prisma.Sql; page: Prisma.Sql; count: Prisma.Sql } {
+  const where = Prisma.sql`entity_type = ${entityType} AND entity_id = ${entityId}`;
+  // The sort names the table: a bare `id` would mean a selected `id::text`, sorted as text.
+  const page = Prisma.sql`
+    SELECT id, action, occurred_at, actor_type, actor_name, actor_email, acting_role, details
+      FROM audit_entries
+     WHERE ${where}
+     ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC
+     LIMIT ${limit} OFFSET ${offset}`;
+  const count = Prisma.sql`SELECT count(*) FROM audit_entries WHERE ${where}`;
+  const statement = Prisma.sql`
+    SELECT (${count})::int AS total,
+           coalesce((
+             SELECT json_agg(json_build_object(
+                      'id', p.id::text,
+                      'action', p.action,
+                      'occurredAt', to_char(p.occurred_at AT TIME ZONE 'UTC',
+                                            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+                      'actorType', p.actor_type,
+                      'actorName', p.actor_name,
+                      'actorEmail', p.actor_email,
+                      'actingRole', p.acting_role,
+                      'details', p.details)
+                    ORDER BY p.occurred_at DESC, p.id DESC)
+               FROM (${page}) p), '[]'::json) AS rows`;
+  return { statement, page, count };
+}
+
 /**
  * A page of the entity's entries, newest first, and how many it has; equal timestamps by
- * id, newest first. The sort names the table: a bare `id` would mean the selected
- * `id::text` and sort as text.
+ * id, newest first. One statement, one snapshot, so the page and the total always agree.
  */
 export async function listEntityHistory(
   prisma: AppPrismaClient,
-  { entityType, entityId }: EntityRef,
-  { offset, limit }: PageArgs,
+  entity: EntityRef,
+  page: PageArgs,
 ): Promise<RowsAndTotal<EntityHistoryRow>> {
-  const [rows, [count]] = await Promise.all([
-    prisma.$queryRaw<EntityHistoryRow[]>`
-      SELECT id::text, action, occurred_at AS "occurredAt", actor_type AS "actorType",
-             actor_name AS "actorName", actor_email AS "actorEmail",
-             acting_role AS "actingRole", details
-        FROM audit_entries
-       WHERE entity_type = ${entityType} AND entity_id = ${entityId}
-       ORDER BY audit_entries.occurred_at DESC, audit_entries.id DESC
-       LIMIT ${limit} OFFSET ${offset}`,
-    prisma.$queryRaw<{ total: bigint }[]>`
-      SELECT count(*) AS total FROM audit_entries
-       WHERE entity_type = ${entityType} AND entity_id = ${entityId}`,
-  ]);
-  return { rows, total: Number(count?.total ?? 0) };
+  const [result] = await prisma.$queryRaw<
+    { total: number; rows: (Omit<EntityHistoryRow, 'occurredAt'> & { occurredAt: string })[] }[]
+  >(entityHistorySql(entity, page).statement);
+  const rows = (result?.rows ?? []).map((row) => ({
+    ...row,
+    occurredAt: new Date(row.occurredAt),
+  }));
+  return { rows, total: result?.total ?? 0 };
 }

@@ -1,6 +1,6 @@
 import { PAGE_SIZE_DEFAULT, VENDOR_STATUS_FILTERS } from '@po/contracts';
 import type pg from 'pg';
-import { listEntityHistory } from '../../src/audit/repository.js';
+import { entityHistorySql } from '../../src/audit/repository.js';
 import type { AppPrismaClient } from '../../src/db/client.js';
 import { Prisma } from '../../src/generated/prisma/client.js';
 import { listVendors } from '../../src/vendors/repository.js';
@@ -149,14 +149,14 @@ export function vendorPlanQueries(vendorId: string): PlanQuery[] {
     const offset = (page - 1) * limit;
     queries.push({
       name: `history-page-${String(page)}`,
-      sql: captured((db) => listEntityHistory(db, entity, { offset, limit })).page,
+      sql: entityHistorySql(entity, { offset, limit }).page,
       page: true,
       rowsBound: limit + offset,
     });
   }
   queries.push({
     name: 'history-count',
-    sql: captured((db) => listEntityHistory(db, entity, { offset: 0, limit })).count,
+    sql: entityHistorySql(entity, { offset: 0, limit }).count,
     page: false,
     rowsBound: 0,
   });

@@ -1,9 +1,7 @@
 import { PAGE_SIZE_DEFAULT } from '@po/contracts';
 import type pg from 'pg';
-import { listEntityHistory } from '../../src/audit/repository.js';
-import type { AppPrismaClient } from '../../src/db/client.js';
+import { entityHistorySql } from '../../src/audit/repository.js';
 import { readReconciliationSql } from '../../src/db/reconciliation.js';
-import { Prisma } from '../../src/generated/prisma/client.js';
 import {
   orderListSql,
   type OrderListFilter,
@@ -129,19 +127,6 @@ export async function orderPlanIds(client: pg.Client) {
   return ids;
 }
 
-/** The SQL a function sends, captured instead of run: here the history's page and count. */
-function captured(run: (db: AppPrismaClient) => Promise<unknown>): Prisma.Sql[] {
-  const sent: Prisma.Sql[] = [];
-  const db = {
-    $queryRaw: (strings: TemplateStringsArray, ...values: Prisma.Sql[]) => {
-      sent.push(Prisma.sql(strings, ...values));
-      return Promise.resolve([]);
-    },
-  } as unknown as AppPrismaClient;
-  void run(db);
-  return sent;
-}
-
 /** Every order list and timeline query the API runs, with the values it binds. */
 export function orderPlanQueries(ids: {
   buyer: string;
@@ -202,10 +187,8 @@ export function orderPlanQueries(ids: {
   queries.push({ name: 'vendor-dialog-count', sql: dialog.count, page: false, rowsBound: 0 });
 
   const entity = { entityType: 'order', entityId: ids.order } as const;
-  const [timelinePage, timelineCount] = captured((db) =>
-    listEntityHistory(db, entity, { offset: 0, limit }),
-  );
-  if (!timelinePage || !timelineCount) throw new Error('the timeline sent no page and count');
+  const timeline = entityHistorySql(entity, { offset: 0, limit });
+  const [timelinePage, timelineCount] = [timeline.page, timeline.count];
   queries.push({ name: 'timeline-page-1', sql: timelinePage, page: true, rowsBound: limit });
   queries.push({ name: 'timeline-count', sql: timelineCount, page: false, rowsBound: 0 });
   return queries;
