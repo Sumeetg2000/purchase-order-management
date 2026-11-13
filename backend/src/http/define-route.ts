@@ -106,6 +106,16 @@ export function requestSchemaProblem(route: OperationContract): string | undefin
 }
 
 const IF_MATCH_PATH = 'header.if-match';
+const IDEMPOTENCY_KEY_PATH = 'header.idempotency-key';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A create's Idempotency-Key: required, a UUID (slice 3 research R5), lower-cased. */
+function idempotencyKey(header: string | undefined): string | FieldError {
+  if (header === undefined) return { path: IDEMPOTENCY_KEY_PATH, code: 'REQUIRED' };
+  return UUID.test(header)
+    ? header.toLowerCase()
+    : { path: IDEMPOTENCY_KEY_PATH, code: 'INVALID_FORMAT' };
+}
 
 /** The version a versioned update must name in If-Match (research R14). */
 function ifMatchVersion(header: string | undefined): number | FieldError {
@@ -118,6 +128,15 @@ export function idParamOf(req: Request): string {
   const id = req.params['id'];
   if (typeof id !== 'string') throw new Error('idParamOf on a route without an id parameter');
   return id;
+}
+
+/** The Idempotency-Key validateRequest parsed, for an idempotent create's handler. */
+export function idempotencyKeyOf(res: Response): string {
+  const key = (res.locals['input'] as { idempotencyKey?: unknown } | undefined)?.idempotencyKey;
+  if (typeof key !== 'string') {
+    throw new Error('idempotencyKeyOf on a route without Idempotency-Key');
+  }
+  return key;
 }
 
 /** The If-Match version validateRequest parsed, for a versioned update's handler. */
@@ -142,6 +161,11 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
       const version = ifMatchVersion(req.get('if-match'));
       if (typeof version === 'number') input['version'] = version;
       else details.push(version);
+    }
+    if (route.idempotencyKey === 'required') {
+      const key = idempotencyKey(req.get('idempotency-key'));
+      if (typeof key === 'string') input['idempotencyKey'] = key;
+      else details.push(key);
     }
     for (const [part, prefix] of PARTS) {
       const schema = route.request?.[part];

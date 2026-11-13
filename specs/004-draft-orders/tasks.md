@@ -300,7 +300,7 @@ triggers don't exist yet; T025 adds them to the same, still unreleased migration
 **Independent test**: create a 3-line order as a Buyer → `DRAFT`, PO number, exact totals,
 one `PO_CREATED`.
 
-- [ ] T027 [P] [US1] Create tests, seen failing: success shape, `201`, `Location`,
+- [X] T027 [P] [US1] Create tests, seen failing: success shape, `201`, `Location`,
   `ETag: "1"`, lines in the order sent, exact `0.3000` and `0.0875`; `GET
   /orders/not-a-uuid` → `400` (`INVALID_FORMAT` on the id), never `404` or `500`; vendor missing →
   `400 VENDOR_NOT_FOUND`, inactive → `409 VENDOR_INACTIVE`, nothing written; each field
@@ -310,11 +310,11 @@ one `PO_CREATED`.
   or number; same key, other body → `409 IDEMPOTENCY_KEY_REUSED`; two users with the same
   key create two orders — `backend/tests/integration/orders-create.test.ts` — FR-001,
   FR-003, FR-006, FR-008 (FR-PO-01, FR-PO-02, FR-VEN-02, NFR-CON-01, NFR-VAL-01).
-- [ ] T028 [P] [US1] Audit tests, seen failing: one `PO_CREATED` per create with actor,
+- [X] T028 [P] [US1] Audit tests, seen failing: one `PO_CREATED` per create with actor,
   `actingRole: BUYER`, name and email at the time, PO number, vendor, every line, total,
   request id; refused, replayed and rolled-back creates write none —
   `backend/tests/integration/orders-audit.test.ts` — FR-020, SC-007 (NFR-AUD-01).
-- [ ] T029 [P] [US1] **Max-order body-limit test hitting the API directly** (Supertest /
+- [X] T029 [P] [US1] **Max-order body-limit test hitting the API directly** (Supertest /
   raw `http` against the app, no proxy), seen failing: the largest valid order (500
   lines, each description 500 × U+1F600, quantity 1,000,000, unit price
   `999999999.9999`) sent as raw UTF-8 (~1.06 MB) → `201` with total
@@ -327,19 +327,19 @@ one `PO_CREATED`.
   plus padding sent **chunked** past 4 MiB → `413`, never parsed, no order written; any
   other route still refuses a body over 1 MiB — `backend/tests/integration/order-body-limit.test.ts` — R8
   (NFR-VAL-01).
-- [ ] T030 [P] [US1] Attack suite, API part (appended), seen failing: `total`,
+- [X] T030 [P] [US1] Attack suite, API and service part (its own file, beside the database part), seen failing: `total`,
   `lineTotal`, `openLineCount`, `poNumber`, `receivedQuantity` in a create body →
   `400 READ_ONLY_FIELD`; a price as a JSON number → `400`; a service-level call
   (`createOrder` with a crafted input object carrying `total`) cannot set it; each ends
-  with reconciliation at zero — `backend/tests/integrity/attack-suite.test.ts` — FR-014.
-- [ ] T031 [US1] Repository: insert order (`po_number NULL`), insert lines in one
+  with reconciliation at zero — `backend/tests/integrity/attack-suite-api.test.ts` — FR-014.
+- [X] T031 [US1] Repository: insert order (`po_number NULL`), insert lines in one
   multi-row statement, read order with lines (NUMERIC as text, lines by position), vendor
   name/status join — `backend/src/orders/repository.ts`.
-- [ ] T032 [US1] Service `createOrder`: idempotency claim → lock vendor
+- [X] T032 [US1] Service `createOrder`: idempotency claim → lock vendor
   (`requireActiveVendor`) → insert order and lines → allocate PO number last
   (`po-number.ts`) → `PO_CREATED` → complete the key, one transaction; `getOrder` with
   the read scope of ADR-0004 (owner, Admin; others `404`) — `backend/src/orders/service.ts`.
-- [ ] T033 [US1] Operations `createOrder` (BUYER, `bodyLimitBytes:
+- [X] T033 [US1] Operations `createOrder` (BUYER, `bodyLimitBytes:
   ORDER_BODY_LIMIT_BYTES`, `Idempotency-Key` required) and `getOrder` (all three roles):
   contract, routes, OpenAPI list, body inventory, matrix pins (create: Buyer ✓, Approver
   403, Admin 403 with `detail` = `ORDER_ADMIN_READ_ONLY_MESSAGE`, no role

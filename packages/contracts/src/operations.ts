@@ -26,6 +26,8 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
+import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
+import { createOrderBody, order } from './schemas/orders.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -75,6 +77,11 @@ export interface OperationContract {
   roles?: readonly UserRole[];
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
+  /**
+   * The `detail` of an Admin's route-level FORBIDDEN, saying why (ADR-0004, 2026-11-12):
+   * order writes tell an Admin they can view orders but not change them.
+   */
+  adminForbiddenDetail?: string;
   /** A create that must send `Idempotency-Key`, a UUID, so a retry can't duplicate it. */
   idempotencyKey?: 'required';
   /**
@@ -479,5 +486,35 @@ export const OPERATIONS = {
     request: { params: idParams },
     responses: { 200: vendor },
     errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'],
+  },
+
+  // Slice 3, US1: raise a draft and read it (specs/004-draft-orders/contracts/api.md).
+  getOrder: {
+    method: 'get',
+    path: '/orders/:id',
+    operationId: 'getOrder',
+    summary: 'One order the caller may read, with its lines in display order and its version.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: ['NOT_FOUND'],
+  },
+  createOrder: {
+    method: 'post',
+    path: '/orders',
+    operationId: 'createOrder',
+    summary:
+      'Raise a draft order against an active vendor; the PO number, line totals and total are derived.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    idempotencyKey: 'required',
+    bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
+    etag: true,
+    request: { body: createOrderBody },
+    responses: { 201: order },
+    errors: ['VENDOR_INACTIVE', 'IDEMPOTENCY_KEY_REUSED'],
   },
 } as const satisfies Record<string, OperationContract>;
