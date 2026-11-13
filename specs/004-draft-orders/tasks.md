@@ -531,11 +531,11 @@ the owner added on 2026-11-12**.
   route, OpenAPI list, body inventory, matrix pins — `packages/contracts/src/
   operations.ts`, `backend/src/orders/routes.ts`,
   `backend/tests/integration/authorization-matrix.test.ts` — T058 green.
-- [ ] T061 [P] [US4] Web tests, seen failing: `DeleteDraftDialog` title "Delete draft
+- [X] T061 [P] [US4] Web tests, seen failing: `DeleteDraftDialog` title "Delete draft
   PO-…?", vendor, line count, total, both warning sentences, optional reason ≤ 500, safe
   choice focused, errors inside, `VERSION_CONFLICT` offers "Reload order", disabled while
   pending — `frontend/tests/delete-draft-dialog.test.tsx` — NFR-FE-09.
-- [ ] T062 [US4] Web: `DeleteDraftDialog` on `ConfirmDialog` —
+- [X] T062 [US4] Web: `DeleteDraftDialog` on `ConfirmDialog` —
   `frontend/src/pages/orders/` — T061 green.
 
 ---

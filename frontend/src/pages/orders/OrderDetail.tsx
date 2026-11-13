@@ -1,15 +1,19 @@
 import { formatInr, toMoney } from '@po/contracts';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
 import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
+import controlsCss from '../../styles/controls.module.css';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
+import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
 import { useOrder } from './queries';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
+const controls = classes(controlsCss, 'button');
 const styles = classes(css, 'header', 'badge', 'details', 'term', 'lines', 'number', 'total');
 
 /**
@@ -19,9 +23,12 @@ const styles = classes(css, 'header', 'badge', 'details', 'term', 'lines', 'numb
  */
 export function OrderDetail() {
   const { id = '' } = useParams();
-  const states = useQueryStates(useOrder(id), { loadingLabel: 'Loading the order' });
+  const query = useOrder(id);
+  const states = useQueryStates(query, { loadingLabel: 'Loading the order' });
+  const [deleting, setDeleting] = useState(false);
   const me = useCurrentUser().data;
   const canEdit = useCan('editOrder');
+  const canDelete = useCan('deleteOrder');
   if (states.view) {
     return (
       <>
@@ -40,6 +47,17 @@ export function OrderDetail() {
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
         {canEdit && order.status === 'DRAFT' && order.owner.id === me?.id && (
           <Link to={`/orders/${order.id}/edit`}>Edit</Link>
+        )}
+        {canDelete && order.status === 'DRAFT' && order.owner.id === me?.id && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setDeleting(true);
+            }}
+          >
+            Delete draft
+          </button>
         )}
       </div>
       <OrderTabs id={order.id} />
@@ -77,6 +95,17 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
+      {deleting && (
+        <DeleteDraftDialog
+          order={order}
+          onClose={() => {
+            setDeleting(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+        />
+      )}
     </>
   );
 }
