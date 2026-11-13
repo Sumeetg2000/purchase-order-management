@@ -1,12 +1,19 @@
 import type { Logger } from 'pino';
-import { ROLE, type UserRole, type VendorBody } from '@po/contracts';
+import { createOrderBody, ROLE, type UserRole, type VendorBody } from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
 import type { AppEnv } from '../config/rules.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { ONE_SHOT } from '../db/one-shot.js';
-import { withTransaction, type AuditedTransaction } from '../db/transaction.js';
+import {
+  createTransactionRunner,
+  withTransaction,
+  type AuditedTransaction,
+} from '../db/transaction.js';
+import { createOrdersService } from '../orders/service.js';
+import { listOrders } from '../orders/repository.js';
 import { uuidv7 } from '../lib/uuid.js';
-import { insertUserIfAbsent } from '../users/repository.js';
+import { findUserByEmail, insertUserIfAbsent } from '../users/repository.js';
+import { findVendorByNameKey, selectVendor } from '../vendors/repository.js';
 import { SYSTEM_ACTOR } from '../users/actor.js';
 import { changeAuditedStatus, createAuditedVendor, TRANSITIONS } from '../vendors/service.js';
 import { fieldsOf } from '../vendors/snapshot.js';
@@ -123,4 +130,114 @@ export function seedDemoVendors(options: SeedOptions): Promise<number> {
     }
     return created;
   });
+}
+
+/** The vendor of the demo draft whose vendor is deactivated after it was raised. */
+export const DEMO_LATER_INACTIVE_VENDOR: VendorBody = {
+  name: 'Frontier Hardware',
+  contactName: 'Tara Bose',
+  contactEmail: 'tara@frontier.example',
+  contactPhone: null,
+  paymentTerms: { type: 'NET', netDays: 30 },
+};
+
+/** Each demo Buyer's drafts: exact fractional totals, a long order, and the later-inactive vendor. */
+const DEMO_DRAFTS: readonly {
+  vendor: string;
+  lines: { description: string; quantity: number; unitPrice: string }[];
+}[] = [
+  {
+    vendor: 'Acme Supplies',
+    lines: Array.from({ length: 3 }, (_, i) => ({
+      description: `Sample washer pack ${String(i + 1)}`,
+      quantity: 1,
+      unitPrice: '0.1',
+    })),
+  },
+  {
+    vendor: 'Bright Office Goods',
+    lines: Array.from({ length: 20 }, (_, i) => ({
+      description: `Office supply item ${String(i + 1)}`,
+      quantity: i + 1,
+      unitPrice: '12.75',
+    })),
+  },
+  {
+    vendor: DEMO_LATER_INACTIVE_VENDOR.name,
+    lines: [
+      { description: 'Hex bolts M8', quantity: 100, unitPrice: '2.4' },
+      { description: 'Spring washers M8', quantity: 100, unitPrice: '0.35' },
+    ],
+  },
+];
+
+/**
+ * Raises three drafts for each demo Buyer who has none, through the order service as that
+ * Buyer (so each has its PO number and PO_CREATED), then deactivates the vendor of the
+ * third. Returns how many it raised; a Buyer with orders is left as they are.
+ */
+export async function seedDemoOrders(options: SeedOptions): Promise<number> {
+  if (options.appEnv === 'production') {
+    throw new Error('demo orders are never seeded in production');
+  }
+  const later = await asSystem(options, 'orders', async (tx) => {
+    const existing = await findVendorByNameKey(tx, DEMO_LATER_INACTIVE_VENDOR.name);
+    if (existing) return existing.id;
+    const created = await createAuditedVendor(tx, fieldsOf(DEMO_LATER_INACTIVE_VENDOR));
+    if (!created) throw new Error('the later-inactive demo vendor could not be created');
+    return created.id;
+  });
+  const vendorIds = await asSystem(options, 'orders', async (tx) => {
+    const ids = new Map<string, string>();
+    for (const { vendor } of DEMO_DRAFTS) {
+      const found = await findVendorByNameKey(tx, vendor);
+      if (!found) throw new Error(`demo vendor ${vendor} is missing: seed the vendors first`);
+      ids.set(vendor, found.id);
+    }
+    return ids;
+  });
+  const orders = createOrdersService({
+    prisma: options.prisma,
+    transactions: createTransactionRunner({
+      prisma: options.prisma,
+      timeoutMs: ONE_SHOT.transactionTimeoutMs,
+      maxWaitMs: ONE_SHOT.transactionMaxWaitMs,
+    }),
+  });
+  let raised = 0;
+  for (const demo of DEMO_USERS.filter((u) => u.roles.includes(ROLE.BUYER))) {
+    const user = await asSystem(options, 'orders', (tx) => findUserByEmail(tx, demo.email));
+    if (!user) throw new Error(`demo user ${demo.email} is missing: seed the users first`);
+    const buyer = {
+      userId: user.id,
+      sessionId: uuidv7(),
+      name: demo.name,
+      email: demo.email,
+      roles: demo.roles,
+    };
+    const { total } = await listOrders(
+      options.prisma,
+      { kind: 'own', userId: user.id },
+      {},
+      { offset: 0, limit: 1 },
+    );
+    if (total > 0) continue;
+    for (const draft of DEMO_DRAFTS) {
+      const vendorId = vendorIds.get(draft.vendor) ?? '';
+      const body = createOrderBody.parse({ vendorId, lines: draft.lines });
+      await orders.createOrder(
+        buyer,
+        { body, idempotencyKey: uuidv7() },
+        { requestId: uuidv7(), logger: options.logger, ip: '127.0.0.1', userAgent: 'seed-demo' },
+      );
+      raised += 1;
+    }
+  }
+  await asSystem(options, 'orders', async (tx) => {
+    const vendor = await selectVendor(tx, later, 'update');
+    if (vendor && vendor.status === 'ACTIVE') {
+      await changeAuditedStatus(tx, vendor, TRANSITIONS.deactivate);
+    }
+  });
+  return raised;
 }

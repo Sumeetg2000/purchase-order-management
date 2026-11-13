@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AUDIT_RETENTION_YEARS } from '../../src/audit/retention.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { PURGE_LOCK } from '../../src/db/locks.js';
+import { IDEMPOTENCY_KEY_TTL_HOURS } from '@po/contracts';
 import {
   auditEntriesTask,
+  idempotencyKeysTask,
   oneTimeTokensTask,
   rateLimitCountersTask,
   runPurge,
@@ -89,12 +91,43 @@ async function holdLock(db: TestDatabase): Promise<pg.Client> {
 }
 
 describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
-  it('[NFR-OPS-05] registers the audit, token, session and rate-limit tasks for the maintenance loop', () => {
+  it('[NFR-OPS-05] registers the audit, token, session, rate-limit and idempotency-key tasks for the maintenance loop', () => {
     expect(purgeTasks.map((task) => task.name)).toEqual([
       'audit_entries',
       'one_time_tokens',
       'sessions',
       'rate_limit_counters',
+      'idempotency_keys',
+    ]);
+  });
+
+  it('[NFR-CON-01] deletes idempotency keys older than IDEMPOTENCY_KEY_TTL_HOURS and keeps newer ones', async () => {
+    const db = trackDatabase(await createTestDatabase());
+    const userId = randomUUID();
+    const hour = 60 * 60 * 1_000;
+    const ttl = IDEMPOTENCY_KEY_TTL_HOURS * hour;
+    const key = (label: string, createdAt: Date) =>
+      `INSERT INTO idempotency_keys (user_id, operation, key, request_hash, created_at)
+        VALUES ('${userId}', 'createOrder', '${label}', '\\x${randomBytes(32).toString('hex')}', ${at(createdAt)})`;
+    const oldKey = randomUUID();
+    const youngKey = randomUUID();
+    await seed(db, [
+      `INSERT INTO users (id, name, email, roles, status)
+        VALUES ('${userId}', 'Buyer', '${userId}@example.local', '{BUYER}', 'ACTIVE')`,
+      key(oldKey, new Date(AS_OF.getTime() - ttl - 60_000)),
+      key(youngKey, new Date(AS_OF.getTime() - ttl + 60_000)),
+    ]);
+    const { logger } = createCapture();
+    const outcome = await runPurge({
+      tasks: [idempotencyKeysTask],
+      db: client(db, 'po_maintenance'),
+      lockUrl: db.url('po_maintenance'),
+      logger,
+      asOf: AS_OF,
+    });
+    expect(outcome).toEqual({ status: 'complete', counts: { idempotency_keys: 1 } });
+    expect(await remaining(db, 'SELECT key::text AS label FROM idempotency_keys')).toEqual([
+      youngKey,
     ]);
   });
 
@@ -206,6 +239,7 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
       ['one_time_tokens', 0],
       ['sessions', 0],
       ['rate_limit_counters', 0],
+      ['idempotency_keys', 0],
     ]);
     // Table names are values, not keys: a key like one_time_tokens matches the logger's
     // redaction of anything named like a token, and the count would read [Redacted].
@@ -216,6 +250,7 @@ describe('[NFR-OPS-05] purge of audit entries and one-time tokens', () => {
         { table: 'one_time_tokens', deleted: 0 },
         { table: 'sessions', deleted: 0 },
         { table: 'rate_limit_counters', deleted: 0 },
+        { table: 'idempotency_keys', deleted: 0 },
       ],
     ]);
   });

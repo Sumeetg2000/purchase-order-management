@@ -26,6 +26,16 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
+import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
+import {
+  createOrderBody,
+  deleteOrderBody,
+  editOrderBody,
+  order,
+  orderListItem,
+  orderListQuery,
+  orderTimelineItem,
+} from './schemas/orders.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -49,6 +59,12 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
  */
 export const API_PATH_PREFIX = '/api';
 
+/**
+ * The request body limit of every operation that doesn't declare its own (ADR-0007). nginx
+ * holds a copy, pinned by the backend's nginx-limits test.
+ */
+export const BODY_LIMIT_BYTES = 1024 * 1024;
+
 export interface OperationRequestSchemas {
   params?: z.ZodType;
   query?: z.ZodType;
@@ -69,6 +85,18 @@ export interface OperationContract {
   roles?: readonly UserRole[];
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
+  /**
+   * The `detail` of an Admin's route-level FORBIDDEN, saying why (ADR-0004, 2026-11-12):
+   * order writes tell an Admin they can view orders but not change them.
+   */
+  adminForbiddenDetail?: string;
+  /** A create that must send `Idempotency-Key`, a UUID, so a retry can't duplicate it. */
+  idempotencyKey?: 'required';
+  /**
+   * The largest body it accepts, in bytes, when more than BODY_LIMIT_BYTES (order writes,
+   * slice 3 research R8). Read only after authentication, CSRF and the role check.
+   */
+  bodyLimitBytes?: number;
   /**
    * Its success response sets (or clears) the session cookies (ADR-0017): always, or only
    * sometimes (revoking a session clears them only when it is the caller's own).
@@ -466,5 +494,93 @@ export const OPERATIONS = {
     request: { params: idParams },
     responses: { 200: vendor },
     errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'],
+  },
+
+  // Slice 3, US5: find and read orders (research R7, R11).
+  listOrders: {
+    method: 'get',
+    path: '/orders',
+    operationId: 'listOrders',
+    summary:
+      'Orders the caller may read, newest first (by PO number with a PO-number prefix), filtered by status, vendor, PO-number prefix and created date.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { query: orderListQuery },
+    responses: { 200: pageOf(orderListItem).meta({ id: 'PageOfOrderListItem' }) },
+  },
+  listOrderTimeline: {
+    method: 'get',
+    path: '/orders/:id/timeline',
+    operationId: 'listOrderTimeline',
+    summary: "An order's audit entries, newest first: its owner and Admins read it.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { params: idParams, query: pageQuery },
+    responses: { 200: pageOf(orderTimelineItem).meta({ id: 'PageOfOrderTimelineItem' }) },
+    errors: ['NOT_FOUND'],
+  },
+
+  // Slice 3, US1: raise a draft and read it (specs/004-draft-orders/contracts/api.md).
+  getOrder: {
+    method: 'get',
+    path: '/orders/:id',
+    operationId: 'getOrder',
+    summary: 'One order the caller may read, with its lines in display order and its version.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: ['NOT_FOUND'],
+  },
+  createOrder: {
+    method: 'post',
+    path: '/orders',
+    operationId: 'createOrder',
+    summary:
+      'Raise a draft order against an active vendor; the PO number, line totals and total are derived.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    idempotencyKey: 'required',
+    bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
+    etag: true,
+    request: { body: createOrderBody },
+    responses: { 201: order },
+    errors: ['VENDOR_INACTIVE', 'IDEMPOTENCY_KEY_REUSED'],
+  },
+
+  // Slice 3, US3: edit a draft, the full intended line set under If-Match (research R6).
+  editOrder: {
+    method: 'patch',
+    path: '/orders/:id',
+    operationId: 'editOrder',
+    summary:
+      "Replace a draft's vendor and lines: lines with an id are updated, without one added, left out removed.",
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    ifMatch: 'required',
+    bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
+    etag: true,
+    request: { params: idParams, body: editOrderBody },
+    responses: { 200: order },
+    errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'VENDOR_INACTIVE'],
+  },
+
+  // Slice 3, US4: delete a draft, with an optional reason (no body is no reason).
+  deleteOrder: {
+    method: 'delete',
+    path: '/orders/:id',
+    operationId: 'deleteOrder',
+    summary:
+      'Delete a draft with its current version and an optional reason; its audit record stays.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    ifMatch: 'required',
+    request: { params: idParams, body: deleteOrderBody },
+    responses: { 204: z.void() },
+    errors: ['NOT_FOUND', 'VERSION_CONFLICT'],
   },
 } as const satisfies Record<string, OperationContract>;

@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int) AND owner_id = $4::uuid) c
+-- values: ["PO-2026-27-","PO-2026-27-",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_owner_po_number_idx on purchase_orders
+        Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))

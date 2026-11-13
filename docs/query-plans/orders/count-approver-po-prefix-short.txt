@@ -1,0 +1,21 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int) AND status = 'PENDING_APPROVAL' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $4 AND po_number < $5 || chr($6::int) AND status = 'APPROVED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $7 AND po_number < $8 || chr($9::int) AND status = 'REJECTED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE po_number >= $10 AND po_number < $11 || chr($12::int) AND status = 'CANCELLED') c
+-- values: ["PO-2026-27-","PO-2026-27-",1114111,"PO-2026-27-","PO-2026-27-",1114111,"PO-2026-27-","PO-2026-27-",1114111,"PO-2026-27-","PO-2026-27-",1114111]
+
+Aggregate
+  ->  Append
+        ->  Subquery Scan on "*SELECT* 1"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders
+                    Index Cond: (status = 'PENDING_APPROVAL'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+        ->  Subquery Scan on "*SELECT* 2"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                    Index Cond: (status = 'APPROVED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+        ->  Subquery Scan on "*SELECT* 3"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                    Index Cond: (status = 'REJECTED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+        ->  Subquery Scan on "*SELECT* 4"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                    Index Cond: (status = 'CANCELLED'::text)
+                    Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))

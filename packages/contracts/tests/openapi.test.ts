@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   ACCESS_LEVELS,
+  BODY_LIMIT_BYTES,
+  createOrderBody,
   ERROR_CODES,
+  MONEY_PATTERN,
+  order,
+  ORDER_BODY_LIMIT_BYTES,
+  UNIT_PRICE_INPUT_PATTERN,
   FIELD_CODES,
   OPERATIONS,
   type OperationContract,
@@ -72,6 +78,12 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'updateVendor put /vendors/{id}',
         'listVendorHistory get /vendors/{id}/history',
         'deactivateVendor post /vendors/{id}/deactivate',
+        'listOrders get /orders',
+        'listOrderTimeline get /orders/{id}/timeline',
+        'getOrder get /orders/{id}',
+        'createOrder post /orders',
+        'editOrder patch /orders/{id}',
+        'deleteOrder delete /orders/{id}',
         'reactivateVendor post /vendors/{id}/reactivate',
       ].sort(),
     );
@@ -364,6 +376,130 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
     expect(parameters).toContainEqual(
       expect.objectContaining({ in: 'header', name: 'If-Match', required: true }),
     );
+  });
+
+  it("[NFR-VAL-01] documents each body-taking operation's body limit, 1 MiB unless it declares more", () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'post',
+        path: '/items',
+        operationId: 'createItem',
+        summary: 'test only',
+        access: 'role',
+        roles: ['BUYER'],
+        bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
+        request: { body: z.strictObject({}) },
+        responses: { 201: z.strictObject({}) },
+      },
+      {
+        method: 'put',
+        path: '/items/:id',
+        operationId: 'replaceItem',
+        summary: 'test only',
+        access: 'role',
+        roles: ['BUYER'],
+        request: { params: z.strictObject({ id: z.uuid() }), body: z.strictObject({}) },
+        responses: { 200: z.strictObject({}) },
+      },
+      {
+        method: 'get',
+        path: '/items',
+        operationId: 'listItems',
+        summary: 'test only',
+        access: 'public',
+        responses: { 200: z.strictObject({}) },
+      },
+    ]) as unknown as Json;
+    expect(BODY_LIMIT_BYTES).toBe(1024 * 1024);
+    expect(ORDER_BODY_LIMIT_BYTES).toBe(4 * 1024 * 1024);
+    expect(at(built, 'paths', '/items', 'post')['x-body-limit-bytes']).toBe(ORDER_BODY_LIMIT_BYTES);
+    expect(at(built, 'paths', '/items/{id}', 'put')['x-body-limit-bytes']).toBe(BODY_LIMIT_BYTES);
+    expect(at(built, 'paths', '/items', 'get')['x-body-limit-bytes']).toBeUndefined();
+  });
+
+  it('[NFR-CON-01] an operation flagged idempotencyKey documents a required UUID Idempotency-Key header', () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'post',
+        path: '/items',
+        operationId: 'createItem',
+        summary: 'test only',
+        access: 'role',
+        roles: ['BUYER'],
+        idempotencyKey: 'required',
+        request: { body: z.strictObject({}) },
+        responses: { 201: z.strictObject({}) },
+      },
+      {
+        method: 'patch',
+        path: '/items/:id',
+        operationId: 'updateItem',
+        summary: 'test only',
+        access: 'role',
+        roles: ['BUYER'],
+        ifMatch: 'required',
+        request: { params: z.strictObject({ id: z.uuid() }), body: z.strictObject({}) },
+        responses: { 200: z.strictObject({}) },
+      },
+    ]) as unknown as Json;
+    const created = at(built, 'paths', '/items', 'post')['parameters'] as Json[];
+    expect(created).toContainEqual(
+      expect.objectContaining({
+        in: 'header',
+        name: 'Idempotency-Key',
+        required: true,
+        schema: expect.objectContaining({ type: 'string', format: 'uuid' }) as unknown,
+      }),
+    );
+    const updated = at(built, 'paths', '/items/{id}', 'patch')['parameters'] as Json[];
+    expect(updated.map((p) => p['name'])).not.toContain('Idempotency-Key');
+  });
+
+  it('[NFR-DATA-01] every money field is a string with a decimal pattern, never a number', () => {
+    const built = buildOpenApiDocument([
+      {
+        method: 'post',
+        path: '/orders',
+        operationId: 'createOrder',
+        summary: 'test only',
+        access: 'role',
+        roles: ['BUYER'],
+        request: { body: createOrderBody },
+        responses: { 201: order },
+      },
+    ]) as unknown as Json;
+    const moneyFields = new Set(['total', 'lineTotal', 'unitPrice']);
+    const found: string[] = [];
+    const resolve = (schema: Json): Json => {
+      const ref = schema['$ref'];
+      return typeof ref === 'string' ? at(built, ...ref.slice(2).split('/')) : schema;
+    };
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (typeof node !== 'object' || node === null) return;
+      const properties = (node as Json)['properties'];
+      if (typeof properties === 'object' && properties !== null) {
+        for (const [key, value] of Object.entries(properties as Json)) {
+          if (!moneyFields.has(key)) continue;
+          const schema = resolve(value as Json);
+          found.push(key);
+          expect(schema['type'], key).toBe('string');
+          expect([MONEY_PATTERN.source, UNIT_PRICE_INPUT_PATTERN.source], key).toContain(
+            schema['pattern'],
+          );
+        }
+      }
+      Object.values(node).forEach(walk);
+    };
+    walk(built);
+    expect(new Set(found)).toEqual(moneyFields);
+    expect(at(built, 'components', 'schemas', 'Money')).toMatchObject({
+      type: 'string',
+      pattern: MONEY_PATTERN.source,
+    });
   });
 
   it('[NFR-API-01] documents a 204 response without a body', () => {

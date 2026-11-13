@@ -90,6 +90,13 @@ export const ERROR_REGISTRY = {
   },
   // First route: order create, slice 3.
   VENDOR_INACTIVE: { status: 409, title: 'Vendor deactivated', fieldDetails: false },
+
+  // Slice 3: draft orders (specs/004-draft-orders/contracts/errors.md).
+  IDEMPOTENCY_KEY_REUSED: {
+    status: 409,
+    title: 'Idempotency key already used',
+    fieldDetails: false,
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;
@@ -136,6 +143,10 @@ export const FIELD_CODES = [
   'PASSWORD_UNCHANGED',
   // Slice 2 (specs/003-vendors/contracts/errors.md)
   'VENDOR_NOT_FOUND',
+  // Slice 3 (specs/004-draft-orders/contracts/errors.md)
+  'LINE_NOT_FOUND',
+  'DUPLICATE_LINE_ID',
+  'READ_ONLY_FIELD',
 ] as const;
 
 export type FieldCode = (typeof FIELD_CODES)[number];

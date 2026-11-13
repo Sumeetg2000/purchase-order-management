@@ -14,23 +14,25 @@ datasource db {
 // DELETE. The lower(name) and lower(email) prefix indexes are expression indexes, which
 // Prisma can't express; tests/integration/accounts-schema.test.ts pins them.
 model User {
-  id                    String          @id @db.Uuid
+  id                    String           @id @db.Uuid
   name                  String
-  email                 String          @unique(map: "users_email_key")
-  roles                 String[]        @default([])
+  email                 String           @unique(map: "users_email_key")
+  roles                 String[]         @default([])
   status                String
-  deactivatedAt         DateTime?       @map("deactivated_at") @db.Timestamptz(6)
-  passwordHash          String?         @map("password_hash")
-  version               Int             @default(1)
-  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
-  lastLoginAt           DateTime?       @map("last_login_at") @db.Timestamptz(6)
-  failedLoginCount      Int             @default(0) @map("failed_login_count")
-  lockedUntil           DateTime?       @map("locked_until") @db.Timestamptz(6)
+  deactivatedAt         DateTime?        @map("deactivated_at") @db.Timestamptz(6)
+  passwordHash          String?          @map("password_hash")
+  version               Int              @default(1)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt           DateTime?        @map("last_login_at") @db.Timestamptz(6)
+  failedLoginCount      Int              @default(0) @map("failed_login_count")
+  lockedUntil           DateTime?        @map("locked_until") @db.Timestamptz(6)
   tokens                OneTimeToken[]
   sessions              Session[]
-  accessRequests        AccessRequest[] @relation("AccessRequestUser")
-  decidedAccessRequests AccessRequest[] @relation("AccessRequestDecider")
+  accessRequests        AccessRequest[]  @relation("AccessRequestUser")
+  decidedAccessRequests AccessRequest[]  @relation("AccessRequestDecider")
+  orders                PurchaseOrder[]
+  idempotencyKeys       IdempotencyKey[]
 
   @@index([name, id], map: "users_name_id_idx")
   @@index([status, name, id], map: "users_status_name_id_idx")
@@ -154,21 +156,96 @@ model RateLimitCounter {
 // INSERT or UPDATE grant on it. The CHECKs, the trigger and the column grants live in the
 // migration; tests/integration/vendor-schema.test.ts pins them.
 model Vendor {
-  id              String    @id @db.Uuid
+  id              String          @id @db.Uuid
   name            String
-  nameKey         String?   @unique(map: "vendors_name_key_key") @default(dbgenerated("vendor_name_key(name)")) @map("name_key")
-  contactName     String    @map("contact_name")
-  contactEmail    String    @map("contact_email")
-  contactPhone    String?   @map("contact_phone")
-  paymentTermType String    @map("payment_term_type")
-  netDays         Int?      @map("net_days") @db.SmallInt
-  advancePercent  Int?      @map("advance_percent") @db.SmallInt
-  status          String    @default("ACTIVE")
-  deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)
-  version         Int       @default(1)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  nameKey         String?         @unique(map: "vendors_name_key_key") @default(dbgenerated("vendor_name_key(name)")) @map("name_key")
+  contactName     String          @map("contact_name")
+  contactEmail    String          @map("contact_email")
+  contactPhone    String?         @map("contact_phone")
+  paymentTermType String          @map("payment_term_type")
+  netDays         Int?            @map("net_days") @db.SmallInt
+  advancePercent  Int?            @map("advance_percent") @db.SmallInt
+  status          String          @default("ACTIVE")
+  deactivatedAt   DateTime?       @map("deactivated_at") @db.Timestamptz(6)
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  orders          PurchaseOrder[]
 
   @@index([status, nameKey], map: "vendors_status_name_key_idx")
   @@map("vendors")
+}
+
+// Orders (migration 0013_orders). The derived columns (total, open_line_count, line_total)
+// and received_quantity are read-only for po_app: repositories read them as text and never
+// write them (ADR-0003, ADR-0010). The triggers that keep them live in the migration only.
+// po_number is COLLATE "C" in the database, which Prisma can't express.
+model PurchaseOrder {
+  id            String      @id @db.Uuid
+  poNumber      String?     @unique(map: "purchase_orders_po_number_key") @map("po_number")
+  ownerId       String      @map("owner_id") @db.Uuid
+  vendorId      String      @map("vendor_id") @db.Uuid
+  status        String      @default("DRAFT")
+  total         Decimal     @default(0) @db.Decimal(22, 4)
+  openLineCount Int         @default(0) @map("open_line_count")
+  version       Int         @default(1)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  owner         User        @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vendor        Vendor      @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines         OrderLine[]
+
+  @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_created_idx")
+  @@index([ownerId, status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_status_created_idx")
+  @@index([ownerId, vendorId, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_vendor_created_idx")
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_created_idx")
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_status_created_idx")
+  @@index([vendorId, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_vendor_created_idx")
+  @@index([ownerId, poNumber], map: "purchase_orders_owner_po_number_idx")
+  @@map("purchase_orders")
+}
+
+model OrderLine {
+  id               String        @id @db.Uuid
+  orderId          String        @map("order_id") @db.Uuid
+  position         Int
+  description      String
+  quantity         Int
+  unitPrice        Decimal       @map("unit_price") @db.Decimal(13, 4)
+  lineTotal        Decimal?      @default(dbgenerated("((quantity)::numeric * unit_price)")) @map("line_total") @db.Decimal(22, 4)
+  receivedQuantity Int           @default(0) @map("received_quantity")
+  order            PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([orderId, position], map: "order_lines_order_position_key")
+  @@map("order_lines")
+}
+
+model PoNumberCounter {
+  fy        String @id
+  lastValue BigInt @map("last_value")
+
+  @@map("po_number_counters")
+}
+
+model OrderStatusTransition {
+  fromStatus String @map("from_status")
+  toStatus   String @map("to_status")
+
+  @@id([fromStatus, toStatus])
+  @@map("order_status_transitions")
+}
+
+model IdempotencyKey {
+  userId      String   @map("user_id") @db.Uuid
+  operation   String
+  key         String   @db.Uuid
+  requestHash Bytes    @map("request_hash")
+  status      Int?     @db.SmallInt
+  response    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([userId, operation, key])
+  @@index([createdAt], map: "idempotency_keys_created_at_idx")
+  @@map("idempotency_keys")
 }

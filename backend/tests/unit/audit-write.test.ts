@@ -1,3 +1,4 @@
+import type { Money } from '@po/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { AuditEvent } from '../../src/audit/events.js';
 import type { writeAudit } from '../../src/audit/write.js';
@@ -25,6 +26,65 @@ type UnknownEvent = {
   details: object;
 };
 type WrongSource = AdminCreated<'web'>;
+
+interface Line {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: Money;
+  lineTotal: Money;
+}
+interface Vendor {
+  id: string;
+  name: string;
+}
+
+interface OrderEvent<A extends string, D> {
+  action: A;
+  entityType: 'order';
+  entityId: string;
+  orderId: string;
+  poNumber: string;
+  details: D;
+}
+
+type Created = OrderEvent<'PO_CREATED', { vendor: Vendor; lines: Line[]; total: Money }>;
+type Edited = OrderEvent<
+  'PO_EDITED',
+  {
+    vendor: { before: Vendor; after: Vendor };
+    lines: {
+      added: Line[];
+      removed: Line[];
+      changed: { id: string; quantity: { before: number; after: number } }[];
+    };
+    total: { before: Money; after: Money };
+  }
+>;
+type Deleted = OrderEvent<
+  'PO_DRAFT_DELETED',
+  { poNumber: string; vendor: Vendor; lines: Line[]; total: Money; reason: null }
+>;
+type CreatedWithoutPoNumber = Omit<Created, 'poNumber'>;
+type CreatedWithNumberTotal = OrderEvent<
+  'PO_CREATED',
+  { vendor: Vendor; lines: Line[]; total: number }
+>;
+
+describe('[NFR-AUD-01] typed order audit events', () => {
+  it('[NFR-AUD-01] accepts PO_CREATED, PO_EDITED and PO_DRAFT_DELETED with their details', () => {
+    expectTypeOf<Created>().toExtend<Event>();
+    expectTypeOf<Edited>().toExtend<Event>();
+    expectTypeOf<Deleted>().toExtend<Event>();
+  });
+
+  it('[NFR-AUD-01] an order event needs its order id and PO number, and money as Money', () => {
+    // @ts-expect-error: an order event carries its PO number
+    expectTypeOf<CreatedWithoutPoNumber>().toExtend<Event>();
+    // @ts-expect-error: money is a Money string, never a number
+    expectTypeOf<CreatedWithNumberTotal>().toExtend<Event>();
+  });
+});
 
 describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] accepts the slice 0 ADMIN_CREATED event in both of its forms', () => {

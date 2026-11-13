@@ -3,6 +3,7 @@ import { RequireRole } from '../auth/RequireRole';
 import { RequireUser } from '../auth/RequireUser';
 import { SessionBoundary } from '../auth/SessionBoundary';
 import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
+import { OrderWriteForbidden } from '../pages/orders/AdminReadOnly';
 import { lazyPage } from './lazyPage';
 import { Shell } from './Shell';
 
@@ -83,6 +84,61 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
             {
               path: ':id/edit',
               lazy: lazyPage(() => import('../pages/vendors/VendorForm').then((m) => m.EditVendor)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+      ],
+    },
+    // Orders: raised by Buyers, read by those ADR-0004 lets read them (slice 3).
+    {
+      path: 'orders',
+      children: [
+        {
+          element: <RequireRole operation="listOrders" />,
+          children: [
+            {
+              index: true,
+              lazy: lazyPage(() => import('../pages/orders/OrdersList').then((m) => m.OrdersList)),
+              errorElement: <RouteErrorBoundary />,
+            },
+            {
+              path: ':id/timeline',
+              lazy: lazyPage(() =>
+                import('../pages/orders/OrderTimeline').then((m) => m.OrderTimeline),
+              ),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
+          element: <RequireRole operation="createOrder" forbidden={<OrderWriteForbidden />} />,
+          children: [
+            {
+              path: 'new',
+              lazy: lazyPage(() => import('../pages/orders/OrderEditor').then((m) => m.NewOrder)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
+          element: <RequireRole operation="editOrder" forbidden={<OrderWriteForbidden />} />,
+          children: [
+            {
+              path: ':id/edit',
+              lazy: lazyPage(() => import('../pages/orders/OrderEditor').then((m) => m.EditOrder)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
+          element: <RequireRole operation="getOrder" />,
+          children: [
+            {
+              path: ':id',
+              lazy: lazyPage(() =>
+                import('../pages/orders/OrderDetail').then((m) => m.OrderDetail),
+              ),
               errorElement: <RouteErrorBoundary />,
             },
           ],

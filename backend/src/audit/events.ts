@@ -1,8 +1,38 @@
-import type { UserRole, UserStatus, VendorSnapshot } from '@po/contracts';
+import type { Money, UserRole, UserStatus, VendorSnapshot } from '@po/contracts';
 
 // The audit event catalogue (ADR-0016). Each slice adds the events it records; slice 0
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
 // database fills them from the transaction's actor context.
+
+/** A line as an order event records it (data-model.md): money as Money strings. */
+export interface AuditOrderLine {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: Money;
+  lineTotal: Money;
+}
+
+/** The vendor an order event names: its id and its name at the time. */
+export interface AuditOrderVendor {
+  id: string;
+  name: string;
+}
+
+interface Change<T> {
+  before: T;
+  after: T;
+}
+
+/** One changed line of an edit: only the fields that changed, each before → after. */
+export interface AuditLineChange {
+  id: string;
+  position?: Change<number>;
+  description?: Change<string>;
+  quantity?: Change<number>;
+  unitPrice?: Change<Money>;
+  lineTotal?: Change<Money>;
+}
 
 export interface AuditEventCatalogue {
   /** A self-signup: never with a role (ADR-0017). */
@@ -71,6 +101,31 @@ export interface AuditEventCatalogue {
     entityType: 'vendor';
     details: { before: VendorSnapshot; after: VendorSnapshot };
   };
+  /** A Buyer raised a draft order (slice 3): its vendor, every line and the total. */
+  PO_CREATED: {
+    entityType: 'order';
+    details: { vendor: AuditOrderVendor; lines: AuditOrderLine[]; total: Money };
+  };
+  /** An edit that changed something; a no-op save writes none. */
+  PO_EDITED: {
+    entityType: 'order';
+    details: {
+      vendor?: Change<AuditOrderVendor>;
+      lines: { added: AuditOrderLine[]; removed: AuditOrderLine[]; changed: AuditLineChange[] };
+      total: Change<Money>;
+    };
+  };
+  /** The owner deleted a draft: its full contents outlive it here. */
+  PO_DRAFT_DELETED: {
+    entityType: 'order';
+    details: {
+      poNumber: string;
+      vendor: AuditOrderVendor;
+      lines: AuditOrderLine[];
+      total: Money;
+      reason: string | null;
+    };
+  };
   ADMIN_CREATED: {
     entityType: 'user';
     details: {
@@ -90,8 +145,8 @@ export type AuditEvent = {
     entityType: AuditEventCatalogue[A]['entityType'];
     entityId: string;
     details: AuditEventCatalogue[A]['details'];
-    /** Order events only (slice 3 on). */
-    orderId?: string;
-    poNumber?: string;
-  };
+  } & (AuditEventCatalogue[A]['entityType'] extends 'order'
+    ? // An order event names its order and PO number in their own columns (ADR-0016).
+      { orderId: string; poNumber: string }
+    : { orderId?: never; poNumber?: never });
 }[AuditAction];

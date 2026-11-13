@@ -52,6 +52,17 @@ describe('[NFR-FE-04] useListParams', () => {
     expect(search()).toBe('?q=acm');
   });
 
+  it('[NFR-FE-04] two changes before the next render both land: each builds on the URL as it is', () => {
+    const { result, search } = render('/?status=ALL');
+    // One handler, or a search firing as a filter changes: no render between the two.
+    const { show } = result.current;
+    act(() => {
+      show({ q: 'acm' });
+      show({ status: 'INACTIVE' });
+    });
+    expect(search()).toBe('?status=INACTIVE&q=acm');
+  });
+
   it('[NFR-FE-04] setPage keeps the filters; page 1 is left out', () => {
     const { result, search } = render('/?status=ALL');
     act(() => {

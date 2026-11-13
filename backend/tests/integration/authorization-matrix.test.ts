@@ -1,7 +1,13 @@
-import { OPERATIONS, type Access, type OperationContract } from '@po/contracts';
+import {
+  OPERATIONS,
+  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  type Access,
+  type OperationContract,
+} from '@po/contracts';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { accountsHarness, APP_ORIGIN, cookieHeader, type CookieJar } from '../support/accounts.js';
+import { ordersHarness } from '../support/orders.js';
 import { vendorBody, vendorsHarness } from '../support/vendors.js';
 
 // The authorization matrix (ADR-0004), generated from the route table: every operation ×
@@ -43,6 +49,12 @@ const PINNED_ACCESS: Record<string, Access> = {
   listVendorHistory: 'role',
   deactivateVendor: 'role',
   reactivateVendor: 'role',
+  listOrders: 'role',
+  listOrderTimeline: 'role',
+  getOrder: 'role',
+  createOrder: 'role',
+  editOrder: 'role',
+  deleteOrder: 'role',
 };
 
 /** The roles of each role-level operation (ADR-0004's vendor rows), pinned the same way. */
@@ -54,6 +66,12 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   listVendorHistory: ['BUYER', 'ADMIN'],
   deactivateVendor: ['BUYER'],
   reactivateVendor: ['BUYER'],
+  listOrders: ['BUYER', 'APPROVER', 'ADMIN'],
+  listOrderTimeline: ['BUYER', 'APPROVER', 'ADMIN'],
+  getOrder: ['BUYER', 'APPROVER', 'ADMIN'],
+  createOrder: ['BUYER'],
+  editOrder: ['BUYER'],
+  deleteOrder: ['BUYER'],
 };
 
 /** Callable with no session (ADR-0004 "Public endpoints", plus the slice 0 health checks). */
@@ -164,13 +182,19 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
           });
         } else {
           expect(res.body, cell).toMatchObject({ code: outcome });
+          // An Admin refused an order write is told why (ADR-0004, 2026-11-12).
+          if (outcome === 'FORBIDDEN' && caller === 'Admin' && op.adminForbiddenDetail) {
+            expect(res.body, cell).toMatchObject({ detail: op.adminForbiddenDetail });
+          } else {
+            expect((res.body as { detail?: unknown }).detail, cell).toBeUndefined();
+          }
         }
       }
     }
-    // Zero cells untested: 31 operations (2 health checks, 22 of slice 1, 7 vendor ones so
-    // far) × 6 callers.
+    // Zero cells untested: 37 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 6 order ones) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(31);
+    expect(operations).toHaveLength(37);
   });
 });
 
@@ -241,5 +265,58 @@ describe('[FR-ACT-01] the vendor rows (ADR-0004)', () => {
       'VENDOR_DEACTIVATED',
       'VENDOR_REACTIVATED',
     ]);
+  });
+});
+
+describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
+  it('[FR-OWN-01] a draft is read by its owner and an Admin; another Buyer, an Approver and a Buyer+Approver get 404', async () => {
+    const h = await ordersHarness();
+    const created = await h.createOrder(h.orderBody());
+    expect(created.status).toBe(201);
+    const id = (created.body as { id: string }).id;
+    const readers: [string, number][] = [
+      ['{BUYER}', 404],
+      ['{APPROVER}', 404],
+      ['{BUYER,APPROVER}', 404],
+      ['{ADMIN}', 200],
+    ];
+    expect((await h.getOrder(id)).status).toBe(200);
+    for (const [roles, status] of readers) {
+      const jar = await h.loggedIn(await h.seedUser({ roles }));
+      const res = await h.getOrder(id, jar);
+      expect(res.status, roles).toBe(status);
+      if (status === 404) expect(res.body, roles).toMatchObject({ code: 'NOT_FOUND' });
+    }
+  });
+
+  it('[FR-ACT-01] an Approver or an Admin editing a draft is 403 before validation, the Admin told why', async () => {
+    const h = await ordersHarness();
+    const id = ((await h.createOrder(h.orderBody())).body as { id: string }).id;
+    for (const [roles, detail] of [
+      ['{APPROVER}', undefined],
+      ['{ADMIN}', ORDER_ADMIN_READ_ONLY_MESSAGE],
+    ] as const) {
+      const jar = await h.loggedIn(await h.seedUser({ roles }));
+      const res = await h.editOrder(id, { bogus: 1 }, null, jar);
+      expect(res.status, roles).toBe(403);
+      expect(res.body, roles).toMatchObject({ code: 'FORBIDDEN' });
+      expect((res.body as { detail?: string }).detail, roles).toBe(detail);
+    }
+    expect(((await h.getOrder(id)).body as { version: number }).version).toBe(1);
+  });
+
+  it('[FR-ACT-01] an Approver or an Admin creating an order is 403 before validation, the Admin told why', async () => {
+    const h = await ordersHarness();
+    for (const [roles, detail] of [
+      ['{APPROVER}', undefined],
+      ['{ADMIN}', ORDER_ADMIN_READ_ONLY_MESSAGE],
+    ] as const) {
+      const jar = await h.loggedIn(await h.seedUser({ roles }));
+      const res = await h.createOrder({ bogus: 1 }, { as: jar, key: null });
+      expect(res.status, roles).toBe(403);
+      expect(res.body, roles).toMatchObject({ code: 'FORBIDDEN' });
+      expect((res.body as { detail?: string }).detail, roles).toBe(detail);
+    }
+    expect(await h.count('purchase_orders')).toBe(0);
   });
 });

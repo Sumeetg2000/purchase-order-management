@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM audit_entries WHERE entity_type = $1 AND entity_id = $2
+-- values: ["order","dcb0946c-6d54-45fa-9ba0-f7349c54c923"]
+
+Aggregate
+  ->  Index Only Scan using audit_entries_entity_idx on audit_entries
+        Index Cond: ((entity_type = 'order'::text) AND (entity_id = 'dcb0946c-6d54-45fa-9ba0-f7349c54c923'::text))

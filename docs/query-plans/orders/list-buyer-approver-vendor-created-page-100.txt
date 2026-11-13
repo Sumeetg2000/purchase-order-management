@@ -1,0 +1,28 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM ((SELECT created_at, id FROM purchase_orders WHERE vendor_id = $1::uuid AND created_at >= ($2::date::timestamp AT TIME ZONE $3) AND created_at < (($4::date + 1)::timestamp AT TIME ZONE $5) AND owner_id = $6::uuid ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $7::uuid AND created_at >= ($8::date::timestamp AT TIME ZONE $9) AND created_at < (($10::date + 1)::timestamp AT TIME ZONE $11) AND owner_id <> $12::uuid AND status = 'PENDING_APPROVAL' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $13::uuid AND created_at >= ($14::date::timestamp AT TIME ZONE $15) AND created_at < (($16::date + 1)::timestamp AT TIME ZONE $17) AND owner_id <> $18::uuid AND status = 'APPROVED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $19::uuid AND created_at >= ($20::date::timestamp AT TIME ZONE $21) AND created_at < (($22::date + 1)::timestamp AT TIME ZONE $23) AND owner_id <> $24::uuid AND status = 'REJECTED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $25::uuid AND created_at >= ($26::date::timestamp AT TIME ZONE $27) AND created_at < (($28::date + 1)::timestamp AT TIME ZONE $29) AND owner_id <> $30::uuid AND status = 'CANCELLED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000)) k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 1980) k JOIN purchase_orders o ON o.id = k.id
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Nested Loop
+  ->  Limit
+        ->  Merge Append
+              Sort Key: purchase_orders.created_at DESC, purchase_orders.id DESC
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_owner_vendor_created_idx on purchase_orders
+                          Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                          Index Cond: ((status = 'PENDING_APPROVAL'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                          Index Cond: ((status = 'APPROVED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                          Index Cond: ((status = 'REJECTED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_4
+                          Index Cond: ((status = 'CANCELLED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))
+                          Filter: ((owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = purchase_orders.id)

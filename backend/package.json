@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && tsc -b tsconfig.build.json && node -e \"require('node:fs').cpSync('src/auth/common-passwords.txt', 'dist/auth/common-passwords.txt')\"",
+    "build": "prisma generate && tsc -b tsconfig.build.json && node -e \"const fs = require('node:fs'); fs.cpSync('src/auth/common-passwords.txt', 'dist/auth/common-passwords.txt'); fs.cpSync('src/db/reconciliation.sql', 'dist/db/reconciliation.sql')\"",
     "typecheck": "prisma generate && tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin": "node dist/cli/admin.js",
@@ -13,6 +13,8 @@
     "pretest:plans": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "plans:vendors": "tsx scripts/plans-vendors.ts",
     "preplans:vendors": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
+    "plans:orders": "tsx scripts/plans-orders.ts",
+    "preplans:orders": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "generate": "prisma generate",
     "migrate": "node dist/migrate/run.js",
     "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"
@@ -25,6 +27,7 @@
     "@types/supertest": "7.2.1",
     "@vitest/coverage-v8": "5.0.5",
     "ajv": "8.20.0",
+    "fast-check": "4.10.2",
     "supertest": "7.3.1",
     "testcontainers": "12.2.1",
     "tsx": "4.23.15",

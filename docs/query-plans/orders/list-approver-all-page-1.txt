@@ -1,0 +1,21 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM ((SELECT created_at, id FROM purchase_orders WHERE status = 'PENDING_APPROVAL' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE status = 'APPROVED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE status = 'REJECTED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE status = 'CANCELLED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 20)) k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 0) k JOIN purchase_orders o ON o.id = k.id
+-- values: []
+
+Nested Loop
+  ->  Limit
+        ->  Merge Append
+              Sort Key: purchase_orders.created_at DESC, purchase_orders.id DESC
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders
+                          Index Cond: (status = 'PENDING_APPROVAL'::text)
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                          Index Cond: (status = 'APPROVED'::text)
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                          Index Cond: (status = 'REJECTED'::text)
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                          Index Cond: (status = 'CANCELLED'::text)
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = purchase_orders.id)

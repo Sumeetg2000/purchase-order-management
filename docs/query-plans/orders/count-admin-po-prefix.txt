@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int)) c
+-- values: ["PO-2026-27-0012","PO-2026-27-0012",1114111]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_po_number_key on purchase_orders
+        Index Cond: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text))

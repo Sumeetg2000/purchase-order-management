@@ -53,6 +53,9 @@ const CONTRACT_FIELDS = [
   'access',
   'roles',
   'ifMatch',
+  'idempotencyKey',
+  'bodyLimitBytes',
+  'adminForbiddenDetail',
   'setsCookies',
   'request',
   'responses',
@@ -136,7 +139,7 @@ export function validateRoutes(
 
 /** The steps before a route's handler; a guarded route with no authenticator can't start. */
 function requestSteps(route: RouteDefinition, auth: AuthDependencies | undefined) {
-  const validate = [parseJson(), validateRequest(route)];
+  const validate = [parseJson(route.bodyLimitBytes), validateRequest(route)];
   if (route.access === 'public') return validate;
   if (!auth) {
     throw new RouteRegistrationError(

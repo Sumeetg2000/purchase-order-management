@@ -26,8 +26,7 @@ export function originGuard(appOrigin: string): RequestHandler {
   return (req, _res, next) => {
     const origin = req.get('origin');
     if (origin !== undefined && origin !== appOrigin) {
-      // Drain any unread body so the connection can carry the response.
-      req.resume();
+      // The body stays unread: the error handler closes the connection (research R8).
       next(new AppError('CSRF_REJECTED'));
       return;
     }
