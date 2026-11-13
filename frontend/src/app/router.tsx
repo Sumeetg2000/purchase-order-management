@@ -105,6 +105,16 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           ],
         },
         {
+          element: <RequireRole operation="editOrder" forbidden={<OrderWriteForbidden />} />,
+          children: [
+            {
+              path: ':id/edit',
+              lazy: lazyPage(() => import('../pages/orders/OrderEditor').then((m) => m.EditOrder)),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
           element: <RequireRole operation="getOrder" />,
           children: [
             {

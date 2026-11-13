@@ -1,3 +1,4 @@
+import { etagFor } from '@po/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/app-client';
 import { dataOrThrow } from '../../api/client';
@@ -39,6 +40,18 @@ export function useOrderSaved() {
 /** Creates a draft with the attempt's Idempotency-Key (research R5). */
 export function createOrder(body: CreateOrderBody, idempotencyKey: string) {
   return api.POST('/orders', { params: { header: { 'Idempotency-Key': idempotencyKey } }, body });
+}
+
+export type EditOrderBody = NonNullable<
+  paths['/orders/{id}']['patch']['requestBody']
+>['content']['application/json'];
+
+/** Replaces a draft's vendor and lines, with the version the editor started from. */
+export function editOrder(id: string, version: number, body: EditOrderBody) {
+  return api.PATCH('/orders/{id}', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+    body,
+  });
 }
 
 /** Active vendors whose name starts with `q`, for the order's vendor picker. */

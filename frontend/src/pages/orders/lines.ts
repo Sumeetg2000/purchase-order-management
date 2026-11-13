@@ -17,6 +17,8 @@ import {
 export interface LineDraft {
   /** Stable across moves and removals, for React keys and focus. */
   key: number;
+  /** A stored line's id: an edit updates that line. A new line has none. */
+  id?: string | undefined;
   description: string;
   quantity: string;
   unitPrice: string;
@@ -35,18 +37,21 @@ function quantityOf(text: string): number | string {
 
 /** The line as the API takes it: the price exactly as typed, a string. */
 export function lineBodyOf(line: LineDraft) {
-  return {
+  const fields = {
     description: line.description,
     quantity: quantityOf(line.quantity),
     unitPrice: line.unitPrice,
   };
+  return line.id === undefined ? fields : { id: line.id, ...fields };
 }
 
 const lineSchema = createOrderBody.shape.lines.element;
 
 /** Each field's code from the contract's own rule for a line (row-level validation). */
 export function lineErrors(line: LineDraft): LineErrors {
-  const result = lineSchema.safeParse(lineBodyOf(line), { reportInput: true });
+  // A create line's rule: the id, if any, is the server's to check (LINE_NOT_FOUND).
+  const { description, quantity, unitPrice } = lineBodyOf(line);
+  const result = lineSchema.safeParse({ description, quantity, unitPrice }, { reportInput: true });
   if (result.success) return {};
   const errors: LineErrors = {};
   for (const { path, code } of fieldErrors('line', result.error.issues)) {

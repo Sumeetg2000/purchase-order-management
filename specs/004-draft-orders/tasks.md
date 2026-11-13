@@ -405,12 +405,12 @@ one `PO_CREATED`.
   (owner ✓, other Buyer 404, Approver 403, Admin 403 with the message) —
   `packages/contracts/src/operations.ts`, `backend/src/orders/routes.ts`,
   `backend/tests/integration/authorization-matrix.test.ts` — T038–T040 green.
-- [ ] T043 [P] [US3] Web tests, seen failing: editor in edit mode loads the stored order,
+- [X] T043 [P] [US3] Web tests, seen failing: editor in edit mode loads the stored order,
   sends `If-Match`; no confirmation on save; "Discard your unsaved changes?" on in-app
   navigation and `beforeunload`; `409 VERSION_CONFLICT` banner "This order changed since
   you opened it." with "Reload order" — `frontend/tests/order-editor-edit.test.tsx` —
   FR-023 (NFR-FE-01, NFR-FE-09).
-- [ ] T044 [US3] Web: edit route, guard, conflict reload — `frontend/src/pages/orders/`
+- [X] T044 [US3] Web: edit route, guard, conflict reload — `frontend/src/pages/orders/`
   — T043 green.
 
 ---

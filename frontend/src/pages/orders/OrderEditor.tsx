@@ -9,13 +9,14 @@ import {
   ListBoxItem,
   Popover,
 } from 'react-aria-components';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { isFieldCode } from '@po/contracts';
 import { newIdempotencyKey } from '../../api/idempotency-key';
 import { failureMessage, type ApiFailure } from '../../api/submit';
 import { SEARCH_DEBOUNCE_MS } from '../../components/SearchField';
 import { fieldMessageFor } from '../../errors/messages';
 import { useApiForm } from '../../hooks/useApiForm';
+import { useQueryStates } from '../../hooks/useQueryStates';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
@@ -29,7 +30,18 @@ import {
   type LineErrors,
   type LineField,
 } from './lines';
-import { createOrder, useActiveVendors, useOrderSaved, type CreateOrderBody } from './queries';
+import {
+  createOrder,
+  editOrder,
+  useActiveVendors,
+  useOrder,
+  useOrderSaved,
+  type CreateOrderBody,
+  type EditOrderBody,
+  type Order,
+} from './queries';
+
+type OrderBody = CreateOrderBody | EditOrderBody;
 import css from './orders.module.css';
 
 const styles = classes(
@@ -95,37 +107,66 @@ function serverLineErrors(failure: ApiFailure | undefined, index: number): LineE
   return errors;
 }
 
+/** What the form starts from: nothing for a new order, the stored order for an edit. */
+interface OrderFormStart {
+  vendor?: Vendor | undefined;
+  lines: readonly Omit<LineDraft, 'key'>[];
+}
+
+interface OrderFormProps {
+  heading: string;
+  submitLabel: string;
+  start: OrderFormStart;
+  /** Where Cancel goes. */
+  cancelTo: string;
+  send: (body: OrderBody) => Promise<{ data?: Order; error?: unknown; response: Response }>;
+  /** Starts again from the stored order after a version conflict; edit only. */
+  reload?: () => void;
+}
+
+/** What a form holds that a save would send, to tell whether there are unsaved edits. */
+function signatureOf(vendor: Vendor | undefined, lines: readonly Omit<LineDraft, 'key'>[]) {
+  return JSON.stringify([
+    vendor?.id,
+    lines.map(({ id, description, quantity, unitPrice }) => [id, description, quantity, unitPrice]),
+  ]);
+}
+
 /**
- * Raise a draft (specs/004-draft-orders/contracts/ui.md): a vendor picker over active
- * vendors, a virtualised line table with row-level validation and live exact totals, and
- * Create, which sends one request at a time with the attempt's Idempotency-Key. The same
- * order sent again (a retry after a failure) reuses its key, so a create whose answer was
- * lost is never made twice; any change makes it a new attempt with a new key.
+ * The order form for both raising and editing a draft (contracts/ui.md): a vendor picker
+ * over active vendors, a virtualised line table with row-level validation and live exact
+ * totals, one request at a time, the unsaved-changes guard, and for an edit the version
+ * conflict's Reload order. Saves with no dialog: a save is reversible.
  */
-export function NewOrder() {
+function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: OrderFormProps) {
   const navigate = useNavigate();
   const saved = useOrderSaved();
   const form = useApiForm();
   const nextKey = useRef(1);
-  const newLine = (): LineDraft => ({
+  const newLine = (
+    from: Omit<LineDraft, 'key'> = { description: '', quantity: '', unitPrice: '' },
+  ): LineDraft => ({
     key: nextKey.current++,
-    description: '',
-    quantity: '',
-    unitPrice: '',
+    ...from,
   });
-  const [lines, setLines] = useState<LineDraft[]>(() => [newLine()]);
-  const [vendor, setVendor] = useState<Vendor>();
-  const [search, setSearch] = useState('');
+  const [lines, setLines] = useState<LineDraft[]>(() =>
+    start.lines.length > 0 ? start.lines.map((line) => newLine(line)) : [newLine()],
+  );
+  const [vendor, setVendor] = useState<Vendor | undefined>(start.vendor);
+  const [search, setSearch] = useState(start.vendor?.name ?? '');
   const [inactiveVendor, setInactiveVendor] = useState<string>();
   const vendorInput = useRef<HTMLInputElement>(null);
-  const attempt = useRef<{ key: string; body: string }>(undefined);
   const scroller = useRef<HTMLDivElement>(null);
 
   const q = useDebounced(search, SEARCH_DEBOUNCE_MS).trim();
   const vendors = useActiveVendors(q === '' ? undefined : q);
-  const dirty =
-    vendor !== undefined || lines.some((l) => l.description || l.quantity || l.unitPrice);
-  const guard = useUnsavedChangesGuard(dirty);
+  const [startedFrom] = useState(() =>
+    signatureOf(
+      start.vendor,
+      start.lines.length > 0 ? start.lines : [{ description: '', quantity: '', unitPrice: '' }],
+    ),
+  );
+  const guard = useUnsavedChangesGuard(signatureOf(vendor, lines) !== startedFrom);
 
   // TanStack Virtual (ADR-0018) returns functions React Compiler can't memoize, so this
   // component isn't compiled; it re-renders on edits anyway.
@@ -158,17 +199,8 @@ export function NewOrder() {
     event.preventDefault();
     if (!vendor || !valid) return;
     setInactiveVendor(undefined);
-    const body: CreateOrderBody = {
-      vendorId: vendor.id,
-      lines: lines.map(lineBodyOf),
-    } as CreateOrderBody;
-    // One attempt per order as sent: the same order again reuses its key (research R5).
-    const signature = JSON.stringify(body);
-    if (attempt.current?.body !== signature) {
-      attempt.current = { key: newIdempotencyKey(), body: signature };
-    }
-    const key = attempt.current.key;
-    const outcome = await form.send(() => createOrder(body, key));
+    const body = { vendorId: vendor.id, lines: lines.map(lineBodyOf) } as OrderBody;
+    const outcome = await form.send(() => send(body));
     if (!outcome) return;
     if (!outcome.ok) {
       if (outcome.problem.code === 'VENDOR_INACTIVE') {
@@ -182,8 +214,9 @@ export function NewOrder() {
     void navigate(`/orders/${outcome.data.id}`);
   }
 
+  const conflict = form.failure?.problem.code === 'VERSION_CONFLICT';
   const failure =
-    form.failure && form.failure.problem.code !== 'VENDOR_INACTIVE'
+    form.failure && !conflict && form.failure.problem.code !== 'VENDOR_INACTIVE'
       ? failureMessage(form.failure, {
           highlighted: (form.failure.problem.details ?? [])
             .map((d) => d.path)
@@ -198,8 +231,8 @@ export function NewOrder() {
 
   return (
     <>
-      <title>New order · Purchase Orders</title>
-      <h1>New order</h1>
+      <title>{`${heading} · Purchase Orders`}</title>
+      <h1>{heading}</h1>
       <form className={styles.editor} onSubmit={(event) => void save(event)}>
         <ComboBox
           className={styles.vendor}
@@ -376,6 +409,23 @@ export function NewOrder() {
             <p>{`${inactiveVendor} is deactivated. Choose another vendor.`}</p>
           </div>
         )}
+        {conflict && (
+          <div role="alert" className={styles.alert}>
+            <p>This order changed since you opened it.</p>
+            {reload && (
+              <button
+                type="button"
+                className={controls.button}
+                onClick={() => {
+                  // Discards the edits only once the guard's prompt says so (ui.md).
+                  guard.confirmDiscard(reload);
+                }}
+              >
+                Reload order
+              </button>
+            )}
+          </div>
+        )}
         {failure && (
           <div role="alert" className={styles.alert}>
             <p>{failure}</p>
@@ -383,12 +433,89 @@ export function NewOrder() {
         )}
         <div className={styles.actions}>
           <button type="submit" className={controls.primary} disabled={!valid || form.pending}>
-            Create order
+            {submitLabel}
           </button>
-          <Link to="/">Cancel</Link>
+          <Link to={cancelTo}>Cancel</Link>
         </div>
       </form>
       {guard.dialog}
     </>
+  );
+}
+
+/**
+ * Raise a draft, Buyers only. Each save sends the attempt's Idempotency-Key: the same order
+ * sent again (a retry after a failure) reuses it, so a create whose answer was lost is
+ * never made twice; any change makes it a new attempt with a new key (research R5).
+ */
+export function NewOrder() {
+  const attempt = useRef<{ key: string; body: string }>(undefined);
+  return (
+    <OrderForm
+      heading="New order"
+      submitLabel="Create order"
+      start={{ lines: [] }}
+      cancelTo="/"
+      send={(body) => {
+        const signature = JSON.stringify(body);
+        if (attempt.current?.body !== signature) {
+          attempt.current = { key: newIdempotencyKey(), body: signature };
+        }
+        return createOrder(body, attempt.current.key);
+      }}
+    />
+  );
+}
+
+/** The form's start from a stored order: its vendor and lines, ids kept, amounts as text. */
+function startOf(order: Order): OrderFormStart {
+  return {
+    vendor: { id: order.vendor.id, name: order.vendor.name },
+    lines: order.lines.map(({ id, description, quantity, unitPrice }) => ({
+      id,
+      description,
+      quantity: String(quantity),
+      unitPrice,
+    })),
+  };
+}
+
+/**
+ * Edit a draft, its owner only: the full line set sent with If-Match. The form keeps the
+ * version it started from: a background refetch neither resets the edits nor moves their
+ * If-Match (the save is then refused as stale and offers Reload order); only Reload order,
+ * after the guard's prompt, starts the form afresh from what is stored now.
+ */
+export function EditOrder() {
+  const { id = '' } = useParams();
+  const order = useOrder(id);
+  const states = useQueryStates(order, { loadingLabel: 'Loading the order' });
+  const [editing, setEditing] = useState<Order>();
+  if (states.view) {
+    return (
+      <>
+        <title>Edit order · Purchase Orders</title>
+        <h1>Edit order</h1>
+        {states.view}
+      </>
+    );
+  }
+  // The first version loaded is the one edited; React re-renders at once with it set.
+  if (editing === undefined) setEditing(states.data);
+  const current = editing ?? states.data;
+  return (
+    <OrderForm
+      key={current.version}
+      heading={`Edit ${current.poNumber}`}
+      submitLabel="Save changes"
+      start={startOf(current)}
+      cancelTo={`/orders/${id}`}
+      send={(body) => editOrder(id, current.version, body)}
+      reload={() =>
+        void order.refetch().then((result) => {
+          if (result.data) setEditing(result.data);
+        })
+      }
+    />
   );
 }

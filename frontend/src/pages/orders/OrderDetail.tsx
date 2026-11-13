@@ -1,5 +1,7 @@
 import { formatInr, toMoney } from '@po/contracts';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
+import { useCan } from '../../auth/can';
+import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
@@ -17,6 +19,8 @@ const styles = classes(css, 'header', 'badge', 'details', 'term', 'lines', 'numb
 export function OrderDetail() {
   const { id = '' } = useParams();
   const states = useQueryStates(useOrder(id), { loadingLabel: 'Loading the order' });
+  const me = useCurrentUser().data;
+  const canEdit = useCan('editOrder');
   if (states.view) {
     return (
       <>
@@ -33,6 +37,9 @@ export function OrderDetail() {
       <div className={styles.header}>
         <h1>{order.poNumber}</h1>
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
+        {canEdit && order.status === 'DRAFT' && order.owner.id === me?.id && (
+          <Link to={`/orders/${order.id}/edit`}>Edit</Link>
+        )}
       </div>
       <dl className={styles.details}>
         <dt className={styles.term}>Vendor</dt>
