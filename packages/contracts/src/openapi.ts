@@ -9,6 +9,7 @@ import { ETAG_PATTERN } from './etag.js';
 import {
   accessProblem,
   API_PATH_PREFIX,
+  BODY_LIMIT_BYTES,
   OPERATIONS,
   type Access,
   type OperationContract,
@@ -113,6 +114,14 @@ const ifMatchHeader = z.strictObject({
     .meta({ description: 'The ETag from the last read; a missing or stale one is refused.' }),
 });
 
+const idempotencyKeyHeader = z.strictObject({
+  'Idempotency-Key': z.uuid().meta({
+    description:
+      'A new UUID per create, reused on retry: the same key and body return the original ' +
+      'result; the same key with another body is IDEMPOTENCY_KEY_REUSED.',
+  }),
+});
+
 /** The codes the authorize step answers for any logged-in caller (research R1). */
 const SESSION_CODES = [
   'UNAUTHENTICATED',
@@ -215,7 +224,14 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
   responses['default'] = problemResponse;
 
   const { params, query, body } = operation.request ?? {};
-  const header = operation.ifMatch === 'required' ? ifMatchHeader : undefined;
+  const header =
+    operation.ifMatch === 'required' && operation.idempotencyKey === 'required'
+      ? ifMatchHeader.extend(idempotencyKeyHeader.shape)
+      : operation.ifMatch === 'required'
+        ? ifMatchHeader
+        : operation.idempotencyKey === 'required'
+          ? idempotencyKeyHeader
+          : undefined;
   const requirements = security(operation);
   return {
     operationId: operation.operationId,
@@ -232,7 +248,12 @@ function operationObject(operation: OperationContract): ZodOpenApiOperationObjec
           },
         }
       : {}),
-    ...(body ? { requestBody: { content: { 'application/json': { schema: body } } } } : {}),
+    ...(body
+      ? {
+          requestBody: { content: { 'application/json': { schema: body } } },
+          'x-body-limit-bytes': operation.bodyLimitBytes ?? BODY_LIMIT_BYTES,
+        }
+      : {}),
     responses,
   } as ZodOpenApiOperationObject;
 }

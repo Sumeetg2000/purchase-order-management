@@ -49,6 +49,12 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
  */
 export const API_PATH_PREFIX = '/api';
 
+/**
+ * The request body limit of every operation that doesn't declare its own (ADR-0007). nginx
+ * holds a copy, pinned by the backend's nginx-limits test.
+ */
+export const BODY_LIMIT_BYTES = 1024 * 1024;
+
 export interface OperationRequestSchemas {
   params?: z.ZodType;
   query?: z.ZodType;
@@ -69,6 +75,13 @@ export interface OperationContract {
   roles?: readonly UserRole[];
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
+  /** A create that must send `Idempotency-Key`, a UUID, so a retry can't duplicate it. */
+  idempotencyKey?: 'required';
+  /**
+   * The largest body it accepts, in bytes, when more than BODY_LIMIT_BYTES (order writes,
+   * slice 3 research R8). Read only after authentication, CSRF and the role check.
+   */
+  bodyLimitBytes?: number;
   /**
    * Its success response sets (or clears) the session cookies (ADR-0017): always, or only
    * sometimes (revoking a session clears them only when it is the caller's own).

@@ -170,6 +170,7 @@
         "operationId": "login",
         "summary": "Log in with email and password; sets the session cookies.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -850,6 +851,7 @@
         "operationId": "resetPassword",
         "summary": "Set a new password from a reset or set-password link.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -1122,6 +1124,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -1282,6 +1285,7 @@
         "operationId": "signup",
         "summary": "Create an unverified account with no role, and email a verification link.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -1472,6 +1476,7 @@
         "operationId": "verifyEmail",
         "summary": "Activate an account from its verification link and the signup password; doesn't log in.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -1658,6 +1663,7 @@
         "operationId": "resendVerification",
         "summary": "Email a new verification link; the earlier one stops working.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -2020,6 +2026,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -2593,6 +2600,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "parameters": [
           {
             "in": "path",
@@ -3221,6 +3229,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "parameters": [
           {
             "in": "path",
@@ -3433,6 +3442,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -3983,6 +3993,7 @@
         "operationId": "forgotPassword",
         "summary": "Email a password reset link; earlier reset links stop working.",
         "x-access": "public",
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -4362,6 +4373,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "requestBody": {
           "content": {
             "application/json": {
@@ -4732,6 +4744,7 @@
             "csrfHeader": []
           }
         ],
+        "x-body-limit-bytes": 1048576,
         "parameters": [
           {
             "in": "path",
@@ -5795,7 +5808,8 @@
           "RATE_LIMITED",
           "DUPLICATE_VENDOR_NAME",
           "INVALID_STATE_TRANSITION",
-          "VENDOR_INACTIVE"
+          "VENDOR_INACTIVE",
+          "IDEMPOTENCY_KEY_REUSED"
         ]
       },
       "FieldError": {
@@ -5822,7 +5836,10 @@
               "PASSWORD_TOO_COMMON",
               "INCORRECT_PASSWORD",
               "PASSWORD_UNCHANGED",
-              "VENDOR_NOT_FOUND"
+              "VENDOR_NOT_FOUND",
+              "LINE_NOT_FOUND",
+              "DUPLICATE_LINE_ID",
+              "READ_ONLY_FIELD"
             ]
           }
         },

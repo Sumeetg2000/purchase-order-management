@@ -115,7 +115,7 @@ slice's draft PR) and a short summary stop.
 
 ### Contracts
 
-- [ ] T007 [P] **Property-based money tests**, seen failing (`fast-check`, fixed seed
+- [X] T007 [P] **Property-based money tests**, seen failing (`fast-check`, fixed seed
   logged, ≥ 1,000 runs each): `lineTotal(q, p)` equals a `BigInt` oracle on values
   scaled by 10⁴ for every `q` in 1–1,000,000 and `p` matching
   `UNIT_PRICE_INPUT_PATTERN`; `sum` is commutative and associative and equals the oracle
@@ -125,7 +125,7 @@ slice's draft PR) and a short summary stop.
   round-trips the digits; `Big.strict` makes a JS `number` throw; examples `0.1 × 1` ×3 =
   `0.3000`, `7 × 0.0125` = `0.0875` — `packages/contracts/tests/money.property.test.ts`
   — R1, FR-013 (FR-PO-07, NFR-DATA-01).
-- [ ] T008 [P] Schema tests, seen failing: `createOrderBody`/`editOrderBody` accept 1 and
+- [X] T008 [P] Schema tests, seen failing: `createOrderBody`/`editOrderBody` accept 1 and
   500 lines and refuse 0 and 501; description trimmed, whitespace-only → `TOO_SHORT`, a
   `\n`, `\t` or other `\p{Cc}` → `INVALID_FORMAT`, a lone surrogate → `INVALID_FORMAT`,
   500 × U+1F600 accepted and 501 → `TOO_LONG` (code points, not UTF-16 units); quantity
@@ -138,13 +138,13 @@ slice's draft PR) and a short summary stop.
   `createdFrom > createdTo` with `OUT_OF_RANGE` at `createdTo`; vendors keep
   `UNKNOWN_FIELD` for every extra key — `packages/contracts/tests/order-schemas.test.ts`
   — R6, R9, FR-001, FR-008, FR-016 (NFR-VAL-01).
-- [ ] T009 [P] Contract tests, seen failing: registry has `IDEMPOTENCY_KEY_REUSED` (409)
+- [X] T009 [P] Contract tests, seen failing: registry has `IDEMPOTENCY_KEY_REUSED` (409)
   and field codes `LINE_NOT_FOUND`, `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`; an operation
   may declare `bodyLimitBytes` (default `BODY_LIMIT_BYTES`) and a required
   `Idempotency-Key` header, documented in the OpenAPI on a made-up operation; a walk of the
   generated OpenAPI asserts every money property is `type: string` with `MONEY_PATTERN`
   — `packages/contracts/tests/errors.test.ts`, `openapi.test.ts` — R1, R5, R8.
-- [ ] T010 Money module and constants: `money.ts` exactly as
+- [X] T010 Money module and constants: `money.ts` exactly as
   [contracts/api.md](contracts/api.md) (`Big` never exported); `orders.ts` constants
   (`ORDER_LINES_MIN = 1`, `ORDER_LINES_MAX = 500`, `LINE_DESCRIPTION_MAX = 500`,
   `LINE_QUANTITY_MAX = 1_000_000`, `UNIT_PRICE_MAX = '999999999.9999'`,
@@ -154,12 +154,12 @@ slice's draft PR) and a short summary stop.
   orders but not change them.'`, `ORDER_READ_ONLY_FIELDS`) —
   `packages/contracts/src/money.ts`, `packages/contracts/src/orders.ts`, `index.ts` — T007
   green.
-- [ ] T011 Schemas and the read-only guard: `schemas/read-only.ts` (`readOnlyGuarded`,
+- [X] T011 Schemas and the read-only guard: `schemas/read-only.ts` (`readOnlyGuarded`,
   runs before the strict-object check), `schemas/orders.ts` (bodies, `order`,
   `orderLine`, `orderListItem`, `orderListQuery`, `orderTimelineItem`) —
   `packages/contracts/src/schemas/read-only.ts`, `packages/contracts/src/schemas/orders.ts`
   — T008 green.
-- [ ] T012 Registry, field codes, `OperationContract.bodyLimitBytes`, the
+- [X] T012 Registry, field codes, `OperationContract.bodyLimitBytes`, the
   `Idempotency-Key` header support and the generator changes (no order operation yet) —
   `packages/contracts/src/errors.ts`, `operations.ts`, `openapi.ts` — T009 green;
   regenerate `openapi.json` (don't open it); breaking-change check green.
