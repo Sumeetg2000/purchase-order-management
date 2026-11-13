@@ -77,6 +77,22 @@ describe('[NFR-VAL-01] the order-write body limit, at the API', () => {
     }
   });
 
+  it('[NFR-VAL-01] the largest valid order is accepted as an edit, its line ids taking it past 1 MiB', async () => {
+    const { h, post } = await setup();
+    const created = await post('/orders', JSON.stringify(largestOrder(h.vendorId)));
+    expect(created.status).toBe(201);
+    const order = (await created.json()) as { id: string; lines: { id: string }[] };
+    const body = largestOrder(h.vendorId);
+    const edit = JSON.stringify({
+      ...body,
+      lines: body.lines.map((line, i) => ({ id: order.lines[i]?.id, ...line, quantity: 999_999 })),
+    });
+    expect(Buffer.byteLength(edit)).toBeGreaterThan(BODY_LIMIT_BYTES);
+    const res = await h.editOrder(order.id, JSON.parse(edit) as unknown, 1);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: '499999499999950000.0500', version: 2 });
+  });
+
   it('[NFR-VAL-01] a body one byte over the limit is 413, and nothing is written', async () => {
     const { h, post } = await setup();
     const res = await post('/orders', ' '.repeat(ORDER_BODY_LIMIT_BYTES + 1));

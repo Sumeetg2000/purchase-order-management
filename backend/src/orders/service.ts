@@ -1,4 +1,12 @@
-import { AppError, ROLE, type CreateOrderBody, type Order } from '@po/contracts';
+import {
+  AppError,
+  ROLE,
+  toMoney,
+  type CreateOrderBody,
+  type EditOrderBody,
+  type Order,
+} from '@po/contracts';
+import type { AuditLineChange } from '../audit/events.js';
 import type { AuthenticatedUser } from '../auth/service.js';
 import { writeAudit } from '../audit/write.js';
 import type { AppPrismaClient } from '../db/client.js';
@@ -11,7 +19,18 @@ import { runAs } from '../users/actor.js';
 import { requireActiveVendor } from '../vendors/service.js';
 import { auditLines, toOrder } from './order.js';
 import { assignPoNumber } from './po-number.js';
-import { insertOrder, insertOrderLines, selectOrder, type OrderRow } from './repository.js';
+import { diffLines, type LineChange } from './line-diff.js';
+import {
+  bumpOrder,
+  deleteOrderLines,
+  insertOrder,
+  insertOrderLines,
+  lockOrder,
+  lockOrderLines,
+  selectOrder,
+  updateOrderLines,
+  type OrderRow,
+} from './repository.js';
 
 // Purchase orders (ADR-0001, ADR-0003, ADR-0004; specs/004-draft-orders). Drafts only in
 // this slice.
@@ -32,6 +51,16 @@ export interface OrdersService {
     request: { body: CreateOrderBody; idempotencyKey: string },
     ctx: RequestContext,
   ): Promise<CreatedOrder>;
+  /**
+   * Replaces a draft's vendor and lines when `version` is current (research R6): lines with
+   * an id are updated, without one added, left out removed, the array order the display
+   * order. A save that changes nothing keeps the version and writes no audit entry.
+   */
+  editOrder(
+    buyer: AuthenticatedUser,
+    target: { id: string; version: number; body: EditOrderBody },
+    ctx: RequestContext,
+  ): Promise<Order>;
   /** An order the caller may read (ADR-0004); NOT_FOUND otherwise, never FORBIDDEN. */
   getOrder(user: AuthenticatedUser, id: string): Promise<Order>;
 }
@@ -49,6 +78,32 @@ export function canRead(
     user.roles.includes(ROLE.ADMIN) ||
     (user.roles.includes(ROLE.APPROVER) && order.status !== 'DRAFT')
   );
+}
+
+/** One changed line as PO_EDITED records it: only the fields that changed. */
+function lineChange(
+  change: LineChange,
+  lineTotals: { before: string; after: string },
+): AuditLineChange {
+  const { before, after } = change;
+  return {
+    id: change.id,
+    ...(before.position === after.position
+      ? {}
+      : { position: { before: before.position, after: after.position } }),
+    ...(before.description === after.description
+      ? {}
+      : { description: { before: before.description, after: after.description } }),
+    ...(before.quantity === after.quantity
+      ? {}
+      : { quantity: { before: before.quantity, after: after.quantity } }),
+    ...(before.unitPrice === after.unitPrice
+      ? {}
+      : { unitPrice: { before: before.unitPrice, after: after.unitPrice } }),
+    ...(lineTotals.before === lineTotals.after
+      ? {}
+      : { lineTotal: { before: toMoney(lineTotals.before), after: toMoney(lineTotals.after) } }),
+  };
 }
 
 interface OrdersServiceDependencies {
@@ -81,7 +136,9 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
         await insertOrderLines(
           tx,
           id,
-          body.lines.map(({ description, quantity, unitPrice }) => ({
+          body.lines.map(({ description, quantity, unitPrice }, position) => ({
+            id: uuidv7(),
+            position,
             description,
             quantity,
             unitPrice,
@@ -110,6 +167,93 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
         });
         await completeIdempotencyKey(tx, { ...key, status: 201, response: order });
         return { order, replayed: false };
+      }),
+
+    editOrder: (buyer, { id, version, body }, ctx) =>
+      // Lock order (ADR-0006): the order, then its lines, then the vendor; check in the
+      // order of ADR-0004 and ADR-0007: not readable 404, version, line ids, vendor.
+      runAs(deps.transactions, buyer, ROLE.BUYER, ctx, async (tx) => {
+        const locked = await lockOrder(tx, id);
+        if (!locked || !canRead(buyer, locked)) throw new AppError('NOT_FOUND');
+        // Not reachable while every order is a draft only its owner reads: slices 4 and 5
+        // answer a readable order someone else owns, or one past DRAFT, with their codes.
+        if (locked.ownerId !== buyer.userId) throw new AppError('FORBIDDEN');
+        if (locked.status !== 'DRAFT') throw new AppError('INVALID_STATE_TRANSITION');
+        if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+        await lockOrderLines(tx, id);
+        const stored = await selectOrder(tx, id);
+        if (!stored) throw new Error(`order ${id} vanished under its lock`);
+        const before = toOrder(stored);
+
+        const diff = diffLines(
+          before.lines.map(({ id: lineId, description, quantity, unitPrice }) => ({
+            id: lineId,
+            description,
+            quantity,
+            unitPrice,
+          })),
+          body.lines,
+        );
+        if (!diff.ok) throw new AppError('VALIDATION_FAILED', { details: diff.errors });
+        // Saving with the current vendor checks it too: a deactivated one is refused.
+        await requireActiveVendor(tx, body.vendorId, 'body.vendorId');
+        const vendorChanged = body.vendorId !== before.vendor.id;
+        if (!vendorChanged && diff.added.length + diff.changed.length + diff.removed.length === 0) {
+          return before;
+        }
+
+        // At most one statement each, whatever the line count (FR-004): the total is
+        // recomputed once per statement.
+        const added = diff.added.map((line) => ({ id: uuidv7(), ...line }));
+        await insertOrderLines(tx, id, added);
+        await updateOrderLines(
+          tx,
+          id,
+          diff.changed.map((c) => ({ id: c.id, ...c.after })),
+        );
+        await deleteOrderLines(
+          tx,
+          id,
+          diff.removed.map((line) => line.id),
+        );
+        await bumpOrder(tx, id, body.vendorId);
+
+        const saved = await selectOrder(tx, id);
+        if (!saved) throw new Error(`order ${id} vanished under its lock`);
+        const after = toOrder(saved);
+        const totalOf = (order: Order, lineId: string) =>
+          order.lines.find((line) => line.id === lineId)?.lineTotal ?? '';
+        const addedIds = new Set(added.map((line) => line.id));
+        const removedIds = new Set(diff.removed.map((line) => line.id));
+        await writeAudit(tx, {
+          action: 'PO_EDITED',
+          entityType: 'order',
+          entityId: id,
+          orderId: id,
+          poNumber: after.poNumber,
+          details: {
+            ...(vendorChanged
+              ? {
+                  vendor: {
+                    before: { id: before.vendor.id, name: before.vendor.name },
+                    after: { id: after.vendor.id, name: after.vendor.name },
+                  },
+                }
+              : {}),
+            lines: {
+              added: auditLines(after).filter((line) => addedIds.has(line.id)),
+              removed: auditLines(before).filter((line) => removedIds.has(line.id)),
+              changed: diff.changed.map((change) =>
+                lineChange(change, {
+                  before: totalOf(before, change.id),
+                  after: totalOf(after, change.id),
+                }),
+              ),
+            },
+            total: { before: before.total, after: after.total },
+          },
+        });
+        return after;
       }),
 
     getOrder: async (user, id) => {

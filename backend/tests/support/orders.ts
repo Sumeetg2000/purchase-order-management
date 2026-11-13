@@ -34,6 +34,12 @@ export async function ordersHarness() {
     return h.send('post', '/orders', as, body, key === null ? {} : { 'Idempotency-Key': key });
   }
 
+  /** PATCH /orders/:id, the full intended state; `version` null sends no If-Match. */
+  function editOrder(id: string, body: unknown, version: number | null, as: CookieJar = h.jar) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('patch', `/orders/${id}`, as, body, headers);
+  }
+
   function getOrder(id: string, as: CookieJar = h.jar) {
     return h.get(`/orders/${id}`, as);
   }
@@ -64,7 +70,7 @@ export async function ordersHarness() {
     );
   }
 
-  return { ...h, vendorId, orderBody, createOrder, getOrder, count, orderAudit };
+  return { ...h, vendorId, orderBody, createOrder, editOrder, getOrder, count, orderAudit };
 }
 
 export type OrdersHarness = Awaited<ReturnType<typeof ordersHarness>>;

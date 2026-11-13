@@ -49,6 +49,50 @@ describe('[FR-PO-04] attacks through the API', () => {
   });
 });
 
+describe('[FR-PO-04] attacks through an edit', () => {
+  it('[FR-PO-04] total or lineTotal in an edit body or line is READ_ONLY_FIELD, and nothing changes', async () => {
+    const h = await ordersHarness();
+    const order = (await h.createOrder(h.orderBody([lineBody({ quantity: 2, unitPrice: '5' })])))
+      .body as { id: string; lines: { id: string }[] };
+    const line = { ...lineBody({ quantity: 2, unitPrice: '5' }), id: order.lines[0]?.id };
+    const inBody = await h.editOrder(order.id, h.orderBody([line], { total: '1' }), 1);
+    expect(inBody.status).toBe(400);
+    expect(inBody.body).toMatchObject({
+      details: [{ path: 'body.total', code: 'READ_ONLY_FIELD' }],
+    });
+    const inLine = await h.editOrder(order.id, h.orderBody([{ ...line, lineTotal: '1' }]), 1);
+    expect(inLine.body).toMatchObject({
+      details: [{ path: 'body.lines.0.lineTotal', code: 'READ_ONLY_FIELD' }],
+    });
+    expect((await h.getOrder(order.id)).body).toMatchObject({ version: 1, total: '10.0000' });
+  });
+
+  it("[FR-PO-04] an edit naming another order's line is LINE_NOT_FOUND: no line moves between orders", async () => {
+    const h = await ordersHarness();
+    const a = (await h.createOrder(h.orderBody([lineBody()]))).body as {
+      id: string;
+      lines: { id: string }[];
+    };
+    const b = (await h.createOrder(h.orderBody([lineBody({ quantity: 1 })]))).body as {
+      id: string;
+      lines: { id: string }[];
+    };
+    const res = await h.editOrder(
+      a.id,
+      h.orderBody([
+        { ...lineBody(), id: a.lines[0]?.id },
+        { ...lineBody(), id: b.lines[0]?.id },
+      ]),
+      1,
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      details: [{ path: 'body.lines.1.id', code: 'LINE_NOT_FOUND' }],
+    });
+    expect((await h.getOrder(b.id)).body).toMatchObject({ lineCount: 1, total: '12.5000' });
+  });
+});
+
 describe('[FR-PO-04] attacks through the service', () => {
   it('[FR-PO-04] a crafted input carrying a total, PO number or line total stores none of them', async () => {
     const h = await ordersHarness();

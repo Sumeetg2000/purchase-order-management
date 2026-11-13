@@ -27,7 +27,7 @@ import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
 import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
-import { createOrderBody, order } from './schemas/orders.js';
+import { createOrderBody, editOrderBody, order } from './schemas/orders.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -516,5 +516,23 @@ export const OPERATIONS = {
     request: { body: createOrderBody },
     responses: { 201: order },
     errors: ['VENDOR_INACTIVE', 'IDEMPOTENCY_KEY_REUSED'],
+  },
+
+  // Slice 3, US3: edit a draft, the full intended line set under If-Match (research R6).
+  editOrder: {
+    method: 'patch',
+    path: '/orders/:id',
+    operationId: 'editOrder',
+    summary:
+      "Replace a draft's vendor and lines: lines with an id are updated, without one added, left out removed.",
+    access: 'role',
+    roles: [ROLE.BUYER],
+    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    ifMatch: 'required',
+    bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
+    etag: true,
+    request: { params: idParams, body: editOrderBody },
+    responses: { 200: order },
+    errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'VENDOR_INACTIVE'],
   },
 } as const satisfies Record<string, OperationContract>;

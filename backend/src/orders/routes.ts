@@ -1,8 +1,15 @@
-import { API_PATH_PREFIX, etagFor, OPERATIONS, type CreateOrderBody } from '@po/contracts';
+import {
+  API_PATH_PREFIX,
+  etagFor,
+  OPERATIONS,
+  type CreateOrderBody,
+  type EditOrderBody,
+} from '@po/contracts';
 import {
   defineRoute,
   idempotencyKeyOf,
   idParamOf,
+  ifMatchVersionOf,
   type RouteDefinition,
 } from '../http/define-route.js';
 import { authOf } from '../http/middleware/authorize.js';
@@ -32,6 +39,18 @@ export function orderRoutes(orders: OrdersService): RouteDefinition[] {
           .set('ETag', etagFor(order.version))
           .set('Location', `${API_PATH_PREFIX}/orders/${order.id}`)
           .json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.editOrder,
+      handler: async (req, res) => {
+        const target = {
+          id: idParamOf(req),
+          version: ifMatchVersionOf(res),
+          body: req.body as EditOrderBody,
+        };
+        const order = await orders.editOrder(authOf(res), target, requestContext(req, res));
+        res.set('ETag', etagFor(order.version)).json(order);
       },
     }),
   ];

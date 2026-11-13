@@ -370,14 +370,14 @@ one `PO_CREATED`.
 
 **Independent test**: the spec's 3-line edit (change, remove, add, move first).
 
-- [ ] T036 [P] [US3] Line-diff property tests, seen failing (`fast-check`): for any stored
+- [X] T036 [P] [US3] Line-diff property tests, seen failing (`fast-check`): for any stored
   set and intended set, `diff` yields added/changed/removed such that applying it gives
   the intended set; unchanged lines never appear in `changed`; a moved line is changed
   (position only); an identical set yields nothing; ids not in the stored set →
   `LINE_NOT_FOUND` at `lines[i].id`, a repeat → `DUPLICATE_LINE_ID` at the second —
   `backend/tests/unit/line-diff.property.test.ts` — R6 (FR-PO-06).
-- [ ] T037 [US3] Pure line diff — `backend/src/orders/line-diff.ts` — T036 green.
-- [ ] T038 [P] [US3] Edit tests, seen failing: spec scenarios 1–5 (ids kept, array order
+- [X] T037 [US3] Pure line diff — `backend/src/orders/line-diff.ts` — T036 green.
+- [X] T038 [P] [US3] Edit tests, seen failing: spec scenarios 1–5 (ids kept, array order
   = display order, version +1, `ETag`); `PATCH /orders/not-a-uuid` → `400`; stale
   `If-Match` → `409 VERSION_CONFLICT`,
   missing → `400 VERSION_REQUIRED`; foreign/duplicate line id; empty set; missing and
@@ -389,18 +389,18 @@ one `PO_CREATED`.
   `backend/tests/integration/orders-edit.test.ts`,
   `backend/tests/integration/order-body-limit.test.ts` — FR-004, FR-005, FR-020 (FR-PO-06,
   NFR-CON-03, NFR-AUD-01).
-- [ ] T039 [P] [US3] Concurrency tests (barrier): edit/edit same version → one `200`, one
+- [X] T039 [P] [US3] Concurrency tests (barrier): edit/edit same version → one `200`, one
   `409`; 50 concurrent creates → 50 distinct, consecutive numbers; reconciliation zero —
   `backend/tests/concurrency/orders.test.ts` — SC-004 (NFR-CON-03, FR-PO-05).
-- [ ] T040 [P] [US3] Attack suite, edit part (appended): `total`/`lineTotal` in an edit
+- [X] T040 [P] [US3] Attack suite, edit part (appended): `total`/`lineTotal` in an edit
   body or line → `400 READ_ONLY_FIELD`; an edit whose lines name another order's line id
-  → `400 LINE_NOT_FOUND`, nothing changed — `backend/tests/integrity/attack-suite.test.ts`
+  → `400 LINE_NOT_FOUND`, nothing changed — `backend/tests/integrity/attack-suite-api.test.ts`
   — FR-014.
-- [ ] T041 [US3] Repository (lock order `FOR UPDATE`, lock lines by id, the three line
+- [X] T041 [US3] Repository (lock order `FOR UPDATE`, lock lines by id, the three line
   statements, version bump) and service `editOrder` (lock order → 404 if unreadable →
   version → line ids → vendor; diff; `PO_EDITED`) — `backend/src/orders/repository.ts`,
   `service.ts`.
-- [ ] T042 [US3] Operation `editOrder` (BUYER, `ifMatch`, `bodyLimitBytes:
+- [X] T042 [US3] Operation `editOrder` (BUYER, `ifMatch`, `bodyLimitBytes:
   ORDER_BODY_LIMIT_BYTES`): contract, route, OpenAPI list, body inventory, matrix pins
   (owner ✓, other Buyer 404, Approver 403, Admin 403 with the message) —
   `packages/contracts/src/operations.ts`, `backend/src/orders/routes.ts`,

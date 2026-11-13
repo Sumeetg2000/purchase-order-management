@@ -51,6 +51,7 @@ const PINNED_ACCESS: Record<string, Access> = {
   reactivateVendor: 'role',
   getOrder: 'role',
   createOrder: 'role',
+  editOrder: 'role',
 };
 
 /** The roles of each role-level operation (ADR-0004's vendor rows), pinned the same way. */
@@ -64,6 +65,7 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   reactivateVendor: ['BUYER'],
   getOrder: ['BUYER', 'APPROVER', 'ADMIN'],
   createOrder: ['BUYER'],
+  editOrder: ['BUYER'],
 };
 
 /** Callable with no session (ADR-0004 "Public endpoints", plus the slice 0 health checks). */
@@ -183,10 +185,10 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 33 operations (2 health checks, 22 of slice 1, 7 vendor ones,
-    // 2 order ones so far) × 6 callers.
+    // Zero cells untested: 34 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 3 order ones so far) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(33);
+    expect(operations).toHaveLength(34);
   });
 });
 
@@ -279,6 +281,22 @@ describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
       expect(res.status, roles).toBe(status);
       if (status === 404) expect(res.body, roles).toMatchObject({ code: 'NOT_FOUND' });
     }
+  });
+
+  it('[FR-ACT-01] an Approver or an Admin editing a draft is 403 before validation, the Admin told why', async () => {
+    const h = await ordersHarness();
+    const id = ((await h.createOrder(h.orderBody())).body as { id: string }).id;
+    for (const [roles, detail] of [
+      ['{APPROVER}', undefined],
+      ['{ADMIN}', ORDER_ADMIN_READ_ONLY_MESSAGE],
+    ] as const) {
+      const jar = await h.loggedIn(await h.seedUser({ roles }));
+      const res = await h.editOrder(id, { bogus: 1 }, null, jar);
+      expect(res.status, roles).toBe(403);
+      expect(res.body, roles).toMatchObject({ code: 'FORBIDDEN' });
+      expect((res.body as { detail?: string }).detail, roles).toBe(detail);
+    }
+    expect(((await h.getOrder(id)).body as { version: number }).version).toBe(1);
   });
 
   it('[FR-ACT-01] an Approver or an Admin creating an order is 403 before validation, the Admin told why', async () => {
