@@ -1,5 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+  type SyntheticEvent,
+} from 'react';
 import {
   Button,
   ComboBox,
@@ -107,6 +115,179 @@ function serverLineErrors(failure: ApiFailure | undefined, index: number): LineE
   return errors;
 }
 
+interface VendorPickerProps {
+  vendor: Vendor | undefined;
+  /** The search text it starts with: the stored order's vendor, or nothing. */
+  start: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  /** A vendor picked, or undefined once the text no longer names the picked one. */
+  onVendor: (vendor: Vendor | undefined) => void;
+}
+
+/**
+ * The vendor picker over active vendors. Memoised with its own search text: a keystroke in
+ * a line doesn't re-render the combo box (ADR-0012's keystroke target).
+ */
+const VendorPicker = memo(function VendorPicker({
+  vendor,
+  start,
+  inputRef,
+  onVendor,
+}: VendorPickerProps) {
+  const [search, setSearch] = useState(start);
+  const q = useDebounced(search, SEARCH_DEBOUNCE_MS).trim();
+  const vendors = useActiveVendors(q === '' ? undefined : q);
+  const items = vendors.data?.items ?? [];
+  return (
+    <ComboBox
+      className={styles.vendor}
+      inputValue={search}
+      onInputChange={(value) => {
+        setSearch(value);
+        if (value !== vendor?.name) onVendor(undefined);
+      }}
+      value={vendor?.id ?? null}
+      onChange={(id) => {
+        const picked = items.find((v) => v.id === id);
+        if (picked) {
+          onVendor({ id: picked.id, name: picked.name });
+          setSearch(picked.name);
+        }
+      }}
+      items={items}
+      allowsEmptyCollection
+      isRequired
+    >
+      <Label>Vendor</Label>
+      <div className={styles.vendorControl}>
+        <Input ref={inputRef} />
+        <Button aria-label="Show vendors">▾</Button>
+      </div>
+      <Popover className={styles.popover}>
+        <ListBox
+          renderEmptyState={() =>
+            vendors.isError ? null : <p className={styles.hint}>No active vendor matches.</p>
+          }
+        >
+          {(item: Vendor) => (
+            <ListBoxItem className={styles.option} id={item.id} textValue={item.name}>
+              {item.name}
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Popover>
+      {vendors.isError && (
+        <p role="status" className={styles.hint}>
+          Couldn&apos;t load vendors. Try again.
+        </p>
+      )}
+    </ComboBox>
+  );
+});
+
+interface LineActions {
+  edit: (index: number, field: LineField, value: string) => void;
+  move: (index: number, by: -1 | 1) => void;
+  remove: (index: number) => void;
+}
+
+interface LineRowProps {
+  line: LineDraft;
+  index: number;
+  last: boolean;
+  only: boolean;
+  failure: ApiFailure | undefined;
+  measure: (element: HTMLTableRowElement | null) => void;
+  actions: LineActions;
+}
+
+/**
+ * One line of the table. Memoised: a keystroke replaces one line object and re-renders that
+ * row alone, which keeps a 500-line order within ADR-0012's keystroke target.
+ */
+const LineRow = memo(function LineRow({
+  line,
+  index,
+  last,
+  only,
+  failure,
+  measure,
+  actions,
+}: LineRowProps) {
+  const number = index + 1;
+  const server = serverLineErrors(failure, index);
+  const shown = { ...lineErrors(line), ...server };
+  return (
+    <tr ref={measure} data-index={index} aria-rowindex={number + 1}>
+      <td className={styles.number}>{number}</td>
+      {FIELDS.map(({ field, label, inputMode }) => {
+        // A field says its error once it holds something (or the API named it).
+        const code = line[field] === '' && !server[field] ? undefined : shown[field];
+        const errorId = `line-${String(line.key)}-${field}-error`;
+        return (
+          <td key={field}>
+            <input
+              className={styles.cellInput}
+              aria-label={`${label}, line ${String(number)}`}
+              value={line[field]}
+              inputMode={inputMode}
+              autoComplete="off"
+              aria-invalid={code !== undefined}
+              {...(code === undefined ? {} : { 'aria-describedby': errorId })}
+              onChange={(event) => {
+                actions.edit(index, field, event.target.value);
+              }}
+            />
+            {code !== undefined && (
+              <span id={errorId} className={styles.cellError}>
+                {fieldMessageFor(code)}
+              </span>
+            )}
+          </td>
+        );
+      })}
+      <td className={styles.number} data-testid={`line-total-${String(number)}`}>
+        {rupees(lineTotalOf(line))}
+      </td>
+      <td className={styles.rowActions}>
+        <button
+          type="button"
+          className={controls.button}
+          aria-label={`Move line ${String(number)} up`}
+          disabled={index === 0}
+          onClick={() => {
+            actions.move(index, -1);
+          }}
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          className={controls.button}
+          aria-label={`Move line ${String(number)} down`}
+          disabled={last}
+          onClick={() => {
+            actions.move(index, 1);
+          }}
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          className={controls.button}
+          aria-label={`Remove line ${String(number)}`}
+          disabled={only}
+          onClick={() => {
+            actions.remove(index);
+          }}
+        >
+          Remove
+        </button>
+      </td>
+    </tr>
+  );
+});
+
 /** What the form starts from: nothing for a new order, the stored order for an edit. */
 interface OrderFormStart {
   vendor?: Vendor | undefined;
@@ -124,12 +305,26 @@ interface OrderFormProps {
   reload?: () => void;
 }
 
-/** What a form holds that a save would send, to tell whether there are unsaved edits. */
-function signatureOf(vendor: Vendor | undefined, lines: readonly Omit<LineDraft, 'key'>[]) {
-  return JSON.stringify([
-    vendor?.id,
-    lines.map(({ id, description, quantity, unitPrice }) => [id, description, quantity, unitPrice]),
-  ]);
+/** Whether two lines hold the same values a save would send. */
+function sameLine(a: LineDraft, b: LineDraft): boolean {
+  return (
+    a.id === b.id &&
+    a.description === b.description &&
+    a.quantity === b.quantity &&
+    a.unitPrice === b.unitPrice
+  );
+}
+
+/**
+ * Whether the lines differ from those the form started with. An edit replaces only the
+ * line it changes, so an untouched line is the same object and costs one comparison.
+ */
+function linesChanged(lines: readonly LineDraft[], from: readonly LineDraft[]): boolean {
+  if (lines.length !== from.length) return true;
+  return lines.some((line, i) => {
+    const before = from[i];
+    return line !== before && (before === undefined || !sameLine(line, before));
+  });
 }
 
 /**
@@ -153,20 +348,14 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
     start.lines.length > 0 ? start.lines.map((line) => newLine(line)) : [newLine()],
   );
   const [vendor, setVendor] = useState<Vendor | undefined>(start.vendor);
-  const [search, setSearch] = useState(start.vendor?.name ?? '');
   const [inactiveVendor, setInactiveVendor] = useState<string>();
   const vendorInput = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
-  const q = useDebounced(search, SEARCH_DEBOUNCE_MS).trim();
-  const vendors = useActiveVendors(q === '' ? undefined : q);
-  const [startedFrom] = useState(() =>
-    signatureOf(
-      start.vendor,
-      start.lines.length > 0 ? start.lines : [{ description: '', quantity: '', unitPrice: '' }],
-    ),
+  const [startedFrom] = useState(() => ({ vendorId: start.vendor?.id, lines }));
+  const guard = useUnsavedChangesGuard(
+    vendor?.id !== startedFrom.vendorId || linesChanged(lines, startedFrom.lines),
   );
-  const guard = useUnsavedChangesGuard(signatureOf(vendor, lines) !== startedFrom);
 
   // TanStack Virtual (ADR-0018) returns functions React Compiler can't memoize, so this
   // component isn't compiled; it re-renders on edits anyway.
@@ -181,19 +370,36 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
   const errors = lines.map(lineErrors);
   const valid = vendor !== undefined && errors.every((e) => Object.keys(e).length === 0);
 
-  function edit(index: number, field: LineField, value: string) {
-    setLines((current) => current.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
-    form.clearFailure();
-  }
-
-  function move(index: number, by: -1 | 1) {
-    setLines((current) => {
-      const next = [...current];
-      const [line] = next.splice(index, 1);
-      if (line) next.splice(index + by, 0, line);
-      return next;
-    });
-  }
+  // The rows' actions keep one identity across renders, so an untouched row skips its
+  // render; an edit clears the failure through the latest form.
+  const clearFailure = useRef(form.clearFailure);
+  useLayoutEffect(() => {
+    clearFailure.current = form.clearFailure;
+  });
+  const [rowActions] = useState<LineActions>(() => ({
+    edit: (index, field, value) => {
+      setLines((current) => current.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
+      clearFailure.current();
+    },
+    move: (index, by) => {
+      setLines((current) => {
+        const next = [...current];
+        const [line] = next.splice(index, 1);
+        if (line) next.splice(index + by, 0, line);
+        return next;
+      });
+    },
+    remove: (index) => {
+      setLines((current) => current.filter((_, i) => i !== index));
+    },
+  }));
+  const [onVendor] = useState(() => (picked: Vendor | undefined) => {
+    setVendor(picked);
+    if (picked) {
+      setInactiveVendor(undefined);
+      clearFailure.current();
+    }
+  });
 
   async function save(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -224,7 +430,6 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
           labels: { 'body.vendorId': 'Vendor', 'body.lines': 'Lines' },
         })
       : undefined;
-  const items = vendors.data?.items ?? [];
   const rows = virtualizer.getVirtualItems();
   const padTop = rows[0]?.start ?? 0;
   const padBottom = virtualizer.getTotalSize() - (rows.at(-1)?.end ?? 0);
@@ -234,51 +439,12 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
       <title>{`${heading} · Purchase Orders`}</title>
       <h1>{heading}</h1>
       <form className={styles.editor} onSubmit={(event) => void save(event)}>
-        <ComboBox
-          className={styles.vendor}
-          inputValue={search}
-          onInputChange={(value) => {
-            setSearch(value);
-            if (value !== vendor?.name) setVendor(undefined);
-          }}
-          value={vendor?.id ?? null}
-          onChange={(id) => {
-            const picked = items.find((v) => v.id === id);
-            if (picked) {
-              setVendor({ id: picked.id, name: picked.name });
-              setSearch(picked.name);
-              setInactiveVendor(undefined);
-              form.clearFailure();
-            }
-          }}
-          items={items}
-          allowsEmptyCollection
-          isRequired
-        >
-          <Label>Vendor</Label>
-          <div className={styles.vendorControl}>
-            <Input ref={vendorInput} />
-            <Button aria-label="Show vendors">▾</Button>
-          </div>
-          <Popover className={styles.popover}>
-            <ListBox
-              renderEmptyState={() =>
-                vendors.isError ? null : <p className={styles.hint}>No active vendor matches.</p>
-              }
-            >
-              {(item: Vendor) => (
-                <ListBoxItem className={styles.option} id={item.id} textValue={item.name}>
-                  {item.name}
-                </ListBoxItem>
-              )}
-            </ListBox>
-          </Popover>
-          {vendors.isError && (
-            <p role="status" className={styles.hint}>
-              Couldn&apos;t load vendors. Try again.
-            </p>
-          )}
-        </ComboBox>
+        <VendorPicker
+          vendor={vendor}
+          start={start.vendor?.name ?? ''}
+          inputRef={vendorInput}
+          onVendor={onVendor}
+        />
 
         <div ref={scroller} className={styles.scroller}>
           <table className={styles.lines} aria-label="Lines" aria-rowcount={lines.length + 1}>
@@ -301,88 +467,19 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
                 </tr>
               )}
               {rows.map((row) => {
-                const index = row.index;
-                const line = lines[index];
-                if (!line) return null;
-                const number = index + 1;
-                const shown = { ...lineErrors(line), ...serverLineErrors(form.failure, index) };
-                return (
-                  <tr
+                const line = lines[row.index];
+                return line ? (
+                  <LineRow
                     key={line.key}
-                    ref={virtualizer.measureElement}
-                    data-index={index}
-                    aria-rowindex={number + 1}
-                  >
-                    <td className={styles.number}>{number}</td>
-                    {FIELDS.map(({ field, label, inputMode }) => {
-                      // A field says its error once it holds something (or the API named it).
-                      const code =
-                        line[field] === '' && !serverLineErrors(form.failure, index)[field]
-                          ? undefined
-                          : shown[field];
-                      const errorId = `line-${String(line.key)}-${field}-error`;
-                      return (
-                        <td key={field}>
-                          <input
-                            className={styles.cellInput}
-                            aria-label={`${label}, line ${String(number)}`}
-                            value={line[field]}
-                            inputMode={inputMode}
-                            autoComplete="off"
-                            aria-invalid={code !== undefined}
-                            {...(code === undefined ? {} : { 'aria-describedby': errorId })}
-                            onChange={(event) => {
-                              edit(index, field, event.target.value);
-                            }}
-                          />
-                          {code !== undefined && (
-                            <span id={errorId} className={styles.cellError}>
-                              {fieldMessageFor(code)}
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className={styles.number} data-testid={`line-total-${String(number)}`}>
-                      {rupees(lineTotalOf(line))}
-                    </td>
-                    <td className={styles.rowActions}>
-                      <button
-                        type="button"
-                        className={controls.button}
-                        aria-label={`Move line ${String(number)} up`}
-                        disabled={index === 0}
-                        onClick={() => {
-                          move(index, -1);
-                        }}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className={controls.button}
-                        aria-label={`Move line ${String(number)} down`}
-                        disabled={index === lines.length - 1}
-                        onClick={() => {
-                          move(index, 1);
-                        }}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        className={controls.button}
-                        aria-label={`Remove line ${String(number)}`}
-                        disabled={lines.length === 1}
-                        onClick={() => {
-                          setLines((current) => current.filter((_, i) => i !== index));
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                );
+                    line={line}
+                    index={row.index}
+                    last={row.index === lines.length - 1}
+                    only={lines.length === 1}
+                    failure={form.failure}
+                    measure={virtualizer.measureElement}
+                    actions={rowActions}
+                  />
+                ) : null;
               })}
               {padBottom > 0 && (
                 <tr aria-hidden="true">

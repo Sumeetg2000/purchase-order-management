@@ -47,8 +47,25 @@ export function lineBodyOf(line: LineDraft) {
 
 const lineSchema = createOrderBody.shape.lines.element;
 
+/**
+ * A line's derived values, kept per line object: an edit replaces only the line it
+ * changes, so a keystroke in a 500-line order validates and totals one line, not 500
+ * (ADR-0012's editor targets). Lines are never mutated in place.
+ */
+function memoized<T>(derive: (line: LineDraft) => T): (line: LineDraft) => T {
+  const cache = new WeakMap<LineDraft, T>();
+  return (line) => {
+    if (cache.has(line)) return cache.get(line) as T;
+    const value = derive(line);
+    cache.set(line, value);
+    return value;
+  };
+}
+
 /** Each field's code from the contract's own rule for a line (row-level validation). */
-export function lineErrors(line: LineDraft): LineErrors {
+export const lineErrors = memoized(errorsOf);
+
+function errorsOf(line: LineDraft): LineErrors {
   // A create line's rule: the id, if any, is the server's to check (LINE_NOT_FOUND).
   const { description, quantity, unitPrice } = lineBodyOf(line);
   const result = lineSchema.safeParse({ description, quantity, unitPrice }, { reportInput: true });
@@ -64,7 +81,9 @@ export function lineErrors(line: LineDraft): LineErrors {
 }
 
 /** The line's exact total, or undefined while its quantity or price isn't valid yet. */
-export function lineTotalOf(line: LineDraft): Money | undefined {
+export const lineTotalOf = memoized(totalOf);
+
+function totalOf(line: LineDraft): Money | undefined {
   const quantity = quantityOf(line.quantity);
   if (typeof quantity !== 'number' || quantity < 1 || quantity > LINE_QUANTITY_MAX)
     return undefined;

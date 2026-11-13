@@ -55,6 +55,34 @@
 .scroller {
   max-height: 32rem;
   overflow: auto;
+  /* A keystroke lays out the line table alone, not the page around it. */
+  contain: content;
+}
+
+/*
+ * The editor's table has fixed columns: with automatic layout a keystroke in one cell
+ * re-measures every column of every row, too slow for a 500-line order (ADR-0012).
+ */
+.scroller .lines {
+  table-layout: fixed;
+  min-width: 48rem;
+}
+
+.scroller th:nth-child(1) {
+  width: 3rem;
+}
+
+.scroller th:nth-child(3) {
+  width: 7rem;
+}
+
+.scroller th:nth-child(4),
+.scroller th:nth-child(5) {
+  width: 9rem;
+}
+
+.scroller th:nth-child(6) {
+  width: 11.5rem;
 }
 
 .lines {
