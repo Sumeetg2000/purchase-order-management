@@ -14,7 +14,7 @@ export interface DeleteDraftDialogProps {
 }
 
 /**
- * Delete draft (contracts/ui.md, NFR-FE-09): names the draft, its vendor, line count and
+ * Delete draft (contracts/ui.md, ADR-0018 dialogs): names the draft, its vendor, line count and
  * total, says the deletion is permanent and that its owner won't see it or its history
  * again; an optional reason; focus starts on "Keep draft". On success the order is gone,
  * so the page moves to the orders list.

@@ -557,21 +557,21 @@ the owner added on 2026-11-12**.
   ≤ 50 ms, add/remove ≤ 100 ms, loaded and interactive ≤ 1,000 ms; route chunk ≤ 150 KB
   gzip (bundle budget) — `frontend/e2e/order-editor-perf.spec.ts`,
   `scripts/check-bundle-budget.mjs` — SC-008, ADR-0012.
-- [ ] T067 [P] Service timing check: create and replace a 500-line order p95 ≤ 500 ms,
+- [X] T067 [P] Service timing check: create and replace a 500-line order p95 ≤ 500 ms,
   busiest buyer's first page p95 ≤ 150 ms on the plan fixture; record results in R7 —
   `backend/tests/plans/orders.timing.test.ts` — FR-022, SC-005.
-- [ ] T068 E2E: raise a multi-line order with exact total; edit (change, add, remove);
+- [X] T068 E2E: raise a multi-line order with exact total; edit (change, add, remove);
   version conflict and reload; delete through the dialog; second Buyer can't see it;
   Admin reads it read-only; axe on each screen; delete dialog added to the Playwright
   dialog checks — `frontend/e2e/orders.spec.ts` — FR-025, NFR-FE-09. Run
   `npm run e2e:local`.
-- [ ] T069 Traceability: FR-PO-01/02/03/04/05/06/07, FR-SM-02, NFR-DATA-01, FR-VEN-02
+- [X] T069 Traceability: FR-PO-01/02/03/04/05/06/07, FR-SM-02, NFR-DATA-01, FR-VEN-02
   (create/edit part), NFR-PERF-03 and FR-RPT-03 (line parts), NFR-AUD-01 (raise),
   NFR-AUD-03 (order part), NFR-FE-01/03/04/06/09 (parts), FR-OWN-01, FR-ACT-01, NFR-AUTH-01 and
   NFR-AUTH-02 (draft cells), NFR-VAL-01, NFR-CON-01, NFR-CON-03 and NFR-PERF-01 (order
   parts) updated with their passing tests; `npm run check:traceability` green —
   `docs/traceability.md`.
-- [ ] T070 Quickstart run and results — `specs/004-draft-orders/quickstart-results.md`.
+- [X] T070 Quickstart run and results — `specs/004-draft-orders/quickstart-results.md`.
 - [ ] T071 Slice-end review: `/code-review`, `/security-review` (permissions and body
   parsing changed), constitution pass; fix findings; full gate, lint, typecheck green.
 
