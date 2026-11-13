@@ -22,6 +22,8 @@ function dialogApi(handlers: Record<string, Handler> = {}) {
   return fakeApi({
     'GET /me': () => json(200, { ...ME, roles: ['BUYER'] }),
     [`GET /vendors/${ACME_ID}`]: () => json(200, current, { ETag: `"${String(current.version)}"` }),
+    // The caller's drafts with this vendor (slice 3): none unless a test says otherwise.
+    'GET /orders': () => json(200, { items: [], page: 1, pageSize: 1, total: 0 }),
     [DEACTIVATE]: () => {
       current = vendor({
         status: 'INACTIVE',
@@ -42,6 +44,42 @@ async function openDialog() {
 }
 
 const posts = (seen: Request[]) => seen.filter((r) => r.method === 'POST');
+
+describe('[FR-VEN-02] the draft count in the deactivate dialog', () => {
+  it("[FR-VEN-02] says how many of the caller's drafts use the vendor, read through the order list", async () => {
+    const seen = dialogApi({
+      'GET /orders': () => json(200, { items: [], page: 1, pageSize: 1, total: 3 }),
+    });
+    const { dialog } = await openDialog();
+    expect(
+      await within(dialog).findByText('3 of your draft orders use this vendor.'),
+    ).toBeVisible();
+    const list = seen.find(
+      (r) => r.method === 'GET' && new URL(r.url).pathname.endsWith('/orders'),
+    );
+    const query = new URL(list?.url ?? 'http://x').searchParams;
+    expect(Object.fromEntries(query)).toEqual({
+      vendorId: ACME_ID,
+      status: 'DRAFT',
+      pageSize: '1',
+    });
+  });
+
+  it('[FR-VEN-02] says one draft in the singular, and nothing at none', async () => {
+    dialogApi({ 'GET /orders': () => json(200, { items: [], page: 1, pageSize: 1, total: 1 }) });
+    const { dialog } = await openDialog();
+    expect(
+      await within(dialog).findByText('1 of your draft orders uses this vendor.'),
+    ).toBeVisible();
+  });
+
+  it("[FR-VEN-02] a count that can't be read is said, and doesn't block deactivating", async () => {
+    dialogApi({ 'GET /orders': () => problem(500, 'INTERNAL_ERROR') });
+    const { dialog } = await openDialog();
+    expect(await within(dialog).findByText("Couldn't load your draft count.")).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Deactivate vendor' })).toBeEnabled();
+  });
+});
 
 describe('[FR-VEN-01] deactivate vendor dialog', () => {
   it('[FR-VEN-01] names the vendor and the consequence, with focus on "Keep active"', async () => {

@@ -1,5 +1,6 @@
 import { etagFor } from '@po/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { OrderStatus } from '@po/contracts';
 import { api } from '../../api/app-client';
 import { dataOrThrow } from '../../api/client';
 import { definedParams } from '../../api/query-params';
@@ -60,5 +61,44 @@ export function useActiveVendors(q: string | undefined) {
   return useQuery({
     queryKey: [...VENDORS_KEY, 'list', query],
     queryFn: async () => dataOrThrow(await api.GET('/vendors', { params: { query } })),
+  });
+}
+
+export interface OrderListParams {
+  status?: OrderStatus | undefined;
+  vendorId?: string | undefined;
+  poNumber?: string | undefined;
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+}
+
+/** A page of the orders the caller may read, filtered in the database (research R7). */
+export function useOrderList(params: OrderListParams) {
+  const query = definedParams(params);
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'list', query],
+    queryFn: async () => dataOrThrow(await api.GET('/orders', { params: { query } })),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * How many of the caller's drafts use a vendor, for the deactivate dialog: the order list
+ * itself, a page of one read for its total (research R11), so no other count exists.
+ */
+export function useDraftCount(vendorId: string) {
+  return useOrderList({ vendorId, status: 'DRAFT', pageSize: 1 });
+}
+
+/** One page of an order's timeline, newest first. */
+export function useOrderTimeline(id: string, page: number) {
+  const query = definedParams({ page });
+  return useQuery({
+    queryKey: [...orderKey(id), 'timeline', query],
+    queryFn: async () =>
+      dataOrThrow(await api.GET('/orders/{id}/timeline', { params: { path: { id }, query } })),
+    placeholderData: keepPreviousData,
   });
 }

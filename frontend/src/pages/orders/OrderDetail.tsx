@@ -5,6 +5,7 @@ import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
+import { OrderTabs } from './OrderTabs';
 import { useOrder } from './queries';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
@@ -41,6 +42,7 @@ export function OrderDetail() {
           <Link to={`/orders/${order.id}/edit`}>Edit</Link>
         )}
       </div>
+      <OrderTabs id={order.id} />
       <dl className={styles.details}>
         <dt className={styles.term}>Vendor</dt>
         <dd>

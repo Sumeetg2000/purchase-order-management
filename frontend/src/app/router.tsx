@@ -95,6 +95,23 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
       path: 'orders',
       children: [
         {
+          element: <RequireRole operation="listOrders" />,
+          children: [
+            {
+              index: true,
+              lazy: lazyPage(() => import('../pages/orders/OrdersList').then((m) => m.OrdersList)),
+              errorElement: <RouteErrorBoundary />,
+            },
+            {
+              path: ':id/timeline',
+              lazy: lazyPage(() =>
+                import('../pages/orders/OrderTimeline').then((m) => m.OrderTimeline),
+              ),
+              errorElement: <RouteErrorBoundary />,
+            },
+          ],
+        },
+        {
           element: <RequireRole operation="createOrder" forbidden={<OrderWriteForbidden />} />,
           children: [
             {

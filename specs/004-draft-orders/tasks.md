@@ -436,11 +436,11 @@ the owner added on 2026-11-12**.
   `FORBIDDEN` is raised for an order write by an Admin; ADMIN is never combined with
   another role, ADR-0016) —
   `backend/src/orders/routes.ts` or the authorize hook it uses — T045 green.
-- [ ] T047 [P] [US6] Web tests, seen failing: Admin sees detail read-only (no Edit/Delete,
+- [X] T047 [P] [US6] Web tests, seen failing: Admin sees detail read-only (no Edit/Delete,
   no "New order"); an Admin `FORBIDDEN` on an order write shows the message; Approver
   sees the empty-state text "Orders appear here once buyers submit them." —
-  `frontend/tests/orders-roles.test.tsx` — R11, R12 (NFR-FE-03).
-- [ ] T048 [US6] Web role gating — `frontend/src/pages/orders/` — T047 green.
+  `frontend/tests/orders-list.test.tsx` ("by role"), `order-editor-edit.test.tsx` — R11, R12 (NFR-FE-03).
+- [X] T048 [US6] Web role gating — `frontend/src/pages/orders/` — T047 green.
 
 ---
 
@@ -494,14 +494,14 @@ the owner added on 2026-11-12**.
   `git diff --exit-code docs/query-plans/orders` clean; the `plans` workflow runs it and
   checks drift — `backend/scripts/plans-orders.ts`, `backend/package.json`,
   `docs/query-plans/orders/*.txt`, `.github/workflows/plans.yml` — T054 green.
-- [ ] T056 [P] [US5] Web tests, seen failing: `/orders` list with filters in the URL
+- [X] T056 [P] [US5] Web tests, seen failing: `/orders` list with filters in the URL
   (status, vendor combo box, debounced PO prefix, date range), page numbers, "Sorted by
   PO number" note with a prefix, en-IN totals, loading/empty/error; the URL round-trips
   every filter and the page (reload and back/forward restore them); the PO-prefix search
   is debounced (one request after typing stops); detail Timeline tab —
   `frontend/tests/orders-list.test.tsx`, `frontend/tests/order-timeline.test.tsx` —
   FR-023 (NFR-FE-03, NFR-FE-04).
-- [ ] T057 [US5] Web: `OrdersList`, `OrderTimeline`, route `/orders` and the Shell's
+- [X] T057 [US5] Web: `OrdersList`, `OrderTimeline`, route `/orders` and the Shell's
   "Orders" entry (shown when `useCan('listOrders')`) — `frontend/src/pages/orders/`,
   `frontend/src/app/router.tsx`, `Shell.tsx` — T056 green.
 
@@ -542,7 +542,7 @@ the owner added on 2026-11-12**.
 
 ## Phase 9: Polish
 
-- [ ] T063 [P] Vendor deactivate dialog draft count: "N of your draft orders use this
+- [X] T063 [P] Vendor deactivate dialog draft count: "N of your draft orders use this
   vendor" (omitted at 0, "Couldn't load your draft count" on error, never blocking); test
   first — `frontend/src/pages/vendors/DeactivateVendorDialog.tsx`,
   `frontend/tests/deactivate-vendor-dialog.test.tsx` — FR-024.
