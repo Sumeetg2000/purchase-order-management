@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import type pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   DERIVED_VALUE_READ_ONLY,
   GENERATED_ALWAYS,
   INSUFFICIENT_PRIVILEGE,
   ORDER_FIELD_IMMUTABLE,
+  ORDER_LINES_LOCKED,
   ORDER_STATUS_TRANSITION_REFUSED,
   ORDER_WITHOUT_LINES,
   createDraft,
@@ -14,6 +16,7 @@ import {
   readOrder,
   reconciliationRows,
   sqlstate,
+  systemContext,
   type OrderFixture,
 } from '../support/orders-sql.js';
 
@@ -238,5 +241,103 @@ describe('[FR-PO-04] attacks as the privileged owner role (po_owner)', () => {
     expect(
       await asOwner(f, `UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`, [orderId]),
     ).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+  });
+});
+
+// Concurrent raw-SQL transactions on one order: each line trigger locks the order (FOR NO
+// KEY UPDATE, in id order) before it checks the status or recomputes, so the second waits
+// for the first to commit and then works from what it committed.
+
+/** Opens a transaction with actor context on `client` and returns its backend pid. */
+async function begin(client: pg.Client): Promise<number> {
+  await client.query('BEGIN');
+  await systemContext(client);
+  const { rows } = await client.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+  return rows[0]?.pid ?? 0;
+}
+
+/** Whether backend `pid` is waiting on a lock within `ms` (polled as the superuser). */
+async function waitsOnLock(observer: pg.Client, pid: number, ms = 3_000): Promise<boolean> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const { rows } = await observer.query<{ waiting: boolean }>(
+      `SELECT wait_event_type = 'Lock' AS waiting FROM pg_stat_activity WHERE pid = $1`,
+      [pid],
+    );
+    if (rows[0]?.waiting === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}
+
+/** Runs `sql` and COMMIT on `client`, settling to the SQLSTATE of a failure (or 'OK'). */
+async function finish(client: pg.Client, statement: Promise<unknown>): Promise<string> {
+  try {
+    await statement;
+    await client.query('COMMIT');
+    return 'OK';
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    return (error as { code?: string }).code ?? 'UNKNOWN';
+  }
+}
+
+describe('[NFR-CON-01] concurrent line changes on one order', () => {
+  it('[NFR-CON-01] two transactions inserting lines leave the total equal to the sum of the lines', async () => {
+    const { f, orderId } = await setup();
+    const second = await f.db.client('po_app');
+    await begin(f.app);
+    await insertLines(f.app, orderId, [{ quantity: 2, unitPrice: '5' }], 2);
+    const pid = await begin(second);
+    const inserting = insertLines(second, orderId, [{ quantity: 4, unitPrice: '3' }], 3);
+    expect(await waitsOnLock(f.superuser, pid)).toBe(true);
+    await f.app.query('COMMIT');
+    expect(await finish(second, inserting)).toBe('OK');
+
+    const { rows } = await f.app.query<{ sum: string }>(
+      `SELECT sum(line_total)::text AS sum FROM order_lines WHERE order_id = $1`,
+      [orderId],
+    );
+    expect(rows[0]?.sum).toBe('22.3875');
+    expect(await readOrder(f.app, orderId)).toMatchObject({ total: '22.3875', open_line_count: 4 });
+  });
+
+  it("[NFR-CON-01] two transactions deleting an order's last two lines: one fails with PO007", async () => {
+    const { f, orderId, lineIds } = await setup();
+    const second = await f.db.client('po_app');
+    await begin(f.app);
+    await f.app.query(`DELETE FROM order_lines WHERE id = $1`, [lineIds[0]]);
+    const pid = await begin(second);
+    const deleting = second.query(`DELETE FROM order_lines WHERE id = $1`, [lineIds[1]]);
+    expect(await waitsOnLock(f.superuser, pid)).toBe(true);
+    const first = await finish(f.app, Promise.resolve());
+    const outcomes = [first, await finish(second, deleting)].sort();
+    expect(outcomes).toEqual(['OK', ORDER_WITHOUT_LINES].sort());
+    const { rows } = await f.app.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM order_lines WHERE order_id = $1`,
+      [orderId],
+    );
+    expect(rows[0]?.n).toBe(1);
+  });
+
+  it('[FR-SM-02] a line change waits for a transaction holding the order, and is refused once it leaves DRAFT', async () => {
+    const { f, orderId, lineIds } = await setup();
+    const app = await f.db.client('po_app');
+    // A transition slice 4 will add, here only for this test's database.
+    await begin(f.owner);
+    await f.owner.query(
+      `INSERT INTO order_status_transitions (from_status, to_status) VALUES ('DRAFT', 'PENDING_APPROVAL')`,
+    );
+    await f.owner.query(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`, [
+      orderId,
+    ]);
+    // A description-only change reads no derived value, yet must wait all the same.
+    const pid = await begin(app);
+    const renaming = app.query(`UPDATE order_lines SET description = 'Renamed' WHERE id = $1`, [
+      lineIds[0],
+    ]);
+    expect(await waitsOnLock(f.superuser, pid)).toBe(true);
+    await f.owner.query('COMMIT');
+    expect(await finish(app, renaming)).toBe(ORDER_LINES_LOCKED);
   });
 });

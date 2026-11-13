@@ -93,8 +93,8 @@ purchase_orders_po_number_key             UNIQUE (po_number)   -- COLLATE "C" co
 | Name | On | Kind | Does |
 |---|---|---|---|
 | `require_actor_context` | `purchase_orders`, `order_lines` | before, statement | slice 0's actor check |
-| `order_lines_recompute_ins/upd/del` | `order_lines` | after, statement, transition tables | refuse if any affected order isn't `DRAFT` (`PO006`); `recompute_orders(ids)` once (R3) |
-| `recompute_orders(uuid[])` | — | `SECURITY DEFINER` | sets `po.recompute`, one set-based `UPDATE` of `total`, `open_line_count`; increments `po.recompute_count` |
+| `order_lines_recompute_ins/upd/del` | `order_lines` | after, statement, transition tables | lock the affected orders (`FOR NO KEY UPDATE`, id order), refuse if any isn't `DRAFT` (`PO006`); `recompute_orders(ids)` once (R3). The lock serialises concurrent line changes on one order: no lost total, no order left lineless |
+| `recompute_orders(uuid[])` | — | `SECURITY DEFINER` | locks the orders (`FOR NO KEY UPDATE`, id order), sets `po.recompute`, one set-based `UPDATE` of `total`, `open_line_count`; increments `po.recompute_count` |
 | `purchase_orders_derived_guard` | `purchase_orders` | before update, row | `PO005 DERIVED_VALUE_READ_ONLY` without the flag |
 | `purchase_orders_immutable` | `purchase_orders` | before update, row | `PO008` on `po_number` (except `NULL` → value), `owner_id`, `created_at` changes |
 | `purchase_orders_status_transition` | `purchase_orders` | before update of `status`, row | `PO009` unless in `order_status_transitions` |
@@ -125,9 +125,9 @@ INV-3 (receipts) joins in slice 6.
 
 | Action | Entity | `details` |
 |---|---|---|
-| `PO_CREATED` | `ORDER`, id | `vendor: { id, name }`, `lines: [{ id, description, quantity, unitPrice, lineTotal }]`, `total` |
-| `PO_EDITED` | `ORDER`, id | `vendor: { before, after }` when changed; `lines: { added: [line], removed: [line], changed: [{ id, position?, description?, quantity?, unitPrice?, lineTotal? } as { before, after } per changed field] }`; `total: { before, after }` |
-| `PO_DRAFT_DELETED` | `ORDER`, id | `poNumber`, `vendor`, `lines` (full), `total`, `reason` (or `null`) |
+| `PO_CREATED` | `order`, id | `vendor: { id, name }`, `lines: [{ id, description, quantity, unitPrice, lineTotal }]`, `total` |
+| `PO_EDITED` | `order`, id | `vendor: { before, after }` when changed; `lines: { added: [line], removed: [line], changed: [{ id, position?, description?, quantity?, unitPrice?, lineTotal? } as { before, after } per changed field] }`; `total: { before, after }` |
+| `PO_DRAFT_DELETED` | `order`, id | `poNumber`, `vendor`, `lines` (full), `total`, `reason` (or `null`) |
 
 Every entry carries `order_id` and `po_number` columns, actor, `actingRole: BUYER`,
 request id. Money in `details` is `Money` strings.

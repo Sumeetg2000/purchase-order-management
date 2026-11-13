@@ -184,6 +184,12 @@ BEGIN
   IF order_ids IS NULL OR cardinality(order_ids) = 0 THEN
     RETURN;
   END IF;
+  -- Lock the orders first, in id order (no deadlock between two multi-order statements),
+  -- so a concurrent line change waits for this transaction to commit. The sum below is a
+  -- new statement, so after the wait it reads the lines the other transaction committed;
+  -- without the lock, each would write a total from its own snapshot (lost update).
+  PERFORM 1 FROM public.purchase_orders
+    WHERE id = ANY(order_ids) ORDER BY id FOR NO KEY UPDATE;
   PERFORM set_config('po.recompute', txid_current()::text, true);
   UPDATE public.purchase_orders o
      SET total = s.total, open_line_count = s.open_lines
@@ -212,6 +218,15 @@ AS $$
 DECLARE
   locked uuid;
 BEGIN
+  IF order_ids IS NULL OR cardinality(order_ids) = 0 THEN
+    RETURN;
+  END IF;
+  -- Lock the orders first, in id order, then read their status: a transaction changing the
+  -- status (slice 4's submit) or the lines holds this lock until it commits, so the check
+  -- sees its outcome, and two that each delete one of the last lines run one after the
+  -- other, the second failing PO007 at commit.
+  PERFORM 1 FROM public.purchase_orders
+    WHERE id = ANY(order_ids) ORDER BY id FOR NO KEY UPDATE;
   SELECT id INTO locked FROM public.purchase_orders
    WHERE id = ANY(order_ids) AND status <> 'DRAFT' LIMIT 1;
   IF locked IS NOT NULL THEN
@@ -222,7 +237,9 @@ END
 $$;
 
 -- One trigger per event: PostgreSQL allows transition tables only on single-event
--- triggers. Each runs once per statement, whatever the number of lines (ADR-0003).
+-- triggers. Each runs once per statement, whatever the number of lines (ADR-0003), and
+-- each locks the orders whose lines it changed (through order_lines_require_drafts or
+-- recompute_orders) before it reads them: any line change, a description alone included.
 CREATE FUNCTION order_lines_after_insert() RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
