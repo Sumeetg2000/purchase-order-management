@@ -55,3 +55,7 @@ export const ORDER_READ_ONLY_FIELDS = [
   'updatedAt',
   'lineCount',
 ] as const;
+
+/** The audit actions of an order's timeline (data-model.md). */
+export const ORDER_AUDIT_ACTIONS = ['PO_CREATED', 'PO_EDITED', 'PO_DRAFT_DELETED'] as const;
+export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];

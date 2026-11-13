@@ -451,6 +451,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Orders the caller may read, newest first (by PO number with a PO-number prefix), filtered by status, vendor, PO-number prefix and created date. */
+        get: operations["listOrders"];
+        put?: never;
+        /** Raise a draft order against an active vendor; the PO number, line totals and total are derived. */
+        post: operations["createOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An order's audit entries, newest first: its owner and Admins read it. */
+        get: operations["listOrderTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}": {
         parameters: {
             query?: never;
@@ -467,23 +502,6 @@ export interface paths {
         head?: never;
         /** Replace a draft's vendor and lines: lines with an id are updated, without one added, left out removed. */
         patch: operations["editOrder"];
-        trace?: never;
-    };
-    "/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Raise a draft order against an active vendor; the PO number, line totals and total are derived. */
-        post: operations["createOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
 }
@@ -511,21 +529,21 @@ export interface components {
             advancePercent: number;
             netDays: number;
         };
+        CreateOrderBody: {
+            /** Format: uuid */
+            vendorId: string;
+            lines: {
+                description: string;
+                quantity: number;
+                unitPrice: string;
+            }[];
+        };
         EditOrderBody: {
             /** Format: uuid */
             vendorId: string;
             lines: {
                 /** Format: uuid */
                 id?: string;
-                description: string;
-                quantity: number;
-                unitPrice: string;
-            }[];
-        };
-        CreateOrderBody: {
-            /** Format: uuid */
-            vendorId: string;
-            lines: {
                 description: string;
                 quantity: number;
                 unitPrice: string;
@@ -683,6 +701,34 @@ export interface components {
             /** @enum {string} */
             status: "ACTIVE" | "INACTIVE";
         };
+        PageOfOrderListItem: {
+            items: components["schemas"]["OrderListItem"][];
+            page: number;
+            pageSize: number;
+            total: number;
+        };
+        OrderListItem: {
+            /** Format: uuid */
+            id: string;
+            poNumber: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
+            vendor: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            owner: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            total: components["schemas"]["Money"];
+            lineCount: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        Money: string;
         Order: {
             /** Format: uuid */
             id: string;
@@ -710,7 +756,6 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        Money: string;
         OrderLine: {
             /** Format: uuid */
             id: string;
@@ -718,6 +763,29 @@ export interface components {
             quantity: number;
             unitPrice: components["schemas"]["Money"];
             lineTotal: components["schemas"]["Money"];
+        };
+        PageOfOrderTimelineItem: {
+            items: components["schemas"]["OrderTimelineItem"][];
+            page: number;
+            pageSize: number;
+            total: number;
+        };
+        OrderTimelineItem: {
+            id: string;
+            /** @enum {string} */
+            action: "PO_CREATED" | "PO_EDITED" | "PO_DRAFT_DELETED";
+            /** Format: date-time */
+            occurredAt: string;
+            actor: {
+                /** @enum {string} */
+                type: "USER" | "SYSTEM" | "OPERATOR";
+                name: string | null;
+                email: string | null;
+                role: ("BUYER" | "APPROVER" | "ADMIN" | "SELF") | null;
+            };
+            details: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: {
@@ -3592,6 +3660,276 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    listOrders: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
+                vendorId?: string;
+                poNumber?: string;
+                createdFrom?: string;
+                createdTo?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageOfOrderListItem"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED. */
+            503: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A new UUID per create, reused on retry: the same key and body return the original result; the same key with another body is IDEMPOTENCY_KEY_REUSED. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    /** @description The resource's version; send it back in If-Match to update it. */
+                    ETag: string;
+                    /** @description The path of the created resource. */
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code VENDOR_INACTIVE or IDEMPOTENCY_KEY_REUSED. */
+            409: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
+            413: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED. */
+            503: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listOrderTimeline: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageOfOrderTimelineItem"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NOT_FOUND. */
+            404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED. */
+            503: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     getOrder: {
         parameters: {
             query?: never;
@@ -3749,109 +4087,6 @@ export interface operations {
                 };
             };
             /** @description Problem document with code VERSION_CONFLICT or VENDOR_INACTIVE. */
-            409: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code PAYLOAD_TOO_LARGE. */
-            413: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code INTERNAL_ERROR. */
-            500: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED. */
-            503: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            default: components["responses"]["Problem"];
-        };
-    };
-    createOrder: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A new UUID per create, reused on retry: the same key and body return the original result; the same key with another body is IDEMPOTENCY_KEY_REUSED. */
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["CreateOrderBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    /** @description The resource's version; send it back in If-Match to update it. */
-                    ETag: string;
-                    /** @description The path of the created resource. */
-                    Location: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            /** @description Problem document with code VALIDATION_FAILED. */
-            400: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
-            401: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
-            403: {
-                headers: {
-                    "X-Request-Id": components["headers"]["XRequestId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Problem document with code VENDOR_INACTIVE or IDEMPOTENCY_KEY_REUSED. */
             409: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];

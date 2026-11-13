@@ -27,7 +27,14 @@ import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
 import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
-import { createOrderBody, editOrderBody, order } from './schemas/orders.js';
+import {
+  createOrderBody,
+  editOrderBody,
+  order,
+  orderListItem,
+  orderListQuery,
+  orderTimelineItem,
+} from './schemas/orders.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -486,6 +493,30 @@ export const OPERATIONS = {
     request: { params: idParams },
     responses: { 200: vendor },
     errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'],
+  },
+
+  // Slice 3, US5: find and read orders (research R7, R11).
+  listOrders: {
+    method: 'get',
+    path: '/orders',
+    operationId: 'listOrders',
+    summary:
+      'Orders the caller may read, newest first (by PO number with a PO-number prefix), filtered by status, vendor, PO-number prefix and created date.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { query: orderListQuery },
+    responses: { 200: pageOf(orderListItem).meta({ id: 'PageOfOrderListItem' }) },
+  },
+  listOrderTimeline: {
+    method: 'get',
+    path: '/orders/:id/timeline',
+    operationId: 'listOrderTimeline',
+    summary: "An order's audit entries, newest first: its owner and Admins read it.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { params: idParams, query: pageQuery },
+    responses: { 200: pageOf(orderTimelineItem).meta({ id: 'PageOfOrderTimelineItem' }) },
+    errors: ['NOT_FOUND'],
   },
 
   // Slice 3, US1: raise a draft and read it (specs/004-draft-orders/contracts/api.md).

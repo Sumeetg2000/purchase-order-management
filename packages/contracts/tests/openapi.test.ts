@@ -78,6 +78,8 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'updateVendor put /vendors/{id}',
         'listVendorHistory get /vendors/{id}/history',
         'deactivateVendor post /vendors/{id}/deactivate',
+        'listOrders get /orders',
+        'listOrderTimeline get /orders/{id}/timeline',
         'getOrder get /orders/{id}',
         'createOrder post /orders',
         'editOrder patch /orders/{id}',

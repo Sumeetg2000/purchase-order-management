@@ -422,7 +422,7 @@ the owner added on 2026-11-12**.
 
 **Independent test**: the matrix rows for create, read, edit against six caller kinds.
 
-- [ ] T045 [US6] Matrix tests, seen failing where not yet covered: Buyer B → `404` on
+- [X] T045 [US6] Matrix tests, seen failing where not yet covered: Buyer B → `404` on
   Buyer A's draft read and edit; Approver read → `404`, create → `403` before body
   validation (invalid body still 403); no role → `403 NO_ROLE_ASSIGNED` with an invalid
   body; anonymous → `401`; **Admin create and edit → `403 FORBIDDEN` with `detail` =
@@ -432,7 +432,7 @@ the owner added on 2026-11-12**.
   `backend/tests/integration/orders-access.test.ts`,
   `backend/tests/integration/authorization-matrix.test.ts` — FR-019, SC-006 (FR-OWN-01,
   NFR-AUTH-01, NFR-AUTH-02).
-- [ ] T046 [US6] Fixes from T045 (expected: the Admin `detail` set where the route-level
+- [X] T046 [US6] Fixes from T045 (expected: the Admin `detail` set where the route-level
   `FORBIDDEN` is raised for an order write by an Admin; ADMIN is never combined with
   another role, ADR-0016) —
   `backend/src/orders/routes.ts` or the authorize hook it uses — T045 green.
@@ -450,7 +450,7 @@ the owner added on 2026-11-12**.
 
 **Independent test**: two Buyers' orders seeded; scoping, filters, pagination, timeline.
 
-- [ ] T049 [P] [US5] List tests, seen failing: Buyer sees own only, Admin all, Approver
+- [X] T049 [P] [US5] List tests, seen failing: Buyer sees own only, Admin all, Approver
   none (no non-drafts exist; asserted on a non-draft set by the superuser with triggers
   off); **Buyer+Approver gets one list = own orders ∪ every non-draft order (owner cell
   2, 2026-11-12)**; sort `createdAt DESC, id DESC`; each filter alone and combined
@@ -460,15 +460,15 @@ the owner added on 2026-11-12**.
   query; vendor dialog query (`vendorId`, `status=DRAFT`, `pageSize=1`) returns the
   caller's draft count only — `backend/tests/integration/orders-list.test.ts` — FR-015,
   FR-016, FR-024 (FR-OWN-01, NFR-PERF-01).
-- [ ] T050 [P] [US5] Timeline tests, seen failing: owner and Admin read it paginated,
+- [X] T050 [P] [US5] Timeline tests, seen failing: owner and Admin read it paginated,
   newest first, each item actor, capacity, time, details; other Buyer and Approver →
   `404`; an Admin asking for the timeline of a well-formed id that never existed → `404`
   (not an empty page); `GET /orders/not-a-uuid/timeline` → `400` — `backend/tests/integration/orders-timeline.test.ts` — FR-018 (NFR-AUD-03).
-- [ ] T051 [US5] Repository list/count with the scope and filter predicates of R7 (one
+- [X] T051 [US5] Repository list/count with the scope and filter predicates of R7 (one
   page query, one `COUNT`, one line-count query); timeline via `listEntityHistory('ORDER',
   id)`; services `listOrders`, `listOrderTimeline` — `backend/src/orders/repository.ts`,
   `service.ts`.
-- [ ] T052 [US5] Operations `listOrders` and `listOrderTimeline` (all three roles):
+- [X] T052 [US5] Operations `listOrders` and `listOrderTimeline` (all three roles):
   contract, routes, OpenAPI list, matrix pins (lists: own / readable / all; timeline:
   own / readable / all) — `packages/contracts/src/operations.ts`,
   `backend/src/orders/routes.ts`, `backend/tests/integration/authorization-matrix.test.ts`

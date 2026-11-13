@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import { money, toMoney, UNIT_PRICE_INPUT_PATTERN } from '../money.js';
+import { AUDIT_ACTOR_TYPES } from '../audit.js';
+import { ACTING_ROLES } from '../users.js';
 import {
   DELETE_REASON_MAX,
   LINE_DESCRIPTION_MAX,
   LINE_QUANTITY_MAX,
   ORDER_LINES_MAX,
+  ORDER_AUDIT_ACTIONS,
   ORDER_LINES_MIN,
   ORDER_READ_ONLY_FIELDS,
   ORDER_STATUSES,
@@ -142,6 +145,24 @@ export const orderListQuery = z
     params: { fieldCode: 'OUT_OF_RANGE' },
   });
 
+/** One entry of an order's timeline: who acted, in what capacity, when, and what changed. */
+export const orderTimelineItem = z
+  .strictObject({
+    /** The audit entry's id. */
+    id: z.string(),
+    action: z.enum(ORDER_AUDIT_ACTIONS),
+    occurredAt: z.iso.datetime(),
+    actor: z.strictObject({
+      type: z.enum(AUDIT_ACTOR_TYPES),
+      name: z.string().nullable(),
+      email: z.string().nullable(),
+      role: z.enum(ACTING_ROLES).nullable(),
+    }),
+    /** As the action's catalogue entry records it (data-model.md); amounts as Money. */
+    details: z.record(z.string(), z.unknown()),
+  })
+  .meta({ id: 'OrderTimelineItem' });
+
 export type CreateOrderBody = z.infer<typeof createOrderBody>;
 export type EditOrderBody = z.infer<typeof editOrderBody>;
 export type DeleteOrderBody = z.infer<typeof deleteOrderBody>;
@@ -149,3 +170,4 @@ export type OrderLine = z.infer<typeof orderLine>;
 export type Order = z.infer<typeof order>;
 export type OrderListItem = z.infer<typeof orderListItem>;
 export type OrderListQuery = z.infer<typeof orderListQuery>;
+export type OrderTimelineItem = z.infer<typeof orderTimelineItem>;

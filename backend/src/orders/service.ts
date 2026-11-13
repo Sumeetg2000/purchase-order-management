@@ -5,7 +5,14 @@ import {
   type CreateOrderBody,
   type EditOrderBody,
   type Order,
+  type OrderListItem,
+  type OrderListQuery,
+  type OrderTimelineItem,
+  type Page,
+  type PageQuery,
 } from '@po/contracts';
+import { listEntityHistory, type EntityHistoryRow } from '../audit/repository.js';
+import { pageArgs } from '../lib/pagination.js';
 import type { AuditLineChange } from '../audit/events.js';
 import type { AuthenticatedUser } from '../auth/service.js';
 import { writeAudit } from '../audit/write.js';
@@ -25,10 +32,13 @@ import {
   deleteOrderLines,
   insertOrder,
   insertOrderLines,
+  listOrders,
   lockOrder,
   lockOrderLines,
   selectOrder,
+  selectOrderAccess,
   updateOrderLines,
+  type OrderListScope,
   type OrderRow,
 } from './repository.js';
 
@@ -61,6 +71,14 @@ export interface OrdersService {
     target: { id: string; version: number; body: EditOrderBody },
     ctx: RequestContext,
   ): Promise<Order>;
+  /** The orders the caller may read, filtered and paged in the database (research R7). */
+  listOrders(user: AuthenticatedUser, query: OrderListQuery): Promise<Page<OrderListItem>>;
+  /** An order's audit entries, newest first, for those who may read it; else NOT_FOUND. */
+  listOrderTimeline(
+    user: AuthenticatedUser,
+    id: string,
+    query: PageQuery,
+  ): Promise<Page<OrderTimelineItem>>;
   /** An order the caller may read (ADR-0004); NOT_FOUND otherwise, never FORBIDDEN. */
   getOrder(user: AuthenticatedUser, id: string): Promise<Order>;
 }
@@ -103,6 +121,33 @@ function lineChange(
     ...(lineTotals.before === lineTotals.after
       ? {}
       : { lineTotal: { before: toMoney(lineTotals.before), after: toMoney(lineTotals.after) } }),
+  };
+}
+
+/**
+ * The orders a user's roles let them read (ADR-0004): an Admin all of them; a Buyer their
+ * own; an Approver every non-draft; a Buyer+Approver both, in one list (2026-11-12).
+ */
+export function listScopeOf(user: Pick<AuthenticatedUser, 'userId' | 'roles'>): OrderListScope {
+  if (user.roles.includes(ROLE.ADMIN)) return { kind: 'all' };
+  const buyer = user.roles.includes(ROLE.BUYER);
+  const approver = user.roles.includes(ROLE.APPROVER);
+  if (buyer && approver) return { kind: 'ownOrNonDraft', userId: user.userId };
+  return buyer ? { kind: 'own', userId: user.userId } : { kind: 'nonDraft' };
+}
+
+function toTimelineItem(row: EntityHistoryRow): OrderTimelineItem {
+  return {
+    id: row.id,
+    action: row.action as OrderTimelineItem['action'],
+    occurredAt: row.occurredAt.toISOString(),
+    actor: {
+      type: row.actorType as OrderTimelineItem['actor']['type'],
+      name: row.actorName,
+      email: row.actorEmail,
+      role: row.actingRole as OrderTimelineItem['actor']['role'],
+    },
+    details: row.details as Record<string, unknown>,
   };
 }
 
@@ -255,6 +300,28 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
         });
         return after;
       }),
+
+    listOrders: async (user, query) => {
+      const { page, pageSize, ...filter } = query;
+      const { items, total } = await withDatabase(() =>
+        listOrders(deps.prisma, listScopeOf(user), filter, pageArgs({ page, pageSize })),
+      );
+      return { items, page, pageSize, total };
+    },
+
+    listOrderTimeline: async (user, id, query) => {
+      const order = await withDatabase(() => selectOrderAccess(deps.prisma, id));
+      if (!order || !canRead(user, order)) throw new AppError('NOT_FOUND');
+      const { rows, total } = await withDatabase(() =>
+        listEntityHistory(deps.prisma, { entityType: 'order', entityId: id }, pageArgs(query)),
+      );
+      return {
+        items: rows.map(toTimelineItem),
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+      };
+    },
 
     getOrder: async (user, id) => {
       const stored = await withDatabase(() => selectOrder(deps.prisma, id));

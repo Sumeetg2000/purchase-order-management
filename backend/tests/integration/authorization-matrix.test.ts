@@ -49,6 +49,8 @@ const PINNED_ACCESS: Record<string, Access> = {
   listVendorHistory: 'role',
   deactivateVendor: 'role',
   reactivateVendor: 'role',
+  listOrders: 'role',
+  listOrderTimeline: 'role',
   getOrder: 'role',
   createOrder: 'role',
   editOrder: 'role',
@@ -63,6 +65,8 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   listVendorHistory: ['BUYER', 'ADMIN'],
   deactivateVendor: ['BUYER'],
   reactivateVendor: ['BUYER'],
+  listOrders: ['BUYER', 'APPROVER', 'ADMIN'],
+  listOrderTimeline: ['BUYER', 'APPROVER', 'ADMIN'],
   getOrder: ['BUYER', 'APPROVER', 'ADMIN'],
   createOrder: ['BUYER'],
   editOrder: ['BUYER'],
@@ -185,10 +189,10 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 34 operations (2 health checks, 22 of slice 1, 7 vendor ones,
-    // 3 order ones so far) × 6 callers.
+    // Zero cells untested: 36 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 5 order ones so far) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(34);
+    expect(operations).toHaveLength(36);
   });
 });
 

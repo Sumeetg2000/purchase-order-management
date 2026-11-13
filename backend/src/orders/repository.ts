@@ -1,4 +1,13 @@
-import type { Money, OrderStatus, VendorStatus } from '@po/contracts';
+import {
+  ORDER_STATUSES,
+  PO_NUMBER_TIME_ZONE,
+  type Money,
+  type OrderListItem,
+  type OrderStatus,
+  type VendorStatus,
+} from '@po/contracts';
+import { Prisma } from '../generated/prisma/client.js';
+import type { PageArgs } from '../lib/pagination.js';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 
@@ -164,5 +173,184 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
       JOIN users u ON u.id = o.owner_id
       JOIN vendors v ON v.id = o.vendor_id
      WHERE o.id = ${id}::uuid`;
+  return row ?? null;
+}
+
+/** Who the list is for (ADR-0004, research R11): the orders their roles let them read. */
+export type OrderListScope =
+  | { kind: 'all' }
+  | { kind: 'own'; userId: string }
+  | { kind: 'nonDraft' }
+  | { kind: 'ownOrNonDraft'; userId: string };
+
+export interface OrderListFilter {
+  status?: OrderStatus | undefined;
+  vendorId?: string | undefined;
+  /** A PO-number prefix, upper-cased by the contract. */
+  poNumber?: string | undefined;
+  /** Inclusive calendar dates (YYYY-MM-DD) in PO_NUMBER_TIME_ZONE. */
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
+}
+
+const NON_DRAFT_STATUSES = ORDER_STATUSES.filter((status) => status !== 'DRAFT');
+
+/** One part of a scope that a single index serves: an owner, a status, or both. */
+interface Branch {
+  owner?: { userId: string; mine: boolean };
+  status?: OrderStatus;
+}
+
+/**
+ * The scope as branches whose union is what the caller may read, each one walkable on its
+ * own index in the list's order (research R7): a Buyer's own orders on the owner indexes,
+ * an Approver's non-drafts one status at a time on the status index, so a union of
+ * branches is a merge of ordered index scans that stops at the page. A status filter keeps
+ * the branches it can match.
+ */
+function branchesOf(scope: OrderListScope, status: OrderStatus | undefined): Branch[] {
+  const nonDraft = (owner?: Branch['owner']) =>
+    NON_DRAFT_STATUSES.map((s): Branch => (owner ? { status: s, owner } : { status: s }));
+  const all: Branch[] =
+    scope.kind === 'all'
+      ? [{}]
+      : scope.kind === 'own'
+        ? [{ owner: { userId: scope.userId, mine: true } }]
+        : scope.kind === 'nonDraft'
+          ? nonDraft()
+          : [
+              { owner: { userId: scope.userId, mine: true } },
+              // Not the caller's own: those are in the first branch already.
+              ...nonDraft({ userId: scope.userId, mine: false }),
+            ];
+  if (status === undefined) return all;
+  return all
+    .filter((b) => b.status === undefined || b.status === status)
+    .map((b) => ({ ...b, status }));
+}
+
+/** A status as an SQL literal: from the contract's own list, so the planner sees it. */
+function statusLiteral(status: OrderStatus): Prisma.Sql {
+  if (!ORDER_STATUSES.includes(status)) throw new TypeError(`unknown order status ${status}`);
+  return Prisma.raw(`'${status}'`);
+}
+
+/** The highest code point: every PO number with prefix p sorts below p || chr(MAX_CHAR). */
+const MAX_CHAR = 1_114_111;
+
+function filterConditions(filter: OrderListFilter): Prisma.Sql[] {
+  const conditions: Prisma.Sql[] = [];
+  if (filter.vendorId !== undefined)
+    conditions.push(Prisma.sql`vendor_id = ${filter.vendorId}::uuid`);
+  if (filter.poNumber !== undefined) {
+    // A range on the "C"-collated column, so the index serves it under a generic plan too.
+    conditions.push(Prisma.sql`po_number >= ${filter.poNumber}
+      AND po_number < ${filter.poNumber} || chr(${MAX_CHAR}::int)`);
+  }
+  if (filter.createdFrom !== undefined) {
+    conditions.push(
+      Prisma.sql`created_at >= (${filter.createdFrom}::date::timestamp AT TIME ZONE ${PO_NUMBER_TIME_ZONE})`,
+    );
+  }
+  if (filter.createdTo !== undefined) {
+    conditions.push(
+      Prisma.sql`created_at < ((${filter.createdTo}::date + 1)::timestamp AT TIME ZONE ${PO_NUMBER_TIME_ZONE})`,
+    );
+  }
+  return conditions;
+}
+
+function branchSql(branch: Branch, filters: Prisma.Sql[], columns: Prisma.Sql): Prisma.Sql {
+  const conditions = [...filters];
+  if (branch.owner) {
+    conditions.push(
+      branch.owner.mine
+        ? Prisma.sql`owner_id = ${branch.owner.userId}::uuid`
+        : Prisma.sql`owner_id <> ${branch.owner.userId}::uuid`,
+    );
+  }
+  if (branch.status) conditions.push(Prisma.sql`status = ${statusLiteral(branch.status)}`);
+  const where =
+    conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}` : Prisma.empty;
+  return Prisma.sql`SELECT ${columns} FROM purchase_orders ${where}`;
+}
+
+const PAGE_COLUMNS = Prisma.sql`id, po_number, status, owner_id, vendor_id, total, created_at`;
+
+export interface OrderListSql {
+  /** What the API runs: the page and the total in one statement, one snapshot. */
+  statement: Prisma.Sql;
+  /** Its parts, each planned on its own: for the plan tests and committed plans. */
+  page: Prisma.Sql;
+  count: Prisma.Sql;
+}
+
+/**
+ * The order list's SQL (research R7): the scope's branches with the filters, sorted newest
+ * first (created time, then id), or by PO number, newest first, with a PO-number prefix
+ * (owner decision, 2026-11-12), each sort served by an index.
+ */
+export function orderListSql(
+  scope: OrderListScope,
+  filter: OrderListFilter,
+  { offset, limit }: PageArgs,
+): OrderListSql {
+  const filters = filterConditions(filter);
+  const branches = branchesOf(scope, filter.status);
+  const union = (columns: Prisma.Sql) =>
+    branches.length === 0
+      ? Prisma.sql`SELECT ${columns} FROM purchase_orders WHERE false`
+      : Prisma.join(
+          branches.map((b) => branchSql(b, filters, columns)),
+          ' UNION ALL ',
+        );
+  const byPoNumber = filter.poNumber !== undefined;
+  const order = (alias: string) =>
+    byPoNumber
+      ? Prisma.raw(`${alias}.po_number DESC`)
+      : Prisma.raw(`${alias}.created_at DESC, ${alias}.id DESC`);
+  const page = Prisma.sql`SELECT o.* FROM (${union(PAGE_COLUMNS)}) o
+     ORDER BY ${order('o')} LIMIT ${limit} OFFSET ${offset}`;
+  const count = Prisma.sql`SELECT count(*) FROM (${union(Prisma.sql`1 AS one`)}) c`;
+  const statement = Prisma.sql`
+    SELECT (${count})::int AS total,
+           coalesce((
+             SELECT json_agg(json_build_object(
+                      'id', p.id::text,
+                      'poNumber', p.po_number,
+                      'status', p.status,
+                      'vendor', json_build_object('id', p.vendor_id::text, 'name', v.name),
+                      'owner', json_build_object('id', p.owner_id::text, 'name', u.name),
+                      'total', p.total::text,
+                      'lineCount', (SELECT count(*) FROM order_lines l WHERE l.order_id = p.id),
+                      'createdAt', to_char(p.created_at AT TIME ZONE 'UTC',
+                                           'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+                    ORDER BY ${order('p')})
+               FROM (${page}) p
+               JOIN users u ON u.id = p.owner_id
+               JOIN vendors v ON v.id = p.vendor_id), '[]'::json) AS items`;
+  return { statement, page, count };
+}
+
+/** One page of the list and its total, from one statement, so they always agree. */
+export async function listOrders(
+  db: Db,
+  scope: OrderListScope,
+  filter: OrderListFilter,
+  page: PageArgs,
+): Promise<{ items: OrderListItem[]; total: number }> {
+  const [row] = await db.$queryRaw<{ total: number; items: OrderListItem[] }[]>(
+    orderListSql(scope, filter, page).statement,
+  );
+  return { items: row?.items ?? [], total: row?.total ?? 0 };
+}
+
+/** Who owns an order and its status, for reads that need only its visibility. */
+export async function selectOrderAccess(
+  db: Db,
+  id: string,
+): Promise<{ ownerId: string; status: OrderStatus } | null> {
+  const [row] = await db.$queryRaw<{ ownerId: string; status: OrderStatus }[]>`
+    SELECT owner_id::text AS "ownerId", status FROM purchase_orders WHERE id = ${id}::uuid`;
   return row ?? null;
 }

@@ -4,6 +4,8 @@ import {
   OPERATIONS,
   type CreateOrderBody,
   type EditOrderBody,
+  type OrderListQuery,
+  type PageQuery,
 } from '@po/contracts';
 import {
   defineRoute,
@@ -18,6 +20,24 @@ import type { OrdersService } from './service.js';
 
 export function orderRoutes(orders: OrdersService): RouteDefinition[] {
   return [
+    defineRoute({
+      ...OPERATIONS.listOrders,
+      handler: async (req, res) => {
+        res.json(await orders.listOrders(authOf(res), req.query as unknown as OrderListQuery));
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.listOrderTimeline,
+      handler: async (req, res) => {
+        res.json(
+          await orders.listOrderTimeline(
+            authOf(res),
+            idParamOf(req),
+            req.query as unknown as PageQuery,
+          ),
+        );
+      },
+    }),
     defineRoute({
       ...OPERATIONS.getOrder,
       handler: async (req, res) => {
