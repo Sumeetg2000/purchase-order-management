@@ -1,4 +1,5 @@
 import { oneOf } from '@po/contracts';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 
 /** A query-string value if it is one of the allowed ones, else undefined. */
@@ -49,32 +50,52 @@ export function useListParams<const S extends ListParamSpec>(
   { defaults = {} }: ListParamsOptions<S> = {},
 ) {
   const [search, setSearch] = useSearchParams();
-  const values = {} as Record<string, string | number | undefined>;
-  for (const [key, allowed] of Object.entries(spec)) {
-    const raw = search.get(key);
-    values[key] = allowed === TEXT ? raw?.trim() || undefined : pickOne(raw, allowed);
-  }
-  values.page = pageParam(search.get('page'));
-  const params = values as ListParams<S>;
+  const read = (from: URLSearchParams) => {
+    const found = {} as Record<string, string | number | undefined>;
+    for (const [key, allowed] of Object.entries(spec)) {
+      const raw = from.get(key);
+      found[key] = allowed === TEXT ? raw?.trim() || undefined : pickOne(raw, allowed);
+    }
+    found.page = pageParam(from.get('page'));
+    return found;
+  };
+  const params = read(search) as ListParams<S>;
+  // The URL last written, until a render shows it: React Router's function form of
+  // setSearchParams gives this render's params, not the latest navigation's.
+  const written = useRef<URLSearchParams | undefined>(undefined);
+  useEffect(() => {
+    written.current = undefined;
+  }, [search]);
 
-  const write = (next: Record<string, string | number | undefined>, replace: boolean) => {
+  /**
+   * Writes the next URL from the one current when the change is made, not from this
+   * render's: two changes before the next render (a filter chosen as a debounced search
+   * fires) must both land.
+   */
+  const write = (
+    next: (
+      current: Record<string, string | number | undefined>,
+    ) => Record<string, string | number | undefined>,
+    replace: boolean,
+  ) => {
     const shown = Object.fromEntries(
-      Object.entries(next).map(([key, value]) => [
+      Object.entries(next(read(written.current ?? search))).map(([key, value]) => [
         key,
         value === (defaults as Record<string, unknown>)[key] ? undefined : value,
       ]),
     );
-    setSearch(toSearch(shown), { replace });
+    written.current = toSearch(shown);
+    setSearch(written.current, { replace });
   };
 
   return {
     params,
     /** Changes filters and goes back to page 1; `replace` for as-you-type changes. */
     show: (next: Partial<ListParams<S>>, { replace = false }: { replace?: boolean } = {}) => {
-      write({ ...values, page: 1, ...next }, replace);
+      write((current) => ({ ...current, page: 1, ...next }), replace);
     },
     setPage: (page: number) => {
-      write({ ...values, page }, false);
+      write((current) => ({ ...current, page }), false);
     },
   };
 }
