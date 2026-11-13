@@ -107,7 +107,7 @@ slice's draft PR) and a short summary stop.
   runs as `po_app` — `backend/src/db/reconciliation.sql`,
   `backend/src/db/reconciliation.ts` (runner), `backend/tests/integrity/reconciliation.test.ts`
   — data-model (NFR-DATA-01).
-- [ ] T006 Reconciliation after every suite: the shared `afterEach` in
+- [X] T006 Reconciliation after every suite: the shared `afterEach` in
   `backend/tests/support/setup.ts` runs the reconciliation on each tracked database
   (where the order tables exist) before dropping it and fails on any row; a planted
   violation in a throwaway test proves it fires, then is removed —

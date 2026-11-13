@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { plantsViolations } from '../support/setup.js';
 import {
   ACTOR_CONTEXT_REQUIRED,
   CHECK_VIOLATION,
@@ -167,6 +168,8 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
 
   it('[FR-PO-01] an order defaults to DRAFT, version 1, total 0 and no open lines', async () => {
     const f = await orderFixture();
+    // A bare order row, planted below the guards: no lines and no PO number.
+    plantsViolations(f.db);
     const orderId = randomUUID();
     await inTransaction(f.superuser, async (q) => {
       await q.query(`SET LOCAL session_replication_role = replica`);

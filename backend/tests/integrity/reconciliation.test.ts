@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { plantsViolations } from '../support/setup.js';
 import {
   createDraft,
   orderFixture,
@@ -71,6 +72,7 @@ describe('[NFR-DATA-01] reconciliation query', () => {
 
   it('[NFR-DATA-01] INV-2: an order total that is not the sum of its lines', async () => {
     const f = await orderFixture();
+    plantsViolations(f.db);
     const { orderId } = await consistentDraft(f, [{ quantity: 2, unitPrice: '5' }]);
     await plant(f, `UPDATE purchase_orders SET total = 9 WHERE id = $1`, [orderId]);
     expect(await reconciliationRows(f.app)).toEqual([
@@ -91,6 +93,7 @@ describe('[NFR-DATA-01] reconciliation query', () => {
 
   it('[NFR-DATA-01] INV-5: an order with no line', async () => {
     const f = await orderFixture();
+    plantsViolations(f.db);
     const { orderId } = await consistentDraft(f, [{ quantity: 2, unitPrice: '5' }]);
     await plant(f, `DELETE FROM order_lines WHERE order_id = $1`, [orderId]);
     const rows = (await reconciliationRows(f.app)).map((r) => [r.invariant, r.entity_id]);
@@ -104,6 +107,7 @@ describe('[NFR-DATA-01] reconciliation query', () => {
 
   it('[NFR-DATA-01] INV-6: an open-line count that is not the count of open lines', async () => {
     const f = await orderFixture();
+    plantsViolations(f.db);
     const { orderId } = await consistentDraft(f, [
       { quantity: 2, unitPrice: '5' },
       { quantity: 1, unitPrice: '5' },
@@ -116,6 +120,7 @@ describe('[NFR-DATA-01] reconciliation query', () => {
 
   it('[NFR-DATA-01] an order committed without a PO number', async () => {
     const f = await orderFixture();
+    plantsViolations(f.db);
     const orderId = randomUUID();
     await plant(
       f,
