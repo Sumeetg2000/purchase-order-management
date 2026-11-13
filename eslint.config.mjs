@@ -8,6 +8,10 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+/** An identifier or property named like an amount of money. */
+const MONEY_NAMED =
+  ':matches(Identifier[name=/(price|total|amount|money)/i], MemberExpression[property.name=/(price|total|amount|money)/i])';
+
 // Banned everywhere. Later tasks append selectors here.
 const restrictedSyntax = [
   {
@@ -22,6 +26,20 @@ const restrictedSyntax = [
   {
     selector: "MemberExpression[object.name='Prisma'][property.name='Decimal']",
     message: 'Read NUMERIC columns as text and use money.ts; never Prisma.Decimal (ADR-0010).',
+  },
+  // No amount ever becomes a JavaScript number (ADR-0010): money stays a decimal string
+  // through money.ts. Caught by name: anything called like a price, total, amount or money.
+  {
+    selector: `CallExpression[callee.name=/^(Number|parseFloat|parseInt)$/] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
+  },
+  {
+    selector: `CallExpression[callee.object.name='Number'][callee.property.name=/^parse/] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
+  },
+  {
+    selector: `UnaryExpression[operator='+'] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
   },
   {
     selector: "TSQualifiedName[left.name='Prisma'][right.name='Decimal']",

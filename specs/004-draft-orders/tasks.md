@@ -347,7 +347,7 @@ one `PO_CREATED`.
   Admin ✓) — `packages/contracts/src/operations.ts`, `backend/src/orders/routes.ts`,
   `backend/src/api.ts`, `packages/contracts/tests/body-inventory.test.ts`,
   `backend/tests/integration/authorization-matrix.test.ts` — T027–T030 green.
-- [ ] T034 [P] [US1] Web tests, seen failing: editor (create) renders, adds and removes
+- [X] T034 [P] [US1] Web tests, seen failing: editor (create) renders, adds and removes
   lines, shows live line totals and total from `money.ts`, row-level errors inline, save
   disabled while invalid or pending, so a double click sends one request; the web app
   sends an `Idempotency-Key` on every create (asserted on the MSW request), one per
@@ -355,7 +355,7 @@ one `PO_CREATED`.
   `VENDOR_INACTIVE` banner focuses the vendor picker; vendor picker lists active vendors
   only; axe clean — `frontend/tests/order-editor.test.tsx` — FR-023 (NFR-FE-03,
   NFR-FE-04, NFR-FE-06).
-- [ ] T035 [US1] Web: `OrderEditor` (TanStack Virtual line table, keyboard reachable,
+- [X] T035 [US1] Web: `OrderEditor` (TanStack Virtual line table, keyboard reachable,
   move up/down) for create, `OrderDetail` (header, lines, total in en-IN INR), queries,
   routes `/orders/new` and `/orders/:id` — `frontend/src/pages/orders/`,
   `frontend/src/app/router.tsx` — T034 green.
