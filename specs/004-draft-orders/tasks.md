@@ -197,7 +197,7 @@ slice's draft PR) and a short summary stop.
 
 ### Audit, idempotency, web plumbing
 
-- [ ] T017 [P] Audit events `PO_CREATED`, `PO_EDITED`, `PO_DRAFT_DELETED` (`entityType:
+- [X] T017 [P] Audit events `PO_CREATED`, `PO_EDITED`, `PO_DRAFT_DELETED` (`entityType:
   'ORDER'`, `order_id` and `po_number` carried, `details` exactly as data-model.md with
   `Money` strings), with a unit test of each details schema —
   `backend/src/audit/events.ts`, `backend/tests/unit/audit-write.test.ts` — FR-020.

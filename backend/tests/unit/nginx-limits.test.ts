@@ -1,4 +1,9 @@
-import { BODY_LIMIT_BYTES, OPERATIONS, ORDER_BODY_LIMIT_BYTES } from '@po/contracts';
+import {
+  BODY_LIMIT_BYTES,
+  OPERATIONS,
+  ORDER_BODY_LIMIT_BYTES,
+  type OperationContract,
+} from '@po/contracts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -52,7 +57,8 @@ describe("[NFR-VAL-01] nginx body limits equal the API's", () => {
     const opener = 'location ~ ^/api/orders(/[^/]+)?$ {';
     expect(limitIn(block(opener))).toBe(ORDER_BODY_LIMIT_BYTES);
     const pattern = /^\/api\/orders(\/[^/]+)?$/;
-    const larger = Object.values(OPERATIONS).filter(
+    const operations: Readonly<Record<string, OperationContract>> = OPERATIONS;
+    const larger = Object.values(operations).filter(
       (op) => (op.bodyLimitBytes ?? BODY_LIMIT_BYTES) > BODY_LIMIT_BYTES,
     );
     for (const op of larger) {
