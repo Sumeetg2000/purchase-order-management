@@ -218,6 +218,13 @@ ready_at="$(date +%s)"
 eventually "the api's mail reaches Mailpit over SMTP" api_mail_reaches_mailpit
 eventually "a 3 MB POST gets the edge's problem+json 413" oversized_post
 eventually "a token in a URL or Referer never reaches the web access log" token_not_logged
+# Once, not retried: each run creates two demo orders.
+APP_ORIGIN_VALUE="${APP_ORIGIN:-$(sed -n 's/^APP_ORIGIN=//p' .env 2>/dev/null || true)}"
+if BASE="$BASE" ORIGIN="${APP_ORIGIN_VALUE:-http://localhost:${WEB_PORT}}" scripts/smoke-order-limits.sh; then
+  pass "order-write body limits through the edge"
+else
+  fail "order-write body limits through the edge"
+fi
 
 # Last, because it stops the API: the edge's own 502/504 is problem+json too. The API is
 # started again and must become healthy before the script ends.

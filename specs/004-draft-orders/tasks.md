@@ -550,7 +550,7 @@ the owner added on 2026-11-12**.
   20 lines, one against a vendor then deactivated); refused in production; reconciliation
   zero after seeding; test extended — `backend/src/migrate/seed-demo.ts`,
   `backend/tests/integration/seed-demo.test.ts` — FR-026.
-- [ ] T065 [P] Compose smoke through nginx: the largest valid order (raw and escaped) →
+- [X] T065 [P] Compose smoke through nginx: the largest valid order (raw and escaped) →
   `201` and `ORDER_BODY_LIMIT_BYTES + 1` → `413`; a 1 MiB + 1 body on another `/api/`
   route → `413` — `scripts/smoke.sh` — R8.
 - [ ] T066 [P] Editor benchmark: 500-line order, 4× CPU throttling: keystroke → paint p95
