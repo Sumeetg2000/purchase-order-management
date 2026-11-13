@@ -201,13 +201,13 @@ slice's draft PR) and a short summary stop.
   'ORDER'`, `order_id` and `po_number` carried, `details` exactly as data-model.md with
   `Money` strings), with a unit test of each details schema —
   `backend/src/audit/events.ts`, `backend/tests/unit/audit-write.test.ts` — FR-020.
-- [ ] T018 [P] Idempotency repository tests, seen failing, then the repository:
+- [X] T018 [P] Idempotency repository tests, seen failing, then the repository:
   `claim(userId, operation, key, hash)` inserts or returns the stored row; `complete(…,
   status, response)` in the same transaction; a rolled-back claim leaves no row; a
   concurrent claim of the same key waits, then sees the stored result —
   `backend/tests/integration/idempotency.test.ts`, `backend/src/idempotency/repository.ts`
   — R5 (NFR-CON-01).
-- [ ] T019 [P] Purge: idempotency keys older than `IDEMPOTENCY_KEY_TTL_HOURS` deleted
+- [X] T019 [P] Purge: idempotency keys older than `IDEMPOTENCY_KEY_TTL_HOURS` deleted
   under `po_maintenance`; test first, with the injected clock —
   `backend/src/maintenance/purge.ts`, `backend/tests/integration/purge.test.ts` — R5.
 - [ ] T020 [P] Web: messages for `IDEMPOTENCY_KEY_REUSED` and the three field codes;
