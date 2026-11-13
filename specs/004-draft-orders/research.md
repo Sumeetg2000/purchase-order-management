@@ -49,7 +49,9 @@ and R7's PO-number sort.
   2. `INSERT INTO po_number_counters (fy, last_value) VALUES (po_financial_year(now()), 1)
      ON CONFLICT (fy) DO UPDATE SET last_value = po_number_counters.last_value + 1
      RETURNING fy, last_value`
-  3. `UPDATE purchase_orders SET po_number = format('PO-%s-%s', fy, lpad(seq, 6, '0'))`
+  3. `UPDATE purchase_orders SET po_number = format('PO-%s-%s', fy, lpad(seq, greatest(6,
+     length(seq)), '0'))`: at least 6 digits, never cut (plain `lpad(seq, 6)` turns
+     1000000 into 100000, a duplicate; caught by `po-number.test.ts`)
   4. insert `PO_CREATED`, commit
   A deferred constraint trigger refuses a commit with any `po_number` still `NULL`, and the
   immutability trigger allows exactly one change, `NULL` → a value, in the creating

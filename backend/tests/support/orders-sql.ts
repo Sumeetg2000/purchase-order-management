@@ -134,7 +134,8 @@ export async function assignPoNumber(q: pg.Client, orderId: string): Promise<str
        RETURNING fy, last_value
      )
      UPDATE purchase_orders o
-        SET po_number = format('PO-%s-%s', n.fy, lpad(n.last_value::text, 6, '0'))
+        SET po_number = format('PO-%s-%s', n.fy,
+                               lpad(n.last_value::text, greatest(6, length(n.last_value::text)), '0'))
        FROM n WHERE o.id = $1
      RETURNING o.po_number`,
     [orderId],

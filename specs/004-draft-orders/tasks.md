@@ -282,7 +282,7 @@ triggers don't exist yet; T025 adds them to the same, still unreleased migration
   (`PO009`), draft-only delete (`PO010`), deferred `has_lines` (`PO007`) and
   `po_number_assigned` (`PO011`) constraint triggers —
   `backend/prisma/migrations/0013_orders/migration.sql` — T021, T022, T023, T024 green.
-- [ ] T026 [US2] PO number allocation statement and its tests, seen failing: the
+- [X] T026 [US2] PO number allocation statement and its tests, seen failing: the
   counter upsert + `UPDATE … SET po_number` as one module used by the service and the
   seeds; first number of a FY is `000001`; 31 March 23:59:59 IST vs 1 April 00:00 IST
   (injected timestamp) land in different years; a rolled-back allocation leaves no gap;
