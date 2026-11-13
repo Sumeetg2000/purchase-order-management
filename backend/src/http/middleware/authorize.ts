@@ -87,8 +87,7 @@ export function authenticate(
         next();
       },
       (error: unknown) => {
-        // Drain any unread body so the connection can carry the response.
-        req.resume();
+        // The body stays unread: the error handler closes the connection (research R8).
         next(error);
       },
     );

@@ -173,7 +173,7 @@ slice's draft PR) and a short summary stop.
 
 ### Platform: per-operation body limit, parsed after authentication
 
-- [ ] T014 Body-parsing tests, seen failing, on made-up test-only operations (one at the
+- [X] T014 Body-parsing tests, seen failing, on made-up test-only operations (one at the
   default, one declaring 4 MiB): a body over the operation's limit by `Content-Length` →
   `413 PAYLOAD_TOO_LARGE`, under it parsed; the parser runs after `authenticate` → CSRF →
   `NO_ROLE_ASSIGNED` → `FORBIDDEN`; a request refused before parsing (401, 403 CSRF, 403
@@ -184,12 +184,12 @@ slice's draft PR) and a short summary stop.
   `Content-Length`) over the operation's limit → `413 PAYLOAD_TOO_LARGE` and is never
   parsed (the handler and the JSON parser never see it, the socket closes) —
   `backend/tests/integration/body-limit.test.ts` — R8 (NFR-VAL-01).
-- [ ] T015 Per-route parser: `parseJson(limit)` built per operation from
+- [X] T015 Per-route parser: `parseJson(limit)` built per operation from
   `bodyLimitBytes`, mounted after authorization; refusals before parsing set
   `Connection: close` and drop the `req.resume()` drain — `backend/src/http/
   middleware/parse-json.ts`, `backend/src/http/define-route.ts`
   — T014 green; the full gate stays green (slice 0–2 refusal tests).
-- [ ] T016 [P] nginx: `location ~ ^/api/orders(/[^/]+)?$` with `client_max_body_size 4m`
+- [X] T016 [P] nginx: `location ~ ^/api/orders(/[^/]+)?$` with `client_max_body_size 4m`
   (same proxy settings as `/api/`), `/api/` and the server default drop from `2m` to `1m`;
   a test, seen failing, parses `deploy/nginx/default.conf` and pins each limit to
   `ORDER_BODY_LIMIT_BYTES` and `BODY_LIMIT_BYTES` — `deploy/nginx/default.conf`,

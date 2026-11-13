@@ -66,6 +66,10 @@ export function errorHandler(): ErrorRequestHandler {
       next(error);
       return;
     }
+    // A request refused before its body was read (401, 403, 413, or any error before the
+    // parser) closes its connection rather than read the body to reuse it: an order write
+    // may declare megabytes no unauthorised caller gets to send (slice 3 research R8).
+    if (!req.complete) res.set('Connection', 'close');
     sendProblem(res, toAppError(error, req.log));
   };
 }
