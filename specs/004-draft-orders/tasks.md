@@ -98,7 +98,7 @@ slice's draft PR) and a short summary stop.
   or rule triggers yet** (they come test-first in US2, T025); Prisma models with derived
   columns read-only — `backend/prisma/migrations/0013_orders/migration.sql`,
   `backend/prisma/schema.prisma` — T002 green.
-- [ ] T004 Database error mapping: `PO005`–`PO011` named as in
+- [X] T004 Database error mapping: `PO005`–`PO011` named as in
   [errors.md](contracts/errors.md), each → `INTERNAL_ERROR`, logged as a bug —
   `backend/src/db/errors.ts`, `backend/tests/unit/db-errors.test.ts` (test first) — R4.
 - [ ] T005 Reconciliation query: INV-1, INV-2, INV-4, INV-5, INV-6 and `po_number IS
