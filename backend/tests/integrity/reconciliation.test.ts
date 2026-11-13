@@ -105,7 +105,7 @@ describe('[NFR-DATA-01] reconciliation query', () => {
     ]);
   });
 
-  it('[NFR-DATA-01] INV-6: an open-line count that is not the count of open lines', async () => {
+  it('[FR-RPT-03] INV-6: an open-line count that is not the count of open lines', async () => {
     const f = await orderFixture();
     plantsViolations(f.db);
     const { orderId } = await consistentDraft(f, [

@@ -81,6 +81,26 @@ describe('[FR-PO-01] raise a draft order', () => {
     expect(seq(b.poNumber)).toBe(seq(a.poNumber) + 1);
   });
 
+  it('[FR-PO-02] a new order is a DRAFT; a status in the body is READ_ONLY_FIELD and writes nothing', async () => {
+    const h = await ordersHarness();
+    const created = await h.createOrder(h.orderBody());
+    expect(created.status).toBe(201);
+    const { id } = created.body as { id: string; status: string };
+    expect((created.body as { status: string }).status).toBe('DRAFT');
+    const [row] = await h.query<{ status: string }>(
+      'SELECT status FROM purchase_orders WHERE id = $1',
+      [id],
+    );
+    expect(row?.status).toBe('DRAFT');
+
+    const refused = await h.createOrder(h.orderBody(undefined, { status: 'APPROVED' }));
+    expect(refused.status).toBe(400);
+    expect((refused.body as { details: { path: string; code: string }[] }).details).toEqual([
+      expect.objectContaining({ path: 'body.status', code: 'READ_ONLY_FIELD' }),
+    ]);
+    expect(await h.count('purchase_orders')).toBe(1);
+  });
+
   it('[NFR-VAL-01] a malformed order id is 400 INVALID_FORMAT; an unknown one 404', async () => {
     const h = await ordersHarness();
     const malformed = await h.getOrder('not-a-uuid');
