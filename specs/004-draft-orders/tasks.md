@@ -235,7 +235,7 @@ tests (T021–T024) run against part 1 of the migration and fail because the
 triggers don't exist yet; T025 adds them to the same, still unreleased migration file
 (reset the local dev database after it changes).
 
-- [ ] T021 [P] [US2] Trigger tests, seen failing, raw SQL as `po_app` with actor context unless
+- [X] T021 [P] [US2] Trigger tests, seen failing, raw SQL as `po_app` with actor context unless
   stated, each asserting the SQLSTATE:
   - line insert, update (quantity, unit price) and delete each leave `total` = Σ
     `line_total` and `open_line_count` = lines with `received_quantity < quantity`, in the
@@ -252,7 +252,7 @@ triggers don't exist yet; T025 adds them to the same, still unreleased migration
     `PO005`; a status-, vendor-, version- or timestamp-only update passes
   — `backend/tests/integration/order-triggers.test.ts` — R3, R4 (FR-PO-03, FR-PO-04,
   FR-SM-02, FR-RPT-03).
-- [ ] T022 [P] [US2] Attack suite, database part, seen failing on part 1: as `po_app`,
+- [X] T022 [P] [US2] Attack suite, database part, seen failing on part 1: as `po_app`,
   `UPDATE` of `total`, `open_line_count`, `line_total`, `received_quantity`, `status`,
   `id` → `42501` (these pass on part 1, the grants are there); `INSERT` with
   `total`/`line_total` → `42501`/`428C9`; as `po_owner`, `total` and `open_line_count`
@@ -261,19 +261,19 @@ triggers don't exist yet; T025 adds them to the same, still unreleased migration
   → `PO009`; `ALTER TABLE … DISABLE TRIGGER` refused to `po_app`; each case ends with the
   reconciliation at zero rows — `backend/tests/integrity/attack-suite.test.ts` — FR-009,
   FR-014, SC-003 (FR-PO-03, FR-PO-04).
-- [ ] T023 [P] [US2] Trigger-count tests, seen failing on part 1: in one transaction, a
+- [X] T023 [P] [US2] Trigger-count tests, seen failing on part 1: in one transaction, a
   500-line update of only quantities → `po.recompute_count` = 1; insert + update +
   delete statements → 3; a vendor-only, version-only, status-attempt or timestamp-only
   order update → 0; a description-only line update → 0 —
   `backend/tests/integrity/trigger-count.test.ts` — FR-021 (NFR-PERF-03).
-- [ ] T024 [P] [US2] Exactness at the limits, property-based (`fast-check`, ≥ 200 runs),
+- [X] T024 [P] [US2] Exactness at the limits, property-based (`fast-check`, ≥ 200 runs),
   seen failing on part 1 (totals stay 0): random line sets (1–500 lines, fractional
   prices, limit values) inserted by raw SQL; PostgreSQL's `line_total` and `total` (read
   as text) equal `money.ts`'s `lineTotal` and `sum` exactly; the extreme 500-line order
   fits `numeric(22,4)` with no overflow —
   `backend/tests/integrity/money-agreement.property.test.ts` — US2 scenario 4, FR-013
   (NFR-DATA-01).
-- [ ] T025 [US2] Migration `0013_orders`, part 2: `recompute_orders(uuid[])` (`SECURITY
+- [X] T025 [US2] Migration `0013_orders`, part 2: `recompute_orders(uuid[])` (`SECURITY
   DEFINER`, owned by `po_owner`, `search_path` pinned, `EXECUTE` revoked from `PUBLIC`,
   sets the transaction-local `po.recompute` flag and increments `po.recompute_count`),
   the three statement-level line triggers with transition tables (`PO006` check, early
