@@ -62,7 +62,7 @@ slice's draft PR) and a short summary stop.
 
 ### Schema: migration `0013_orders` and every trigger
 
-- [ ] T002 Migration tests, seen failing: tables and columns exactly as
+- [X] T002 Migration tests, seen failing: tables and columns exactly as
   [data-model.md](data-model.md), each rule by name:
   - `po_number_counters`: `fy` "`CHECK (fy ~ '^\d{4}-\d{2}$')`", `last_value`
     "`CHECK (last_value >= 1)`"; `po_app` `SELECT, INSERT, UPDATE (last_value)` only
@@ -93,7 +93,7 @@ slice's draft PR) and a short summary stop.
   - a statement on either table without actor context → `PO001`
   — `backend/tests/integration/order-schema.test.ts` — R2, R4, R5, R7, R9 (FR-PO-01,
   FR-PO-05).
-- [ ] T003 Migration `0013_orders`, part 1: the five tables, grants, the eight indexes,
+- [X] T003 Migration `0013_orders`, part 1: the five tables, grants, the eight indexes,
   `po_financial_year`, `require_actor_context` and `set_updated_at`; **no derived-value
   or rule triggers yet** (they come test-first in US2, T025); Prisma models with derived
   columns read-only — `backend/prisma/migrations/0013_orders/migration.sql`,
