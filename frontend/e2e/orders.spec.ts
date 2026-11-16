@@ -72,7 +72,7 @@ test.describe('[FR-PO-01] draft orders end to end', () => {
     await buyerA.getByRole('link', { name: 'New order' }).click();
     await expect(buyerA.getByRole('heading', { level: 1, name: 'New order' })).toBeVisible();
     await buyerA.getByRole('combobox', { name: 'Vendor' }).fill('Acme');
-    await buyerA.getByRole('option', { name: 'Acme Supplies' }).click();
+    await buyerA.getByRole('option', { name: 'Acme Supplies', exact: true }).click();
     await fillLine(buyerA, 1, ['Washers', '1', '0.1']);
     for (const line of [2, 3]) {
       await buyerA.getByRole('button', { name: 'Add line' }).click();

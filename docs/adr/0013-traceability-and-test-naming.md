@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (data-integrity map, brief-clause
   check and coverage target moved here from the constitution) · amended 2026-10-23 (row
-  status rules for the CI check)
+  status rules for the CI check) · amended 2026-11-16 (`Tested` also covers a row whose
+  current-slice part passes while later slices still owe the rest; owner decision)
 - **Brief:** all; §7 · Gaps G8, G21 · Lesson 10
 - **Principles:** X, XI
 
@@ -19,7 +20,8 @@
 - CI fails if a section of `docs/BRIEF.md` (§1–§8) has no row in `docs/traceability.md`.
 - **Row status drives the test check**, so it works from the first slice:
   - `Todo` (not started) and `Spec` (specified in a slice): not checked for tests.
-  - `Tested` (tests written, failing): at least one test must carry the ID.
+  - `Tested` (tests written; failing, or passing for the current slice's part while later
+    slices still owe the rest): at least one test must carry the ID.
   - `Done`: at least one passing test must carry the ID.
   - A row delivered across several slices stays below `Done` until its last part lands.
     A slice is done when every row it delivers fully is `Done`.

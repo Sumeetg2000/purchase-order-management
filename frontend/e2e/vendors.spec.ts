@@ -16,6 +16,9 @@ let buyerA: Page;
 let buyerB: Page;
 let approver: Page;
 const run = String(Date.now());
+// Created vendors never start with a seeded vendor name (Acme Supplies, …): every browser
+// shares one stack, and a name matched as a substring elsewhere must find only its own.
+const vendorName = (purpose: string) => `E2E Vendor ${run} ${purpose}`;
 
 /** A page in a context of its own, with the project's base URL and certificate setting. */
 async function newPage(browser: Browser, testInfo: TestInfo): Promise<Page> {
@@ -73,7 +76,7 @@ async function addVendor(page: Page, name: string, contactName = 'Ravi Shah'): P
 
 test.describe('[FR-VEN-01] vendors end to end', () => {
   test('[FR-VEN-01] two Buyers share a vendor; a duplicate name links to it', async () => {
-    const name = `Acme Supplies ${run}`;
+    const name = vendorName('Shared');
     await buyerA.goto('/vendors');
     expect(await axe(buyerA), '/vendors').toEqual([]);
     await buyerA.getByRole('link', { name: 'Add vendor' }).click();
@@ -84,14 +87,14 @@ test.describe('[FR-VEN-01] vendors end to end', () => {
 
     // Buyer B finds it by a prefix, typed in another case.
     await buyerB.goto('/vendors');
-    await buyerB.getByLabel('Name starts with').fill(`ACME SUPPLIES ${run}`.toLowerCase());
+    await buyerB.getByLabel('Name starts with').fill(name.toUpperCase());
     await expect(buyerB.getByText('1 vendor', { exact: true })).toBeVisible();
     const row = buyerB.getByRole('row').filter({ has: buyerB.getByRole('link', { name }) });
     await expect(row.getByRole('cell', { name: 'Net 30' })).toBeVisible();
 
     // The same name, other case and spacing: refused, with a link to the vendor.
     await buyerB.goto('/vendors/new');
-    await buyerB.getByLabel('Vendor name').fill(`  acme   SUPPLIES ${run} `);
+    await buyerB.getByLabel('Vendor name').fill(`  e2e   VENDOR ${run}   shared `);
     await buyerB.getByLabel('Contact name').fill('Someone Else');
     await buyerB.getByLabel('Contact email').fill('else@acme.example');
     await buyerB.getByLabel('Net days').fill('15');
@@ -125,7 +128,7 @@ test.describe('[FR-VEN-01] vendors end to end', () => {
   });
 
   test('[NFR-FE-09] deactivate through the dialog; reactivate with none', async () => {
-    const name = `Coastal Logistics ${run}`;
+    const name = vendorName('Deactivated');
     const path = await addVendor(buyerA, name);
     const vendorId = path.split('/').pop() ?? '';
     const deactivations: Request[] = [];
@@ -178,7 +181,7 @@ test.describe('[FR-VEN-01] vendors end to end', () => {
   });
 
   test('[FR-VEN-01] an Approver reads vendors and has no write controls', async () => {
-    const name = `Delta Packaging ${run}`;
+    const name = vendorName('Read');
     const path = await addVendor(buyerA, name);
 
     await approver.goto('/vendors');
