@@ -1,4 +1,4 @@
-import { etagFor } from '@po/contracts';
+import { etagFor, PAGE_SIZE_DEFAULT } from '@po/contracts';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { OrderStatus } from '@po/contracts';
 import { api } from '../../api/app-client';
@@ -74,12 +74,24 @@ export interface OrderListParams {
   pageSize?: number | undefined;
 }
 
-/** A page of the orders the caller may read, filtered in the database (research R7). */
-export function useOrderList(params: OrderListParams) {
+/**
+ * A page of the orders the caller may read, filtered in the database (research R7). With
+ * `matchesNothing` (a filter no order can match, which the API would refuse) the page is
+ * empty and no request is sent.
+ */
+export function useOrderList(params: OrderListParams, { matchesNothing = false } = {}) {
   const query = definedParams(params);
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'list', query],
-    queryFn: async () => dataOrThrow(await api.GET('/orders', { params: { query } })),
+    queryKey: [...ORDERS_KEY, 'list', query, matchesNothing],
+    queryFn: async () =>
+      matchesNothing
+        ? {
+            items: [],
+            page: query.page ?? 1,
+            pageSize: query.pageSize ?? PAGE_SIZE_DEFAULT,
+            total: 0,
+          }
+        : dataOrThrow(await api.GET('/orders', { params: { query } })),
     placeholderData: keepPreviousData,
   });
 }

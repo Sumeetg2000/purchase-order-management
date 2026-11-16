@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
@@ -103,6 +103,22 @@ describe('[FR-PO-01] the orders list', () => {
       expect(listCalls(seen).length).toBe(before + 1);
     });
     expect(listCalls(seen).at(-1)).toEqual({ poNumber: 'po-2026-27-00' });
+  });
+
+  it('[NFR-FE-04] a link with a filter the API would refuse lists no orders, without asking', async () => {
+    for (const search of [
+      'vendorId=abc',
+      'poNumber=PO%2F1',
+      `poNumber=${'P'.repeat(31)}`,
+      'createdFrom=2026-12-01&createdTo=2026-01-01',
+    ]) {
+      vi.unstubAllGlobals();
+      const seen = listApi();
+      renderApp(`/orders?${search}`);
+      expect(await screen.findByText('No orders match')).toBeVisible();
+      expect(listCalls(seen)).toEqual([]);
+      cleanup();
+    }
   });
 
   it('[NFR-FE-03] a Buyer with no orders is told how to raise one; a failure says so', async () => {

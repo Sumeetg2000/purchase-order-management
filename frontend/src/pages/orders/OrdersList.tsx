@@ -1,4 +1,10 @@
-import { formatInr, ORDER_STATUSES, toMoney } from '@po/contracts';
+import {
+  formatInr,
+  orderListQuery,
+  ORDER_STATUSES,
+  PO_NUMBER_PREFIX_MAX,
+  toMoney,
+} from '@po/contracts';
 import { Link } from 'react-router';
 import { useCan } from '../../auth/can';
 import { useCurrentUser } from '../../auth/current-user';
@@ -16,11 +22,6 @@ import css from './orders.module.css';
 const styles = classes(css, 'header', 'filters', 'filter', 'lines', 'number', 'hint');
 const controls = classes(controlsCss, 'primary');
 
-/** A PO-number prefix as typed: letters, digits and dashes (the contract's rule). */
-const PO_PREFIX_MAX = 30;
-/** A calendar date as the API takes it. */
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
  * The orders the caller may read (contracts/ui.md, research R7): status, vendor, PO-number
  * prefix and created dates, and the page, all in the URL, so Back, Forward and a shared
@@ -34,20 +35,17 @@ export function OrdersList() {
     createdFrom: TEXT,
     createdTo: TEXT,
   });
-  const date = (value: string | undefined) =>
-    value !== undefined && DATE.test(value) ? value : undefined;
-  const filters = {
-    ...params,
-    createdFrom: date(params.createdFrom),
-    createdTo: date(params.createdTo),
-  };
+  const filters = params;
+  // A hand-edited or old link can hold a filter the API refuses (a malformed vendor id or
+  // date, a PO prefix with other characters, a reversed range): no order matches it.
+  const matchesNothing = !orderListQuery.safeParse(filters).success;
   const canCreate = useCan('createOrder');
   const roles = useCurrentUser().data?.roles ?? [];
   const approverOnly = roles.includes('APPROVER') && !roles.includes('BUYER');
   const filtered = Object.entries(filters).some(
     ([key, value]) => key !== 'page' && value !== undefined,
   );
-  const states = useQueryStates(useOrderList(filters), {
+  const states = useQueryStates(useOrderList(filters, { matchesNothing }), {
     loadingLabel: 'Loading orders',
     isEmpty: (page) => page.items.length === 0,
     empty: filtered
@@ -104,7 +102,7 @@ export function OrdersList() {
           label="PO number starts with"
           className={styles.filter}
           value={filters.poNumber}
-          maxLength={PO_PREFIX_MAX}
+          maxLength={PO_NUMBER_PREFIX_MAX}
           onSearch={(poNumber) => {
             show({ poNumber }, { replace: true });
           }}
