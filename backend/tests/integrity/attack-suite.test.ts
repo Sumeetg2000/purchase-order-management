@@ -271,14 +271,35 @@ async function waitsOnLock(observer: pg.Client, pid: number, ms = 3_000): Promis
 }
 
 /** Runs `sql` and COMMIT on `client`, settling to the SQLSTATE of a failure (or 'OK'). */
-async function finish(client: pg.Client, statement: Promise<unknown>): Promise<string> {
+interface Outcome {
+  error?: { code?: string };
+}
+
+/**
+ * A statement's outcome, taken as soon as it is sent: one blocked on a lock can fail the
+ * moment the lock is released, before finish() reads it, and a failure nobody has read
+ * yet is an unhandled rejection that fails the run.
+ */
+function outcomeOf(statement: Promise<unknown>): Promise<Outcome> {
+  return statement.then(
+    () => ({}),
+    (error: unknown) => ({ error: error as { code?: string } }),
+  );
+}
+
+/** Commits after a statement that succeeded; the error code (rolled back) otherwise. */
+async function finish(client: pg.Client, statement: Promise<Outcome>): Promise<string> {
+  const { error } = await statement;
+  if (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    return error.code ?? 'UNKNOWN';
+  }
   try {
-    await statement;
     await client.query('COMMIT');
     return 'OK';
-  } catch (error) {
+  } catch (failure) {
     await client.query('ROLLBACK').catch(() => undefined);
-    return (error as { code?: string }).code ?? 'UNKNOWN';
+    return (failure as { code?: string }).code ?? 'UNKNOWN';
   }
 }
 
@@ -289,7 +310,7 @@ describe('[NFR-CON-01] concurrent line changes on one order', () => {
     await begin(f.app);
     await insertLines(f.app, orderId, [{ quantity: 2, unitPrice: '5' }], 2);
     const pid = await begin(second);
-    const inserting = insertLines(second, orderId, [{ quantity: 4, unitPrice: '3' }], 3);
+    const inserting = outcomeOf(insertLines(second, orderId, [{ quantity: 4, unitPrice: '3' }], 3));
     expect(await waitsOnLock(f.superuser, pid)).toBe(true);
     await f.app.query('COMMIT');
     expect(await finish(second, inserting)).toBe('OK');
@@ -308,9 +329,9 @@ describe('[NFR-CON-01] concurrent line changes on one order', () => {
     await begin(f.app);
     await f.app.query(`DELETE FROM order_lines WHERE id = $1`, [lineIds[0]]);
     const pid = await begin(second);
-    const deleting = second.query(`DELETE FROM order_lines WHERE id = $1`, [lineIds[1]]);
+    const deleting = outcomeOf(second.query(`DELETE FROM order_lines WHERE id = $1`, [lineIds[1]]));
     expect(await waitsOnLock(f.superuser, pid)).toBe(true);
-    const first = await finish(f.app, Promise.resolve());
+    const first = await finish(f.app, Promise.resolve({}));
     const outcomes = [first, await finish(second, deleting)].sort();
     expect(outcomes).toEqual(['OK', ORDER_WITHOUT_LINES].sort());
     const { rows } = await f.app.query<{ n: number }>(
@@ -333,9 +354,9 @@ describe('[NFR-CON-01] concurrent line changes on one order', () => {
     ]);
     // A description-only change reads no derived value, yet must wait all the same.
     const pid = await begin(app);
-    const renaming = app.query(`UPDATE order_lines SET description = 'Renamed' WHERE id = $1`, [
-      lineIds[0],
-    ]);
+    const renaming = outcomeOf(
+      app.query(`UPDATE order_lines SET description = 'Renamed' WHERE id = $1`, [lineIds[0]]),
+    );
     expect(await waitsOnLock(f.superuser, pid)).toBe(true);
     await f.owner.query('COMMIT');
     expect(await finish(app, renaming)).toBe(ORDER_LINES_LOCKED);
