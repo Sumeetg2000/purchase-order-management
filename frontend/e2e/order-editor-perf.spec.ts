@@ -61,89 +61,91 @@ function timeToPaint(page: Page, action: 'add' | 'remove'): Promise<number> {
   }, action);
 }
 
-test('[NFR-FE-06] a 500-line order: open, type, add and remove within the targets', async ({
-  page,
-  browserName,
-  browser,
-}, testInfo) => {
-  test.skip(browserName !== 'chromium', 'CPU throttling is a Chromium DevTools setting');
-  testInfo.setTimeout(180_000);
-  const run = String(Date.now());
-  const adminPage = await browser.newPage({
-    ...(testInfo.project.use.baseURL ? { baseURL: testInfo.project.use.baseURL } : {}),
-    ignoreHTTPSErrors: true,
-  });
-  await loggedInAdmin(adminPage);
-  const user = await signUpAndVerify(page, `Perf Buyer ${run}`);
-  await assignRole(adminPage, user, 'Buyer');
-  await adminPage.context().close();
-  await logInAs(page, user.email, 'Welcome');
-  const id = await fiveHundredLineOrder(page);
-
-  await page.goto(`/orders/${id}`);
-  await expect(page.getByRole('link', { name: 'Edit' })).toBeVisible();
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-
-  // Timed in the page, from the click to the first frame painted with line 1 editable:
-  // an expect() poll from the test would add its own retry interval to the time.
-  const loadMs = await page.evaluate(async () => {
-    const edit = [...document.querySelectorAll('a')].find((a) => a.textContent === 'Edit');
-    if (!edit) throw new Error('no Edit link');
-    const start = performance.now();
-    edit.click();
-    return new Promise<number>((resolve) => {
-      const check = () => {
-        const input = document.querySelector<HTMLInputElement>(
-          'input[aria-label="Description, line 1"]',
-        );
-        if (input && !input.disabled && !input.readOnly) {
-          requestAnimationFrame(() => {
-            resolve(performance.now() - start);
-          });
-        } else {
-          requestAnimationFrame(check);
-        }
-      };
-      requestAnimationFrame(check);
+// Tagged @perf: CI runs it on every pull request; locally `npm run perf:editor` runs it on
+// demand, and `npm run e2e:local` leaves it out (a power-saving laptop misses its targets).
+test(
+  '[NFR-FE-06] a 500-line order: open, type, add and remove within the targets',
+  { tag: '@perf' },
+  async ({ page, browserName, browser }, testInfo) => {
+    test.skip(browserName !== 'chromium', 'CPU throttling is a Chromium DevTools setting');
+    testInfo.setTimeout(180_000);
+    const run = String(Date.now());
+    const adminPage = await browser.newPage({
+      ...(testInfo.project.use.baseURL ? { baseURL: testInfo.project.use.baseURL } : {}),
+      ignoreHTTPSErrors: true,
     });
-  });
-  await expect(page.getByLabel('Description, line 1', { exact: true })).toBeEditable();
+    await loggedInAdmin(adminPage);
+    const user = await signUpAndVerify(page, `Perf Buyer ${run}`);
+    await assignRole(adminPage, user, 'Buyer');
+    await adminPage.context().close();
+    await logInAs(page, user.email, 'Welcome');
+    const id = await fiveHundredLineOrder(page);
 
-  // Each keystroke's time from keydown to the second frame after it.
-  await page.evaluate(() => {
-    const samples: number[] = [];
-    (window as unknown as { keystrokes: number[] }).keystrokes = samples;
-    document.addEventListener(
-      'keydown',
-      (event) => {
-        const start = event.timeStamp;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => samples.push(performance.now() - start));
-        });
-      },
-      true,
+    await page.goto(`/orders/${id}`);
+    await expect(page.getByRole('link', { name: 'Edit' })).toBeVisible();
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+
+    // Timed in the page, from the click to the first frame painted with line 1 editable:
+    // an expect() poll from the test would add its own retry interval to the time.
+    const loadMs = await page.evaluate(async () => {
+      const edit = [...document.querySelectorAll('a')].find((a) => a.textContent === 'Edit');
+      if (!edit) throw new Error('no Edit link');
+      const start = performance.now();
+      edit.click();
+      return new Promise<number>((resolve) => {
+        const check = () => {
+          const input = document.querySelector<HTMLInputElement>(
+            'input[aria-label="Description, line 1"]',
+          );
+          if (input && !input.disabled && !input.readOnly) {
+            requestAnimationFrame(() => {
+              resolve(performance.now() - start);
+            });
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        requestAnimationFrame(check);
+      });
+    });
+    await expect(page.getByLabel('Description, line 1', { exact: true })).toBeEditable();
+
+    // Each keystroke's time from keydown to the second frame after it.
+    await page.evaluate(() => {
+      const samples: number[] = [];
+      (window as unknown as { keystrokes: number[] }).keystrokes = samples;
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          const start = event.timeStamp;
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => samples.push(performance.now() - start));
+          });
+        },
+        true,
+      );
+    });
+    await page.getByLabel('Description, line 1', { exact: true }).click();
+    await page.keyboard.type(' with a longer description', { delay: 60 });
+    await page.waitForTimeout(200);
+    const keystrokes = await page.evaluate(
+      () => (window as unknown as { keystrokes: number[] }).keystrokes,
     );
-  });
-  await page.getByLabel('Description, line 1', { exact: true }).click();
-  await page.keyboard.type(' with a longer description', { delay: 60 });
-  await page.waitForTimeout(200);
-  const keystrokes = await page.evaluate(
-    () => (window as unknown as { keystrokes: number[] }).keystrokes,
-  );
 
-  const addRemove: number[] = [];
-  for (let i = 0; i < 10; i += 1) {
-    addRemove.push(await timeToPaint(page, 'add'));
-    addRemove.push(await timeToPaint(page, 'remove'));
-  }
-  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    const addRemove: number[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      addRemove.push(await timeToPaint(page, 'add'));
+      addRemove.push(await timeToPaint(page, 'remove'));
+    }
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 
-  const results = { loadMs, keystrokeP95: p95(keystrokes), addRemoveP95: p95(addRemove) };
-  testInfo.annotations.push({ type: 'editor-timings', description: JSON.stringify(results) });
-  console.info(`order editor at 4× CPU throttling: ${JSON.stringify(results)}`);
-  expect(keystrokes.length).toBeGreaterThan(20);
-  expect(results.loadMs).toBeLessThanOrEqual(LOAD_MS);
-  expect(results.keystrokeP95).toBeLessThanOrEqual(KEYSTROKE_P95_MS);
-  expect(results.addRemoveP95).toBeLessThanOrEqual(ADD_REMOVE_P95_MS);
-});
+    const results = { loadMs, keystrokeP95: p95(keystrokes), addRemoveP95: p95(addRemove) };
+    testInfo.annotations.push({ type: 'editor-timings', description: JSON.stringify(results) });
+    console.info(`order editor at 4× CPU throttling: ${JSON.stringify(results)}`);
+    expect(keystrokes.length).toBeGreaterThan(20);
+    expect(results.loadMs).toBeLessThanOrEqual(LOAD_MS);
+    expect(results.keystrokeP95).toBeLessThanOrEqual(KEYSTROKE_P95_MS);
+    expect(results.addRemoveP95).toBeLessThanOrEqual(ADD_REMOVE_P95_MS);
+  },
+);

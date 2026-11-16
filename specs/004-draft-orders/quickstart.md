@@ -11,11 +11,18 @@ set -o pipefail
 npm test 2>&1 | tail -40              # includes the integrity suite and reconciliation
 npm run test:plans 2>&1 | tail -20    # order list and timeline plans (R7)
 npm run plans:orders && git status --porcelain docs/query-plans/orders   # no drift
-npm run e2e:local 2>&1 | tail -20
+npm run e2e:local 2>&1 | tail -20     # every e2e test but the editor benchmark
+npm run perf:editor 2>&1 | tail -5    # on demand: the editor benchmark alone (SC-008)
 ```
 
 Expected: all green; the reconciliation query returns zero rows after the suites and the
 seed; `docs/query-plans/orders/` unchanged.
+
+The editor benchmark (`frontend/e2e/order-editor-perf.spec.ts`, tagged `@perf`) times the
+browser at 4× CPU throttling, so on a laptop in a power-saving profile it misses its
+targets for the machine's reasons (quickstart-results). `npm run e2e:local` leaves it out;
+CI's `e2e` job runs it on every pull request, and `npm run perf:editor` runs it alone on
+its own throwaway stack, best on a balanced or performance profile.
 
 ## Manual scenarios (map to spec user stories)
 

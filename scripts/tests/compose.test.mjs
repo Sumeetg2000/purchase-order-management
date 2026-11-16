@@ -122,6 +122,21 @@ describe('[NFR-OPS-01] local end-to-end stack', () => {
     assert.equal(exported('COMPOSE_ENV_FILES'), '"$(mktemp)"');
     assert.match(script, /^CI_ENV_FILE="\$COMPOSE_ENV_FILES" scripts\/ci-env.sh --force$/m);
   });
+
+  it('[NFR-OPS-01] leaves out the editor benchmark, which npm run perf:editor runs on demand and CI always', () => {
+    const spec = readFileSync(
+      new URL('../../frontend/e2e/order-editor-perf.spec.ts', import.meta.url),
+      'utf8',
+    );
+    assert.match(spec, /\{ tag: '@perf' \}/);
+    assert.match(script, /^ {2}filter=\(--grep @perf\)$/m);
+    assert.match(script, /^ {2}filter=\(--grep-invert @perf\)$/m);
+    assert.match(script, /^npm run e2e -w @po\/frontend -- "\$\{filter\[@\]\}" "\$@"$/m);
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    assert.equal(pkg.scripts['perf:editor'], 'scripts/e2e-local.sh --perf');
+    const ci = readFileSync(new URL('../../.github/workflows/e2e.yml', import.meta.url), 'utf8');
+    assert.match(ci, /^ {8}run: npm run e2e$/m);
+  });
 });
 
 describe('[NFR-OPS-02] compose exposure', () => {
