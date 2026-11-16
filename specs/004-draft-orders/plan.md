@@ -92,6 +92,26 @@ the gap edge case (no gap on rollback), FR-021 (per-statement recompute count).
 three cells of R11 (owner sign-off, 2026-11-12); ADR-0007 also records the PO-number sort
 and the order-write parsing order.
 
+**Slice-end review (2026-11-16, T071)**: PASS.
+- `/security-review`: no findings. Checked every raw SQL path, the read, list, edit,
+  delete and timeline scopes, idempotency keys per user, the read-only fields, the
+  `SECURITY DEFINER` functions' `search_path` and grants, CSRF on the new writes, the
+  nginx location and the demo seed's production refusal.
+- `/code-review`: 8 findings.
+  - Fixed, tests first: refused list filters (the page now says what is wrong and asks
+    nothing), `PO_NUMBER_PREFIX_MAX` defined once, and `IDEMPOTENT_OPERATIONS` as a const
+    list.
+  - Not fixed, with reasons:
+    - Two findings need a Buyer+Admin, a role set the users table's `CHECK` refuses
+      (ADR-0016).
+    - Replaying a create after an edit or delete returns the stored response (R5).
+    - nginx answers 413 before the API's 401 or 403 (R8, owner direction 5).
+    - PO-number sort is text order (ADR-0007, revisit at 1,000,000 orders a year).
+- Constitution pass: every principle above still holds for the code as merged. The
+  interaction budget runs in CI's `e2e` job (XIII), and locally it runs on demand
+  (`npm run perf:editor`). No new deviation. The open one, ADR-0021 (admin-list plans),
+  is unchanged by this slice and closes in slice 7.
+
 ## Project Structure
 
 ### Documentation (this feature)

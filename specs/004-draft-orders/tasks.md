@@ -572,7 +572,7 @@ the owner added on 2026-11-12**.
   parts) updated with their passing tests; `npm run check:traceability` green —
   `docs/traceability.md`.
 - [X] T070 Quickstart run and results — `specs/004-draft-orders/quickstart-results.md`.
-- [ ] T071 Slice-end review: `/code-review`, `/security-review` (permissions and body
+- [X] T071 Slice-end review: `/code-review`, `/security-review` (permissions and body
   parsing changed), constitution pass; fix findings; full gate, lint, typecheck green.
 
 ---
