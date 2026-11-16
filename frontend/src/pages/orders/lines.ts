@@ -65,11 +65,14 @@ function memoized<T>(derive: (line: LineDraft) => T): (line: LineDraft) => T {
 /** Each field's code from the contract's own rule for a line (row-level validation). */
 export const lineErrors = memoized(errorsOf);
 
+/** Every valid line's result, one object: a check over 500 lines compares, not counts keys. */
+export const NO_LINE_ERRORS: LineErrors = Object.freeze({});
+
 function errorsOf(line: LineDraft): LineErrors {
   // A create line's rule: the id, if any, is the server's to check (LINE_NOT_FOUND).
   const { description, quantity, unitPrice } = lineBodyOf(line);
   const result = lineSchema.safeParse({ description, quantity, unitPrice }, { reportInput: true });
-  if (result.success) return {};
+  if (result.success) return NO_LINE_ERRORS;
   const errors: LineErrors = {};
   for (const { path, code } of fieldErrors('line', result.error.issues)) {
     const field = path.split('.')[1];
@@ -77,7 +80,7 @@ function errorsOf(line: LineDraft): LineErrors {
       errors[field] ??= code;
     }
   }
-  return errors;
+  return Object.keys(errors).length === 0 ? NO_LINE_ERRORS : errors;
 }
 
 /** The line's exact total, or undefined while its quantity or price isn't valid yet. */
@@ -91,9 +94,22 @@ function totalOf(line: LineDraft): Money | undefined {
   return lineTotal(quantity, toMoney(line.unitPrice));
 }
 
-/** The exact sum of the lines that have a total so far. */
-export function orderTotalOf(lines: readonly LineDraft[]): Money {
-  return sum(lines.map(lineTotalOf).filter((total): total is Money => total !== undefined));
+/**
+ * The exact sum of the lines that have a total so far, for one form. It keeps the line
+ * totals its last sum came from: a keystroke that leaves every total as it was (a
+ * description) reuses that sum instead of adding 500 decimals again.
+ */
+export function orderTotals(): (lines: readonly LineDraft[]) => Money {
+  let totals: readonly (Money | undefined)[] | undefined;
+  let total = sum([]);
+  return (lines) => {
+    const next = lines.map(lineTotalOf);
+    if (totals?.length !== next.length || next.some((value, i) => value !== totals?.[i])) {
+      totals = next;
+      total = sum(next.filter((value): value is Money => value !== undefined));
+    }
+    return total;
+  };
 }
 
 export function rupees(value: Money | undefined): string {

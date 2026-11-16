@@ -32,7 +32,8 @@ import {
   lineBodyOf,
   lineErrors,
   lineTotalOf,
-  orderTotalOf,
+  NO_LINE_ERRORS,
+  orderTotals,
   rupees,
   type LineDraft,
   type LineErrors,
@@ -367,8 +368,8 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
     overscan: OVERSCAN_ROWS,
   });
 
-  const errors = lines.map(lineErrors);
-  const valid = vendor !== undefined && errors.every((e) => Object.keys(e).length === 0);
+  const valid = vendor !== undefined && lines.every((l) => lineErrors(l) === NO_LINE_ERRORS);
+  const [orderTotalOf] = useState(orderTotals);
 
   // The rows' actions keep one identity across renders, so an untouched row skips its
   // render; an edit clears the failure through the latest form.
