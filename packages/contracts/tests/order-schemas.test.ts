@@ -13,6 +13,7 @@ import {
   orderListItem,
   orderListQuery,
   vendorBody,
+  PO_NUMBER_PREFIX_MAX,
 } from '../src/index.js';
 
 // The slice 3 order schemas (contracts/api.md, research R6 and R9), reviewed before any
@@ -193,6 +194,10 @@ describe('[FR-PO-01] order list query and responses', () => {
     expect(failures(orderListQuery, { status: 'SENT' })).toEqual(['body.status INVALID_FORMAT']);
     expect(failures(orderListQuery, { poNumber: 'PO 1' })).toEqual([
       'body.poNumber INVALID_FORMAT',
+    ]);
+    expect(failures(orderListQuery, { poNumber: 'P'.repeat(PO_NUMBER_PREFIX_MAX) })).toEqual([]);
+    expect(failures(orderListQuery, { poNumber: 'P'.repeat(PO_NUMBER_PREFIX_MAX + 1) })).toEqual([
+      'body.poNumber TOO_LONG',
     ]);
     expect(failures(orderListQuery, { createdFrom: '2026-13-01' })).toEqual([
       'body.createdFrom INVALID_FORMAT',

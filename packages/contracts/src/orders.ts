@@ -23,6 +23,8 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** `PO-{FY}-{seq}`: the financial year and a sequence of at least 6 digits. */
 export const PO_NUMBER_PATTERN = /^PO-\d{4}-\d{2}-\d{6,}$/;
+/** The longest PO-number prefix the order list searches by. */
+export const PO_NUMBER_PREFIX_MAX = 30;
 /** The time zone that decides an order's financial year. */
 export const PO_NUMBER_TIME_ZONE = 'Asia/Kolkata';
 

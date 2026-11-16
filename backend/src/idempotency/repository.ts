@@ -6,7 +6,9 @@ import type { AuditedTransaction } from '../db/transaction.js';
 // order. A second request with the same key waits on the first's uncommitted row (the
 // primary key), then sees its stored result.
 
-export type IdempotentOperation = 'createOrder';
+/** The operations that take an Idempotency-Key; the table's CHECK holds the same list. */
+export const IDEMPOTENT_OPERATIONS = ['createOrder'] as const;
+export type IdempotentOperation = (typeof IDEMPOTENT_OPERATIONS)[number];
 
 export interface IdempotencyKeyRef {
   userId: string;

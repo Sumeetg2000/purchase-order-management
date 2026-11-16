@@ -12,6 +12,7 @@ import {
   ORDER_READ_ONLY_FIELDS,
   ORDER_STATUSES,
   PO_NUMBER_PATTERN,
+  PO_NUMBER_PREFIX_MAX,
 } from '../orders.js';
 import { VENDOR_STATUSES } from '../vendors.js';
 import { pageQueryShape } from './pagination.js';
@@ -132,7 +133,7 @@ export const orderListQuery = z
       .string()
       .trim()
       .min(1)
-      .max(30)
+      .max(PO_NUMBER_PREFIX_MAX)
       .regex(/^[A-Za-z0-9-]+$/)
       .transform((s) => s.toUpperCase())
       .optional(),

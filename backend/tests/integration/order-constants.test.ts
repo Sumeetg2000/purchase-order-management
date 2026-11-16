@@ -12,6 +12,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { IDEMPOTENT_OPERATIONS } from '../../src/idempotency/repository.js';
 import { inTransaction, orderFixture, sqlstate, type OrderFixture } from '../support/orders-sql.js';
 
 // Every order constant's SQL copy in migration 0013 equals the constant (CLAUDE.md), and
@@ -88,8 +89,9 @@ describe('[FR-PO-01] order constants equal their SQL copies (0013)', () => {
       `CHECK ((po_number ~ '${PO_NUMBER_PATTERN.source}'::text))`,
     );
     expect(await constraintDef(q, 'idempotency_keys_operation_valid')).toBe(
-      `CHECK ((operation = 'createOrder'::text))`,
+      `CHECK ((operation = '${IDEMPOTENT_OPERATIONS.join("', '")}'::text))`,
     );
+    expect(IDEMPOTENT_OPERATIONS).toEqual(['createOrder']);
   });
 
   it('[FR-PO-05] po_financial_year uses PO_NUMBER_TIME_ZONE', async () => {
