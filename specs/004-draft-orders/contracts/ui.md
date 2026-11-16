@@ -7,7 +7,7 @@ states, no double submit, CSS Modules, axe on every screen.
 
 | Route | Who | Shows |
 |---|---|---|
-| `/orders` | Buyer, Approver, Admin | List: PO number, vendor, status, lines, total (en-IN INR), created; filters status, vendor (combo box over the vendor list), PO-number prefix (debounced), created from/to; page numbers; all in the URL. With a PO-number prefix the list is sorted by PO number (newest number first) and says so above the table. Buyers: "New order". Approvers: empty state "Orders appear here once buyers submit them." |
+| `/orders` | Buyer, Approver, Admin | List: PO number, vendor, status, lines, total (en-IN INR), created; filters status, vendor (combo box over the vendor list), PO-number prefix (debounced), created from/to; page numbers; all in the URL. With a PO-number prefix the list is sorted by PO number (newest number first) and says so above the table. Buyers: "New order". Approvers: empty state "Orders appear here once buyers submit them." A filter the API would refuse asks nothing (added 2026-11-16, owner direction): a reversed range says "The start date is after the end date." at the date filters; any other (a hand-edited or old link) says "This link has a filter that isn't valid." with Clear filters. |
 | `/orders/new` | Buyer | Editor (below), vendor picker limited to active vendors |
 | `/orders/:id` | Readable callers | Header (PO number, status, vendor with an "Inactive" badge when so, owner, total), lines table, Timeline tab. Owner of a draft: "Edit" and "Delete draft" |
 | `/orders/:id/edit` | Owner of a draft | Editor with the stored order |

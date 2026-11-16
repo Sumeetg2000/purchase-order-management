@@ -105,18 +105,41 @@ describe('[FR-PO-01] the orders list', () => {
     expect(listCalls(seen).at(-1)).toEqual({ poNumber: 'po-2026-27-00' });
   });
 
-  it('[NFR-FE-04] a link with a filter the API would refuse lists no orders, without asking', async () => {
+  it('[NFR-FE-04] a reversed date range is said at the date filters, and nothing is asked', async () => {
+    const seen = listApi();
+    renderApp('/orders?createdFrom=2026-12-01&createdTo=2026-01-01');
+    const message = await screen.findByText('The start date is after the end date.');
+    expect(message).toBeVisible();
+    for (const label of ['Created from', 'Created to']) {
+      const input = screen.getByLabelText(label);
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(input).toHaveAccessibleDescription('The start date is after the end date.');
+    }
+    expect(screen.queryByText('No orders match')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(listCalls(seen)).toEqual([]);
+  });
+
+  it('[NFR-FE-04] a link with another filter the API would refuse says so and offers Clear filters', async () => {
     for (const search of [
       'vendorId=abc',
       'poNumber=PO%2F1',
       `poNumber=${'P'.repeat(31)}`,
-      'createdFrom=2026-12-01&createdTo=2026-01-01',
+      'createdFrom=2026-13-01',
     ]) {
       vi.unstubAllGlobals();
       const seen = listApi();
-      renderApp(`/orders?${search}`);
-      expect(await screen.findByText('No orders match')).toBeVisible();
+      const { user, router } = renderApp(`/orders?status=DRAFT&${search}`);
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent("This link has a filter that isn't valid.");
+      expect(screen.queryByText('No orders match')).toBeNull();
       expect(listCalls(seen)).toEqual([]);
+      await user.click(within(alert).getByRole('button', { name: 'Clear filters' }));
+      await waitFor(() => {
+        expect(router.state.location.search).toBe('');
+      });
+      expect(await screen.findByRole('table')).toBeVisible();
+      expect(listCalls(seen)).toEqual([{}]);
       cleanup();
     }
   });

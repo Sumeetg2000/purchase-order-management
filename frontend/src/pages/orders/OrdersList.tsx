@@ -19,8 +19,29 @@ import { useOrderList } from './queries';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
-const styles = classes(css, 'header', 'filters', 'filter', 'lines', 'number', 'hint');
+const styles = classes(
+  css,
+  'header',
+  'filters',
+  'filter',
+  'fieldError',
+  'alert',
+  'lines',
+  'number',
+  'hint',
+);
 const controls = classes(controlsCss, 'primary');
+
+/** The filters a link can carry, each checked by the contract's own rule. */
+const LINK_FILTERS = ['vendorId', 'poNumber', 'createdFrom', 'createdTo'] as const;
+const NO_FILTERS = {
+  status: undefined,
+  vendorId: undefined,
+  poNumber: undefined,
+  createdFrom: undefined,
+  createdTo: undefined,
+};
+const RANGE_ERROR_ID = 'created-range-error';
 
 /**
  * The orders the caller may read (contracts/ui.md, research R7): status, vendor, PO-number
@@ -36,16 +57,27 @@ export function OrdersList() {
     createdTo: TEXT,
   });
   const filters = params;
-  // A hand-edited or old link can hold a filter the API refuses (a malformed vendor id or
-  // date, a PO prefix with other characters, a reversed range): no order matches it.
-  const matchesNothing = !orderListQuery.safeParse(filters).success;
+  // A hand-edited or old link can hold a filter the API refuses: the page says which kind
+  // and asks nothing. A reversed range is a mistake in the date filters, said there.
+  const badLink = LINK_FILTERS.some(
+    (field) =>
+      filters[field] !== undefined &&
+      !orderListQuery.shape[field].safeParse(filters[field]).success,
+  );
+  const reversed =
+    !badLink &&
+    filters.createdFrom !== undefined &&
+    filters.createdTo !== undefined &&
+    filters.createdFrom > filters.createdTo;
+  const refused = badLink || reversed;
+  const rangeError = reversed ? { 'aria-invalid': true, 'aria-describedby': RANGE_ERROR_ID } : {};
   const canCreate = useCan('createOrder');
   const roles = useCurrentUser().data?.roles ?? [];
   const approverOnly = roles.includes('APPROVER') && !roles.includes('BUYER');
   const filtered = Object.entries(filters).some(
     ([key, value]) => key !== 'page' && value !== undefined,
   );
-  const states = useQueryStates(useOrderList(filters, { matchesNothing }), {
+  const states = useQueryStates(useOrderList(filters, { enabled: !refused }), {
     loadingLabel: 'Loading orders',
     isEmpty: (page) => page.items.length === 0,
     empty: filtered
@@ -112,6 +144,7 @@ export function OrdersList() {
           <input
             type="date"
             value={filters.createdFrom ?? ''}
+            {...rangeError}
             onChange={(event) => {
               show({ createdFrom: event.target.value || undefined });
             }}
@@ -122,11 +155,17 @@ export function OrdersList() {
           <input
             type="date"
             value={filters.createdTo ?? ''}
+            {...rangeError}
             onChange={(event) => {
               show({ createdTo: event.target.value || undefined });
             }}
           />
         </label>
+        {reversed && (
+          <p id={RANGE_ERROR_ID} className={styles.fieldError}>
+            The start date is after the end date.
+          </p>
+        )}
         {filters.vendorId && (
           <p className={styles.hint}>
             One vendor&apos;s orders.{' '}
@@ -141,51 +180,68 @@ export function OrdersList() {
           </p>
         )}
       </form>
-      {filters.poNumber && <p className={styles.hint}>Sorted by PO number, newest first.</p>}
-      {states.view ?? (
-        <>
-          {states.notice}
-          <table className={styles.lines}>
-            <caption className={styles.hint}>
-              {states.data.total === 1 ? '1 order' : `${String(states.data.total)} orders`}
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">PO number</th>
-                <th scope="col">Vendor</th>
-                <th scope="col">Status</th>
-                <th scope="col">Lines</th>
-                <th scope="col">Total</th>
-                <th scope="col">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {states.data.items.map((order) => (
-                <tr key={order.id}>
-                  <td>
-                    <Link to={`/orders/${order.id}`}>{order.poNumber}</Link>
-                  </td>
-                  <td>
-                    <Link to={`/orders?vendorId=${order.vendor.id}`}>{order.vendor.name}</Link>
-                  </td>
-                  <td>{ORDER_STATUS_LABELS[order.status]}</td>
-                  <td className={styles.number}>{order.lineCount}</td>
-                  <td className={styles.number}>{formatInr(toMoney(order.total))}</td>
-                  <td>
-                    <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pager
-            page={states.data.page}
-            pageSize={states.data.pageSize}
-            total={states.data.total}
-            onPage={setPage}
-          />
-        </>
+      {badLink && (
+        <div role="alert" className={styles.alert}>
+          <p>This link has a filter that isn&apos;t valid.</p>
+          <button
+            type="button"
+            onClick={() => {
+              show(NO_FILTERS);
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
       )}
+      {!refused && filters.poNumber && (
+        <p className={styles.hint}>Sorted by PO number, newest first.</p>
+      )}
+      {refused
+        ? null
+        : (states.view ?? (
+            <>
+              {states.notice}
+              <table className={styles.lines}>
+                <caption className={styles.hint}>
+                  {states.data.total === 1 ? '1 order' : `${String(states.data.total)} orders`}
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">PO number</th>
+                    <th scope="col">Vendor</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Lines</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {states.data.items.map((order) => (
+                    <tr key={order.id}>
+                      <td>
+                        <Link to={`/orders/${order.id}`}>{order.poNumber}</Link>
+                      </td>
+                      <td>
+                        <Link to={`/orders?vendorId=${order.vendor.id}`}>{order.vendor.name}</Link>
+                      </td>
+                      <td>{ORDER_STATUS_LABELS[order.status]}</td>
+                      <td className={styles.number}>{order.lineCount}</td>
+                      <td className={styles.number}>{formatInr(toMoney(order.total))}</td>
+                      <td>
+                        <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Pager
+                page={states.data.page}
+                pageSize={states.data.pageSize}
+                total={states.data.total}
+                onPage={setPage}
+              />
+            </>
+          ))}
     </>
   );
 }

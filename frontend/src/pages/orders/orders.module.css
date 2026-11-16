@@ -105,7 +105,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cellError {
+.cellError,
+.fieldError {
   display: block;
   margin-top: 0.25rem;
   color: var(--color-danger);
