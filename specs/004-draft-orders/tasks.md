@@ -49,7 +49,7 @@ slice's draft PR) and a short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Dependencies at exact versions: `big.js@7.0.1` and `@types/big.js@7.0.0`
+- [X] T001 Dependencies at exact versions: `big.js@7.0.1` and `@types/big.js@7.0.0`
   (`packages/contracts`), `fast-check@4.10.2` (dev, `packages/contracts` and `backend`),
   `@tanstack/react-virtual@3.14.23` (`frontend`); `npm ci` clean; lint rule banning
   `Prisma.Decimal` and `decimal.js` imports outside generated code —
@@ -553,7 +553,7 @@ the owner added on 2026-11-12**.
 - [X] T065 [P] Compose smoke through nginx: the largest valid order (raw and escaped) →
   `201` and `ORDER_BODY_LIMIT_BYTES + 1` → `413`; a 1 MiB + 1 body on another `/api/`
   route → `413` — `scripts/smoke.sh` — R8.
-- [ ] T066 [P] Editor benchmark: 500-line order, 4× CPU throttling: keystroke → paint p95
+- [X] T066 [P] Editor benchmark: 500-line order, 4× CPU throttling: keystroke → paint p95
   ≤ 50 ms, add/remove ≤ 100 ms, loaded and interactive ≤ 1,000 ms; route chunk ≤ 150 KB
   gzip (bundle budget) — `frontend/e2e/order-editor-perf.spec.ts`,
   `scripts/check-bundle-budget.mjs` — SC-008, ADR-0012.

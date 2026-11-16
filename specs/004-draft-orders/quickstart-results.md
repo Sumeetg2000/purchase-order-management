@@ -31,9 +31,10 @@ Notes:
   `app.actor_txid` and `app.actor_type` set, as the app sets them, the write reaches the
   derived-value guard and fails with `PO005`.
 - Step 1 ran after the demo seed's six drafts, so the first new number is `…000007`.
-- Not passing: the editor benchmark (`frontend/e2e/order-editor-perf.spec.ts`, T066). On
-  this laptop (power-saver profile) at 4× CPU throttling, after the editor work in this
-  slice: opened in 342–646 ms (target 1,000) and add/remove p95 62–91 ms (target 100),
-  but keystroke p95 55–84 ms (target 50). A plain input on the login page measures p95
-  45–47 ms on the same machine and settings. The spec is not committed; the target is
-  unchanged.
+- The editor benchmark (`frontend/e2e/order-editor-perf.spec.ts`, T066), committed on
+  2026-11-16 with its targets unchanged. At 4× CPU throttling on the balanced profile, 4
+  runs: keystroke p95 16.5–18.5 ms (target 50), add/remove p95 31.5–32 ms (100), opened
+  in 214–306 ms (1,000). On this laptop's power-saver (`quiet`) profile, 8 runs of the
+  same code: keystroke p95 46–61 ms, add/remove 64–87 ms, opened in 267–482 ms. The
+  keystroke miss there is the profile, not the editor. The editor route chunk is 67.8 KB
+  gzip (budget 150).
