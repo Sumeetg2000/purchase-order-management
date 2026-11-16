@@ -338,7 +338,6 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
           orderId: id,
           poNumber: order.poNumber,
           details: {
-            poNumber: order.poNumber,
             vendor: { id: order.vendor.id, name: order.vendor.name },
             lines: auditLines(order),
             total: order.total,

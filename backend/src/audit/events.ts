@@ -115,11 +115,13 @@ export interface AuditEventCatalogue {
       total: Change<Money>;
     };
   };
-  /** The owner deleted a draft: its full contents outlive it here. */
+  /**
+   * The owner deleted a draft: its full contents outlive it here. Its PO number is the
+   * entry's own `po_number` column, as for every order event.
+   */
   PO_DRAFT_DELETED: {
     entityType: 'order';
     details: {
-      poNumber: string;
       vendor: AuditOrderVendor;
       lines: AuditOrderLine[];
       total: Money;

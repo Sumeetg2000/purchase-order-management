@@ -1,6 +1,6 @@
 import type { Money } from '@po/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
-import type { AuditEvent } from '../../src/audit/events.js';
+import type { AuditEvent, AuditEventCatalogue } from '../../src/audit/events.js';
 import type { writeAudit } from '../../src/audit/write.js';
 import type { Prisma } from '../../src/generated/prisma/client.js';
 
@@ -63,7 +63,7 @@ type Edited = OrderEvent<
 >;
 type Deleted = OrderEvent<
   'PO_DRAFT_DELETED',
-  { poNumber: string; vendor: Vendor; lines: Line[]; total: Money; reason: null }
+  { vendor: Vendor; lines: Line[]; total: Money; reason: null }
 >;
 type CreatedWithoutPoNumber = Omit<Created, 'poNumber'>;
 type CreatedWithNumberTotal = OrderEvent<
@@ -76,6 +76,13 @@ describe('[NFR-AUD-01] typed order audit events', () => {
     expectTypeOf<Created>().toExtend<Event>();
     expectTypeOf<Edited>().toExtend<Event>();
     expectTypeOf<Deleted>().toExtend<Event>();
+  });
+
+  it('[NFR-AUD-01] the PO number is the entry column, never repeated in its details', () => {
+    expectTypeOf<AuditEventCatalogue['PO_CREATED']['details']>().not.toHaveProperty('poNumber');
+    expectTypeOf<AuditEventCatalogue['PO_DRAFT_DELETED']['details']>().not.toHaveProperty(
+      'poNumber',
+    );
   });
 
   it('[NFR-AUD-01] an order event needs its order id and PO number, and money as Money', () => {

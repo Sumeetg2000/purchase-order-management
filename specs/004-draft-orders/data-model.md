@@ -127,7 +127,7 @@ INV-3 (receipts) joins in slice 6.
 |---|---|---|
 | `PO_CREATED` | `order`, id | `vendor: { id, name }`, `lines: [{ id, description, quantity, unitPrice, lineTotal }]`, `total` |
 | `PO_EDITED` | `order`, id | `vendor: { before, after }` when changed; `lines: { added: [line], removed: [line], changed: [{ id, position?, description?, quantity?, unitPrice?, lineTotal? } as { before, after } per changed field] }`; `total: { before, after }` |
-| `PO_DRAFT_DELETED` | `order`, id | `poNumber`, `vendor`, `lines` (full), `total`, `reason` (or `null`) |
+| `PO_DRAFT_DELETED` | `order`, id | `vendor`, `lines` (full), `total`, `reason` (or `null`); the PO number is the entry's `po_number` column |
 
 Every entry carries `order_id` and `po_number` columns, actor, `actingRole: BUYER`,
 request id. Money in `details` is `Money` strings.

@@ -30,7 +30,7 @@ describe('[FR-SM-02] delete a draft', () => {
     expect(await h.count('order_lines')).toBe(0);
   });
 
-  it('[NFR-AUD-01] PO_DRAFT_DELETED keeps the PO number, the vendor, every line, the total and the reason', async () => {
+  it('[NFR-AUD-01] PO_DRAFT_DELETED keeps the PO number in its column, and the vendor, every line, the total and the reason in its details', async () => {
     const h = await ordersHarness();
     const order = await draft(h);
     const res = await h.deleteOrder(order.id, 1, {
@@ -47,7 +47,6 @@ describe('[FR-SM-02] delete a draft', () => {
       acting_role: 'BUYER',
       request_id: res.get('X-Request-Id'),
       details: {
-        poNumber: order.poNumber,
         vendor: { id: h.vendorId, name: 'Acme Supplies' },
         lines: order.lines.map(({ id, description, quantity, unitPrice, lineTotal }) => ({
           id,
@@ -60,6 +59,8 @@ describe('[FR-SM-02] delete a draft', () => {
         reason: 'Raised twice;\nsee the other one.',
       },
     });
+    // The entry's po_number column holds the number, as for PO_CREATED: not again here.
+    expect(entries[1]?.details).not.toHaveProperty('poNumber');
   });
 
   it('[FR-SM-02] a reason is optional: {} and {"reason": null} record null', async () => {
