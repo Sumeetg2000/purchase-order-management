@@ -1,0 +1,9 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM (SELECT po_number FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int)) k ORDER BY k.po_number DESC LIMIT 20 OFFSET 1980) k JOIN purchase_orders o ON o.po_number = k.po_number
+-- values: ["PO-2026-27-0012","PO-2026-27-0012",1114111]
+
+Nested Loop
+  ->  Limit
+        ->  Index Only Scan Backward using purchase_orders_po_number_key on purchase_orders
+              Index Cond: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text))
+  ->  Index Scan using purchase_orders_po_number_key on purchase_orders o
+        Index Cond: (po_number = purchase_orders.po_number)

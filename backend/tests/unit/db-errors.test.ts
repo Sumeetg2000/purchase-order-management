@@ -141,14 +141,36 @@ describe('[NFR-API-02] central database error mapper', () => {
     }
   });
 
-  it.each(['PO001', 'PO002', 'PO003', 'PO004'])(
-    '[NFR-API-02] trigger SQLSTATE %s is INTERNAL_ERROR, logged as a bug',
-    (sqlstate) => {
+  it.each([
+    ['PO001', 'ACTOR_CONTEXT_REQUIRED'],
+    ['PO002', 'ACTOR_CONTEXT_MISMATCH'],
+    ['PO003', 'AUDIT_IMMUTABLE'],
+    ['PO004', 'AUDIT_RETENTION_ACTIVE'],
+    ['PO005', 'DERIVED_VALUE_READ_ONLY'],
+    ['PO006', 'ORDER_LINES_LOCKED'],
+    ['PO007', 'ORDER_WITHOUT_LINES'],
+    ['PO008', 'ORDER_FIELD_IMMUTABLE'],
+    ['PO009', 'ORDER_STATUS_TRANSITION_REFUSED'],
+    ['PO010', 'ORDER_DELETE_REFUSED'],
+    ['PO011', 'PO_NUMBER_UNASSIGNED'],
+  ])(
+    '[NFR-API-02] trigger SQLSTATE %s (%s) is INTERNAL_ERROR, logged as a bug by name',
+    (sqlstate, name) => {
       const { result, lines } = map(adapterError({ kind: 'postgres', originalCode: sqlstate }));
       expect(result?.code).toBe('INTERNAL_ERROR');
-      expect(lines.some((l) => l['level'] === 50 && l['sqlstate'] === sqlstate)).toBe(true);
+      expect(
+        lines.some(
+          (l) => l['level'] === 50 && l['sqlstate'] === sqlstate && l['triggerError'] === name,
+        ),
+      ).toBe(true);
     },
   );
+
+  it('[NFR-API-02] an unnamed PO SQLSTATE is still INTERNAL_ERROR, logged without a name', () => {
+    const { result, lines } = map(adapterError({ kind: 'postgres', originalCode: 'PO999' }));
+    expect(result?.code).toBe('INTERNAL_ERROR');
+    expect(lines.some((l) => l['level'] === 50 && l['sqlstate'] === 'PO999')).toBe(true);
+  });
 
   it('[NFR-API-02] returns undefined for errors that are not from the database', () => {
     expect(map(new Error('something else')).result).toBeUndefined();

@@ -1,6 +1,7 @@
 import { API_PATH_PREFIX } from '@po/contracts';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SEARCH_DEBOUNCE_MS } from '../src/components/SearchField';
 import { errorMessages } from '../src/errors/messages';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem, type Handler } from './support/fake-api';
@@ -9,6 +10,7 @@ import { renderApp } from './support/render-app';
 // The admin Users screen and its dialogs (ADR-0018; spec US3 scenarios 1–7).
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -92,8 +94,12 @@ describe('[NFR-FE-08] admin Users list', () => {
   });
 
   it('[FR-ADM-01] filters live in the URL and are sent to the API', async () => {
+    // The search's debounce runs on fake time: moved on by hand, it can't run out under load.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const seen = adminApi();
-    const { user: u, router } = renderApp('/admin/users?role=NONE&status=ACTIVE&page=2');
+    const { user: u, router } = renderApp('/admin/users?role=NONE&status=ACTIVE&page=2', {
+      advanceTimers: (ms) => vi.advanceTimersByTime(ms),
+    });
     expect(await screen.findByLabelText('Role')).toHaveValue('NONE');
     expect(screen.getByLabelText('Status')).toHaveValue('ACTIVE');
     await waitFor(() => {
@@ -101,11 +107,15 @@ describe('[NFR-FE-08] admin Users list', () => {
       expect(new URL(list.at(-1)?.url ?? '').search).toBe('?role=NONE&status=ACTIVE&page=2');
     });
     await u.type(screen.getByLabelText('Name or email starts with'), 'pri');
+    act(() => {
+      vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
+    });
     await waitFor(() => {
       expect(router.state.location.search).toBe('?role=NONE&status=ACTIVE&q=pri');
     });
     await u.selectOptions(screen.getByLabelText('Role'), 'APPROVER');
     expect(router.state.location.search).toBe('?role=APPROVER&status=ACTIVE&q=pri');
+    vi.useRealTimers();
   });
 
   it('[FR-ADM-01] the search box follows the URL, e.g. after going back', async () => {

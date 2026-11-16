@@ -29,8 +29,11 @@ export interface ConfirmDialogProps {
   /** The safe button, which closes the dialog and has the initial focus. */
   cancelLabel?: string;
   tone?: 'default' | 'danger';
-  /** When set, a reason is required: confirm stays disabled until it is valid. */
-  reason?: { label: string; minLength: number; maxLength: number };
+  /**
+   * When set, a reason field: required unless `optional`, and confirm stays disabled until
+   * it is valid. An optional reason left blank is passed as "".
+   */
+  reason?: { label: string; minLength: number; maxLength: number; optional?: boolean };
   /** Keeps confirm disabled, e.g. until the dialog's own choice is made or its data loads. */
   confirmDisabled?: boolean;
   /** Called once per press, with the trimmed reason when one is required. */
@@ -79,7 +82,9 @@ export function ConfirmDialog({
   const shownError = error ?? failure;
   const trimmed = reasonText.trim();
   const reasonValid =
-    !reason || (trimmed.length >= reason.minLength && trimmed.length <= reason.maxLength);
+    !reason ||
+    (reason.optional === true && trimmed.length === 0) ||
+    (trimmed.length >= reason.minLength && trimmed.length <= reason.maxLength);
 
   const confirm = async () => {
     if (pendingRef.current || !reasonValid || confirmDisabled) return;
@@ -120,7 +125,7 @@ export function ConfirmDialog({
               onChange={setReasonText}
               maxLength={reason.maxLength}
               isDisabled={pending}
-              isRequired
+              isRequired={reason.optional !== true}
             >
               <Label>{reason.label}</Label>
               <TextArea rows={3} />

@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $1::uuid AND owner_id = $2::uuid) c
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_owner_vendor_created_idx on purchase_orders
+        Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid))

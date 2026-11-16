@@ -6,7 +6,8 @@ import { ONE_SHOT } from '../db/one-shot.js';
 import { createLogger } from '../observability/logger.js';
 import { deployMigrations } from './deploy.js';
 import { provisionDatabase } from './provision.js';
-import { seedDemoUsers, seedDemoVendors } from './seed-demo.js';
+import { assertReconciled } from '../db/reconciliation.js';
+import { seedDemoOrders, seedDemoUsers, seedDemoVendors } from './seed-demo.js';
 
 async function main() {
   const config = loadConfig(migrateConfig.schema);
@@ -56,6 +57,10 @@ async function main() {
       logger.info({ step: 'seed-demo', created }, 'demo users seeded');
       const vendors = await seedDemoVendors({ prisma, appEnv: config.APP_ENV, logger });
       logger.info({ step: 'seed-demo', created: vendors }, 'demo vendors seeded');
+      const orders = await seedDemoOrders({ prisma, appEnv: config.APP_ENV, logger });
+      logger.info({ step: 'seed-demo', created: orders }, 'demo orders seeded');
+      // Every seed ends reconciled (Principle I): a seed can't leave a total out of step.
+      await assertReconciled(prisma);
     }
   } finally {
     await prisma.$disconnect();

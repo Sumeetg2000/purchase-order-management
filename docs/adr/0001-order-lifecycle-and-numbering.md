@@ -1,7 +1,9 @@
 # ADR-0001: Order lifecycle, state table and PO numbering
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (state table moved here from the
-  constitution; single-step approval guards; financial-year PO numbering)
+  constitution; single-step approval guards; financial-year PO numbering) · amended
+  2026-11-12 (PO numbers allocated at the end of the create transaction, so only deleted
+  drafts leave gaps, **owner decision**; slice 3)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -63,16 +65,25 @@ complains of "no numbering discipline".
   - 1 April 2026 00:00 IST to 31 March 2027 23:59:59.999 IST → `2026-27`
 - The sequence restarts at 1 for each FY. It's held in a counters table
   `po_number_counters (fy PRIMARY KEY, last_value)`.
-- Allocation runs as **one short statement before the create transaction**, so the
-  counter row is never held locked for the length of a create:
+- Allocation runs **inside the create transaction, as its last write before the audit
+  entry** (amended 2026-11-12, owner decision): the order and its lines are inserted with
+  `po_number NULL`, then
   `INSERT … VALUES (fy, 1) ON CONFLICT (fy) DO UPDATE SET last_value = last_value + 1
-  RETURNING last_value`.
+  RETURNING last_value` allocates, and the order's `po_number` is set.
   - This is the `UPDATE … RETURNING`, plus the first allocation of a new FY.
+  - A deferred constraint trigger refuses a commit with `po_number` still `NULL`; the
+    immutability trigger allows only that one `NULL` → value change.
   - The app role has `INSERT`/`UPDATE` on the counters table only.
+  - **Trade-off**: the current FY's counter row stays locked from allocation to commit,
+    so concurrent creates queue there. Allocating last keeps that hold to two small
+    statements, the audit insert and the commit, whatever the line count (slice 3
+    research R2 estimates a ceiling of hundreds of creates a second, measured by the
+    load job). If it ever binds, the fallback is the earlier design below.
 - Each number is unique (a `UNIQUE` constraint), never reused and never editable (a
   trigger refuses changes; `poNumber` in any body → 400).
-- **Gaps are acceptable**: a failed or rolled-back create, an idempotent replay that
-  allocated first, and deleted drafts. Each deleted draft is explained by its audit entry.
+- **Gaps come only from deleted drafts**, each explained by its `PO_DRAFT_DELETED` entry.
+  A failed or rolled-back create rolls its allocation back, and an idempotent replay
+  returns the stored result without allocating.
 
 ## Alternatives
 - Create directly into `PENDING_APPROVAL`/`APPROVED`: no working draft, and every typo
@@ -86,8 +97,12 @@ complains of "no numbering discipline".
   financial year, so numbers should restart in April. Replaced.
 - A PostgreSQL sequence per FY: needs DDL at each year boundary. The counters table needs
   none.
-- Allocating inside the create transaction: holds the counter row lock for the whole create
-  and serialises concurrent creates. Rejected.
+- Allocating as one statement **before** the create transaction (this ADR until
+  2026-11-12): no queueing on the counter row, but a failed or rolled-back create and a
+  replay that reached allocation leave gaps. Replaced by owner decision: gaps should
+  mean deleted drafts only.
+- Allocating **first** inside the create transaction: holds the counter row through every
+  line insert. Rejected for allocating last.
 
 ## Consequences
 - §3.4 answer: "edits mid-approval are refused; withdraw, edit, resubmit, and routing is
@@ -100,7 +115,8 @@ complains of "no numbering discipline".
 - A raw-SQL illegal status change is rejected. A raw-SQL delete of a non-draft order is
   rejected.
 - PO numbers:
-  - unique under 50 concurrent creates
+  - unique and consecutive under 50 concurrent creates
+  - a rolled-back or refused create leaves no gap; a replayed create allocates nothing
   - no reuse after a delete
   - `poNumber` in any body → 400
   - a raw-SQL change of `po_number` is rejected

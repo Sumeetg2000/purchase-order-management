@@ -1,9 +1,10 @@
-import { ERROR_CODES, PUBLIC_REVOKE_REASONS } from '@po/contracts';
+import { ERROR_CODES, ORDER_ADMIN_READ_ONLY_MESSAGE, PUBLIC_REVOKE_REASONS } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   describeFailure,
   errorMessages,
   fieldMessages,
+  messageForOrderWrite,
   messageForProblem,
   revokeReasonText,
   sentenceFor,
@@ -43,6 +44,34 @@ describe('[FR-VEN-01] vendor messages (specs/003-vendors/contracts/errors.md)', 
       'This vendor is deactivated. Reactivate it or choose another vendor.',
     );
     expect(fieldMessages.VENDOR_NOT_FOUND).toBe('This vendor no longer exists.');
+  });
+});
+
+describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)', () => {
+  it('[FR-PO-01] a reused idempotency key says to start a new order', () => {
+    expect(sentenceFor({ code: 'IDEMPOTENCY_KEY_REUSED' })).toBe(
+      'This request was already used for a different order. Start a new order.',
+    );
+  });
+
+  it('[NFR-VAL-01] each order field code says what to fix', () => {
+    expect(fieldMessages.LINE_NOT_FOUND).toBe('This line is no longer on the order. Reload it.');
+    expect(fieldMessages.DUPLICATE_LINE_ID).toBe('This line appears twice. Reload the order.');
+    expect(fieldMessages.READ_ONLY_FIELD).toBe(
+      "This is calculated by the system and can't be set.",
+    );
+  });
+
+  it('[NFR-AUTH-01] FORBIDDEN on an order write tells an Admin why, and anyone else the usual words', () => {
+    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: true })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
+    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: false })).toEqual(
+      errorMessages.FORBIDDEN,
+    );
+    expect(messageForOrderWrite({ code: 'VERSION_CONFLICT' }, { isAdmin: true })).toEqual(
+      errorMessages.VERSION_CONFLICT,
+    );
   });
 });
 

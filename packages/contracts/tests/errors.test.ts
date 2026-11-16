@@ -17,7 +17,7 @@ describe('[NFR-API-02] error code registry', () => {
     for (const code of ERROR_CODES) expect(code).toMatch(/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/);
   });
 
-  it('[NFR-API-02] holds exactly the slice 0 to slice 2 codes with their statuses', () => {
+  it('[NFR-API-02] holds exactly the slice 0 to slice 3 codes with their statuses', () => {
     const statuses = Object.fromEntries(ERROR_CODES.map((c) => [c, ERROR_REGISTRY[c].status]));
     expect(statuses).toEqual({
       VALIDATION_FAILED: 400,
@@ -58,6 +58,8 @@ describe('[NFR-API-02] error code registry', () => {
       DUPLICATE_VENDOR_NAME: 409,
       INVALID_STATE_TRANSITION: 409,
       VENDOR_INACTIVE: 409,
+      // Slice 3 (specs/004-draft-orders/contracts/errors.md)
+      IDEMPOTENCY_KEY_REUSED: 409,
     });
   });
 
@@ -91,7 +93,7 @@ describe('[NFR-API-02] error code registry', () => {
     ]);
   });
 
-  it('[NFR-VAL-01] lists the slice 0 to slice 2 field codes', () => {
+  it('[NFR-VAL-01] lists the slice 0 to slice 3 field codes', () => {
     expect([...FIELD_CODES].sort()).toEqual(
       [
         'MALFORMED_JSON',
@@ -110,6 +112,9 @@ describe('[NFR-API-02] error code registry', () => {
         'INCORRECT_PASSWORD',
         'PASSWORD_UNCHANGED',
         'VENDOR_NOT_FOUND',
+        'LINE_NOT_FOUND',
+        'DUPLICATE_LINE_ID',
+        'READ_ONLY_FIELD',
       ].sort(),
     );
   });

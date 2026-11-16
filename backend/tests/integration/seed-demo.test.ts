@@ -4,9 +4,11 @@ import {
   DEMO_PASSWORD,
   DEMO_USERS,
   DEMO_VENDORS,
+  seedDemoOrders,
   seedDemoUsers,
   seedDemoVendors,
 } from '../../src/migrate/seed-demo.js';
+import { reconciliationViolations } from '../support/setup.js';
 import { accountsHarness } from '../support/accounts.js';
 import { testLogger } from '../support/log-capture.js';
 
@@ -30,7 +32,9 @@ async function setup() {
     seedDemoUsers({ prisma, appEnv, logger: testLogger() });
   const seedVendors = (appEnv: 'local' | 'production' = 'local') =>
     seedDemoVendors({ prisma, appEnv, logger: testLogger() });
-  return { h, seed, seedVendors };
+  const seedOrders = (appEnv: 'local' | 'production' = 'local') =>
+    seedDemoOrders({ prisma, appEnv, logger: testLogger() });
+  return { h, seed, seedVendors, seedOrders };
 }
 
 describe('[NFR-OPS-01] demo users', () => {
@@ -124,5 +128,62 @@ describe('[FR-VEN-01] demo vendors', () => {
     const { h, seedVendors } = await setup();
     await expect(seedVendors('production')).rejects.toThrow(/production/);
     expect(await h.query('SELECT id FROM vendors')).toEqual([]);
+  });
+});
+
+describe('[FR-PO-01] demo orders', () => {
+  it('[FR-PO-01] each demo Buyer gets three drafts: exact fractional totals, 20 lines, and one with a vendor since deactivated', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    expect(await seedOrders()).toBe(6);
+    const orders = await h.query<{
+      email: string;
+      vendor: string;
+      status: string;
+      lines: number;
+      total: string;
+    }>(
+      `SELECT u.email, v.name AS vendor, v.status, count(l.id)::int AS lines, o.total::text AS total
+         FROM purchase_orders o JOIN users u ON u.id = o.owner_id JOIN vendors v ON v.id = o.vendor_id
+         JOIN order_lines l ON l.order_id = o.id
+        GROUP BY u.email, v.name, v.status, o.id, o.total ORDER BY u.email, o.po_number`,
+    );
+    const buyers = DEMO_USERS.filter((u) => u.roles.includes('BUYER')).map((u) => u.email);
+    expect(orders).toHaveLength(6);
+    for (const email of buyers) {
+      const own = orders.filter((o) => o.email === email);
+      expect(own.map((o) => [o.vendor, o.status, o.lines])).toEqual([
+        ['Acme Supplies', 'ACTIVE', 3],
+        ['Bright Office Goods', 'ACTIVE', 20],
+        ['Frontier Hardware', 'INACTIVE', 2],
+      ]);
+      expect(own[0]?.total).toBe('0.3000');
+    }
+    // Raised through the service as each Buyer: one PO_CREATED each, by that Buyer.
+    expect(
+      await h.query(
+        `SELECT count(*)::int AS n FROM audit_entries
+          WHERE action = 'PO_CREATED' AND acting_role = 'BUYER' AND actor_type = 'USER'`,
+      ),
+    ).toEqual([{ n: 6 }]);
+    expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+
+  it('[FR-PO-01] runs again without raising anything', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    await seedOrders();
+    expect(await seedOrders()).toBe(0);
+    expect(await h.query('SELECT count(*)::int AS n FROM purchase_orders')).toEqual([{ n: 6 }]);
+  });
+
+  it('[FR-PO-01] refuses to run in production', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    await expect(seedOrders('production')).rejects.toThrow(/production/);
+    expect(await h.query('SELECT id FROM purchase_orders')).toEqual([]);
   });
 });

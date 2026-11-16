@@ -1,0 +1,5 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders ) c
+-- values: []
+
+Aggregate
+  ->  Seq Scan on purchase_orders

@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $1::uuid AND created_at >= ($2::date::timestamp AT TIME ZONE $3) AND created_at < (($4::date + 1)::timestamp AT TIME ZONE $5) AND owner_id = $6::uuid) c
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5","2026-06-01","Asia/Kolkata","2026-09-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_owner_vendor_created_idx on purchase_orders
+        Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-09-30 18:30:00+00'::timestamp with time zone))

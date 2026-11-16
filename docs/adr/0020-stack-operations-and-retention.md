@@ -5,7 +5,8 @@
   port; public-repository CI rules and secret scanning; credential separation; runtime
   libraries from the slice 0 plan) · amended 2026-10-27 (shutdown waits for mail within
   the drain deadline) · amended 2026-11-03 (POC scope, owner decision: no user phone, so
-  no phone purge and no `UPDATE` grant for it)
+  no phone purge and no `UPDATE` grant for it) · amended 2026-11-12 (`big.js`,
+  `@tanstack/react-virtual`, `fast-check`; slice 3)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -28,6 +29,12 @@
     mail), so any relay works, Mailpit included.
   - `openapi-fetch`: a thin fetch client typed from the generated OpenAPI types
     (ADR-0008). It adds almost nothing to the bundle and generates no code beyond types.
+  - `big.js` (amended 2026-11-12): exact decimal money in the API and the web app
+    (ADR-0010). About 6 KB, no dependencies.
+  - `@tanstack/react-virtual` (amended 2026-11-12): the 500-line editor's virtualiser,
+    chosen in ADR-0018 and first installed in slice 3.
+  - `fast-check` (development only, amended 2026-11-12): the property-based invariants
+    suite (Principle VIII).
   - `@prisma/adapter-pg` with `pg`: Prisma 7 connects only through a driver adapter, and
     this is the official one for PostgreSQL.
 - **Runtime**: nginx (same-origin edge), docker compose, an SMTP relay (Mailpit in

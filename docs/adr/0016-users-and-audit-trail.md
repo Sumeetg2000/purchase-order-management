@@ -201,7 +201,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `APPROVAL_STEP_APPROVED` | tier, step, version approved |
 | `APPROVAL_STEP_REJECTED` | tier, step, reason |
 | `PO_WITHDRAWN` | reason, voided steps |
-| `PO_DRAFT_DELETED` | PO number, full contents |
+| `PO_DRAFT_DELETED` | full contents (vendor, lines, total), reason. *Amended 2026-11-16 (owner decision):* the PO number is the entry's `poNumber` column, as for `PO_CREATED`, not repeated in `details` |
 | `PO_CANCELLED` | reason, per line ordered and received |
 | `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter` |
 | `VENDOR_CREATED` / `VENDOR_UPDATED` / `VENDOR_DEACTIVATED` / `VENDOR_REACTIVATED` | before → after(full vendor, contact name, email and phone included; see below) |

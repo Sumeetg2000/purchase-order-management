@@ -1,0 +1,10 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM (SELECT created_at, id FROM purchase_orders WHERE vendor_id = $1::uuid AND status = 'DRAFT') k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 0) k JOIN purchase_orders o ON o.id = k.id
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5"]
+
+Nested Loop
+  ->  Limit
+        ->  Index Scan using purchase_orders_vendor_created_idx on purchase_orders
+              Index Cond: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+              Filter: (status = 'DRAFT'::text)
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = purchase_orders.id)

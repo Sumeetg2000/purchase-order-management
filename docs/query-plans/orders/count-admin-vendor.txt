@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $1::uuid) c
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_vendor_created_idx on purchase_orders
+        Index Cond: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)

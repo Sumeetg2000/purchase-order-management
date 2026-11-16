@@ -1,0 +1,21 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $1::uuid AND status = 'PENDING_APPROVAL' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $2::uuid AND status = 'APPROVED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $3::uuid AND status = 'REJECTED' UNION ALL SELECT 1 AS one FROM purchase_orders WHERE vendor_id = $4::uuid AND status = 'CANCELLED') c
+-- values: ["a0691dbc-b408-f477-da60-bb82d4e941c5","a0691dbc-b408-f477-da60-bb82d4e941c5","a0691dbc-b408-f477-da60-bb82d4e941c5","a0691dbc-b408-f477-da60-bb82d4e941c5"]
+
+Aggregate
+  ->  Append
+        ->  Subquery Scan on "*SELECT* 1"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders
+                    Index Cond: (status = 'PENDING_APPROVAL'::text)
+                    Filter: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+        ->  Subquery Scan on "*SELECT* 2"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                    Index Cond: (status = 'APPROVED'::text)
+                    Filter: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+        ->  Subquery Scan on "*SELECT* 3"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                    Index Cond: (status = 'REJECTED'::text)
+                    Filter: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+        ->  Subquery Scan on "*SELECT* 4"
+              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                    Index Cond: (status = 'CANCELLED'::text)
+                    Filter: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)

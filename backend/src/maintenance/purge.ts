@@ -1,3 +1,4 @@
+import { IDEMPOTENCY_KEY_TTL_HOURS } from '@po/contracts';
 import pg from 'pg';
 import type { Logger } from 'pino';
 import { AUDIT_RETENTION_YEARS } from '../audit/retention.js';
@@ -14,12 +15,13 @@ export const SESSION_RETENTION_DAYS = 90;
 /** Rows deleted per statement, so no single delete holds locks on a large set. */
 export const PURGE_BATCH_SIZE = 1_000;
 
-/** The tables the purge covers so far; slice 3 adds idempotency keys. */
+/** The tables the purge covers so far. */
 export const PURGE_TABLES = [
   'audit_entries',
   'one_time_tokens',
   'sessions',
   'rate_limit_counters',
+  'idempotency_keys',
 ] as const;
 type PurgeTable = (typeof PURGE_TABLES)[number];
 
@@ -120,6 +122,23 @@ export const rateLimitCountersTask: PurgeTask = {
         DELETE FROM rate_limit_counters WHERE (bucket, key, window_start) IN (
           SELECT bucket, key, window_start FROM rate_limit_counters
           WHERE window_end <= COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now())
+          LIMIT ${batchSize})`,
+    ),
+};
+
+// A create's key is remembered IDEMPOTENCY_KEY_TTL_HOURS (slice 3 research R5);
+// idempotency_keys_created_at_idx (migration 0013) serves the range.
+export const idempotencyKeysTask: PurgeTask = {
+  name: 'idempotency_keys',
+  run: ({ db, asOf, batchSize, signal }) =>
+    deleteInBatches(
+      { batchSize, signal },
+      () => db.$executeRaw`
+        DELETE FROM idempotency_keys WHERE (user_id, operation, key) IN (
+          SELECT user_id, operation, key FROM idempotency_keys
+          WHERE created_at
+            < COALESCE(${asOf?.toISOString() ?? null}::timestamptz, now()) - make_interval(hours => ${IDEMPOTENCY_KEY_TTL_HOURS})
+          ORDER BY created_at
           LIMIT ${batchSize})`,
     ),
 };

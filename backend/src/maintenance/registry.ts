@@ -1,5 +1,6 @@
 import {
   auditEntriesTask,
+  idempotencyKeysTask,
   oneTimeTokensTask,
   rateLimitCountersTask,
   sessionsTask,
@@ -14,4 +15,5 @@ export const purgeTasks: readonly PurgeTask[] = [
   oneTimeTokensTask,
   sessionsTask,
   rateLimitCountersTask,
+  idempotencyKeysTask,
 ];

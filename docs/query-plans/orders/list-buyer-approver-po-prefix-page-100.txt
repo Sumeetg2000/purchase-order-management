@@ -1,0 +1,36 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM ((SELECT po_number FROM purchase_orders WHERE po_number >= $1 AND po_number < $2 || chr($3::int) AND owner_id = $4::uuid ORDER BY purchase_orders.po_number DESC LIMIT 2000) UNION ALL (SELECT po_number FROM purchase_orders WHERE po_number >= $5 AND po_number < $6 || chr($7::int) AND owner_id <> $8::uuid AND status = 'PENDING_APPROVAL' ORDER BY purchase_orders.po_number DESC LIMIT 2000) UNION ALL (SELECT po_number FROM purchase_orders WHERE po_number >= $9 AND po_number < $10 || chr($11::int) AND owner_id <> $12::uuid AND status = 'APPROVED' ORDER BY purchase_orders.po_number DESC LIMIT 2000) UNION ALL (SELECT po_number FROM purchase_orders WHERE po_number >= $13 AND po_number < $14 || chr($15::int) AND owner_id <> $16::uuid AND status = 'REJECTED' ORDER BY purchase_orders.po_number DESC LIMIT 2000) UNION ALL (SELECT po_number FROM purchase_orders WHERE po_number >= $17 AND po_number < $18 || chr($19::int) AND owner_id <> $20::uuid AND status = 'CANCELLED' ORDER BY purchase_orders.po_number DESC LIMIT 2000)) k ORDER BY k.po_number DESC LIMIT 20 OFFSET 1980) k JOIN purchase_orders o ON o.po_number = k.po_number
+-- values: ["PO-2026-27-0012","PO-2026-27-0012",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-0012","PO-2026-27-0012",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-0012","PO-2026-27-0012",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-0012","PO-2026-27-0012",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1","PO-2026-27-0012","PO-2026-27-0012",1114111,"884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Nested Loop
+  ->  Limit
+        ->  Merge Append
+              Sort Key: purchase_orders.po_number COLLATE "C" DESC
+              ->  Limit
+                    ->  Index Only Scan Backward using purchase_orders_owner_po_number_idx on purchase_orders
+                          Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text))
+              ->  Limit
+                    ->  Sort
+                          Sort Key: purchase_orders_1.po_number COLLATE "C" DESC
+                          ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                                Index Cond: (status = 'PENDING_APPROVAL'::text)
+                                Filter: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+              ->  Limit
+                    ->  Sort
+                          Sort Key: purchase_orders_2.po_number COLLATE "C" DESC
+                          ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                                Index Cond: (status = 'APPROVED'::text)
+                                Filter: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+              ->  Limit
+                    ->  Sort
+                          Sort Key: purchase_orders_3.po_number COLLATE "C" DESC
+                          ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                                Index Cond: (status = 'REJECTED'::text)
+                                Filter: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+              ->  Limit
+                    ->  Sort
+                          Sort Key: purchase_orders_4.po_number COLLATE "C" DESC
+                          ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_4
+                                Index Cond: (status = 'CANCELLED'::text)
+                                Filter: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text) AND (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid))
+  ->  Index Scan using purchase_orders_po_number_key on purchase_orders o
+        Index Cond: (po_number = purchase_orders.po_number)

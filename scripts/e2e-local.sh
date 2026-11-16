@@ -25,4 +25,13 @@ export MAILPIT_URL=http://127.0.0.1:${MAILPIT_PORT}
 trap 'docker compose down -v; rm -f "$COMPOSE_ENV_FILES"' EXIT
 scripts/e2e-tls-cert.sh
 docker compose up -d --build --wait --wait-timeout 300
-npm run e2e -w @po/frontend -- "$@"
+# The editor benchmark (@perf) times the browser, so on a throttled laptop it fails for the
+# machine's reasons: CI runs every test, and locally it runs only on demand
+# (npm run perf:editor, which passes --perf).
+if [[ "${1:-}" == "--perf" ]]; then
+  shift
+  filter=(--grep @perf)
+else
+  filter=(--grep-invert @perf)
+fi
+npm run e2e -w @po/frontend -- "${filter[@]}" "$@"

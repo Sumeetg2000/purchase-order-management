@@ -2,6 +2,7 @@ import {
   isErrorCode,
   isFieldCode,
   oneOf,
+  ORDER_ADMIN_READ_ONLY_MESSAGE,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
@@ -126,6 +127,11 @@ export const errorMessages = {
     message: 'This vendor is deactivated.',
     action: 'Reactivate it or choose another vendor.',
   },
+  // Slice 3 (specs/004-draft-orders/contracts/errors.md).
+  IDEMPOTENCY_KEY_REUSED: {
+    message: 'This request was already used for a different order.',
+    action: 'Start a new order.',
+  },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
 
 /** The words for each public revoke reason, in "You were logged out because …". */
@@ -181,6 +187,19 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
   return messageFor(problem.code);
 }
 
+/**
+ * The message for a failed order write (create, edit, delete): an Admin's FORBIDDEN says
+ * why, in the same words the API puts in the problem's detail (ADR-0004, 2026-11-12). The
+ * screen branches on the code and the signed-in roles, never on the detail text.
+ */
+export function messageForOrderWrite(
+  problem: ProblemLike,
+  { isAdmin }: { isAdmin: boolean },
+): ErrorMessage {
+  if (problem.code === 'FORBIDDEN' && isAdmin) return { message: ORDER_ADMIN_READ_ONLY_MESSAGE };
+  return messageForProblem(problem);
+}
+
 export function isRetryable(code: string): boolean {
   return oneOf(RETRYABLE_CODES, code);
 }
@@ -203,6 +222,9 @@ export const fieldMessages = {
   INCORRECT_PASSWORD: 'Incorrect password.',
   PASSWORD_UNCHANGED: 'Your new password must be different from your current one.',
   VENDOR_NOT_FOUND: 'This vendor no longer exists.',
+  LINE_NOT_FOUND: 'This line is no longer on the order. Reload it.',
+  DUPLICATE_LINE_ID: 'This line appears twice. Reload the order.',
+  READ_ONLY_FIELD: "This is calculated by the system and can't be set.",
 } as const satisfies Record<FieldCode, string>;
 
 /** The password rule, as account pages state it next to a new-password field. */

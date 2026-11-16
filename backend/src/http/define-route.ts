@@ -1,8 +1,7 @@
 import {
   AppError,
-  isFieldCode,
+  fieldErrors,
   versionFromEtag,
-  type FieldCode,
   type FieldError,
   type OperationContract,
 } from '@po/contracts';
@@ -23,50 +22,6 @@ export interface RouteDefinition extends OperationContract {
 
 export function defineRoute<const R extends RouteDefinition>(route: R): R {
   return route;
-}
-
-type ZodIssue = z.core.$ZodIssue;
-
-/** Zod issue → field code (ADR-0007). Codes and origins only, never message text. */
-function fieldCode(issue: ZodIssue): FieldCode {
-  switch (issue.code) {
-    case 'invalid_type':
-      // With reportInput, a missing key is the only invalid_type without an input.
-      return 'input' in issue && issue.input !== undefined ? 'INVALID_FORMAT' : 'REQUIRED';
-    case 'unrecognized_keys':
-      return 'UNKNOWN_FIELD';
-    case 'too_small':
-      return ['string', 'array', 'set', 'file'].includes(issue.origin)
-        ? 'TOO_SHORT'
-        : 'OUT_OF_RANGE';
-    case 'too_big':
-      return ['string', 'array', 'set', 'file'].includes(issue.origin)
-        ? 'TOO_LONG'
-        : 'OUT_OF_RANGE';
-    case 'custom': {
-      // A schema's own rule names its field code (research R4), e.g. PASSWORD_TOO_SHORT.
-      const named: unknown = issue.params?.['fieldCode'];
-      return isFieldCode(named) ? named : 'INVALID_FORMAT';
-    }
-    default:
-      return 'INVALID_FORMAT';
-  }
-}
-
-function toFieldErrors(prefix: string, issues: readonly ZodIssue[]): FieldError[] {
-  const errors: FieldError[] = [];
-  for (const issue of issues) {
-    const base = [prefix, ...issue.path.map(String)];
-    if (issue.code === 'unrecognized_keys') {
-      for (const key of issue.keys)
-        errors.push({ path: [...base, key].join('.'), code: 'UNKNOWN_FIELD' });
-    } else {
-      errors.push({ path: base.join('.'), code: fieldCode(issue) });
-    }
-  }
-  // One detail per field: the first failure reported for it.
-  const seen = new Set<string>();
-  return errors.filter((e) => !seen.has(e.path) && seen.add(e.path));
 }
 
 /**
@@ -151,6 +106,16 @@ export function requestSchemaProblem(route: OperationContract): string | undefin
 }
 
 const IF_MATCH_PATH = 'header.if-match';
+const IDEMPOTENCY_KEY_PATH = 'header.idempotency-key';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A create's Idempotency-Key: required, a UUID (slice 3 research R5), lower-cased. */
+function idempotencyKey(header: string | undefined): string | FieldError {
+  if (header === undefined) return { path: IDEMPOTENCY_KEY_PATH, code: 'REQUIRED' };
+  return UUID.test(header)
+    ? header.toLowerCase()
+    : { path: IDEMPOTENCY_KEY_PATH, code: 'INVALID_FORMAT' };
+}
 
 /** The version a versioned update must name in If-Match (research R14). */
 function ifMatchVersion(header: string | undefined): number | FieldError {
@@ -163,6 +128,15 @@ export function idParamOf(req: Request): string {
   const id = req.params['id'];
   if (typeof id !== 'string') throw new Error('idParamOf on a route without an id parameter');
   return id;
+}
+
+/** The Idempotency-Key validateRequest parsed, for an idempotent create's handler. */
+export function idempotencyKeyOf(res: Response): string {
+  const key = (res.locals['input'] as { idempotencyKey?: unknown } | undefined)?.idempotencyKey;
+  if (typeof key !== 'string') {
+    throw new Error('idempotencyKeyOf on a route without Idempotency-Key');
+  }
+  return key;
 }
 
 /** The If-Match version validateRequest parsed, for a versioned update's handler. */
@@ -188,9 +162,18 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
       if (typeof version === 'number') input['version'] = version;
       else details.push(version);
     }
+    if (route.idempotencyKey === 'required') {
+      const key = idempotencyKey(req.get('idempotency-key'));
+      if (typeof key === 'string') input['idempotencyKey'] = key;
+      else details.push(key);
+    }
     for (const [part, prefix] of PARTS) {
       const schema = route.request?.[part];
-      const raw: unknown = req[part];
+      // A DELETE's body is optional: none reads as an empty one (contracts/api.md).
+      const raw: unknown =
+        part === 'body' && route.method === 'delete' && schema && req.body === undefined
+          ? {}
+          : req[part];
       if (!schema) {
         details.push(...undeclared(part, prefix, raw));
         input[part] = raw;
@@ -198,7 +181,7 @@ export function validateRequest(route: RouteDefinition): RequestHandler {
       }
       const result = schema.safeParse(raw, { reportInput: true });
       if (result.success) input[part] = result.data;
-      else details.push(...toFieldErrors(prefix, result.error.issues));
+      else details.push(...fieldErrors(prefix, result.error.issues));
     }
     if (details.length > 0) {
       next(new AppError('VALIDATION_FAILED', { details }));

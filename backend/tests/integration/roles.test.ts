@@ -17,10 +17,22 @@ const EXPECTED_RELATION_GRANTS = [
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
   'audit_entries po_maintenance SELECT',
+  // Orders (0013): writes are per column, below, except DELETE (drafts only, by trigger).
+  'idempotency_keys po_app INSERT',
+  'idempotency_keys po_app SELECT',
+  'idempotency_keys po_maintenance DELETE',
+  'idempotency_keys po_maintenance SELECT',
   'one_time_tokens po_app INSERT',
   'one_time_tokens po_app SELECT',
   'one_time_tokens po_maintenance DELETE',
   'one_time_tokens po_maintenance SELECT',
+  'order_lines po_app DELETE',
+  'order_lines po_app SELECT',
+  'order_status_transitions po_app SELECT',
+  'po_number_counters po_app INSERT',
+  'po_number_counters po_app SELECT',
+  'purchase_orders po_app DELETE',
+  'purchase_orders po_app SELECT',
   'rate_limit_counters po_app INSERT',
   'rate_limit_counters po_app SELECT',
   'rate_limit_counters po_app UPDATE',
@@ -173,6 +185,19 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'sessions.revoke_reason po_app UPDATE',
       'sessions.revoked_at po_app UPDATE',
       ...[...VENDOR_EDITABLE_COLUMNS, 'id'].map((col) => `vendors.${col} po_app INSERT`),
+      // Orders (0013): never a derived column (total, open_line_count, line_total), status
+      // (slice 4), received_quantity (slice 6), the owner or the timestamps.
+      'idempotency_keys.response po_app UPDATE',
+      'idempotency_keys.status po_app UPDATE',
+      ...['description', 'id', 'order_id', 'position', 'quantity', 'unit_price'].map(
+        (col) => `order_lines.${col} po_app INSERT`,
+      ),
+      ...['description', 'position', 'quantity', 'unit_price'].map(
+        (col) => `order_lines.${col} po_app UPDATE`,
+      ),
+      'po_number_counters.last_value po_app UPDATE',
+      ...['id', 'owner_id', 'vendor_id'].map((col) => `purchase_orders.${col} po_app INSERT`),
+      ...['po_number', 'vendor_id', 'version'].map((col) => `purchase_orders.${col} po_app UPDATE`),
       ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
         (col) => `vendors.${col} po_app UPDATE`,
       ),
@@ -180,17 +205,21 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
-  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except vendor_name_key to po_app', async () => {
+  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except vendor_name_key and po_financial_year to po_app', async () => {
     const { admin } = await freshDb();
     const grants = await rows<{ grant: string }>(
       admin,
       `SELECT p.proname || ' ' || CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grant
          FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
-        WHERE n.nspname = 'public' AND a.grantee <> p.proowner`,
+        WHERE n.nspname = 'public' AND a.grantee <> p.proowner ORDER BY 1`,
     );
-    // The list's prefix filter runs vendor_name_key($q) as po_app (research R2, slice 2).
-    expect(grants).toEqual([{ grant: 'vendor_name_key po_app' }]);
+    // The list's prefix filter runs vendor_name_key($q) as po_app (research R2, slice 2);
+    // the PO number allocation runs po_financial_year(now()) (slice 3 research R2).
+    expect(grants).toEqual([
+      { grant: 'po_financial_year po_app' },
+      { grant: 'vendor_name_key po_app' },
+    ]);
   });
 
   it('[NFR-AUD-02] the schema and database grant only USAGE and CONNECT to the two roles', async () => {
@@ -223,7 +252,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(defaults).toEqual([]);
   });
 
-  it('[NFR-AUD-02] trigger functions are SECURITY INVOKER with a fixed search_path', async () => {
+  it('[NFR-AUD-02] functions are SECURITY INVOKER with a fixed search_path, except the order recompute and its triggers', async () => {
     const { admin } = await freshDb();
     const functions = await rows<{ proname: string; prosecdef: boolean; config: string[] | null }>(
       admin,
@@ -239,13 +268,30 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         'require_actor_context',
       ]),
     );
+    // Slice 3 research R3: the derived values are written only by recompute_orders, run as
+    // po_owner; the line triggers that call it and the commit-time line checks run as
+    // po_owner too, so po_app holds no EXECUTE on any of them (see the grants test above).
+    const definers = new Set([
+      'recompute_orders',
+      'order_lines_after_insert',
+      'order_lines_after_update',
+      'order_lines_after_delete',
+      'purchase_orders_has_lines',
+      'order_lines_order_has_lines',
+    ]);
     for (const fn of functions) {
-      expect(fn.prosecdef, fn.proname).toBe(false);
+      expect(fn.prosecdef, fn.proname).toBe(definers.has(fn.proname));
       expect(fn.config ?? [], fn.proname).toContain('search_path=pg_catalog, pg_temp');
     }
+    expect(
+      functions
+        .filter((f) => f.prosecdef)
+        .map((f) => f.proname)
+        .sort(),
+    ).toEqual([...definers].sort());
   });
 
-  it('[NFR-AUD-02] the audit triggers exist and are enabled', async () => {
+  it('[NFR-AUD-02] the audit and order triggers exist and are enabled', async () => {
     const { admin } = await freshDb();
     const triggers = await rows<{ trigger: string }>(
       admin,
@@ -260,6 +306,19 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'audit_entries audit_no_truncate O',
       'audit_entries audit_retention_guard O',
       'audit_entries require_actor_context O',
+      'order_lines order_lines_order_has_lines O',
+      'order_lines order_lines_recompute_del O',
+      'order_lines order_lines_recompute_ins O',
+      'order_lines order_lines_recompute_upd O',
+      'order_lines require_actor_context O',
+      'purchase_orders purchase_orders_delete_draft_only O',
+      'purchase_orders purchase_orders_derived_guard O',
+      'purchase_orders purchase_orders_has_lines O',
+      'purchase_orders purchase_orders_immutable O',
+      'purchase_orders purchase_orders_po_number_assigned O',
+      'purchase_orders purchase_orders_set_updated_at O',
+      'purchase_orders purchase_orders_status_transition O',
+      'purchase_orders require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',
       'vendors require_actor_context O',

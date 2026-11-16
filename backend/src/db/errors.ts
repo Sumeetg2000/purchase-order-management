@@ -138,13 +138,33 @@ export function classifyDbError(error: unknown): DbErrorClass {
  */
 type ConstraintErrors = Readonly<Record<string, () => AppError>>;
 
-// Our trigger functions raise custom SQLSTATEs in class PO (research R6). Each one means a
-// bug in our code, never a client error, so all of them map to INTERNAL_ERROR:
-//   PO001 ACTOR_CONTEXT_REQUIRED  no actor context, or an incomplete, inconsistent or
-//                                 stale one (not bound to the current transaction)
-//   PO002 ACTOR_CONTEXT_MISMATCH  an explicit audit value contradicts the context
-//   PO003 AUDIT_IMMUTABLE         an UPDATE of an audit entry, by any role
-//   PO004 AUDIT_RETENTION_ACTIVE  deleting an audit entry inside its 8-year retention
+// Our trigger functions raise custom SQLSTATEs in class PO (slice 0 research R6, slice 3
+// research R4). Each one means a bug in our code, never a client error: the services check
+// everything first. So all of them map to INTERNAL_ERROR, logged with their name.
+const TRIGGER_ERRORS: Readonly<Record<string, string>> = {
+  // No actor context, or an incomplete, inconsistent or stale one.
+  PO001: 'ACTOR_CONTEXT_REQUIRED',
+  // An explicit audit value contradicts the context.
+  PO002: 'ACTOR_CONTEXT_MISMATCH',
+  // An UPDATE of an audit entry, by any role.
+  PO003: 'AUDIT_IMMUTABLE',
+  // Deleting an audit entry inside its 8-year retention.
+  PO004: 'AUDIT_RETENTION_ACTIVE',
+  // A write of an order's total or open-line count outside recompute_orders.
+  PO005: 'DERIVED_VALUE_READ_ONLY',
+  // A line change on an order that isn't a draft.
+  PO006: 'ORDER_LINES_LOCKED',
+  // An order left without lines at commit.
+  PO007: 'ORDER_WITHOUT_LINES',
+  // A change of an order's PO number (once set), owner or creation time.
+  PO008: 'ORDER_FIELD_IMMUTABLE',
+  // A status change not in order_status_transitions.
+  PO009: 'ORDER_STATUS_TRANSITION_REFUSED',
+  // A delete of an order that isn't a draft.
+  PO010: 'ORDER_DELETE_REFUSED',
+  // An order committed without a PO number.
+  PO011: 'PO_NUMBER_UNASSIGNED',
+};
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 
 interface MapDbErrorOptions {
@@ -202,7 +222,10 @@ export function mapDbError(
   const sqlstate = cause?.originalCode;
   if (sqlstate !== undefined && TRIGGER_SQLSTATE.test(sqlstate)) {
     // A code path forgot its actor context or contradicted it: a bug, never a client error.
-    logger.error({ err: error, sqlstate }, 'database trigger refused the change');
+    const triggerError = Object.hasOwn(TRIGGER_ERRORS, sqlstate)
+      ? TRIGGER_ERRORS[sqlstate]
+      : undefined;
+    logger.error({ err: error, sqlstate, triggerError }, 'database trigger refused the change');
     return new AppError('INTERNAL_ERROR', { cause: error });
   }
   logger.error({ err: error, prismaCode: error.code, sqlstate }, 'unmapped database error');

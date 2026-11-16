@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE status = 'DRAFT') c
+-- values: []
+
+Aggregate
+  ->  Seq Scan on purchase_orders
+        Filter: (status = 'DRAFT'::text)

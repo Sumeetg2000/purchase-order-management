@@ -3,7 +3,8 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-11-06 (slice 2 clarifications, **owner
   decisions**: one contact person; list defaults to active vendors; the duplicate-name
   `409` names the existing vendor) · amended 2026-11-11 (name key folds case with
-  PostgreSQL's builtin collation; the upgrade step below, **owner decision**)
+  PostgreSQL's builtin collation; the upgrade step below, **owner decision**) · amended
+  2026-11-12 (the upgrade step rewrites only stale keys, **owner decision**)
 - **Brief:** §3.1, §3.5 · Q3c, private-orders decision
 - **Principles:** III, IV, VII
 
@@ -17,8 +18,8 @@
 - The normalised name is a stored key computed by PostgreSQL (`vendor_name_key`: NFC,
   whitespace runs collapsed, trimmed, `lower()` under `pg_c_utf8`, PostgreSQL 17's builtin
   collation), so it doesn't depend on glibc or the database's ctype. Its Unicode tables
-  can change with a PostgreSQL **major** upgrade, so after one, recompute every stored key
-  as an operator, in one transaction:
+  can change with a PostgreSQL **major** upgrade, so after one, recompute the stored keys
+  that no longer match, as an operator, in one transaction (current rows are left alone):
 
   ```sql
   BEGIN;
@@ -26,7 +27,7 @@
          set_config('app.actor_type', 'OPERATOR', true),
          set_config('app.os_user', '<your OS user>', true),
          set_config('app.os_host', '<this host>', true);
-  UPDATE vendors SET name = name;
+  UPDATE vendors SET name = name WHERE name_key IS DISTINCT FROM vendor_name_key(name);
   COMMIT;
   ```
 

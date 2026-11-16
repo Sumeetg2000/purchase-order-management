@@ -34,8 +34,14 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          // Contract tests need the database too (readiness), so they run here.
-          include: ['tests/integration/**/*.test.ts', 'tests/contract/**/*.test.ts'],
+          // Contract tests need the database too (readiness), so they run here, as do the
+          // integrity attack suite and the concurrency tests.
+          include: [
+            'tests/integration/**/*.test.ts',
+            'tests/contract/**/*.test.ts',
+            'tests/integrity/**/*.test.ts',
+            'tests/concurrency/**/*.test.ts',
+          ],
           globalSetup: ['tests/support/global-setup.ts'],
           setupFiles: [...suiteChecks, 'tests/support/setup.ts'],
           testTimeout: 30_000,

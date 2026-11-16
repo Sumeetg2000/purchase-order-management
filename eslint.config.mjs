@@ -8,6 +8,10 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+/** An identifier or property named like an amount of money. */
+const MONEY_NAMED =
+  ':matches(Identifier[name=/(price|total|amount|money)/i], MemberExpression[property.name=/(price|total|amount|money)/i])';
+
 // Banned everywhere. Later tasks append selectors here.
 const restrictedSyntax = [
   {
@@ -17,8 +21,39 @@ const restrictedSyntax = [
   {
     selector: "JSXAttribute[name.name='confirmLabel'] Literal[value=/^\\s*(ok|yes)\\s*$/i]",
     message: 'A confirm button names its action ("Cancel order"), never "OK" or "Yes" (ADR-0018).',
+  }, // Money is exact decimal strings through packages/contracts/src/money.ts (ADR-0010):
+  // Prisma's Decimal never reaches our code, so NUMERIC columns are read as text.
+  {
+    selector: "MemberExpression[object.name='Prisma'][property.name='Decimal']",
+    message: 'Read NUMERIC columns as text and use money.ts; never Prisma.Decimal (ADR-0010).',
+  },
+  // No amount ever becomes a JavaScript number (ADR-0010): money stays a decimal string
+  // through money.ts. Caught by name: anything called like a price, total, amount or money.
+  {
+    selector: `CallExpression[callee.name=/^(Number|parseFloat|parseInt)$/] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
+  },
+  {
+    selector: `CallExpression[callee.object.name='Number'][callee.property.name=/^parse/] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
+  },
+  {
+    selector: `UnaryExpression[operator='+'] > ${MONEY_NAMED}`,
+    message: 'Money is never a number: keep it a decimal string and use money.ts (ADR-0010).',
+  },
+  {
+    selector: "TSQualifiedName[left.name='Prisma'][right.name='Decimal']",
+    message: 'Read NUMERIC columns as text and use money.ts; never Prisma.Decimal (ADR-0010).',
   },
 ];
+
+// Decimal libraries: big.js only inside money.ts (Big never leaves it); decimal.js nowhere.
+const decimalImports = {
+  paths: [
+    { name: 'decimal.js', message: 'Use money.ts from @po/contracts (ADR-0010).' },
+    { name: 'big.js', message: 'Use money.ts from @po/contracts; Big never leaves it (ADR-0010).' },
+  ],
+};
 
 // Branching on error text is banned (ADR-0007): errors are mapped by code in
 // backend/src/db/errors.ts, which (with its regression test pinning pg-pool's message) is
@@ -76,6 +111,11 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'error',
       'no-restricted-syntax': ['error', ...restrictedSyntax, ...caughtErrorMessage],
     },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['packages/contracts/src/money.ts'],
+    rules: { 'no-restricted-imports': ['error', decimalImports] },
   },
   {
     files: ['backend/src/db/errors.ts', 'backend/tests/integration/db-error-shapes.test.ts'],

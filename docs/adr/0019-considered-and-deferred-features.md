@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-20 · amended 2026-10-20 (order-splitting control, receipt
   corrections, owner transfer and approval levels not adopted; MFA/SSO deferred; the
-  constitution's out-of-scope list moved here)
+  constitution's out-of-scope list moved here) · amended 2026-11-12 (the Admin open-order
+  counts arrive together in slice 6, **owner decision**)
 - **Brief:** §8 ("Don't add new features — deepen what's here")
 - **Principles:** X, XII
 
@@ -30,7 +31,7 @@ permissions also requires sign-off (Principle X).
 ### Considered, deferred
 | Feature | Why deferred | What it would need |
 |---|---|---|
-| **Open-order counts on the admin user detail and dialogs** (owner decision 2026-11-04) | Orders don't exist until slice 3; counts that are always 0 would mislead the admin. | Slice 3–6 add `openOrders` (draft, pending, approved with open lines) to `GET/PATCH /admin/users/:id` with real counts, an additive response field, and the change-role and deactivate dialogs show them (ADR-0016, ADR-0018). |
+| **Open-order counts on the admin user detail and dialogs** (owner decision 2026-11-04) | Orders don't exist until slice 3; counts that are always 0 would mislead the admin. | Slice 6 adds `openOrders` (draft, pending, approved with open lines) to `GET/PATCH /admin/users/:id`, all three counts together, when each can be non-zero (amended 2026-11-12, owner decision): real counts, an additive response field, and the change-role and deactivate dialogs show them (ADR-0016, ADR-0018). |
 | Approver delegation / out-of-office | Changes who may approve which order, which is an actor and permission change (Principle X). With one Approver, an absence stalls orders above ₹1,00,000 (ADR-0002). | Sign-off; a delegation model (who, for how long, with which limits); separation-of-duties rules for the delegate; audit events |
 | Email notifications (submitted, approved, rejected, cancelled, access requested) | A notification must not be lost when the send fails, or sent for a rolled-back change. That needs a transactional outbox and a worker, which is a new moving part (Principle XII). Auth emails are sent after commit without an outbox, because the user can retry them (ADR-0017). Access requests are in-app only (ADR-0016). | An outbox table written in the business transaction; a worker with retries and idempotency; user preferences |
 | MFA / SSO | Setup cost: an identity provider integration, enrolment and recovery flows. | OIDC/SAML against the company's identity provider, or TOTP for Admin at minimum when added |

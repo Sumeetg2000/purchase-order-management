@@ -1,0 +1,28 @@
+-- SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total, o.created_at FROM (SELECT k.* FROM ((SELECT created_at, id FROM purchase_orders WHERE created_at >= ($1::date::timestamp AT TIME ZONE $2) AND created_at < (($3::date + 1)::timestamp AT TIME ZONE $4) AND owner_id = $5::uuid ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE created_at >= ($6::date::timestamp AT TIME ZONE $7) AND created_at < (($8::date + 1)::timestamp AT TIME ZONE $9) AND owner_id <> $10::uuid AND status = 'PENDING_APPROVAL' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE created_at >= ($11::date::timestamp AT TIME ZONE $12) AND created_at < (($13::date + 1)::timestamp AT TIME ZONE $14) AND owner_id <> $15::uuid AND status = 'APPROVED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE created_at >= ($16::date::timestamp AT TIME ZONE $17) AND created_at < (($18::date + 1)::timestamp AT TIME ZONE $19) AND owner_id <> $20::uuid AND status = 'REJECTED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000) UNION ALL (SELECT created_at, id FROM purchase_orders WHERE created_at >= ($21::date::timestamp AT TIME ZONE $22) AND created_at < (($23::date + 1)::timestamp AT TIME ZONE $24) AND owner_id <> $25::uuid AND status = 'CANCELLED' ORDER BY purchase_orders.created_at DESC, purchase_orders.id DESC LIMIT 2000)) k ORDER BY k.created_at DESC, k.id DESC LIMIT 20 OFFSET 1980) k JOIN purchase_orders o ON o.id = k.id
+-- values: ["2026-06-01","Asia/Kolkata","2026-06-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","2026-06-01","Asia/Kolkata","2026-06-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","2026-06-01","Asia/Kolkata","2026-06-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","2026-06-01","Asia/Kolkata","2026-06-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1","2026-06-01","Asia/Kolkata","2026-06-30","Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Nested Loop
+  ->  Limit
+        ->  Merge Append
+              Sort Key: purchase_orders.created_at DESC, purchase_orders.id DESC
+              ->  Limit
+                    ->  Index Only Scan using purchase_orders_owner_created_idx on purchase_orders
+                          Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-06-30 18:30:00+00'::timestamp with time zone))
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
+                          Index Cond: ((status = 'PENDING_APPROVAL'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-06-30 18:30:00+00'::timestamp with time zone))
+                          Filter: (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_2
+                          Index Cond: ((status = 'APPROVED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-06-30 18:30:00+00'::timestamp with time zone))
+                          Filter: (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_3
+                          Index Cond: ((status = 'REJECTED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-06-30 18:30:00+00'::timestamp with time zone))
+                          Filter: (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+              ->  Limit
+                    ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_4
+                          Index Cond: ((status = 'CANCELLED'::text) AND (created_at >= '2026-05-31 18:30:00+00'::timestamp with time zone) AND (created_at < '2026-06-30 18:30:00+00'::timestamp with time zone))
+                          Filter: (owner_id <> '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+  ->  Index Scan using purchase_orders_pkey on purchase_orders o
+        Index Cond: (id = purchase_orders.id)

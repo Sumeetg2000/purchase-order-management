@@ -16,6 +16,7 @@ export function Shell() {
   const user = useCurrentUser().data;
   const logOutHere = useLogOutHere();
   const canListVendors = useCan('listVendors');
+  const canListOrders = useCan('listOrders');
   const canListUsers = useCan('listUsers');
 
   async function logOut() {
@@ -36,6 +37,7 @@ export function Shell() {
             Home
           </NavLink>
           {canListVendors && <NavLink to="/vendors">Vendors</NavLink>}
+          {canListOrders && <NavLink to="/orders">Orders</NavLink>}
           {canListUsers && <UsersLink />}
           <NavLink to="/profile">Profile</NavLink>
         </nav>
