@@ -6,7 +6,8 @@ check reads test names (Principle XI) and fails if a requirement has no passing 
 test cites an unknown ID. The test names below describe *what* must be proven; files may
 live anywhere.
 
-Status: `Todo` · `Spec` · `Tested` (written, failing) · `Done`. How CI uses each status is in
+Status: `Todo` · `Spec` · `Tested` (tests written; failing, or passing for the current
+slice's part while later slices still owe the rest) · `Done`. How CI uses each status is in
 ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 
 ## Brief requirements
