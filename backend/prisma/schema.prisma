@@ -32,6 +32,8 @@ model User {
   accessRequests        AccessRequest[]  @relation("AccessRequestUser")
   decidedAccessRequests AccessRequest[]  @relation("AccessRequestDecider")
   orders                PurchaseOrder[]
+  submittedRounds       ApprovalRound[]  @relation("RoundSubmitter")
+  decidedSteps          ApprovalStep[]   @relation("StepDecider")
   idempotencyKeys       IdempotencyKey[]
 
   @@index([name, id], map: "users_name_id_idx")
@@ -181,19 +183,25 @@ model Vendor {
 // write them (ADR-0003, ADR-0010). The triggers that keep them live in the migration only.
 // po_number is COLLATE "C" in the database, which Prisma can't express.
 model PurchaseOrder {
-  id            String      @id @db.Uuid
-  poNumber      String?     @unique(map: "purchase_orders_po_number_key") @map("po_number")
-  ownerId       String      @map("owner_id") @db.Uuid
-  vendorId      String      @map("vendor_id") @db.Uuid
-  status        String      @default("DRAFT")
-  total         Decimal     @default(0) @db.Decimal(22, 4)
-  openLineCount Int         @default(0) @map("open_line_count")
-  version       Int         @default(1)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
-  owner         User        @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vendor        Vendor      @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            String          @id @db.Uuid
+  poNumber      String?         @unique(map: "purchase_orders_po_number_key") @map("po_number")
+  ownerId       String          @map("owner_id") @db.Uuid
+  vendorId      String          @map("vendor_id") @db.Uuid
+  status        String          @default("DRAFT")
+  total         Decimal         @default(0) @db.Decimal(22, 4)
+  openLineCount Int             @default(0) @map("open_line_count")
+  version       Int             @default(1)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  // Submission columns (migration 0014_approvals): written only with a status change.
+  currentRound  Int?            @map("current_round") @db.SmallInt
+  submittedAt   DateTime?       @map("submitted_at") @db.Timestamptz(6)
+  approvedAt    DateTime?       @map("approved_at") @db.Timestamptz(6)
+  owner         User            @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vendor        Vendor          @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines         OrderLine[]
+  rounds        ApprovalRound[] @relation("OrderRounds")
+  current       ApprovalRound?  @relation("CurrentRound", fields: [id, currentRound], references: [orderId, round], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_current_round_fkey")
 
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_created_idx")
   @@index([ownerId, status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_status_created_idx")
@@ -225,6 +233,73 @@ model PoNumberCounter {
   lastValue BigInt @map("last_value")
 
   @@map("po_number_counters")
+}
+
+// Approval policy versions and tiers (migration 0014_approvals, research R1). Immutable:
+// po_app reads them, set_approval_policy writes them.
+model ApprovalPolicy {
+  version     Int                  @id
+  effectiveAt DateTime             @default(now()) @map("effective_at") @db.Timestamptz(6)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  tiers       ApprovalPolicyTier[]
+  rounds      ApprovalRound[]
+
+  @@map("approval_policies")
+}
+
+model ApprovalPolicyTier {
+  policyVersion Int            @map("policy_version")
+  tier          Int            @db.SmallInt
+  threshold     Decimal        @db.Decimal(22, 4)
+  policy        ApprovalPolicy @relation(fields: [policyVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([policyVersion, tier])
+  @@map("approval_policy_tiers")
+}
+
+// One row per submission, and one per tier step of it (migration 0014_approvals,
+// research R2). The partial queue indexes on purchase_orders live in the migration only
+// (Prisma ignores partial indexes); tests/integration/order-schema.test.ts pins them.
+model ApprovalRound {
+  orderId        String          @map("order_id") @db.Uuid
+  round          Int             @db.SmallInt
+  policyVersion  Int             @map("policy_version")
+  total          Decimal         @db.Decimal(22, 4)
+  vendorSnapshot Json            @map("vendor_snapshot")
+  submittedBy    String          @map("submitted_by") @db.Uuid
+  submittedAt    DateTime        @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  outcome        String?
+  closedAt       DateTime?       @map("closed_at") @db.Timestamptz(6)
+  withdrawReason String?         @map("withdraw_reason")
+  order          PurchaseOrder   @relation("OrderRounds", fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  policy         ApprovalPolicy  @relation(fields: [policyVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+  submitter      User            @relation("RoundSubmitter", fields: [submittedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  steps          ApprovalStep[]
+  currentOf      PurchaseOrder[] @relation("CurrentRound")
+
+  @@id([orderId, round])
+  @@index([submittedBy], map: "approval_rounds_submitted_by_idx")
+  @@index([policyVersion], map: "approval_rounds_policy_version_idx")
+  @@map("approval_rounds")
+}
+
+model ApprovalStep {
+  orderId        String        @map("order_id") @db.Uuid
+  round          Int           @db.SmallInt
+  step           Int           @db.SmallInt
+  tier           Int           @db.SmallInt
+  threshold      Decimal       @db.Decimal(22, 4)
+  state          String        @default("OPEN")
+  decidedBy      String?       @map("decided_by") @db.Uuid
+  decidedAt      DateTime?     @map("decided_at") @db.Timestamptz(6)
+  decidedVersion Int?          @map("decided_version")
+  reason         String?
+  voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(6)
+  approvalRound  ApprovalRound @relation(fields: [orderId, round], references: [orderId, round], onDelete: Cascade, onUpdate: NoAction)
+  decider        User?         @relation("StepDecider", fields: [decidedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([orderId, round, step])
+  @@map("approval_steps")
 }
 
 model OrderStatusTransition {
