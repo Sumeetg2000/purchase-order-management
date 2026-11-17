@@ -4,9 +4,8 @@
 Aggregate
   ->  Append
         ->  Subquery Scan on "*SELECT* 1"
-              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders
-                    Index Cond: (status = 'PENDING_APPROVAL'::text)
-                    Filter: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text))
+              ->  Index Only Scan using purchase_orders_pending_po_number_idx on purchase_orders
+                    Index Cond: ((po_number >= 'PO-2026-27-0012'::text) AND (po_number < 'PO-2026-27-0012􏿿'::text))
         ->  Subquery Scan on "*SELECT* 2"
               ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
                     Index Cond: (status = 'APPROVED'::text)

@@ -4,9 +4,8 @@
 Aggregate
   ->  Append
         ->  Subquery Scan on "*SELECT* 1"
-              ->  Index Scan using purchase_orders_status_created_idx on purchase_orders
-                    Index Cond: (status = 'PENDING_APPROVAL'::text)
-                    Filter: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
+              ->  Index Only Scan using purchase_orders_pending_vendor_submitted_idx on purchase_orders
+                    Index Cond: (vendor_id = 'a0691dbc-b408-f477-da60-bb82d4e941c5'::uuid)
         ->  Subquery Scan on "*SELECT* 2"
               ->  Index Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
                     Index Cond: (status = 'APPROVED'::text)

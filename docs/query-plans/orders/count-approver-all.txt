@@ -4,8 +4,7 @@
 Aggregate
   ->  Append
         ->  Subquery Scan on "*SELECT* 1"
-              ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders
-                    Index Cond: (status = 'PENDING_APPROVAL'::text)
+              ->  Index Only Scan using purchase_orders_pending_po_number_idx on purchase_orders
         ->  Subquery Scan on "*SELECT* 2"
               ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders purchase_orders_1
                     Index Cond: (status = 'APPROVED'::text)
