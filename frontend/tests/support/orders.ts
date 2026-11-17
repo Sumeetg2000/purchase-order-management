@@ -89,3 +89,17 @@ export const pendingOrder = (extra: Record<string, unknown> = {}) =>
     approval: pendingRound(),
     ...extra,
   });
+
+/** One row of GET /approvals. */
+export const queueItem = (extra: Record<string, unknown> = {}) => ({
+  id: ORDER_ID,
+  poNumber: 'PO-2026-27-000123',
+  owner: { id: BUYER_ID, name: 'Bea Buyer' },
+  vendor: { id: ACME_ID, name: 'Acme Supplies' },
+  total: '150000.0000',
+  submittedAt: '2026-11-17T10:00:00.000Z',
+  currentStep: { step: 1, tier: 1, of: 1 },
+  ownerCanAct: true,
+  version: 2,
+  ...extra,
+});
