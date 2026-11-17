@@ -56,6 +56,11 @@ export function sum(values: readonly Money[]): Money {
   return asMoney(values.reduce((acc, v) => acc.plus(new Decimal(v)), new Decimal('0')));
 }
 
+/** Whether `amount` is strictly above `threshold`, exactly (ADR-0002: "above" is >). */
+export function moneyAbove(amount: Money, threshold: Money): boolean {
+  return new Decimal(amount).gt(new Decimal(threshold));
+}
+
 /**
  * An amount in rupees with Indian digit grouping (12,34,567) and 2 to 4 decimal places:
  * trailing zeros after the second place are dropped. Built from the digits, never a float.

@@ -244,7 +244,7 @@ outcome, and reconciliation returns zero rows.
   deciders by id and name, reasons) in one statement; list items use the snapshot name for
   non-draft orders; tests first — `backend/src/orders/repository.ts`,
   `backend/tests/integration/orders-read.test.ts`, `orders-list.test.ts` — R10, FR-004.
-- [ ] T026 [US1] Web: Submit action and `SubmitDialog` (saved total; expected outcome
+- [X] T026 [US1] Web: Submit action and `SubmitDialog` (saved total; expected outcome
   from `GET /approval-policy`; "You can't edit it after submitting; you can withdraw it
   while it's pending"; actual outcome after), read-only detail for non-draft orders with
   snapshot vendor and approval panel, no Edit/Delete/Submit; component tests first —

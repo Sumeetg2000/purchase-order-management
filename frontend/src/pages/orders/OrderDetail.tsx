@@ -7,14 +7,33 @@ import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
+import { ApprovalPanel } from './ApprovalPanel';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
-import { useOrder } from './queries';
+import { useOrder, useOrderSaved, type Order } from './queries';
+import { SubmitDialog } from './SubmitDialog';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
 const controls = classes(controlsCss, 'button');
-const styles = classes(css, 'header', 'badge', 'details', 'term', 'lines', 'number', 'total');
+const styles = classes(
+  css,
+  'header',
+  'badge',
+  'details',
+  'term',
+  'lines',
+  'number',
+  'total',
+  'notice',
+);
+
+/** What submitting did, in words: the server's routing, not the dialog's expectation. */
+function submittedNotice(order: Order): string {
+  return order.status === 'APPROVED'
+    ? 'Submitted and approved automatically.'
+    : 'Submitted. It is waiting for approval.';
+}
 
 /**
  * One order (specs/004-draft-orders/contracts/ui.md): its PO number, status, vendor as it
@@ -26,9 +45,13 @@ export function OrderDetail() {
   const query = useOrder(id);
   const states = useQueryStates(query, { loadingLabel: 'Loading the order' });
   const [deleting, setDeleting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string>();
+  const saved = useOrderSaved();
   const me = useCurrentUser().data;
   const canEdit = useCan('editOrder');
   const canDelete = useCan('deleteOrder');
+  const canSubmit = useCan('submitOrder');
   if (states.view) {
     return (
       <>
@@ -38,6 +61,9 @@ export function OrderDetail() {
     );
   }
   const order = states.data;
+  const ownDraft = order.status === 'DRAFT' && order.owner.id === me?.id;
+  // A submitted order shows its vendor as submitted (ADR-0005).
+  const vendorName = order.vendorSnapshot?.name ?? order.vendor.name;
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -45,10 +71,19 @@ export function OrderDetail() {
       <div className={styles.header}>
         <h1>{order.poNumber}</h1>
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
-        {canEdit && order.status === 'DRAFT' && order.owner.id === me?.id && (
-          <Link to={`/orders/${order.id}/edit`}>Edit</Link>
+        {canEdit && ownDraft && <Link to={`/orders/${order.id}/edit`}>Edit</Link>}
+        {canSubmit && ownDraft && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setSubmitting(true);
+            }}
+          >
+            Submit
+          </button>
         )}
-        {canDelete && order.status === 'DRAFT' && order.owner.id === me?.id && (
+        {canDelete && ownDraft && (
           <button
             type="button"
             className={controls.button}
@@ -60,12 +95,17 @@ export function OrderDetail() {
           </button>
         )}
       </div>
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
       <OrderTabs id={order.id} />
       <dl className={styles.details}>
         <dt className={styles.term}>Vendor</dt>
         <dd>
-          {order.vendor.name}{' '}
-          {order.vendor.status === 'INACTIVE' && (
+          {vendorName}{' '}
+          {order.vendorSnapshot === null && order.vendor.status === 'INACTIVE' && (
             <span className={styles.badge}>{VENDOR_STATUS_LABELS.INACTIVE}</span>
           )}
         </dd>
@@ -95,6 +135,23 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
+      {order.approval && <ApprovalPanel round={order.approval} />}
+      {submitting && (
+        <SubmitDialog
+          order={order}
+          onClose={() => {
+            setSubmitting(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onSubmitted={(routed) => {
+            saved(routed);
+            setSubmitting(false);
+            setNotice(submittedNotice(routed));
+          }}
+        />
+      )}
       {deleting && (
         <DeleteDraftDialog
           order={order}

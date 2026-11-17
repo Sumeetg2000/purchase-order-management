@@ -208,3 +208,7 @@
   padding: 0;
   list-style: none;
 }
+
+.notice {
+  margin: var(--space-2, 0.5rem) 0;
+}
