@@ -93,6 +93,84 @@ describe('[NFR-AUD-01] typed order audit events', () => {
   });
 });
 
+interface Snapshot {
+  id: string;
+  name: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  paymentTerms: { type: 'NET'; netDays: number };
+}
+type Submitted = OrderEvent<
+  'PO_SUBMITTED',
+  {
+    round: number;
+    total: Money;
+    tiers: { tier: number; threshold: Money }[];
+    policyVersion: number;
+    resultingStatus: 'PENDING_APPROVAL';
+    vendorSnapshot: Snapshot;
+  }
+>;
+type AutoApproved = OrderEvent<
+  'PO_AUTO_APPROVED',
+  { round: number; threshold: Money; policyVersion: number }
+>;
+type StepApproved = OrderEvent<
+  'APPROVAL_STEP_APPROVED',
+  { round: number; step: number; tier: number; versionApproved: number }
+>;
+type StepRejected = OrderEvent<
+  'APPROVAL_STEP_REJECTED',
+  { round: number; step: number; tier: number; reason: string }
+>;
+type Withdrawn = OrderEvent<
+  'PO_WITHDRAWN',
+  {
+    round: number;
+    reason: string;
+    voidedSteps: {
+      step: number;
+      tier: number;
+      earlierDecision: { by: { id: string; name: string }; at: string; version: number } | null;
+    }[];
+  }
+>;
+type PolicyChanged = {
+  action: 'APPROVAL_POLICY_CHANGED';
+  entityType: 'approval_policy';
+  entityId: string;
+  details: {
+    before: { version: number; tiers: { tier: number; threshold: Money }[] } | null;
+    after: { version: number; tiers: { tier: number; threshold: Money }[] };
+  };
+};
+type RejectedWithoutReason = OrderEvent<
+  'APPROVAL_STEP_REJECTED',
+  { round: number; step: number; tier: number }
+>;
+type SubmittedWithoutRound = Omit<Submitted, 'details'> & {
+  details: Omit<Submitted['details'], 'round'>;
+};
+
+describe('[NFR-AUD-01] typed approval audit events (slice 4)', () => {
+  it('[NFR-AUD-01] accepts the five order events and the policy change with their details', () => {
+    expectTypeOf<Submitted>().toExtend<Event>();
+    expectTypeOf<AutoApproved>().toExtend<Event>();
+    expectTypeOf<StepApproved>().toExtend<Event>();
+    expectTypeOf<StepRejected>().toExtend<Event>();
+    expectTypeOf<Withdrawn>().toExtend<Event>();
+    expectTypeOf<PolicyChanged>().toExtend<Event>();
+  });
+
+  it('[NFR-AUD-01] a rejection needs its reason, and every approval event its round', () => {
+    // @ts-expect-error: a rejection records why
+    expectTypeOf<RejectedWithoutReason>().toExtend<Event>();
+    // @ts-expect-error: every approval event names its round
+    expectTypeOf<SubmittedWithoutRound>().toExtend<Event>();
+  });
+});
+
 describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] accepts the slice 0 ADMIN_CREATED event in both of its forms', () => {
     expectTypeOf<Bootstrap>().toExtend<Event>();

@@ -16,6 +16,11 @@ const ACTION_LABELS = {
   PO_CREATED: 'Raised',
   PO_EDITED: 'Edited',
   PO_DRAFT_DELETED: 'Draft deleted',
+  PO_SUBMITTED: 'Submitted',
+  PO_AUTO_APPROVED: 'Auto-approved',
+  APPROVAL_STEP_APPROVED: 'Approved',
+  APPROVAL_STEP_REJECTED: 'Rejected',
+  PO_WITHDRAWN: 'Withdrawn',
 } as const satisfies Record<OrderAuditAction, string>;
 
 type Item = NonNullable<ReturnType<typeof useOrderTimeline>['data']>['items'][number];

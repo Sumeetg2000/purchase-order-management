@@ -822,7 +822,7 @@ export interface components {
         OrderTimelineItem: {
             id: string;
             /** @enum {string} */
-            action: "PO_CREATED" | "PO_EDITED" | "PO_DRAFT_DELETED";
+            action: "PO_CREATED" | "PO_EDITED" | "PO_DRAFT_DELETED" | "PO_SUBMITTED" | "PO_AUTO_APPROVED" | "APPROVAL_STEP_APPROVED" | "APPROVAL_STEP_REJECTED" | "PO_WITHDRAWN";
             /** Format: date-time */
             occurredAt: string;
             actor: {

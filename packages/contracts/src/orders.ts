@@ -83,5 +83,15 @@ export const ORDER_READ_ONLY_FIELDS = [
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */
-export const ORDER_AUDIT_ACTIONS = ['PO_CREATED', 'PO_EDITED', 'PO_DRAFT_DELETED'] as const;
+export const ORDER_AUDIT_ACTIONS = [
+  'PO_CREATED',
+  'PO_EDITED',
+  'PO_DRAFT_DELETED',
+  // Slice 4 (data-model.md).
+  'PO_SUBMITTED',
+  'PO_AUTO_APPROVED',
+  'APPROVAL_STEP_APPROVED',
+  'APPROVAL_STEP_REJECTED',
+  'PO_WITHDRAWN',
+] as const;
 export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];

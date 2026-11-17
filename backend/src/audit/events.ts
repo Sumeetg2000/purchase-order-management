@@ -1,4 +1,10 @@
-import type { Money, UserRole, UserStatus, VendorSnapshot } from '@po/contracts';
+import type {
+  Money,
+  UserRole,
+  UserStatus,
+  VendorOrderSnapshot,
+  VendorSnapshot,
+} from '@po/contracts';
 
 // The audit event catalogue (ADR-0016). Each slice adds the events it records; slice 0
 // has ADMIN_CREATED. The actor, request id and time are never part of an event: the
@@ -22,6 +28,25 @@ export interface AuditOrderVendor {
 interface Change<T> {
   before: T;
   after: T;
+}
+
+/** A tier as an approval event records it (slice 4). */
+export interface AuditTier {
+  tier: number;
+  threshold: Money;
+}
+
+/** An approval policy version as APPROVAL_POLICY_CHANGED records it. */
+export interface AuditPolicy {
+  version: number;
+  tiers: AuditTier[];
+}
+
+/** A step a withdraw voided, with the approval it had, if any (ADR-0001). */
+export interface AuditVoidedStep {
+  step: number;
+  tier: number;
+  earlierDecision: { by: { id: string; name: string }; at: string; version: number } | null;
 }
 
 /** One changed line of an edit: only the fields that changed, each before → after. */
@@ -127,6 +152,42 @@ export interface AuditEventCatalogue {
       total: Money;
       reason: string | null;
     };
+  };
+  /** The owner submitted: the round, how it was routed, and the vendor as submitted. */
+  PO_SUBMITTED: {
+    entityType: 'order';
+    details: {
+      round: number;
+      total: Money;
+      /** The tiers the total exceeds: the chain's steps, empty when auto-approved. */
+      tiers: AuditTier[];
+      policyVersion: number;
+      resultingStatus: 'APPROVED' | 'PENDING_APPROVAL';
+      vendorSnapshot: VendorOrderSnapshot;
+    };
+  };
+  /** SYSTEM approved a submission at or below the lowest tier, in the submit transaction. */
+  PO_AUTO_APPROVED: {
+    entityType: 'order';
+    details: { round: number; threshold: Money; policyVersion: number };
+  };
+  APPROVAL_STEP_APPROVED: {
+    entityType: 'order';
+    details: { round: number; step: number; tier: number; versionApproved: number };
+  };
+  APPROVAL_STEP_REJECTED: {
+    entityType: 'order';
+    details: { round: number; step: number; tier: number; reason: string };
+  };
+  /** The owner took a pending order back to draft; every step of the round is voided. */
+  PO_WITHDRAWN: {
+    entityType: 'order';
+    details: { round: number; reason: string; voidedSteps: AuditVoidedStep[] };
+  };
+  /** A new policy version: by the operator CLI, or SYSTEM for the migration's seed. */
+  APPROVAL_POLICY_CHANGED: {
+    entityType: 'approval_policy';
+    details: { before: AuditPolicy | null; after: AuditPolicy };
   };
   ADMIN_CREATED: {
     entityType: 'user';

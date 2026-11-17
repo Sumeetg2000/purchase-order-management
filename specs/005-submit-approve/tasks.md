@@ -131,7 +131,7 @@ draft PR) and a short summary stop.
   entry with no user fields, then a USER entry again; the context is restored when `fn`
   throws; unusable outside `withTransaction`) — `backend/src/db/transaction.ts`,
   `backend/tests/integration/transaction.test.ts` — R5.
-- [ ] T010 [P] Audit events `PO_SUBMITTED`, `PO_AUTO_APPROVED`, `APPROVAL_STEP_APPROVED`,
+- [X] T010 [P] Audit events `PO_SUBMITTED`, `PO_AUTO_APPROVED`, `APPROVAL_STEP_APPROVED`,
   `APPROVAL_STEP_REJECTED`, `PO_WITHDRAWN` with the payload types of data-model.md (round
   in each; vendor snapshot in `PO_SUBMITTED`); `ORDER_AUDIT_ACTIONS` extended; unit test
   first — `backend/src/audit/events.ts`, `packages/contracts/src/orders.ts`,
