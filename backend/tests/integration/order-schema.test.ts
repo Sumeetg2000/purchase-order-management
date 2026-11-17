@@ -83,8 +83,13 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
       'owner_id',
       'vendor_id',
     ]);
+    // Migration 0014 adds status and the submission columns (slice 4, data-model.md).
     expect(await columnPrivileges(q, 'po_app', 'purchase_orders', 'UPDATE')).toEqual([
+      'approved_at',
+      'current_round',
       'po_number',
+      'status',
+      'submitted_at',
       'vendor_id',
       'version',
     ]);
@@ -322,10 +327,11 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
     expect(await key('createOrder', 32)).toBeUndefined();
     expect(await key('deleteOrder', 32)).toBe(CHECK_VIOLATION);
     expect(await key('createOrder', 31)).toBe(CHECK_VIOLATION);
+    // Migration 0014 inserts the five slice 4 transitions (approval-schema.test.ts).
     const { rows } = await f.app.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM order_status_transitions`,
     );
-    expect(rows[0]?.n).toBe('0');
+    expect(rows[0]?.n).toBe('5');
   });
 
   it('[NFR-PERF-01] the order list indexes exist exactly as planned', async () => {
@@ -345,6 +351,13 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
       purchase_orders_owner_po_number_idx: '(owner_id, po_number)',
       purchase_orders_owner_status_created_idx: '(owner_id, status, created_at DESC, id DESC)',
       purchase_orders_owner_vendor_created_idx: '(owner_id, vendor_id, created_at DESC, id DESC)',
+      // Migration 0014: the approval queue's partial indexes (slice 4, research R7).
+      purchase_orders_pending_po_number_idx:
+        "(po_number) INCLUDE (owner_id) WHERE (status = 'PENDING_APPROVAL'::text)",
+      purchase_orders_pending_submitted_idx:
+        "(submitted_at, id) INCLUDE (owner_id) WHERE (status = 'PENDING_APPROVAL'::text)",
+      purchase_orders_pending_vendor_submitted_idx:
+        "(vendor_id, submitted_at, id) INCLUDE (owner_id) WHERE (status = 'PENDING_APPROVAL'::text)",
       purchase_orders_pkey: '(id)',
       purchase_orders_po_number_key: '(po_number)',
       purchase_orders_status_created_idx: '(status, created_at DESC, id DESC)',
