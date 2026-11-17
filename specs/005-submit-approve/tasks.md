@@ -127,7 +127,7 @@ draft PR) and a short summary stop.
 
 ### Platform: actor switch, audit events, web plumbing
 
-- [ ] T009 `asSystem(tx, fn)`: test first (inside one transaction a USER entry, a SYSTEM
+- [X] T009 `asSystem(tx, fn)`: test first (inside one transaction a USER entry, a SYSTEM
   entry with no user fields, then a USER entry again; the context is restored when `fn`
   throws; unusable outside `withTransaction`) — `backend/src/db/transaction.ts`,
   `backend/tests/integration/transaction.test.ts` — R5.
