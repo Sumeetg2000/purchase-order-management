@@ -1,4 +1,4 @@
-import { lineTotal, sum, toMoney, type Order } from '@po/contracts';
+import { lineTotal, sum, toMoney, type Order, type OrderListItem } from '@po/contracts';
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
@@ -107,5 +107,23 @@ describe('[NFR-CON-03] reading an order', () => {
     });
     await Promise.all([writes, ...reads]);
     expect(torn).toEqual([]);
+  });
+});
+
+describe('[FR-VEN-03] submitted orders show the vendor as submitted', () => {
+  it('[FR-VEN-03] the order and its list row name the vendor as submitted; a draft the live one', async () => {
+    const h = await ordersHarness();
+    const submitted = await h.draftAt('150000');
+    await h.submitOrder(submitted.id, 1);
+    const draft = await h.draftAt('10');
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query(`UPDATE vendors SET name = 'Acme Renamed' WHERE id = $1`, [h.vendorId]);
+    await h.query('COMMIT');
+    const read = (await h.getOrder(submitted.id)).body as Order;
+    expect(read.vendorSnapshot?.name).toBe('Acme Supplies');
+    const list = (await h.get('/orders', h.jar)).body as { items: OrderListItem[] };
+    const names = Object.fromEntries(list.items.map((i) => [i.id, i.vendor.name]));
+    expect(names).toEqual({ [submitted.id]: 'Acme Supplies', [draft.id]: 'Acme Renamed' });
   });
 });
