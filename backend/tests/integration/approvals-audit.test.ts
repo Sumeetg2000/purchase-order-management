@@ -56,4 +56,23 @@ describe('[NFR-AUD-01] submit audit entries', () => {
     await h.submitOrder(draft.id, 5);
     expect((await h.orderAudit()).map((e) => e.action)).toEqual(['PO_CREATED']);
   });
+
+  it('[NFR-AUD-01] an approval writes one APPROVAL_STEP_APPROVED as APPROVER, also for a dual-role user', async () => {
+    const h = await ordersHarness();
+    const draft = await h.draftAt('200000');
+    await h.submitOrder(draft.id, 1);
+    const both = await h.approver('{BUYER,APPROVER}', 'Dev Dual');
+    await h.approveOrder(draft.id, 1, both.jar); // stale: refused, nothing written
+    await h.approveOrder(draft.id, 2, both.jar);
+    const entries = (await h.orderAudit()).filter((e) => e.action === 'APPROVAL_STEP_APPROVED');
+    expect(entries).toEqual([
+      expect.objectContaining({
+        actor_type: 'USER',
+        actor_user_id: both.id,
+        actor_name: 'Dev Dual',
+        acting_role: 'APPROVER',
+        details: { round: 1, step: 1, tier: 1, versionApproved: 2 },
+      }),
+    ]);
+  });
 });

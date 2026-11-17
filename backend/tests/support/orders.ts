@@ -52,6 +52,49 @@ export async function ordersHarness() {
     return h.send('post', `/orders/${id}/submit`, as, body, headers);
   }
 
+  /** POST /orders/:id/approve; `version` null sends no If-Match. */
+  function approveOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/approve`, as, body, headers);
+  }
+
+  /** GET /approvals with the given query string values. */
+  function listQueue(as: CookieJar, query: Record<string, string | number> = {}) {
+    const qs = new URLSearchParams(
+      Object.entries(query).map(([k, v]) => [k, String(v)] as [string, string]),
+    ).toString();
+    return h.get(`/approvals${qs ? `?${qs}` : ''}`, as);
+  }
+
+  /** A logged-in Approver, and their id. */
+  async function approver(roles = '{APPROVER}', name = 'Priya Approver') {
+    const user = await h.seedUser({ roles, name });
+    return { ...user, jar: await h.loggedIn(user) };
+  }
+
+  /**
+   * Sets a user's status or roles below the guards, as an admin change would, without
+   * ending their sessions: roles and status are read on every request (ADR-0017).
+   */
+  async function setUser(
+    id: string,
+    change: { status?: 'ACTIVE' | 'DEACTIVATED'; roles?: string },
+  ) {
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    if (change.status !== undefined) {
+      await h.query(
+        `UPDATE users SET status = $2,
+                deactivated_at = CASE WHEN $2 = 'DEACTIVATED' THEN now() END WHERE id = $1`,
+        [id, change.status],
+      );
+    }
+    if (change.roles !== undefined) {
+      await h.query(`UPDATE users SET roles = $2::text[] WHERE id = $1`, [id, change.roles]);
+    }
+    await h.query('COMMIT');
+  }
+
   /** A draft of one line at `unitPrice` (quantity 1), created through the API. */
   async function draftAt(unitPrice: string, as: CookieJar = h.jar) {
     const res = await createOrder(orderBody([lineBody({ quantity: 1, unitPrice })]), { as });
@@ -113,6 +156,10 @@ export async function ordersHarness() {
     deleteOrder,
     getOrder,
     submitOrder,
+    approveOrder,
+    listQueue,
+    approver,
+    setUser,
     draftAt,
     addPolicy,
     count,
