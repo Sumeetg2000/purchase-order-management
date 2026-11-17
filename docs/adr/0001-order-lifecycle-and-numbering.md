@@ -5,7 +5,9 @@
   2026-11-12 (PO numbers allocated at the end of the create transaction, so only deleted
   drafts leave gaps, **owner decision**; slice 3) · amended 2026-11-17 (editing or
   deleting a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`, no longer
-  `INVALID_STATE_TRANSITION`, **owner decision**; slice 4)
+  `INVALID_STATE_TRANSITION`, **owner decision**; slice 4) · amended 2026-11-17 (approve
+  refused while the owner can't act, `409 ORDER_OWNER_INACTIVE`, **owner decision**;
+  slice 4)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -33,12 +35,18 @@ complains of "no numbering discipline".
 | T3 | `DRAFT` → (deleted) | Delete draft, owner | Version matches; hard delete of order and lines; `PO_DRAFT_DELETED` records the PO number and contents; reason optional |
 | T4 | `DRAFT` → `APPROVED` | Submit, owner | Version matches; total at or below the lowest tier; vendor active; vendor snapshot taken; `PO_AUTO_APPROVED` with actor `SYSTEM` |
 | T5 | `DRAFT` → `PENDING_APPROVAL` | Submit, owner | Version matches; total above the lowest tier; vendor active; vendor snapshot taken; a fresh chain built from policy data |
-| T6 | `PENDING_APPROVAL` → `PENDING_APPROVAL` | Approve a non-final step, Approver | Caller ≠ owner; vendor active; version matches; more steps remain (only reachable with a multi-tier policy) |
+| T6 | `PENDING_APPROVAL` → `PENDING_APPROVAL` | Approve a non-final step, Approver | Caller ≠ owner; vendor active; owner active and holding BUYER; version matches; more steps remain (only reachable with a multi-tier policy) |
 | T7 | `PENDING_APPROVAL` → `APPROVED` | Approve the final step, Approver | Same as T6, and this is the last step |
 | T8 | `PENDING_APPROVAL` → `REJECTED` | Reject, Approver | Caller ≠ owner; version matches; reason required. Allowed even if the vendor is inactive |
 | T9 | `PENDING_APPROVAL` → `DRAFT` | Withdraw, owner | Version matches; reason required; every step of the current round marked `VOIDED`, decided steps keep their record |
 | T10 | `APPROVED` → `CANCELLED` | Cancel, Approver | Caller ≠ owner; version matches; reason required; not fully received (`409 ORDER_FULLY_RECEIVED`). Allowed after vendor deactivation |
 
+- **Owner able to act** (T6, T7; amended 2026-11-17, owner decision): approve is refused
+  with `409 ORDER_OWNER_INACTIVE` when the order's owner is deactivated or no longer holds
+  BUYER, because an approved order only its owner can receive would be stranded. The
+  owner's user row is read `FOR SHARE` in the approve transaction (lock order, ADR-0006),
+  so a concurrent deactivation or role removal can't slip between the check and the
+  approval. Reject (T8) stays allowed: it is how such an order is closed (ADR-0016).
 - Goods receipt is not a transition. The owner records receipts against `APPROVED` orders
   only (`409 ORDER_NOT_RECEIVABLE` otherwise), including after vendor deactivation.
 - Any other (state, action) pair → `409 INVALID_STATE_TRANSITION`, with the current status
@@ -118,6 +126,9 @@ complains of "no numbering discipline".
 
 ## Tests
 - One test per transition, allowed and refused.
+- Approve with the owner deactivated or without BUYER → `409 ORDER_OWNER_INACTIVE`;
+  reject is allowed; approve racing a deactivation or role removal ends either approved
+  before the change or refused after it.
 - Edit and delete of a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`; of an
   `APPROVED`, `REJECTED` or `CANCELLED` order → `409 ORDER_LOCKED`.
 - The submit → withdraw → edit → resubmit timeline.

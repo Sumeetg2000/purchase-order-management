@@ -2,14 +2,16 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (details moved here from the
   constitution) · amended 2026-11-06 (vendors carry a `version`; slice 2) · amended
-  2026-11-12 (the PO counter row is locked last; replays leave no gap; slice 3)
+  2026-11-12 (the PO counter row is locked last; replays leave no gap; slice 3) ·
+  amended 2026-11-17 (approve reads the owner's user row `FOR SHARE`; slice 4)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
 ## Decision
 - Lock, then read, then decide (`SELECT … FOR UPDATE`), or one conditional statement. Never
-  decide on an unlocked read. Lock order: order → lines (id asc) → vendor → PO number
-  counter row (a create only, as its last write, ADR-0001). The triggers
+  decide on an unlocked read. Lock order: order → lines (id asc) → vendor → the order
+  owner's user row (`FOR SHARE`, approve only, ADR-0001) → PO number counter row (a
+  create only, as its last write, ADR-0001). The triggers
   that maintain received quantity lock the line themselves, so even raw SQL can't
   over-receive.
 - One short transaction per command, with no network calls. Writes are batched. Pool size,
@@ -41,7 +43,8 @@
 
 ## Tests (assert business outcomes)
 50 parallel receipts on one line; edit vs submit (the final status matches the final
-total); withdraw vs approve; two concurrent approve requests on the same step (a double
+total); withdraw vs approve; approve vs the owner's deactivation or BUYER removal (approved
+before the change, or `409 ORDER_OWNER_INACTIVE` after it); two concurrent approve requests on the same step (a double
 click, or two tabs; exactly one decision recorded); cancel vs receive; concurrent PO number
 allocation; a simulated pool timeout → 503; missing `If-Match` on each listed command →
 400 `VERSION_REQUIRED`; stale `If-Match` → 409; receipts accepted without `If-Match`.

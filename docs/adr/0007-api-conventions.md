@@ -19,7 +19,8 @@
   resource names it in one typed extension member, `existingVendor` first; the vendor
   field rules) · amended 2026-11-12 (slice 3, **owner decisions**: line descriptions,
   unit prices as strings, order list filters, the order-write body limit) · amended
-  2026-11-17 (slice 4, **owner decision**: `409 ORDER_PENDING_APPROVAL`, ADR-0001)
+  2026-11-17 (slice 4, **owner decisions**: `409 ORDER_PENDING_APPROVAL` and
+  `409 ORDER_OWNER_INACTIVE`, ADR-0001)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -124,6 +125,8 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ORDER_LOCKED`, `INVALID_STATE_TRANSITION`, `VERSION_CONFLICT`
   - `ORDER_PENDING_APPROVAL`: edit or delete of a `PENDING_APPROVAL` order, "This order
     is waiting for approval. Withdraw it to make changes." (ADR-0001)
+  - `ORDER_OWNER_INACTIVE`: approve of a pending order whose owner is deactivated or no
+    longer holds BUYER, "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." (ADR-0001)
   - `ORDER_NOT_RECEIVABLE`, `ORDER_FULLY_RECEIVED`, `RECEIPT_EXCEEDS_OUTSTANDING`
   - `VENDOR_INACTIVE`, `DUPLICATE_VENDOR_NAME`
   - `IDEMPOTENCY_KEY_REUSED`
