@@ -6,6 +6,7 @@ import {
   createDraft,
   orderFixture,
   plant,
+  plantSubmitted,
   reconciliationRows,
   type OrderFixture,
 } from '../support/orders-sql.js';
@@ -133,5 +134,27 @@ describe('[NFR-DATA-01] reconciliation query', () => {
     expect(await reconciliationRows(f.app)).toEqual([
       { invariant: 'PO_NUMBER', entity_id: orderId, detail: 'po_number is NULL' },
     ]);
+  });
+
+  it('[FR-SM-01] APPROVAL: a submitted order whose status, round or chain disagree', async () => {
+    const f = await orderFixture();
+    const pending = await consistentDraft(f, [{ quantity: 2, unitPrice: '100000' }]);
+    const bare = await consistentDraft(f, [{ quantity: 1, unitPrice: '1' }]);
+    await plantSubmitted(f, pending.orderId, 'PENDING_APPROVAL');
+    expect(await reconciliationRows(f.app)).toEqual([]);
+    const rows = await rowsAfter(f, [
+      // APPROVED with its step still open.
+      `UPDATE purchase_orders SET status = 'APPROVED', approved_at = now()
+        WHERE id = '${pending.orderId}'`,
+      // Submitted with no round at all.
+      `UPDATE purchase_orders SET status = 'PENDING_APPROVAL', submitted_at = now()
+        WHERE id = '${bare.orderId}'`,
+    ]);
+    expect(rows).toEqual(
+      [
+        ['APPROVAL', pending.orderId],
+        ['APPROVAL', bare.orderId],
+      ].sort((a, b) => (a[1] ?? '').localeCompare(b[1] ?? '')),
+    );
   });
 });
