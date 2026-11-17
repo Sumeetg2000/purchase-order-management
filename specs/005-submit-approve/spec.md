@@ -81,6 +81,21 @@ Traceability:
   combined order list (own orders in any state plus every non-draft order), unchanged. The
   approval queue, and the nav count read from it, hold only orders the caller may
   approve: never their own. Owner decision, recorded in ADR-0004 (2026-11-17).
+- Q: How does `ORDER_LOCKED` on a rejected order avoid reading as "approved"? → A: One
+  code; the message follows `details.status`. `APPROVED`: "This order is approved and
+  locked." `REJECTED`: "This order was rejected and is closed. Raise a new order instead."
+  Copying a rejected order to a new draft is considered and deferred (ADR-0019, owner
+  decision 2026-11-17).
+- Q: What happens when an Approver approves a pending order whose owner has been
+  deactivated or no longer holds BUYER? → A: Refused with `409 ORDER_OWNER_INACTIVE`,
+  "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." Reject stays allowed. The owner is checked under a shared lock
+  on their user row in the approve transaction, so a concurrent deactivation or role
+  removal can't slip between check and approval. The queue, order detail and Approve
+  dialog mark such orders "Owner can no longer act on this order" and offer Reject
+  instead. Owner decision, recorded in ADR-0001, ADR-0006, ADR-0007 and ADR-0016
+  (2026-11-17).
+- Q: Does order detail show the reject and withdraw reasons? → A: Yes, beside the
+  approval step or round they ended.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -144,7 +159,10 @@ delete; each is refused with its specific outcome and the reconciliation returns
 **Acceptance Scenarios**:
 
 1. **Given** an `APPROVED` or `REJECTED` order, **When** its owner edits or deletes it
-   through the API, **Then** `409 ORDER_LOCKED` with the current status in `details`.
+   through the API, **Then** `409 ORDER_LOCKED` with the current status in `details`, and
+   a message that follows that status: `APPROVED` → "This order is approved and locked.";
+   `REJECTED` → "This order was rejected and is closed. Raise a new order instead." The
+   web app shows the same sentence, chosen by `code` and `details.status`.
 2. **Given** a `PENDING_APPROVAL` order, **When** its owner edits or deletes it, **Then**
    `409 ORDER_PENDING_APPROVAL` with the current status in `details` and the message "This
    order is waiting for approval. Withdraw it to make changes."
@@ -157,7 +175,8 @@ delete; each is refused with its specific outcome and the reconciliation returns
    lines, vendor, vendor snapshot, recorded policy version or header, or deletes it,
    **Then** the database refuses it (lines since slice 3; the rest from this slice).
 5. **Given** the web app, **When** a submitted order is opened, **Then** it shows
-   read-only detail (vendor snapshot, lines, total, status, approval chain, timeline) with
+   read-only detail (vendor snapshot, lines, total, status, approval chain with each
+   rejection or withdrawal reason, timeline) with
    no Edit, Delete or Submit actions; a stale editor tab that saves gets the specific code
    with a "Reload order" option, and for a pending order the message says to withdraw it.
 
@@ -187,18 +206,24 @@ the step, tier, version approved and P as actor; it leaves the queue.
    works by inserting a policy row only, with no code change.
 3. **Given** a pending order whose vendor has been deactivated, **When** an Approver
    approves, **Then** `409 VENDOR_INACTIVE` and nothing changes.
-4. **Given** a stale version, **Then** `409 VERSION_CONFLICT`; **given** no `If-Match`,
+4. **Given** a pending order whose owner has been deactivated or no longer holds BUYER,
+   **When** an Approver approves, **Then** `409 ORDER_OWNER_INACTIVE` with the message
+   "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." and nothing changes; rejecting it succeeds;
+   once the owner's access is restored, approving succeeds.
+5. **Given** a stale version, **Then** `409 VERSION_CONFLICT`; **given** no `If-Match`,
    **Then** `400 VERSION_REQUIRED`; **given** an order not pending, **Then** `409
    INVALID_STATE_TRANSITION`.
-5. **Given** an Approver, **When** they open the approval queue, **Then** they see only the
+6. **Given** an Approver, **When** they open the approval queue, **Then** they see only the
    `PENDING_APPROVAL` orders they may approve (never their own), paginated, oldest
-   submission first, with PO number, buyer, vendor (snapshot), total, current step and
-   submitted time, filtered in the database.
-6. **Given** the web app, **When** an Approver approves, **Then** a dialog names the PO
+   submission first, with PO number, buyer, vendor (snapshot), total, current step,
+   submitted time and whether the owner can still act, filtered in the database.
+7. **Given** the web app, **When** an Approver approves, **Then** a dialog names the PO
    number, buyer, vendor and total and states "The buyer can then receive goods; the order
    can't be edited"; errors are shown inside the dialog; the nav's pending-approvals count
-   updates after the action.
-7. **Given** a successful approval, **Then** exactly one `APPROVAL_STEP_APPROVED` entry is
+   updates after the action. **Given** an order whose owner can't act, **Then** the
+   queue, the order detail and the dialog show "Owner can no longer act on this order"
+   and offer Reject instead of Approve.
+8. **Given** a successful approval, **Then** exactly one `APPROVAL_STEP_APPROVED` entry is
    written in the same transaction, with `actingRole` `APPROVER` (also for a dual-role
    user).
 
@@ -229,7 +254,8 @@ and `APPROVAL_STEP_REJECTED` records the tier, step and reason.
    rejected, **Then** the order is `REJECTED` and the first step keeps its approved record.
 5. **Given** a `REJECTED` order, **When** anyone tries to submit, approve, reject or
    withdraw it, **Then** `409 INVALID_STATE_TRANSITION`; **when** its owner edits or
-   deletes it, **Then** `409 ORDER_LOCKED`.
+   deletes it, **Then** `409 ORDER_LOCKED` with "This order was rejected and is closed.
+   Raise a new order instead." There is no copy-to-new-draft action (ADR-0019).
 6. **Given** the web app, **When** an Approver rejects, **Then** a dialog requires the
    reason and states "Rejection is final; the buyer must raise a new order", with the safe
    choice focused.
@@ -366,6 +392,9 @@ anonymous.
   step one.
 - A vendor edited after submit: the order still shows the submit-time snapshot; after a
   withdraw it shows the live vendor again until the next submit.
+- An owner deactivated, or stripped of BUYER, while their order is pending: approving it
+  is refused with `409 ORDER_OWNER_INACTIVE` and it is marked in the queue; the Approver
+  rejects it (ADR-0016's process), or approves once the owner's access is restored.
 - An Approver's APPROVER role removed while their dialog is open: the next approve or
   reject is `403`; steps they already approved stay valid.
 - The only Approver also holds Buyer: their own orders above the threshold can never be
@@ -406,6 +435,9 @@ anonymous.
   version, and the order's delete. The API MUST answer edit and delete of a
   `PENDING_APPROVAL` order with `409 ORDER_PENDING_APPROVAL`, and of an `APPROVED` or
   `REJECTED` order with `409 ORDER_LOCKED`, each with the current status in `details`.
+  `ORDER_LOCKED` stays one code; its message follows `details.status` (`APPROVED`: "This
+  order is approved and locked."; `REJECTED`: "This order was rejected and is closed.
+  Raise a new order instead."), in the API's problem `detail` and in the web app.
 - **FR-008** (FR-OWN-01): Edit, delete, submit and withdraw by a caller who can read the
   order but doesn't own it MUST return `403 NOT_ORDER_OWNER`, replacing slice 3's
   placeholder; ADR-0004's check precedence applies (404 before 403 before 409).
@@ -417,7 +449,10 @@ anonymous.
 - **FR-010** (FR-APR-01, FR-SM-01): An Approver MUST be able to approve the current open
   step of a pending order with the current version; the decision binds to that version.
   If steps remain the order stays pending (T6); on the last step it becomes `APPROVED`
-  (T7). Approve MUST refuse an inactive vendor with `409 VENDOR_INACTIVE`.
+  (T7). Approve MUST refuse an inactive vendor with `409 VENDOR_INACTIVE`, and an owner
+  who is deactivated or no longer holds BUYER with `409 ORDER_OWNER_INACTIVE` ("The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored."),
+  checked with the owner's user row under a shared lock in the approve transaction
+  (ADR-0006's lock order: order, lines, vendor, owner). Reject is allowed in both cases.
 - **FR-011** (FR-SM-03): An Approver MUST be able to reject a pending order with the
   current version and a required reason (trimmed, 1–500 characters, plain text). The
   current step is recorded as rejected, the order becomes `REJECTED` (T8) and is final.
@@ -432,8 +467,8 @@ anonymous.
 - **FR-014** (FR-OWN-01, NFR-PERF-01): Approvers MUST have an approval queue holding only
   `PENDING_APPROVAL` orders they may approve (never their own), paginated per ADR-0007,
   oldest submission first (submitted time, then id), filterable by vendor and PO-number
-  prefix in the database with index support. Its `total` MUST serve the nav's
-  pending-approvals count, under the same scope.
+  prefix in the database with index support. Each row MUST say whether the owner can still
+  act. Its `total` MUST serve the nav's pending-approvals count, under the same scope.
 
 **Policy**
 
@@ -448,7 +483,8 @@ anonymous.
 - **FR-017** (NFR-CON-01, NFR-CON-03): Submit, approve, reject and withdraw MUST require
   `If-Match`, lock the order before deciding, and pass the concurrency tests: edit vs
   submit, double approve, approve vs reject, withdraw vs approve, approve vs vendor
-  deactivation.
+  deactivation, and approve vs the owner's deactivation or BUYER removal (approved before
+  the change, or `409 ORDER_OWNER_INACTIVE` after it, never approved after it).
 - **FR-018** (NFR-VAL-01): Submit and approve take no input besides the version; reject
   and withdraw take only `reason`. Any other field MUST be refused with `400`. All four
   endpoints join the body-schema inventory.
@@ -481,8 +517,9 @@ anonymous.
 - **FR-023** (NFR-FE-07, NFR-FE-08, NFR-FE-09): The web app MUST provide the Submit action
   and dialog on a draft; the Withdraw action and dialog on the owner's pending order; a
   read-only order detail for submitted orders (snapshot, lines, total, status, approval
-  chain with each step's state and decider, timeline); the approval queue screen; the
-  Approve and Reject actions and dialogs; and the Approvers' nav pending-approvals count
+  chain with each step's state, decider and, for a rejection or withdrawal, its reason,
+  timeline); the approval queue screen; the Approve and Reject actions and dialogs, with
+  the "Owner can no longer act on this order" marker offering Reject instead of Approve; and the Approvers' nav pending-approvals count
   (refreshed every 60 s, on focus and after each related action). Errors are handled by
   `code` and shown inside dialogs; a conflict offers "Reload order"; nothing is sent twice.
 - **FR-024**: End-to-end tests MUST cover: create → submit below the threshold
@@ -524,8 +561,9 @@ anonymous.
   rows.
 - **SC-004**: Zero self-decisions in every test: each approve or reject by an owner,
   dual-role or not, is refused, and no owner ever sees their own order in their queue.
-- **SC-005**: Every concurrent double-approve, approve-vs-reject and withdraw-vs-approve
-  ends with exactly one recorded outcome; every edit-vs-submit race ends with one success
+- **SC-005**: Every concurrent double-approve, approve-vs-reject, withdraw-vs-approve and
+  approve-vs-owner-deactivation ends with exactly one recorded outcome, and no order is
+  approved after its owner lost the ability to act; every edit-vs-submit race ends with one success
   and a final status matching the final total.
 - **SC-006**: Submit of a 500-line order within 500 ms, a single approval within 150 ms,
   and the approver queue's first page within 150 ms, all at p95 on ADR-0012's production
@@ -550,8 +588,8 @@ anonymous.
   fixture the same Approver may decide successive steps (ADR-0002: decide again if a
   second tier is ever seeded).
 - **No notifications**: email on submit, approve or reject stays deferred (ADR-0019).
-- **Error codes come from the ADRs**: `ORDER_PENDING_APPROVAL` (ADR-0001 and ADR-0007,
-  2026-11-17), `ORDER_LOCKED`, `NOT_ORDER_OWNER`, `SELF_APPROVAL`,
+- **Error codes come from the ADRs**: `ORDER_PENDING_APPROVAL` and `ORDER_OWNER_INACTIVE`
+  (ADR-0001 and ADR-0007, 2026-11-17), `ORDER_LOCKED`, `NOT_ORDER_OWNER`, `SELF_APPROVAL`,
   `INVALID_STATE_TRANSITION`, `VENDOR_INACTIVE`, `VERSION_CONFLICT`, `VERSION_REQUIRED`.
   Those not yet in the code registry (`packages/contracts`) and the web app's message map
   are added during implementation, tests first, after the contract review at
@@ -562,6 +600,7 @@ anonymous.
 
 - Constitution 3.0.2; ADR-0001, 0002, 0004, 0005, 0006, 0007, 0012, 0016, 0018 and 0019 as
   currently amended.
+- Slice 1: user status and roles, read for the owner check under a shared lock.
 - Slice 3: orders, lines, derived-value triggers, the status-transition table and trigger
   (`PO009`), the line lock outside `DRAFT` (`PO006`), the reconciliation and attack suite,
   the order editor and detail.
