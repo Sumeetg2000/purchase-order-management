@@ -249,3 +249,84 @@ describe('[NFR-CON-01] approve under concurrent changes to the people involved',
     }
   });
 });
+
+describe('[NFR-CON-01] decisions and withdrawals racing each other', () => {
+  const reason = { reason: 'Racing' };
+
+  it('[FR-SM-03] approve vs reject on one step: one decision, and the status is its outcome', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const ravi = await h.approver('{APPROVER}', 'Ravi Approver');
+    for (let run = 0; run < 3; run += 1) {
+      const id = await pendingFor(h);
+      const [approve, reject] = await Promise.all([
+        h.approveOrder(id, 2, priya.jar),
+        h.rejectOrder(id, 2, ravi.jar, reason),
+      ]);
+      expect([approve.status, reject.status].sort()).toEqual([200, 409]);
+      const order = (await h.getOrder(id)).body as Order;
+      expect(order.status).toBe(approve.status === 200 ? 'APPROVED' : 'REJECTED');
+      const [row] = await h.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM approval_steps
+          WHERE order_id = $1 AND state IN ('APPROVED', 'REJECTED')`,
+        [id],
+      );
+      expect(row?.n).toBe(1);
+    }
+  });
+
+  it('[FR-SM-03] approve vs withdraw: APPROVED with nothing voided, or DRAFT with every step voided and no approval', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    for (let run = 0; run < 3; run += 1) {
+      const id = await pendingFor(h);
+      const [approve, withdraw] = await Promise.all([
+        h.approveOrder(id, 2, priya.jar),
+        h.withdrawOrder(id, 2, h.jar, reason),
+      ]);
+      expect([approve.status, withdraw.status].sort()).toEqual([200, 409]);
+      const states = await h.query<{ state: string; decided: boolean }>(
+        `SELECT state, decided_by IS NOT NULL AS decided FROM approval_steps WHERE order_id = $1`,
+        [id],
+      );
+      const order = (await h.getOrder(id)).body as Order;
+      if (approve.status === 200) {
+        expect(order.status).toBe('APPROVED');
+        expect(states).toEqual([{ state: 'APPROVED', decided: true }]);
+      } else {
+        expect(order.status).toBe('DRAFT');
+        expect(states).toEqual([{ state: 'VOIDED', decided: false }]);
+      }
+    }
+  });
+
+  it('[FR-SM-03] withdraw vs reject: DRAFT or REJECTED, never both', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    for (let run = 0; run < 3; run += 1) {
+      const id = await pendingFor(h);
+      const [withdraw, reject] = await Promise.all([
+        h.withdrawOrder(id, 2, h.jar, reason),
+        h.rejectOrder(id, 2, priya.jar, reason),
+      ]);
+      expect([withdraw.status, reject.status].sort()).toEqual([200, 409]);
+      const order = (await h.getOrder(id)).body as Order;
+      expect(order.status).toBe(withdraw.status === 200 ? 'DRAFT' : 'REJECTED');
+    }
+  });
+
+  it('[FR-SOD-01] a reject while the acting Approver is deactivated: 401, never decided after', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const id = await pendingFor(h);
+    const { waited, res } = await changeWhileApproving(
+      h,
+      priya.id,
+      `status = 'DEACTIVATED', deactivated_at = now()`,
+      () => h.rejectOrder(id, 2, priya.jar, reason).then((r) => r),
+    );
+    expect(waited).toBe(true);
+    expect(res.body).toMatchObject({ code: 'ACCOUNT_DEACTIVATED' });
+    expect(((await h.getOrder(id)).body as Order).status).toBe('PENDING_APPROVAL');
+  });
+});

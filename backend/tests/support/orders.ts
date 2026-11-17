@@ -58,6 +58,18 @@ export async function ordersHarness() {
     return h.send('post', `/orders/${id}/approve`, as, body, headers);
   }
 
+  /** POST /orders/:id/reject with a body (usually { reason }); `version` null sends none. */
+  function rejectOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/reject`, as, body, headers);
+  }
+
+  /** POST /orders/:id/withdraw with a body (usually { reason }); `version` null sends none. */
+  function withdrawOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/withdraw`, as, body, headers);
+  }
+
   /** GET /approvals with the given query string values. */
   function listQueue(as: CookieJar, query: Record<string, string | number> = {}) {
     const qs = new URLSearchParams(
@@ -157,6 +169,8 @@ export async function ordersHarness() {
     getOrder,
     submitOrder,
     approveOrder,
+    rejectOrder,
+    withdrawOrder,
     listQueue,
     approver,
     setUser,
