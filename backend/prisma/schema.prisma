@@ -210,6 +210,8 @@ model PurchaseOrder {
   @@index([status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_status_created_idx")
   @@index([vendorId, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_vendor_created_idx")
   @@index([ownerId, poNumber], map: "purchase_orders_owner_po_number_idx")
+  @@index([vendorId, status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_vendor_status_created_idx")
+  @@index([ownerId, vendorId, status, createdAt(sort: Desc), id(sort: Desc)], map: "purchase_orders_owner_vendor_status_created_idx")
   @@map("purchase_orders")
 }
 

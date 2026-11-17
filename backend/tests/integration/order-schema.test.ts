@@ -358,6 +358,17 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
         "(submitted_at, id) INCLUDE (owner_id) WHERE (status = 'PENDING_APPROVAL'::text)",
       purchase_orders_pending_vendor_submitted_idx:
         "(vendor_id, submitted_at, id) INCLUDE (owner_id) WHERE (status = 'PENDING_APPROVAL'::text)",
+      // Migration 0014, amended 2026-11-18: non-draft lists and status + vendor (R7).
+      purchase_orders_nondraft_created_idx:
+        "(created_at DESC, id DESC) WHERE (status <> 'DRAFT'::text)",
+      purchase_orders_nondraft_po_number_idx: "(po_number) WHERE (status <> 'DRAFT'::text)",
+      purchase_orders_nondraft_vendor_created_idx:
+        "(vendor_id, created_at DESC, id DESC) WHERE (status <> 'DRAFT'::text)",
+      purchase_orders_vendor_status_created_idx: '(vendor_id, status, created_at DESC, id DESC)',
+      purchase_orders_owner_draft_po_number_idx:
+        "(owner_id, po_number) WHERE (status = 'DRAFT'::text)",
+      purchase_orders_owner_vendor_status_created_idx:
+        '(owner_id, vendor_id, status, created_at DESC, id DESC)',
       purchase_orders_pkey: '(id)',
       purchase_orders_po_number_key: '(po_number)',
       purchase_orders_status_created_idx: '(status, created_at DESC, id DESC)',

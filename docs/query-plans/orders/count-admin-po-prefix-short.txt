@@ -2,5 +2,5 @@
 -- values: ["PO-2026-27-","PO-2026-27-",1114111]
 
 Aggregate
-  ->  Seq Scan on purchase_orders
-        Filter: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+  ->  Index Only Scan using purchase_orders_po_number_key on purchase_orders
+        Index Cond: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))

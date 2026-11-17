@@ -282,9 +282,9 @@ orders; the owner and the Approver are re-checked under lock.
   ACCOUNT_DEACTIVATED` / `403 FORBIDDEN` after, never after); approve vs vendor
   deactivation; deadlock tests: an approve holding both `users` rows and an admin
   deactivation or role change of the owner, and of the Approver, in both start orders;
-  lock-order rule: the locks of every order command and every user-management command,
-  captured from `pg_locks` at a barrier, show `users` rows only last on the order side
-  and no order-side row on the user side — `backend/tests/concurrency/approvals.test.ts`,
+  lock-order rule: an approve waiting on a `users` row already holds the order, its steps
+  and the vendor (`pg_locks` at a barrier); user-management code references no order
+  table at all (a source check: held row locks don't show in `pg_locks`) — `backend/tests/concurrency/approvals.test.ts`,
   `backend/tests/concurrency/lock-order.test.ts` (new) — R6 races 4, 5, 5a, 6, ADR-0006,
   FR-017, SC-005.
 - [X] T029 [P] [US3] Queue tests, seen failing: only `PENDING_APPROVAL`, never the
@@ -316,11 +316,11 @@ orders; the owner and the Approver are re-checked under lock.
   count (60 s, focus, after each action); component tests first —
   `frontend/src/pages/approvals/`, `frontend/src/app/Shell.tsx`, `router.tsx` — US3
   scenario 7, FR-023, NFR-FE-08.
-- [ ] T035 [US3] Plan fixture status mix (5,000 `DRAFT`, 3,000 `PENDING_APPROVAL`, 2,000
+- [X] T035 [US3] Plan fixture status mix (5,000 `DRAFT`, 3,000 `PENDING_APPROVAL`, 2,000
   `REJECTED`, 90,000 `APPROVED`, with rounds and steps; one top-10 Buyer as a second,
   dual-role Approver); reconciliation and the consistency check before `ANALYZE` —
   `backend/tests/plans/orders-fixture.ts` — R7, ADR-0012 2026-11-17.
-- [ ] T036 [US3] Plan tests, seen failing until the indexes serve them: queue page 1 and
+- [X] T036 [US3] Plan tests, seen failing until the indexes serve them: queue page 1 and
   page 100, vendor filter, PO prefix (both lengths), the dual-role queue, each `COUNT`; the
   order lists re-run with the Approver scope now populated; no `Seq Scan` on
   `purchase_orders`, `approval_rounds`, `approval_steps`; no sort over more than page +

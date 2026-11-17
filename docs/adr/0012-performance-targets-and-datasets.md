@@ -20,6 +20,10 @@
     approved orders into cancelled and receipt states), with matching approval rounds and
     steps. For the queue's own-order exclusion, the plan fixture also gives one of the top
     10 Buyers `{BUYER, APPROVER}`.
+  - **Order lists at this mix** (amended 2026-11-18, owner decision): the non-draft
+    scopes walk partial indexes on `status <> 'DRAFT'`, and status with vendor has its own
+    indexes (slice 4 research R7). Every list and count plan stops at its page; no
+    combined-filter exception is needed.
   - **Audit entries**: about **2M**, matching the production dataset above (about 100k
     orders × their lifecycle events, plus about 1.5M receipt events and the vendor and user
     events); for vendor history, about 10,000 vendor entries across the 2,000 vendors.

@@ -256,40 +256,39 @@ export interface OrderListFilter {
   createdTo?: string | undefined;
 }
 
-const NON_DRAFT_STATUSES = ORDER_STATUSES.filter((status) => status !== 'DRAFT');
-
-/** One part of a scope that a single index serves: an owner, a status, or both. */
+/**
+ * One part of a scope that a single index serves (research R7, amended 2026-11-18): an
+ * owner, a status, or every non-draft order, alone or together. The parts of a scope never
+ * overlap, so their union needs no de-duplication.
+ */
 interface Branch {
-  owner?: { userId: string; mine: boolean };
+  owner?: string;
   status?: OrderStatus;
+  /** status <> 'DRAFT': the non-draft partial indexes' own predicate. */
+  nonDraft?: true;
 }
 
 /**
- * The scope as branches whose union is what the caller may read, each one walkable on its
- * own index in the list's order (research R7): a Buyer's own orders on the owner indexes,
- * an Approver's non-drafts one status at a time on the status index, so a union of
- * branches is a merge of ordered index scans that stops at the page. A status filter keeps
- * the branches it can match.
+ * The scope as branches whose union is what the caller may read, each walkable on its own
+ * index in the list's order: a Buyer's own orders on the owner indexes; an Approver's
+ * non-drafts on the non-draft partial indexes; a Buyer+Approver's own drafts plus every
+ * non-draft order (their own included), so no branch filters out the caller's rows. A status
+ * filter narrows each branch to it, or drops the branch that can't hold it.
  */
 function branchesOf(scope: OrderListScope, status: OrderStatus | undefined): Branch[] {
-  const nonDraft = (owner?: Branch['owner']) =>
-    NON_DRAFT_STATUSES.map((s): Branch => (owner ? { status: s, owner } : { status: s }));
-  const all: Branch[] =
-    scope.kind === 'all'
-      ? [{}]
-      : scope.kind === 'own'
-        ? [{ owner: { userId: scope.userId, mine: true } }]
-        : scope.kind === 'nonDraft'
-          ? nonDraft()
-          : [
-              { owner: { userId: scope.userId, mine: true } },
-              // Not the caller's own: those are in the first branch already.
-              ...nonDraft({ userId: scope.userId, mine: false }),
-            ];
-  if (status === undefined) return all;
-  return all
-    .filter((b) => b.status === undefined || b.status === status)
-    .map((b) => ({ ...b, status }));
+  switch (scope.kind) {
+    case 'all':
+      return [status === undefined ? {} : { status }];
+    case 'own':
+      return [status === undefined ? { owner: scope.userId } : { owner: scope.userId, status }];
+    case 'nonDraft':
+      if (status === 'DRAFT') return [];
+      return [status === undefined ? { nonDraft: true } : { status }];
+    case 'ownOrNonDraft':
+      if (status === 'DRAFT') return [{ owner: scope.userId, status }];
+      if (status !== undefined) return [{ status }];
+      return [{ owner: scope.userId, status: 'DRAFT' }, { nonDraft: true }];
+  }
 }
 
 /** A status as an SQL literal: from the contract's own list, so the planner sees it. */
@@ -325,14 +324,9 @@ function filterConditions(filter: OrderListFilter): Prisma.Sql[] {
 
 function branchSql(branch: Branch, filters: Prisma.Sql[], columns: Prisma.Sql): Prisma.Sql {
   const conditions = [...filters];
-  if (branch.owner) {
-    conditions.push(
-      branch.owner.mine
-        ? Prisma.sql`owner_id = ${branch.owner.userId}::uuid`
-        : Prisma.sql`owner_id <> ${branch.owner.userId}::uuid`,
-    );
-  }
+  if (branch.owner !== undefined) conditions.push(Prisma.sql`owner_id = ${branch.owner}::uuid`);
   if (branch.status) conditions.push(Prisma.sql`status = ${statusLiteral(branch.status)}`);
+  if (branch.nonDraft) conditions.push(Prisma.sql`status <> 'DRAFT'`);
   const where =
     conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}` : Prisma.empty;
   return Prisma.sql`SELECT ${columns} FROM purchase_orders ${where}`;

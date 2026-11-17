@@ -344,6 +344,29 @@ command (fine for one row, but approve must read four tables consistently).
   `approval_steps`; no sort over more than page + offset rows). The order-list plans are
   re-committed, since the Approver scope (`status <> 'DRAFT'`) now has 95,000 rows.
   `npm run plans:orders` writes `docs/query-plans/orders/approval-queue-*.txt`.
+- **Order lists with real non-draft data** (amended 2026-11-18, owner decision). The
+  status mix exposed slice 3's list plans: its Approver scope was four status branches on
+  `(status, created_at)` with every filter applied on the rows, planned when every order
+  was a draft. At 95 % non-draft orders, 24 list and count plans read or sorted past the
+  page (a vendor filter discarded 3,000 rows for a page of 20; a short PO prefix sorted
+  90,000 rows at page 100; counts read the drafts). Fixed in migration 0014:
+  - **A.** Non-draft partial indexes, the list's own predicate `status <> 'DRAFT'`:
+    `(created_at DESC, id DESC)`, `(vendor_id, created_at DESC, id DESC)`, `(po_number)`.
+    The Approver scope is one branch on them.
+  - **B.** A Buyer+Approver's list is their own drafts plus every non-draft order, their
+    own included: two branches that never overlap, so neither filters out the caller's
+    rows.
+  - **C.** `(vendor_id, status, created_at DESC, id DESC)` for a status and a vendor
+    together (Admin, Approver).
+  - **D.** `(owner_id, vendor_id, status, created_at DESC, id DESC)`: a Buyer's status and
+    vendor together sorted 500 rows at page 1 without it, so by the owner's rule it got an
+    index, not an exception. With it no deep page sorts past its bound: no exception is
+    recorded.
+  - A Buyer+Approver's own drafts by PO prefix sorted 500 rows at page 1 too: a partial
+    `(owner_id, po_number) WHERE status = 'DRAFT'`, by the same rule (implementation,
+    listed for the owner).
+  Every order plan now walks an index to the page; none has a sequential scan, the three
+  Admin counts slice 3 accepted included.
 - **Timings** (`orders.timing.test.ts`): submit of a 500-line order p95 ≤ 500 ms; a
   single approval p95 ≤ 150 ms; queue page 1 p95 ≤ 150 ms (ADR-0012).
 

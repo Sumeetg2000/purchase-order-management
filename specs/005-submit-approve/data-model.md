@@ -90,6 +90,12 @@ set to `ORDER_TRANSITIONS` in the contracts.
 | `purchase_orders (submitted_at, id) INCLUDE (owner_id) WHERE status = 'PENDING_APPROVAL'` | queue, its count, nav count |
 | `purchase_orders (vendor_id, submitted_at, id) INCLUDE (owner_id) WHERE status = 'PENDING_APPROVAL'` | queue + vendor |
 | `purchase_orders (po_number) INCLUDE (owner_id) WHERE status = 'PENDING_APPROVAL'` | queue + PO prefix |
+| `purchase_orders (created_at DESC, id DESC) WHERE status <> 'DRAFT'` | Approver list; the non-draft half of a Buyer+Approver's (2026-11-18) |
+| `purchase_orders (vendor_id, created_at DESC, id DESC) WHERE status <> 'DRAFT'` | the same + vendor |
+| `purchase_orders (po_number) WHERE status <> 'DRAFT'` | the same + PO prefix |
+| `purchase_orders (vendor_id, status, created_at DESC, id DESC)` | status + vendor (Admin, Approver) |
+| `purchase_orders (owner_id, vendor_id, status, created_at DESC, id DESC)` | a Buyer's status + vendor |
+| `purchase_orders (owner_id, po_number) WHERE status = 'DRAFT'` | a Buyer+Approver's own drafts by PO prefix |
 | `approval_steps (decided_by) WHERE decided_by IS NOT NULL` | FK on user (no seq scan on a user's key change) |
 | `approval_rounds (submitted_by)` | FK on user |
 | `approval_rounds (policy_version)` | FK on policy |

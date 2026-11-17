@@ -1,0 +1,7 @@
+-- SELECT k.id FROM (SELECT id, po_number, submitted_at FROM purchase_orders WHERE status = 'PENDING_APPROVAL' AND owner_id <> $1::uuid ORDER BY purchase_orders.submitted_at, purchase_orders.id LIMIT 20 OFFSET 1980) k
+-- values: ["1d781443-d3fe-cfb6-2b0b-12db84e7b78a"]
+
+Subquery Scan on k
+  ->  Limit
+        ->  Index Only Scan using purchase_orders_pending_submitted_idx on purchase_orders
+              Filter: (owner_id <> '1d781443-d3fe-cfb6-2b0b-12db84e7b78a'::uuid)

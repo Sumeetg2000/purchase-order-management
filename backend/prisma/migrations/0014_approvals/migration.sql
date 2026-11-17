@@ -125,6 +125,27 @@ CREATE INDEX purchase_orders_pending_po_number_idx
   ON purchase_orders (po_number) INCLUDE (owner_id)
   WHERE status = 'PENDING_APPROVAL';
 
+-- Order lists over non-draft orders (research R7, amended 2026-11-18): the Approver's scope,
+-- and the non-draft half of a Buyer+Approver's, walk these and stop at the page; their
+-- counts read only them. The predicate is the list's own condition, status <> 'DRAFT'.
+CREATE INDEX purchase_orders_nondraft_created_idx
+  ON purchase_orders (created_at DESC, id DESC) WHERE status <> 'DRAFT';
+CREATE INDEX purchase_orders_nondraft_vendor_created_idx
+  ON purchase_orders (vendor_id, created_at DESC, id DESC) WHERE status <> 'DRAFT';
+CREATE INDEX purchase_orders_nondraft_po_number_idx
+  ON purchase_orders (po_number) WHERE status <> 'DRAFT';
+-- A status and a vendor together, for the Admin and Approver scopes.
+CREATE INDEX purchase_orders_vendor_status_created_idx
+  ON purchase_orders (vendor_id, status, created_at DESC, id DESC);
+-- A status and a vendor within one Buyer's orders: page 1 sorted the busiest Buyer's
+-- orders of a vendor without it (research R7, 2026-11-18).
+CREATE INDEX purchase_orders_owner_vendor_status_created_idx
+  ON purchase_orders (owner_id, vendor_id, status, created_at DESC, id DESC);
+-- A Buyer+Approver's own drafts by PO-number prefix (the drafts half of their list): page 1
+-- sorted their orders without it (research R7, 2026-11-18).
+CREATE INDEX purchase_orders_owner_draft_po_number_idx
+  ON purchase_orders (owner_id, po_number) WHERE status = 'DRAFT';
+
 -- Foreign keys on users and the policy, so a key change never scans these tables.
 CREATE INDEX approval_steps_decided_by_idx ON approval_steps (decided_by)
   WHERE decided_by IS NOT NULL;

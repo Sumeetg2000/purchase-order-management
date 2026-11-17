@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM purchase_orders WHERE status = 'PENDING_APPROVAL' AND owner_id <> $1::uuid
+-- values: ["68aabdda-3185-bf09-2502-4aac5324d4c5"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_pending_po_number_idx on purchase_orders
+        Filter: (owner_id <> '68aabdda-3185-bf09-2502-4aac5324d4c5'::uuid)
