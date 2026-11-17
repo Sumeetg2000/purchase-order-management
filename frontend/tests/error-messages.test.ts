@@ -2,6 +2,8 @@ import {
   ERROR_CODES,
   NOT_ORDER_OWNER_DETAIL,
   ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_APPROVER_READ_ONLY_MESSAGE,
+  ORDER_DECISION_APPROVER_ONLY_MESSAGE,
   ORDER_LOCKED_MESSAGES,
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
@@ -13,7 +15,7 @@ import {
   describeFailure,
   errorMessages,
   fieldMessages,
-  messageForOrderWrite,
+  messageForOrderAction,
   messageForProblem,
   revokeReasonText,
   sentenceFor,
@@ -71,16 +73,27 @@ describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)
     );
   });
 
-  it('[NFR-AUTH-01] FORBIDDEN on an order write tells an Admin why, and anyone else the usual words', () => {
-    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: true })).toEqual({
+  it('[NFR-AUTH-01] FORBIDDEN on an order action says why, by the caller role and the action', () => {
+    const forbidden = { code: 'FORBIDDEN' };
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'write' })).toEqual({
       message: ORDER_ADMIN_READ_ONLY_MESSAGE,
     });
-    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: false })).toEqual(
+    expect(messageForOrderAction(forbidden, { roles: ['APPROVER'], action: 'write' })).toEqual({
+      message: ORDER_APPROVER_READ_ONLY_MESSAGE,
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'decision' })).toEqual({
+      message: ORDER_DECISION_APPROVER_ONLY_MESSAGE,
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'decision' })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
+    // A Buyer refused a write (a role removed mid-session) gets the usual words.
+    expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'write' })).toEqual(
       errorMessages.FORBIDDEN,
     );
-    expect(messageForOrderWrite({ code: 'VERSION_CONFLICT' }, { isAdmin: true })).toEqual(
-      errorMessages.VERSION_CONFLICT,
-    );
+    expect(
+      messageForOrderAction({ code: 'VERSION_CONFLICT' }, { roles: ['ADMIN'], action: 'write' }),
+    ).toEqual(errorMessages.VERSION_CONFLICT);
   });
 });
 

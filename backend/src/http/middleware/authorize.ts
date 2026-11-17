@@ -60,7 +60,7 @@ function allowed(
 }
 
 export function authenticate(
-  operation: Pick<OperationContract, 'access' | 'roles' | 'adminForbiddenDetail'>,
+  operation: Pick<OperationContract, 'access' | 'roles' | 'forbiddenDetail'>,
   deps: AuthDependencies,
 ): RequestHandler {
   const { access } = operation;
@@ -80,8 +80,11 @@ export function authenticate(
         throw new AppError('NO_ROLE_ASSIGNED');
       }
       if (!allowed(operation, user)) {
-        // An Admin refused an order write is told why (ADR-0004, 2026-11-12).
-        const detail = user.roles.includes(ROLE.ADMIN) ? operation.adminForbiddenDetail : undefined;
+        // A caller refused an order action is told why, by their role (ADR-0004,
+        // 2026-11-12 and 2026-11-17). Refused here, they hold none of the route's roles.
+        const detail = user.roles
+          .map((role) => operation.forbiddenDetail?.[role])
+          .find((d) => d !== undefined);
         throw new AppError('FORBIDDEN', detail === undefined ? {} : { detail });
       }
       res.locals[AUTH_KEY] = user;

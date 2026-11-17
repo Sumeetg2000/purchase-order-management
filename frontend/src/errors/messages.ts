@@ -3,10 +3,11 @@ import {
   isFieldCode,
   oneOf,
   NOT_ORDER_OWNER_DETAIL,
-  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_DECISION_FORBIDDEN_DETAIL,
   ORDER_LOCKED_MESSAGES,
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
+  ORDER_WRITE_FORBIDDEN_DETAIL,
   SELF_APPROVAL_DETAIL,
   type LockedOrderStatus,
   PASSWORD_MAX_LENGTH,
@@ -15,6 +16,7 @@ import {
   type ErrorCode,
   type FieldCode,
   type PublicRevokeReason,
+  type UserRole,
 } from '@po/contracts';
 
 // What the user is told for each registry code (contracts/ui-components.md). Keyed by the
@@ -209,15 +211,21 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
 }
 
 /**
- * The message for a failed order write (create, edit, delete): an Admin's FORBIDDEN says
- * why, in the same words the API puts in the problem's detail (ADR-0004, 2026-11-12). The
- * screen branches on the code and the signed-in roles, never on the detail text.
+ * The message for a failed order action: a route-level FORBIDDEN says why, in the same
+ * words the API puts in the problem's detail, by the signed-in role and the kind of action
+ * (ADR-0004, 2026-11-12 and 2026-11-17). The screen branches on the code and the roles,
+ * never on the detail text.
  */
-export function messageForOrderWrite(
+export function messageForOrderAction(
   problem: ProblemLike,
-  { isAdmin }: { isAdmin: boolean },
+  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' },
 ): ErrorMessage {
-  if (problem.code === 'FORBIDDEN' && isAdmin) return { message: ORDER_ADMIN_READ_ONLY_MESSAGE };
+  if (problem.code === 'FORBIDDEN') {
+    const details: Partial<Record<UserRole, string>> =
+      action === 'write' ? ORDER_WRITE_FORBIDDEN_DETAIL : ORDER_DECISION_FORBIDDEN_DETAIL;
+    const message = roles.map((role) => details[role]).find((d) => d !== undefined);
+    if (message !== undefined) return { message };
+  }
   return messageForProblem(problem);
 }
 

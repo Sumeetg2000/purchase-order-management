@@ -1,6 +1,7 @@
 import {
   OPERATIONS,
   ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_APPROVER_READ_ONLY_MESSAGE,
   type Access,
   type OperationContract,
 } from '@po/contracts';
@@ -96,6 +97,13 @@ const CALLERS = {
 } as const;
 type Caller = keyof typeof CALLERS;
 
+/** The single role of a caller refused at route level, keying forbiddenDetail. */
+const ROLE_OF: Partial<Record<Caller, 'BUYER' | 'APPROVER' | 'ADMIN'>> = {
+  Buyer: 'BUYER',
+  Approver: 'APPROVER',
+  Admin: 'ADMIN',
+};
+
 type Outcome = 'OPEN' | 'UNAUTHENTICATED' | 'NO_ROLE_ASSIGNED' | 'FORBIDDEN';
 
 /** The cell's expected outcome, from ADR-0004's matrix. */
@@ -182,9 +190,14 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
           });
         } else {
           expect(res.body, cell).toMatchObject({ code: outcome });
-          // An Admin refused an order write is told why (ADR-0004, 2026-11-12).
-          if (outcome === 'FORBIDDEN' && caller === 'Admin' && op.adminForbiddenDetail) {
-            expect(res.body, cell).toMatchObject({ detail: op.adminForbiddenDetail });
+          // A route-level FORBIDDEN on an order action says why, by the caller's one role
+          // (ADR-0004, 2026-11-12 and 2026-11-17).
+          const roleDetail =
+            outcome === 'FORBIDDEN' && ROLE_OF[caller] !== undefined
+              ? op.forbiddenDetail?.[ROLE_OF[caller]]
+              : undefined;
+          if (roleDetail !== undefined) {
+            expect(res.body, cell).toMatchObject({ detail: roleDetail });
           } else {
             expect((res.body as { detail?: unknown }).detail, cell).toBeUndefined();
           }
@@ -289,11 +302,12 @@ describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
     }
   });
 
-  it('[FR-ACT-01] an Approver or an Admin editing a draft is 403 before validation, the Admin told why', async () => {
+  it('[FR-ACT-01] an Approver or an Admin editing a draft is 403 before validation, each told why', async () => {
     const h = await ordersHarness();
     const id = ((await h.createOrder(h.orderBody())).body as { id: string }).id;
     for (const [roles, detail] of [
-      ['{APPROVER}', undefined],
+      // ADR-0004, 2026-11-17: a pure Approver is told why too.
+      ['{APPROVER}', ORDER_APPROVER_READ_ONLY_MESSAGE],
       ['{ADMIN}', ORDER_ADMIN_READ_ONLY_MESSAGE],
     ] as const) {
       const jar = await h.loggedIn(await h.seedUser({ roles }));
@@ -305,10 +319,11 @@ describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
     expect(((await h.getOrder(id)).body as { version: number }).version).toBe(1);
   });
 
-  it('[FR-ACT-01] an Approver or an Admin creating an order is 403 before validation, the Admin told why', async () => {
+  it('[FR-ACT-01] an Approver or an Admin creating an order is 403 before validation, each told why', async () => {
     const h = await ordersHarness();
     for (const [roles, detail] of [
-      ['{APPROVER}', undefined],
+      // ADR-0004, 2026-11-17: a pure Approver is told why too.
+      ['{APPROVER}', ORDER_APPROVER_READ_ONLY_MESSAGE],
       ['{ADMIN}', ORDER_ADMIN_READ_ONLY_MESSAGE],
     ] as const) {
       const jar = await h.loggedIn(await h.seedUser({ roles }));

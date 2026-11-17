@@ -26,7 +26,7 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
-import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
+import { ORDER_BODY_LIMIT_BYTES, ORDER_WRITE_FORBIDDEN_DETAIL } from './orders.js';
 import {
   createOrderBody,
   deleteOrderBody,
@@ -86,10 +86,11 @@ export interface OperationContract {
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
   /**
-   * The `detail` of an Admin's route-level FORBIDDEN, saying why (ADR-0004, 2026-11-12):
-   * order writes tell an Admin they can view orders but not change them.
+   * The `detail` of a route-level FORBIDDEN, by the refused caller's role, saying why
+   * (ADR-0004, 2026-11-12 and 2026-11-17): an Admin can view orders but not change them; a
+   * pure Approver can review them but not change them; only Approvers decide.
    */
-  adminForbiddenDetail?: string;
+  forbiddenDetail?: Partial<Record<UserRole, string>>;
   /** A create that must send `Idempotency-Key`, a UUID, so a retry can't duplicate it. */
   idempotencyKey?: 'required';
   /**
@@ -541,7 +542,7 @@ export const OPERATIONS = {
       'Raise a draft order against an active vendor; the PO number, line totals and total are derived.',
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     idempotencyKey: 'required',
     bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
     etag: true,
@@ -559,7 +560,7 @@ export const OPERATIONS = {
       "Replace a draft's vendor and lines: lines with an id are updated, without one added, left out removed.",
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     ifMatch: 'required',
     bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
     etag: true,
@@ -577,7 +578,7 @@ export const OPERATIONS = {
       'Delete a draft with its current version and an optional reason; its audit record stays.',
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     ifMatch: 'required',
     request: { params: idParams, body: deleteOrderBody },
     responses: { 204: z.void() },

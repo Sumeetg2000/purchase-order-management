@@ -55,7 +55,7 @@ const CONTRACT_FIELDS = [
   'ifMatch',
   'idempotencyKey',
   'bodyLimitBytes',
-  'adminForbiddenDetail',
+  'forbiddenDetail',
   'setsCookies',
   'request',
   'responses',

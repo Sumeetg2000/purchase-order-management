@@ -113,7 +113,7 @@ draft PR) and a short summary stop.
   with the detail texts of contracts/errors.md; `ORDER_LOCKED_MESSAGES` keyed by status;
   `DUPLICATE_APPROVER` absent — `packages/contracts/src/errors.ts`, `approvals.ts`,
   `packages/contracts/tests/errors.test.ts` — R8, FR-SOD-01.
-- [ ] T007 Role details: `OperationContract.adminForbiddenDetail` → `forbiddenDetail`
+- [X] T007 Role details: `OperationContract.adminForbiddenDetail` → `forbiddenDetail`
   (role set → detail); constants `ORDER_APPROVER_READ_ONLY_MESSAGE` ("Approvers can review
   orders but not change them.") and `ORDER_DECISION_APPROVER_ONLY_MESSAGE` ("Only
   Approvers can approve or reject orders."); slice 3's create, edit, delete moved to the

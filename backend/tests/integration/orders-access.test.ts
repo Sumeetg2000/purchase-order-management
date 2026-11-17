@@ -1,3 +1,4 @@
+import { ORDER_APPROVER_READ_ONLY_MESSAGE } from '@po/contracts';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -72,7 +73,16 @@ describe('[FR-OWN-01] draft order role boundaries', () => {
     await setRoles('{APPROVER}');
     const approverNow = await h.editOrder(order.id, body, 1);
     expect(approverNow.status).toBe(403);
-    expect(approverNow.body).toMatchObject({ code: 'FORBIDDEN' });
+    // A pure Approver is told why (ADR-0004, 2026-11-17).
+    expect(approverNow.body).toMatchObject({
+      code: 'FORBIDDEN',
+      detail: ORDER_APPROVER_READ_ONLY_MESSAGE,
+    });
+    const approverDelete = await h.deleteOrder(order.id, 1);
+    expect(approverDelete.body).toMatchObject({
+      code: 'FORBIDDEN',
+      detail: ORDER_APPROVER_READ_ONLY_MESSAGE,
+    });
     await setRoles('{}');
     const noRole = await h.editOrder(order.id, body, 1);
     expect(noRole.status).toBe(403);
