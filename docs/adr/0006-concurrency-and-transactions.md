@@ -49,7 +49,8 @@
 | edit | order `FOR UPDATE` → lines (id asc) `FOR UPDATE` → vendor `FOR SHARE` |
 | delete | order `FOR UPDATE` → lines (id asc) `FOR UPDATE` |
 | create | idempotency key → vendor `FOR SHARE` → PO number counter (last) |
-| submit | order `FOR UPDATE` → vendor `FOR SHARE` (lines are frozen by the order lock: every line change locks its order first) |
+| submit | order `FOR UPDATE` → vendor `FOR SHARE` → the policy advisory lock, shared (lines are frozen by the order lock: every line change locks its order first) |
+| `set_approval_policy` (operator CLI) | the policy advisory lock, exclusive: a submit and a policy change never interleave, so a round records the version its routing read (amended 2026-11-17, slice 4 implementation) |
 | approve | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → vendor `FOR SHARE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order (always two different rows) |
 | reject | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order |
 | withdraw | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` |

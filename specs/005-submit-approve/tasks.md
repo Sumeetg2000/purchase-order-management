@@ -197,13 +197,13 @@ outcome, and reconciliation returns zero rows.
 **Independent test**: ₹1,00,000.00 → `APPROVED` with `PO_SUBMITTED` + `PO_AUTO_APPROVED`
 (`SYSTEM`); ₹1,00,000.01 → `PENDING_APPROVAL` with one open step; both show the snapshot.
 
-- [ ] T017 [P] [US1] Routing tests, seen failing: seed boundaries `100000.0000` → auto,
+- [X] T017 [P] [US1] Routing tests, seen failing: seed boundaries `100000.0000` → auto,
   `100000.0001` and `100000.0100` → one step; two-tier fixture → two steps; three-tier
   chain by inserting policy rows only; the round records the highest policy version;
   a policy version inserted after submit leaves the chain unchanged —
   `backend/tests/integration/approvals-routing.test.ts` — FR-001, FR-002, FR-005,
   FR-APR-01, FR-APR-03, SC-002.
-- [ ] T018 [P] [US1] Submit API tests, seen failing: `If-Match` missing → 400
+- [X] T018 [P] [US1] Submit API tests, seen failing: `If-Match` missing → 400
   `VERSION_REQUIRED`, stale → 409; any body field → 400 `UNKNOWN_FIELD`; inactive vendor →
   409 `VENDOR_INACTIVE`; second submit → 409 `INVALID_STATE_TRANSITION` with status and
   action; another Buyer → 404; Buyer+Approver non-owner on a pending order → 403
@@ -211,35 +211,35 @@ outcome, and reconciliation returns zero rows.
   response has `submittedAt`, `vendorSnapshot`, `approval`, `version + 1`; vendor edited
   after submit leaves the snapshot — `backend/tests/integration/approvals-submit.test.ts`
   — US1 scenarios 1–6, FR-004, FR-VEN-03.
-- [ ] T019 [P] [US1] Submit races, seen failing (barriers, business outcomes): edit vs
+- [X] T019 [P] [US1] Submit races, seen failing (barriers, business outcomes): edit vs
   submit on one draft (one wins; the final status is the routing of the final total);
   submit vs vendor deactivation (submitted before, or 409 `VENDOR_INACTIVE` after);
   submit vs `set_approval_policy` (the round records the version its statement read, and
   its chain matches it) — `backend/tests/concurrency/approvals.test.ts` (new) — R6 races
   3, 6, 7, FR-017, SC-005, NFR-CON-01.
-- [ ] T020 [P] [US1] Audit tests, seen failing: `PO_SUBMITTED` (owner, `BUYER`, round,
+- [X] T020 [P] [US1] Audit tests, seen failing: `PO_SUBMITTED` (owner, `BUYER`, round,
   total, tiers, policy version, resulting status, snapshot) and `PO_AUTO_APPROVED`
   (`SYSTEM`, no user fields, threshold, version, round) in the submit transaction; a refused
   submit writes none — `backend/tests/integration/approvals-audit.test.ts` — FR-003,
   FR-020, NFR-AUD-01.
-- [ ] T021 [P] [US1] `getApprovalPolicy` tests, seen failing: Buyer, Approver, Admin get
+- [X] T021 [P] [US1] `getApprovalPolicy` tests, seen failing: Buyer, Approver, Admin get
   version 1 and its tier; no role → 403 `NO_ROLE_ASSIGNED`; the route table has no write
   to the policy — `backend/tests/integration/approval-policy.test.ts`,
   `route-table.test.ts` — FR-016, FR-APR-04.
-- [ ] T022 [US1] Approvals repository: lock order (shared helper from
+- [X] T022 [US1] Approvals repository: lock order (shared helper from
   `orders/repository.ts`), insert round with snapshot and the highest policy version,
   insert steps by `threshold < total` from the round's own row (one `INSERT … SELECT`),
   status update; policy read — `backend/src/approvals/repository.ts` — R3, R4, R6.
-- [ ] T023 [US1] Approvals service `submitOrder`: lock order → vendor `FOR SHARE`; checks
+- [X] T023 [US1] Approvals service `submitOrder`: lock order → vendor `FOR SHARE`; checks
   in R8's order; `PO_SUBMITTED`; if no step, `asSystem` → round `AUTO_APPROVED`, order
   `APPROVED` with `approved_at`, `PO_AUTO_APPROVED`; `getApprovalPolicy` — 
   `backend/src/approvals/service.ts` — R3, R5, R6.
-- [ ] T024 [US1] Routes and operations `submitOrder` (`POST /orders/:id/submit`, BUYER,
+- [X] T024 [US1] Routes and operations `submitOrder` (`POST /orders/:id/submit`, BUYER,
   `ifMatch`, role details) and `getApprovalPolicy` (`GET /approval-policy`), OpenAPI
   regenerated, body inventory, matrix pins; T017–T021 green —
   `backend/src/approvals/routes.ts`, `packages/contracts/src/operations.ts`,
   `packages/contracts/openapi/openapi.json` (generated) — contracts/api.md.
-- [ ] T025 [US1] Order reads: `getOrder` returns `submittedAt`, `approvedAt`,
+- [X] T025 [US1] Order reads: `getOrder` returns `submittedAt`, `approvedAt`,
   `ownerCanAct`, `vendorSnapshot` (non-draft), `approval` (current round with steps,
   deciders by id and name, reasons) in one statement; list items use the snapshot name for
   non-draft orders; tests first — `backend/src/orders/repository.ts`,

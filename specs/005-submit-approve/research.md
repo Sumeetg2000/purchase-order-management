@@ -162,9 +162,12 @@ service (Principle II forbids).
 - **Binding**: the round stores `policy_version` (FK). A later `policy:set` inserts a new
   version and never touches existing rounds, so a submitted order keeps its chain; a
   withdraw and resubmit routes under the then-current version. Policy rows are immutable,
-  so submit needs no lock on them: a concurrent `policy:set` is either visible to the
-  statement or not, and whichever version was read is the one recorded and re-checked at
-  commit (D1).
+  but a submit takes the policy advisory lock in shared mode before opening its round,
+  and `set_approval_policy` takes it exclusively (implementation, 2026-11-17). Under READ
+  COMMITTED the round insert and its guard read the highest version in two snapshots; a
+  policy change committing between them made the guard refuse a valid submit. With the
+  lock, one waits for the other, and the version read is the one recorded and re-checked
+  at commit (D1).
 
 **Rationale**: routing in the same statement that reads the data means the app can't
 round, misread or race it, and D1 re-derives it at commit anyway.
@@ -248,7 +251,7 @@ them would strand an order in a state the table doesn't allow).
 |---|---|---|
 | edit (slice 3) | order `FOR UPDATE` → lines (id asc) `FOR UPDATE` → vendor `FOR SHARE` | |
 | delete (slice 3) | order `FOR UPDATE` → lines (id asc) `FOR UPDATE` | |
-| submit | order `FOR UPDATE` → vendor `FOR SHARE` | routing (R3) |
+| submit | order `FOR UPDATE` → vendor `FOR SHARE` → policy advisory lock (shared) | routing (R3) |
 | approve | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → vendor `FOR SHARE` → owner's and Approver's `users` rows `FOR SHARE`, in id order | step decision |
 | reject | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → owner's and Approver's `users` rows `FOR SHARE`, in id order | |
 | withdraw | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` | |

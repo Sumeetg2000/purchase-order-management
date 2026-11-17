@@ -56,6 +56,8 @@ const PINNED_ACCESS: Record<string, Access> = {
   createOrder: 'role',
   editOrder: 'role',
   deleteOrder: 'role',
+  submitOrder: 'role',
+  getApprovalPolicy: 'role',
 };
 
 /** The roles of each role-level operation (ADR-0004's vendor rows), pinned the same way. */
@@ -73,6 +75,8 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   createOrder: ['BUYER'],
   editOrder: ['BUYER'],
   deleteOrder: ['BUYER'],
+  submitOrder: ['BUYER'],
+  getApprovalPolicy: ['BUYER', 'APPROVER', 'ADMIN'],
 };
 
 /** Callable with no session (ADR-0004 "Public endpoints", plus the slice 0 health checks). */
@@ -204,10 +208,10 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 37 operations (2 health checks, 22 of slice 1, 7 vendor ones,
-    // 6 order ones) × 6 callers.
+    // Zero cells untested: 39 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 6 order ones, 2 of slice 4 so far) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(37);
+    expect(operations).toHaveLength(39);
   });
 });
 

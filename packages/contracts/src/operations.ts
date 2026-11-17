@@ -36,6 +36,7 @@ import {
   orderListQuery,
   orderTimelineItem,
 } from './schemas/orders.js';
+import { approvalPolicy } from './schemas/approvals.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -596,5 +597,38 @@ export const OPERATIONS = {
       'ORDER_LOCKED',
       'VERSION_CONFLICT',
     ],
+  },
+
+  // Slice 4, US1: submit a draft; the total routes it (specs/005-submit-approve).
+  submitOrder: {
+    method: 'post',
+    path: '/orders/:id/submit',
+    operationId: 'submitOrder',
+    summary:
+      'Submit a draft with its current version: at or below the lowest tier it is approved by the system, above it waits for approval.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+    ],
+  },
+  getApprovalPolicy: {
+    method: 'get',
+    path: '/approval-policy',
+    operationId: 'getApprovalPolicy',
+    summary: "The current approval policy's version and tiers; changed only by the operator CLI.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    responses: { 200: approvalPolicy },
+    errors: [],
   },
 } as const satisfies Record<string, OperationContract>;

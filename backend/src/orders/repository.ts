@@ -3,6 +3,8 @@ import {
   PO_NUMBER_TIME_ZONE,
   type Money,
   type OrderListItem,
+  type ApprovalRoundOutcome,
+  type ApprovalStepState,
   type OrderStatus,
   type VendorStatus,
 } from '@po/contracts';
@@ -35,6 +37,33 @@ export interface OrderRow {
   updatedAt: Date;
   /** In display order. */
   lines: OrderLineRow[];
+  submittedAt: Date | null;
+  approvedAt: Date | null;
+  /** The owner is active and still holds BUYER (ADR-0004 S5). */
+  ownerCanAct: boolean;
+  /** The current round, as JSON (timestamps as text); null if never submitted. */
+  approval: ApprovalRoundRow | null;
+}
+
+/** An approval round as the order read returns it (slice 4, research R10). */
+export interface ApprovalRoundRow {
+  round: number;
+  policyVersion: number;
+  outcome: ApprovalRoundOutcome | null;
+  submittedAt: string;
+  closedAt: string | null;
+  withdrawReason: string | null;
+  vendorSnapshot: unknown;
+  steps: {
+    step: number;
+    tier: number;
+    /** numeric as text. */
+    threshold: string;
+    state: ApprovalStepState;
+    decidedBy: { id: string; name: string } | null;
+    decidedAt: string | null;
+    reason: string | null;
+  }[];
 }
 
 export interface OrderLineRow {
@@ -120,6 +149,7 @@ export async function deleteOrderLines(
 export interface LockedOrder {
   id: string;
   ownerId: string;
+  vendorId: string;
   status: OrderStatus;
   version: number;
 }
@@ -127,7 +157,7 @@ export interface LockedOrder {
 /** Locks the order FOR UPDATE (ADR-0006: the order first, then its lines, then the vendor). */
 export async function lockOrder(tx: AuditedTransaction, id: string): Promise<LockedOrder | null> {
   const [row] = await tx.$queryRaw<LockedOrder[]>`
-    SELECT id::text, owner_id::text AS "ownerId", status, version
+    SELECT id::text, owner_id::text AS "ownerId", vendor_id::text AS "vendorId", status, version
       FROM purchase_orders WHERE id = ${id}::uuid FOR UPDATE`;
   return row ?? null;
 }
@@ -173,7 +203,33 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                       'quantity', l.quantity,
                       'unitPrice', l.unit_price::text,
                       'lineTotal', l.line_total::text) ORDER BY l.position), '[]'::json)
-              FROM order_lines l WHERE l.order_id = o.id) AS lines
+              FROM order_lines l WHERE l.order_id = o.id) AS lines,
+           o.submitted_at AS "submittedAt", o.approved_at AS "approvedAt",
+           (u.status = 'ACTIVE' AND 'BUYER' = ANY (u.roles)) AS "ownerCanAct",
+           (SELECT json_build_object(
+                     'round', r.round,
+                     'policyVersion', r.policy_version,
+                     'outcome', r.outcome,
+                     'submittedAt', r.submitted_at,
+                     'closedAt', r.closed_at,
+                     'withdrawReason', r.withdraw_reason,
+                     'vendorSnapshot', r.vendor_snapshot,
+                     'steps', (SELECT coalesce(json_agg(json_build_object(
+                                        'step', s.step,
+                                        'tier', s.tier,
+                                        'threshold', s.threshold::text,
+                                        'state', s.state,
+                                        'decidedBy', CASE WHEN s.decided_by IS NULL THEN NULL
+                                                          ELSE json_build_object(
+                                                                 'id', s.decided_by::text,
+                                                                 'name', d.name) END,
+                                        'decidedAt', s.decided_at,
+                                        'reason', s.reason) ORDER BY s.step), '[]'::json)
+                                 FROM approval_steps s
+                                 LEFT JOIN users d ON d.id = s.decided_by
+                                WHERE s.order_id = r.order_id AND s.round = r.round))
+              FROM approval_rounds r
+             WHERE r.order_id = o.id AND r.round = o.current_round) AS approval
       FROM purchase_orders o
       JOIN users u ON u.id = o.owner_id
       JOIN vendors v ON v.id = o.vendor_id
@@ -344,7 +400,7 @@ export function orderListSql(
   const keys = byPoNumber ? Prisma.sql`po_number` : Prisma.sql`created_at, id`;
   const join = byPoNumber ? Prisma.sql`o.po_number = k.po_number` : Prisma.sql`o.id = k.id`;
   const page = Prisma.sql`SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total,
-           o.created_at
+           o.created_at, o.current_round
       FROM (SELECT k.* FROM (${union(keys, offset + limit)}) k
              ORDER BY ${order('k')} LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}) k
       JOIN purchase_orders o ON ${join}`;
@@ -356,7 +412,15 @@ export function orderListSql(
                       'id', p.id::text,
                       'poNumber', p.po_number,
                       'status', p.status,
-                      'vendor', json_build_object('id', p.vendor_id::text, 'name', v.name),
+                      -- A submitted order names its vendor as submitted (ADR-0005): the
+                      -- current round's snapshot, one primary-key read per page row.
+                      'vendor', json_build_object(
+                                  'id', p.vendor_id::text,
+                                  'name', CASE WHEN p.status = 'DRAFT' THEN v.name
+                                               ELSE (SELECT r.vendor_snapshot ->> 'name'
+                                                       FROM approval_rounds r
+                                                      WHERE r.order_id = p.id
+                                                        AND r.round = p.current_round) END),
                       'owner', json_build_object('id', p.owner_id::text, 'name', u.name),
                       'total', p.total::text,
                       'lineCount', (SELECT count(*) FROM order_lines l WHERE l.order_id = p.id),
