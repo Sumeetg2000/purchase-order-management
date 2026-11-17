@@ -356,7 +356,7 @@ triggers (another derived value to guard).
 |---|---|---|---|
 | `ORDER_PENDING_APPROVAL` | 409 | ADR-0001, 2026-11-17 (new) | "This order is waiting for approval. Withdraw it to make changes." |
 | `ORDER_OWNER_INACTIVE` | 409 | ADR-0001, 2026-11-17 (new) | "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." |
-| `ORDER_LOCKED` | 409 | ADR-0001 (first reachable now) | by `details.status`: `APPROVED` "This order is approved and locked."; `REJECTED` "This order was rejected and is closed. Raise a new order instead." (`ORDER_LOCKED_MESSAGES`, a map keyed by status; slice 5 adds `CANCELLED`) |
+| `ORDER_LOCKED` | 409 | ADR-0001 (first reachable now) | by `orderState.status`: `APPROVED` "This order is approved and locked."; `REJECTED` "This order was rejected and is closed. Raise a new order instead." (`ORDER_LOCKED_MESSAGES`, a map keyed by status; slice 5 adds `CANCELLED`) |
 | `NOT_ORDER_OWNER` | 403 | ADR-0004 (first reachable now) | "Only the buyer who raised this order can do that." |
 | `SELF_APPROVAL` | 403 | ADR-0004 (first reachable now) | "You can't approve or reject an order you raised." |
 
@@ -451,7 +451,7 @@ The spec's US2 scenario 3 is corrected to match S2 (it said "an Approver").
 - Nav: pending-approvals count for Approvers, from `GET /approvals?pageSize=1`, refreshed
   every 60 s, on focus and after submit, approve, reject or withdraw.
 - Messages: the five registry entries; `ORDER_LOCKED` picks its sentence from
-  `details.status`; a pending order's editor save shows `ORDER_PENDING_APPROVAL` with a
+  `orderState.status`; a pending order's editor save shows `ORDER_PENDING_APPROVAL` with a
   "Withdraw" shortcut for the owner.
 - The editor is never offered for a non-draft order; a stale editor tab gets the specific
   `409` and "Reload order".

@@ -49,7 +49,7 @@ draft PR) and a short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Draft PR for `005-submit-approve` against `main`, body linking the spec, plan
+- [X] T001 Draft PR for `005-submit-approve` against `main`, body linking the spec, plan
   and the owner sign-offs of 2026-11-17 (constitution 3.0.2; ADR-0001, 0002, 0004, 0006,
   0007, 0012, 0016, 0019 amendments); no dependency changes (plan: none) — GitHub.
 
@@ -59,7 +59,7 @@ draft PR) and a short summary stop.
 
 ### Schema: migration `0014_approvals`, part 1 (tables, grants, indexes, seed)
 
-- [ ] T002 Migration tests, seen failing: tables and columns exactly as
+- [X] T002 Migration tests, seen failing: tables and columns exactly as
   [data-model.md](data-model.md), each rule by name:
   - `approval_policies (version integer PK ≥ 1, effective_at, created_at)`,
     `approval_policy_tiers (policy_version, tier smallint ≥ 1, threshold numeric(22,4) > 0,
@@ -87,12 +87,12 @@ draft PR) and a short summary stop.
   - the six indexes of data-model.md, by name and predicate
   — `backend/tests/integration/migrations.test.ts`, `approval-schema.test.ts` (new) —
   data-model.md, R1, R2, R4, R7, FR-SM-01.
-- [ ] T003 Migration `0014_approvals` part 1: the tables, columns, checks, grants, indexes,
+- [X] T003 Migration `0014_approvals` part 1: the tables, columns, checks, grants, indexes,
   transition rows, and the policy seed with its audit entry (migration actor `SYSTEM`);
   Prisma models (derived and submission columns read-only to the client) —
   `backend/prisma/migrations/0014_approvals/migration.sql`, `backend/prisma/schema.prisma`
   — R1–R4, R7.
-- [ ] T004 [P] Constants pinned to their SQL copies, seen failing first:
+- [X] T004 [P] Constants pinned to their SQL copies, seen failing first:
   `APPROVAL_POLICY_SEED_TIERS`, `APPROVAL_ROUND_OUTCOMES`, `APPROVAL_STEP_STATES`,
   `ORDER_TRANSITIONS`, `DECISION_REASON_MAX = 500` (= the `withdraw_reason`/`reason`
   checks) — `packages/contracts/src/approvals.ts`,
@@ -100,7 +100,7 @@ draft PR) and a short summary stop.
 
 ### Contracts
 
-- [ ] T005 [P] Schemas, seen failing in schema tests first: `decisionReasonBody` (reason
+- [X] T005 [P] Schemas, seen failing in schema tests first: `decisionReasonBody` (reason
   required, slice 3's plain-text rules, ≤ 500, line breaks allowed, other control
   characters `INVALID_FORMAT`), `emptyBody` (none or `{}`), `approvalStep`,
   `approvalRound`, `vendorOrderSnapshot`, `approvalQueueQuery`, `approvalQueueItem`,
@@ -108,7 +108,7 @@ draft PR) and a short summary stop.
   `vendorSnapshot`, `approval`; `ORDER_READ_ONLY_FIELDS` gains those five keys —
   `packages/contracts/src/schemas/approvals.ts`, `schemas/orders.ts`,
   `packages/contracts/tests/` — contracts/api.md.
-- [ ] T006 [P] Registry, seen failing in the registry test: `ORDER_PENDING_APPROVAL` 409,
+- [X] T006 [P] Registry, seen failing in the registry test: `ORDER_PENDING_APPROVAL` 409,
   `ORDER_OWNER_INACTIVE` 409, `ORDER_LOCKED` 409, `NOT_ORDER_OWNER` 403, `SELF_APPROVAL` 403
   with the detail texts of contracts/errors.md; `ORDER_LOCKED_MESSAGES` keyed by status;
   `DUPLICATE_APPROVER` absent — `packages/contracts/src/errors.ts`, `approvals.ts`,
@@ -136,8 +136,8 @@ draft PR) and a short summary stop.
   in each; vendor snapshot in `PO_SUBMITTED`); `ORDER_AUDIT_ACTIONS` extended; unit test
   first — `backend/src/audit/events.ts`, `packages/contracts/src/orders.ts`,
   `backend/tests/unit/audit-write.test.ts` — ADR-0016 2026-11-17.
-- [ ] T011 [P] Web messages for the five codes and the two role details; `ORDER_LOCKED`
-  picks its sentence from `details.status`; component tests first —
+- [X] T011 [P] Web messages for the five codes and the two role details; `ORDER_LOCKED`
+  picks its sentence from `orderState.status`; component tests first —
   `frontend/src/errors/messages.ts`, `frontend/tests/error-messages.test.ts` — R11,
   contracts/ui.md.
 
@@ -179,7 +179,7 @@ outcome, and reconciliation returns zero rows.
   triggers on the three tables), all `SET search_path = pg_catalog, pg_temp`, `REVOKE ALL
   FROM PUBLIC`; T012–T014 green — same migration file — R1, R2, R4.
 - [ ] T016 [US2] Order service lock codes, tests first: edit and delete of a
-  `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL` (status in `details`); of an
+  `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL` (status in `orderState`); of an
   `APPROVED` or `REJECTED` order → `409 ORDER_LOCKED` with the status's detail; a
   Buyer+Approver on another buyer's non-draft order → `403 NOT_ORDER_OWNER`; slice 3's
   placeholders removed — `backend/src/orders/service.ts`,

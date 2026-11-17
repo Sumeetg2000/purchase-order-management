@@ -6,12 +6,12 @@
 |---|---|---|---|---|
 | `ORDER_PENDING_APPROVAL` | 409 | **new** (ADR-0001/0007, 2026-11-17) | edit or delete of a `PENDING_APPROVAL` order | "This order is waiting for approval. Withdraw it to make changes." |
 | `ORDER_OWNER_INACTIVE` | 409 | **new** (ADR-0001/0007, 2026-11-17) | approve while the owner is deactivated or lacks BUYER | "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." |
-| `ORDER_LOCKED` | 409 | in ADR-0007, first in the registry | edit or delete of an `APPROVED` or `REJECTED` order; `details.status` | `APPROVED`: "This order is approved and locked." · `REJECTED`: "This order was rejected and is closed. Raise a new order instead." |
+| `ORDER_LOCKED` | 409 | in ADR-0007, first in the registry | edit or delete of an `APPROVED` or `REJECTED` order; `orderState.status` | `APPROVED`: "This order is approved and locked." · `REJECTED`: "This order was rejected and is closed. Raise a new order instead." |
 | `NOT_ORDER_OWNER` | 403 | in ADR-0007, first in the registry | submit, withdraw, edit, delete by a Buyer+Approver on another buyer's non-draft order | "Only the buyer who raised this order can do that." |
 | `SELF_APPROVAL` | 403 | in ADR-0007, first in the registry | approve or reject by the order's owner | "You can't approve or reject an order you raised." |
 
 `INVALID_STATE_TRANSITION` (409, existing) now also covers orders: submit, withdraw,
-approve or reject from the wrong state, with `details.status` and `details.action`.
+approve or reject from the wrong state, with `orderState.status` and `orderState.action`.
 
 No new field codes. `DUPLICATE_APPROVER` stays absent (registry test).
 

@@ -20,7 +20,8 @@
   field rules) · amended 2026-11-12 (slice 3, **owner decisions**: line descriptions,
   unit prices as strings, order list filters, the order-write body limit) · amended
   2026-11-17 (slice 4, **owner decisions**: `409 ORDER_PENDING_APPROVAL` and
-  `409 ORDER_OWNER_INACTIVE`, ADR-0001)
+  `409 ORDER_OWNER_INACTIVE`, ADR-0001) · amended 2026-11-17 (slice 4 implementation: the
+  `orderState` extension member)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -125,6 +126,12 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `ORDER_LOCKED`, `INVALID_STATE_TRANSITION`, `VERSION_CONFLICT`
   - `ORDER_PENDING_APPROVAL`: edit or delete of a `PENDING_APPROVAL` order, "This order
     is waiting for approval. Withdraw it to make changes." (ADR-0001)
+  - `orderState` (amended 2026-11-17, slice 4): `ORDER_LOCKED`, `ORDER_PENDING_APPROVAL` and,
+    on orders, `INVALID_STATE_TRANSITION` carry one typed extension member, `orderState: {
+    status, action? }`: the order's current status and the action refused. It follows the
+    clash-member rule above (one typed member, never a free-form object), because `details`
+    holds field errors and only `VALIDATION_FAILED` carries them. The web app picks
+    `ORDER_LOCKED`'s sentence from `orderState.status`.
   - `ORDER_OWNER_INACTIVE`: approve of a pending order whose owner is deactivated or no
     longer holds BUYER, "The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored." (ADR-0001)
   - `ORDER_NOT_RECEIVABLE`, `ORDER_FULLY_RECEIVED`, `RECEIPT_EXCEEDS_OUTSTANDING`

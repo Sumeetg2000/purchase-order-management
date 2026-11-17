@@ -7070,6 +7070,37 @@
               "name"
             ],
             "additionalProperties": false
+          },
+          "orderState": {
+            "description": "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "PENDING_APPROVAL",
+                  "APPROVED",
+                  "REJECTED",
+                  "CANCELLED"
+                ]
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "EDIT",
+                  "DELETE",
+                  "SUBMIT",
+                  "WITHDRAW",
+                  "APPROVE",
+                  "REJECT"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -7121,7 +7152,12 @@
           "DUPLICATE_VENDOR_NAME",
           "INVALID_STATE_TRANSITION",
           "VENDOR_INACTIVE",
-          "IDEMPOTENCY_KEY_REUSED"
+          "IDEMPOTENCY_KEY_REUSED",
+          "NOT_ORDER_OWNER",
+          "SELF_APPROVAL",
+          "ORDER_LOCKED",
+          "ORDER_PENDING_APPROVAL",
+          "ORDER_OWNER_INACTIVE"
         ]
       },
       "FieldError": {

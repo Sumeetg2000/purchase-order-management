@@ -96,7 +96,7 @@ export const approvalPolicy = z.object({
 
 Changed operations (errors now reachable, documented):
 - `editOrder`, `deleteOrder`: + `NOT_ORDER_OWNER`, `ORDER_PENDING_APPROVAL`,
-  `ORDER_LOCKED` (with `details.status`); role details as below.
+  `ORDER_LOCKED` (with `orderState.status`); role details as below.
 - `getOrder`, `listOrders`, `listOrderTimeline`: response shapes above; Approver scope
   now non-empty.
 

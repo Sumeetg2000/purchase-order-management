@@ -1,4 +1,10 @@
-import { carriesRevokeReason, clashMemberOf, ERROR_REGISTRY, type AppError } from '@po/contracts';
+import {
+  carriesOrderState,
+  carriesRevokeReason,
+  clashMemberOf,
+  ERROR_REGISTRY,
+  type AppError,
+} from '@po/contracts';
 import type { Response } from 'express';
 import { requestIdOf } from './middleware/correlation.js';
 
@@ -29,6 +35,9 @@ export function sendProblem(res: Response, error: AppError): void {
         : {}),
       ...(clashMemberOf(error.code) === 'existingVendor' && error.existingVendor !== undefined
         ? { existingVendor: error.existingVendor }
+        : {}),
+      ...(carriesOrderState(error.code) && error.orderState !== undefined
+        ? { orderState: error.orderState }
         : {}),
     });
 }

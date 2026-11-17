@@ -569,6 +569,13 @@ export interface components {
                 id: string;
                 name: string;
             };
+            /** @description The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders. */
+            orderState?: {
+                /** @enum {string} */
+                status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
+                /** @enum {string} */
+                action?: "EDIT" | "DELETE" | "SUBMIT" | "WITHDRAW" | "APPROVE" | "REJECT";
+            };
         };
         /** @description Every code in the registry (packages/contracts/src/errors.ts). */
         ErrorCode: string;

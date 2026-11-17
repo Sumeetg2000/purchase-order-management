@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import {
+  carriesOrderState,
   carriesRevokeReason,
   clashMemberOf,
   ERROR_CODES,
   FIELD_CODES,
   isErrorCode,
 } from '../errors.js';
+import { ORDER_ACTIONS, ORDER_STATUSES } from '../orders.js';
 import { PUBLIC_REVOKE_REASONS } from '../sessions.js';
 
 /**
@@ -50,6 +52,16 @@ export const problemSchema = z
       .strictObject({ id: z.uuid(), name: z.string() })
       .optional()
       .meta({ description: 'The vendor whose name clashed: DUPLICATE_VENDOR_NAME only.' }),
+    orderState: z
+      .strictObject({
+        status: z.enum(ORDER_STATUSES),
+        action: z.enum(ORDER_ACTIONS).optional(),
+      })
+      .optional()
+      .meta({
+        description:
+          "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders.",
+      }),
   })
   .refine(
     (problem) =>
@@ -62,6 +74,12 @@ export const problemSchema = z
       problem.existingVendor === undefined ||
       (isErrorCode(problem.code) && clashMemberOf(problem.code) === 'existingVendor'),
     { path: ['existingVendor'], message: 'only DUPLICATE_VENDOR_NAME carries existingVendor' },
+  )
+  .refine(
+    (problem) =>
+      problem.orderState === undefined ||
+      (isErrorCode(problem.code) && carriesOrderState(problem.code)),
+    { path: ['orderState'], message: 'only the order state codes carry orderState' },
   )
   .meta({ id: 'Problem' });
 

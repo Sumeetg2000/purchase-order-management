@@ -34,7 +34,7 @@ or reject.
 ## Messages (`frontend/src/errors/messages.ts`)
 
 The five registry codes of [errors.md](errors.md). `ORDER_LOCKED` chooses its sentence
-from `details.status` (`ORDER_LOCKED_MESSAGES`); `ORDER_PENDING_APPROVAL` in the editor
+from `orderState.status` (`ORDER_LOCKED_MESSAGES`); `ORDER_PENDING_APPROVAL` in the editor
 offers "Withdraw" to the owner. `FORBIDDEN` on an order action shows the role's shared constant (ADR-0004,
 2026-11-17): Admin `ORDER_ADMIN_READ_ONLY_MESSAGE`; pure Approver on an order write
 `ORDER_APPROVER_READ_ONLY_MESSAGE`; pure Buyer on approve or reject

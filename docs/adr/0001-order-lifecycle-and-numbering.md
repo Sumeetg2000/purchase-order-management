@@ -51,7 +51,7 @@ complains of "no numbering discipline".
 - Goods receipt is not a transition. The owner records receipts against `APPROVED` orders
   only (`409 ORDER_NOT_RECEIVABLE` otherwise), including after vendor deactivation.
 - Any other (state, action) pair → `409 INVALID_STATE_TRANSITION`, with the current status
-  and the attempted action in `details`.
+  and the attempted action in `orderState`.
 - **Database enforcement**:
   - A trigger rejects any status change not in the table.
   - It also rejects `→ APPROVED` unless the current round's chain is complete or a
@@ -71,9 +71,9 @@ complains of "no numbering discipline".
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the
   database trigger above).
   - In the API, editing an `APPROVED`, `REJECTED` or `CANCELLED` order →
-    `409 ORDER_LOCKED`, with the current status in `details`.
+    `409 ORDER_LOCKED`, with the current status in `orderState`.
   - Editing or deleting a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`
-    (amended 2026-11-17, owner decision), with the current status in `details` and the
+    (amended 2026-11-17, owner decision), with the current status in `orderState` and the
     message "This order is waiting for approval. Withdraw it to make changes." The owner
     withdraws, edits and resubmits. Routing is recomputed, and resubmission always builds a
     fresh chain.

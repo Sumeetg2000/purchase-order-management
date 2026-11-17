@@ -82,7 +82,7 @@ Traceability:
   approval queue, and the nav count read from it, hold only orders the caller may
   approve: never their own. Owner decision, recorded in ADR-0004 (2026-11-17).
 - Q: How does `ORDER_LOCKED` on a rejected order avoid reading as "approved"? → A: One
-  code; the message follows `details.status`. `APPROVED`: "This order is approved and
+  code; the message follows `orderState.status`. `APPROVED`: "This order is approved and
   locked." `REJECTED`: "This order was rejected and is closed. Raise a new order instead."
   Copying a rejected order to a new draft is considered and deferred (ADR-0019, owner
   decision 2026-11-17).
@@ -159,12 +159,12 @@ delete; each is refused with its specific outcome and the reconciliation returns
 **Acceptance Scenarios**:
 
 1. **Given** an `APPROVED` or `REJECTED` order, **When** its owner edits or deletes it
-   through the API, **Then** `409 ORDER_LOCKED` with the current status in `details`, and
+   through the API, **Then** `409 ORDER_LOCKED` with the current status in `orderState`, and
    a message that follows that status: `APPROVED` → "This order is approved and locked.";
    `REJECTED` → "This order was rejected and is closed. Raise a new order instead." The
-   web app shows the same sentence, chosen by `code` and `details.status`.
+   web app shows the same sentence, chosen by `code` and `orderState.status`.
 2. **Given** a `PENDING_APPROVAL` order, **When** its owner edits or deletes it, **Then**
-   `409 ORDER_PENDING_APPROVAL` with the current status in `details` and the message "This
+   `409 ORDER_PENDING_APPROVAL` with the current status in `orderState` and the message "This
    order is waiting for approval. Withdraw it to make changes."
 3. **Given** a Buyer+Approver and another buyer's non-draft order (readable to them),
    **When** they edit, delete, submit or withdraw it, **Then** `403 NOT_ORDER_OWNER`,
@@ -435,8 +435,8 @@ anonymous.
   lines (already, `PO006`), the vendor, the vendor snapshot and the recorded policy
   version, and the order's delete. The API MUST answer edit and delete of a
   `PENDING_APPROVAL` order with `409 ORDER_PENDING_APPROVAL`, and of an `APPROVED` or
-  `REJECTED` order with `409 ORDER_LOCKED`, each with the current status in `details`.
-  `ORDER_LOCKED` stays one code; its message follows `details.status` (`APPROVED`: "This
+  `REJECTED` order with `409 ORDER_LOCKED`, each with the current status in `orderState`.
+  `ORDER_LOCKED` stays one code; its message follows `orderState.status` (`APPROVED`: "This
   order is approved and locked."; `REJECTED`: "This order was rejected and is closed.
   Raise a new order instead."), in the API's problem `detail` and in the web app.
 - **FR-008** (FR-OWN-01): Edit, delete, submit and withdraw by a Buyer who can read the
@@ -445,7 +445,7 @@ anonymous.
   are refused at the route first. ADR-0004's check precedence applies (route 403 before
   400 before 404 before order 403 before 409).
 - **FR-009**: Any other (state, action) pair MUST return `409 INVALID_STATE_TRANSITION`
-  with the current status and attempted action in `details`.
+  with the current status and attempted action in `orderState`.
 
 **Decisions**
 

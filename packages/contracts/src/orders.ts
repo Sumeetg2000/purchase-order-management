@@ -21,6 +21,10 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** The actions on an order a state refusal names (`orderState.action`); slice 5 adds CANCEL. */
+export const ORDER_ACTIONS = ['EDIT', 'DELETE', 'SUBMIT', 'WITHDRAW', 'APPROVE', 'REJECT'] as const;
+export type OrderAction = (typeof ORDER_ACTIONS)[number];
+
 /** `PO-{FY}-{seq}`: the financial year and a sequence of at least 6 digits. */
 export const PO_NUMBER_PATTERN = /^PO-\d{4}-\d{2}-\d{6,}$/;
 /** The longest PO-number prefix the order list searches by. */

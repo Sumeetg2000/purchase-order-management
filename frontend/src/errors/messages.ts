@@ -2,7 +2,13 @@ import {
   isErrorCode,
   isFieldCode,
   oneOf,
+  NOT_ORDER_OWNER_DETAIL,
   ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_LOCKED_MESSAGES,
+  ORDER_OWNER_INACTIVE_DETAIL,
+  ORDER_PENDING_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAIL,
+  type LockedOrderStatus,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
@@ -132,6 +138,13 @@ export const errorMessages = {
     message: 'This request was already used for a different order.',
     action: 'Start a new order.',
   },
+  // Slice 4 (specs/005-submit-approve/contracts/errors.md): the API's details, word for
+  // word. ORDER_LOCKED's words follow the order's status (messageForProblem).
+  NOT_ORDER_OWNER: { message: NOT_ORDER_OWNER_DETAIL },
+  SELF_APPROVAL: { message: SELF_APPROVAL_DETAIL },
+  ORDER_LOCKED: { message: "This order can't be changed any more." },
+  ORDER_PENDING_APPROVAL: { message: ORDER_PENDING_APPROVAL_DETAIL },
+  ORDER_OWNER_INACTIVE: { message: ORDER_OWNER_INACTIVE_DETAIL },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
 
 /** The words for each public revoke reason, in "You were logged out because …". */
@@ -163,6 +176,8 @@ export interface ProblemLike {
   reason?: string | undefined;
   /** The vendor a name clashed with, on DUPLICATE_VENDOR_NAME only. */
   existingVendor?: { id: string; name: string } | undefined;
+  /** The order's status and the refused action, on the order state codes. */
+  orderState?: { status: string; action?: string | undefined } | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -183,6 +198,12 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
     return {
       message: `You were logged out because ${revokeReasonText[problem.reason]}. Please log in again.`,
     };
+  }
+  if (problem.code === 'ORDER_LOCKED') {
+    const status = problem.orderState?.status;
+    if (status !== undefined && Object.hasOwn(ORDER_LOCKED_MESSAGES, status)) {
+      return { message: ORDER_LOCKED_MESSAGES[status as LockedOrderStatus] };
+    }
   }
   return messageFor(problem.code);
 }
