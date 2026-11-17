@@ -15,6 +15,7 @@ export * from './orders.js';
 export * from './request-id.js';
 export * from './schemas/access-requests.js';
 export * from './schemas/admin-users.js';
+export * from './schemas/approvals.js';
 export * from './schemas/auth.js';
 export * from './schemas/health.js';
 export * from './schemas/ids.js';

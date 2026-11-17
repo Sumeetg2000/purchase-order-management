@@ -226,12 +226,30 @@ describe('[FR-PO-01] order list query and responses', () => {
       version: 1,
       createdAt: '2026-11-12T09:00:00.000Z',
       updatedAt: '2026-11-12T09:00:00.000Z',
+      // Slice 4's fields, as a draft has them.
+      submittedAt: null,
+      approvedAt: null,
+      ownerCanAct: true,
+      vendorSnapshot: null,
+      approval: null,
     };
     expect(order.safeParse(base).success).toBe(true);
     expect(order.safeParse({ ...base, total: 0.3 }).success).toBe(false);
     expect(order.safeParse({ ...base, total: '0.3' }).success).toBe(false);
     const item = Object.fromEntries(
-      Object.entries(base).filter(([key]) => !['lines', 'version', 'updatedAt'].includes(key)),
+      Object.entries(base).filter(
+        ([key]) =>
+          ![
+            'lines',
+            'version',
+            'updatedAt',
+            'submittedAt',
+            'approvedAt',
+            'ownerCanAct',
+            'vendorSnapshot',
+            'approval',
+          ].includes(key),
+      ),
     );
     expect(
       orderListItem.safeParse({ ...item, vendor: { id: VENDOR_ID, name: 'Acme' } }).success,

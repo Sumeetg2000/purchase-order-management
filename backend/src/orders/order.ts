@@ -26,6 +26,13 @@ export function toOrder(header: OrderRow): Order {
     version: header.version,
     createdAt: header.createdAt.toISOString(),
     updatedAt: header.updatedAt.toISOString(),
+    // Every order is a draft until submit exists; the order read fills these from the
+    // current round and the owner's row with the submit story (tasks T025).
+    submittedAt: null,
+    approvedAt: null,
+    ownerCanAct: true,
+    vendorSnapshot: null,
+    approval: null,
   };
 }
 

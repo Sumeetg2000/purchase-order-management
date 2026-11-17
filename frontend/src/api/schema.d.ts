@@ -759,6 +759,11 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            submittedAt: string | null;
+            approvedAt: string | null;
+            ownerCanAct: boolean;
+            vendorSnapshot: components["schemas"]["VendorOrderSnapshot"] | null;
+            approval: components["schemas"]["ApprovalRound"] | null;
         };
         OrderLine: {
             /** Format: uuid */
@@ -767,6 +772,39 @@ export interface components {
             quantity: number;
             unitPrice: components["schemas"]["Money"];
             lineTotal: components["schemas"]["Money"];
+        };
+        VendorOrderSnapshot: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            contactName: string | null;
+            contactEmail: string | null;
+            contactPhone: string | null;
+            paymentTerms: components["schemas"]["PaymentTerms"];
+        };
+        ApprovalRound: {
+            round: number;
+            policyVersion: number;
+            outcome: ("AUTO_APPROVED" | "APPROVED" | "REJECTED" | "WITHDRAWN") | null;
+            /** Format: date-time */
+            submittedAt: string;
+            closedAt: string | null;
+            withdrawReason: string | null;
+            steps: components["schemas"]["ApprovalStep"][];
+        };
+        ApprovalStep: {
+            step: number;
+            tier: number;
+            threshold: components["schemas"]["Money"];
+            /** @enum {string} */
+            state: "OPEN" | "APPROVED" | "REJECTED" | "VOIDED";
+            decidedBy: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            } | null;
+            decidedAt: string | null;
+            reason: string | null;
         };
         PageOfOrderTimelineItem: {
             items: components["schemas"]["OrderTimelineItem"][];

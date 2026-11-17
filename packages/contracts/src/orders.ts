@@ -56,6 +56,12 @@ export const ORDER_READ_ONLY_FIELDS = [
   'createdAt',
   'updatedAt',
   'lineCount',
+  // Slice 4 (contracts/api.md).
+  'submittedAt',
+  'approvedAt',
+  'ownerCanAct',
+  'vendorSnapshot',
+  'approval',
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */
