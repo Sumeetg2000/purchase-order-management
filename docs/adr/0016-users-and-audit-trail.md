@@ -8,7 +8,9 @@
   field, so no phone purge and no `USER_PHONE_PURGED`; the admin lists' committed query
   plans move to slice 7) · amended 2026-11-06 (owner decision: vendor contact details are
   business data, kept in full in vendor audit entries) · amended 2026-11-17 (an owner
-  who can't act blocks approval of their pending orders, **owner decision**; slice 4)
+  who can't act blocks approval of their pending orders, **owner decision**; slice 4) ·
+  amended 2026-11-17 (approval payloads carry the round; `PO_SUBMITTED` the vendor
+  snapshot; slice 4 plan)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -202,11 +204,11 @@ A database `CHECK` ties the actor fields to `actorType`:
 |---|---|
 | `PO_CREATED` | vendor, lines, total |
 | `PO_EDITED` | header/vendor before → after; lines added, removed, and changed with field-level before/after |
-| `PO_SUBMITTED` | total, tiers in chain, policy version, resulting status |
-| `PO_AUTO_APPROVED` | actorType `SYSTEM`, threshold, policy version |
-| `APPROVAL_STEP_APPROVED` | tier, step, version approved |
-| `APPROVAL_STEP_REJECTED` | tier, step, reason |
-| `PO_WITHDRAWN` | reason, voided steps |
+| `PO_SUBMITTED` | round, total, tiers in chain, policy version, resulting status, vendor snapshot (amended 2026-11-17) |
+| `PO_AUTO_APPROVED` | actorType `SYSTEM`, round, threshold, policy version |
+| `APPROVAL_STEP_APPROVED` | round, tier, step, version approved |
+| `APPROVAL_STEP_REJECTED` | round, tier, step, reason |
+| `PO_WITHDRAWN` | round, reason, voided steps (each with any earlier decision) |
 | `PO_DRAFT_DELETED` | full contents (vendor, lines, total), reason. *Amended 2026-11-16 (owner decision):* the PO number is the entry's `poNumber` column, as for `PO_CREATED`, not repeated in `details` |
 | `PO_CANCELLED` | reason, per line ordered and received |
 | `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter` |

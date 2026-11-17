@@ -166,11 +166,12 @@ delete; each is refused with its specific outcome and the reconciliation returns
 2. **Given** a `PENDING_APPROVAL` order, **When** its owner edits or deletes it, **Then**
    `409 ORDER_PENDING_APPROVAL` with the current status in `details` and the message "This
    order is waiting for approval. Withdraw it to make changes."
-3. **Given** a readable order the caller doesn't own (an Approver, or a Buyer+Approver on
-   another buyer's non-draft order), **When** they edit, delete, submit or withdraw it,
-   **Then** `403 NOT_ORDER_OWNER`, replacing slice 3's unreachable placeholder; an Admin
-   still gets `403 FORBIDDEN` "Admins can view orders but not change them."; another Buyer
-   still gets `404`.
+3. **Given** a Buyer+Approver and another buyer's non-draft order (readable to them),
+   **When** they edit, delete, submit or withdraw it, **Then** `403 NOT_ORDER_OWNER`,
+   replacing slice 3's unreachable placeholder. A pure Approver is refused at the route
+   (`403 FORBIDDEN`, before validation, as slice 3 tests); an Admin gets `403 FORBIDDEN`
+   "Admins can view orders but not change them."; another Buyer still gets `404`
+   (research R9 S2, pending sign-off).
 4. **Given** a submitted order, **When** raw SQL as the application role changes its
    lines, vendor, vendor snapshot, recorded policy version or header, or deletes it,
    **Then** the database refuses it (lines since slice 3; the rest from this slice).
@@ -247,7 +248,7 @@ and `APPROVAL_STEP_REJECTED` records the tier, step and reason.
    reason and the current version, **Then** the current step is recorded as rejected by
    them and the order becomes `REJECTED` (T8), final.
 2. **Given** no reason, an empty or whitespace-only reason, or one over 500 characters,
-   **Then** `400` naming the field.
+   **Then** `400` naming the field (`REQUIRED` or `TOO_LONG`).
 3. **Given** a pending order whose vendor has been deactivated, **When** it is rejected,
    **Then** it succeeds (reject is allowed when approve isn't).
 4. **Given** a two-step chain with the first step approved, **When** the second is
@@ -438,9 +439,11 @@ anonymous.
   `ORDER_LOCKED` stays one code; its message follows `details.status` (`APPROVED`: "This
   order is approved and locked."; `REJECTED`: "This order was rejected and is closed.
   Raise a new order instead."), in the API's problem `detail` and in the web app.
-- **FR-008** (FR-OWN-01): Edit, delete, submit and withdraw by a caller who can read the
-  order but doesn't own it MUST return `403 NOT_ORDER_OWNER`, replacing slice 3's
-  placeholder; ADR-0004's check precedence applies (404 before 403 before 409).
+- **FR-008** (FR-OWN-01): Edit, delete, submit and withdraw by a Buyer who can read the
+  order but doesn't own it (a Buyer+Approver on another buyer's non-draft order) MUST
+  return `403 NOT_ORDER_OWNER`, replacing slice 3's placeholder; callers without BUYER
+  are refused at the route first. ADR-0004's check precedence applies (route 403 before
+  400 before 404 before order 403 before 409).
 - **FR-009**: Any other (state, action) pair MUST return `409 INVALID_STATE_TRANSITION`
   with the current status and attempted action in `details`.
 
@@ -483,8 +486,12 @@ anonymous.
 - **FR-017** (NFR-CON-01, NFR-CON-03): Submit, approve, reject and withdraw MUST require
   `If-Match`, lock the order before deciding, and pass the concurrency tests: edit vs
   submit, double approve, approve vs reject, withdraw vs approve, approve vs vendor
-  deactivation, and approve vs the owner's deactivation or BUYER removal (approved before
-  the change, or `409 ORDER_OWNER_INACTIVE` after it, never approved after it).
+  deactivation, approve vs the owner's deactivation or BUYER removal (approved before
+  the change, or `409 ORDER_OWNER_INACTIVE` after it, never approved after it), and
+  approve and reject vs the acting Approver's own deactivation or APPROVER removal
+  (decided before, or `401 ACCOUNT_DEACTIVATED` / `403 FORBIDDEN` after, never decided
+  after). Approve and reject lock the owner's and the Approver's user rows last, in id
+  order (ADR-0006, 2026-11-17).
 - **FR-018** (NFR-VAL-01): Submit and approve take no input besides the version; reject
   and withdraw take only `reason`. Any other field MUST be refused with `400`. All four
   endpoints join the body-schema inventory.
@@ -495,6 +502,10 @@ anonymous.
   action in `DRAFT`, `PENDING_APPROVAL`, `APPROVED` and `REJECTED`, for every caller kind
   and anonymous, each cell tested. Approvers read non-draft orders, their lists and
   timelines. The Buyer+Approver order list stays one combined list (ADR-0004, 2026-11-17).
+  Route-level `403 FORBIDDEN` carries a role-specific message, one shared constant each
+  for the API `detail` and the web app: Admin "Admins can view orders but not change
+  them."; pure Approver on edit, submit, withdraw or delete "Approvers can review orders but not change them."; pure Buyer
+  on approve or reject "Only Approvers can approve or reject orders." (ADR-0004, 2026-11-17).
 - **FR-020** (NFR-AUD-01): Submit MUST write `PO_SUBMITTED` (plus `PO_AUTO_APPROVED` when
   routed to `APPROVED`); approve `APPROVAL_STEP_APPROVED` (tier, step, version approved);
   reject `APPROVAL_STEP_REJECTED` (tier, step, reason); withdraw `PO_WITHDRAWN` (reason,
@@ -582,8 +593,9 @@ anonymous.
 - **`ORDER_LOCKED` lands here** for `APPROVED` and `REJECTED`, because both are reachable in
   this slice and the constitution forbids a non-specific failure on any edit path.
 - **Queue order**: oldest submission first, so the longest-waiting order is decided first.
-- **Reasons** for reject and withdraw are trimmed plain text, 1–500 characters, with no
-  control characters, as the delete reason's rules but required.
+- **Reasons** for reject and withdraw follow the delete reason's rules (trimmed plain
+  text, at most 500 characters, line breaks allowed, other control characters refused),
+  but are required.
 - **Successive steps**: with the single-tier seed there's one step; on a multi-tier
   fixture the same Approver may decide successive steps (ADR-0002: decide again if a
   second tier is ever seeded).

@@ -8,7 +8,8 @@
   (slice 3, **owner decision**: deleted-draft timelines, the Buyer+Approver order list,
   the Admin message on order writes) · amended 2026-11-17 (slice 4, **owner decision**:
   the Buyer+Approver order list stays combined; the approval queue holds only orders the
-  caller may approve)
+  caller may approve) · amended 2026-11-17 (slice 4 plan, **owner decision**: cells S1–S7,
+  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -81,8 +82,8 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Create order | ✓ | ✓ | 403 | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Read `DRAFT` order | ✓ | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Read non-draft order | ✓ | 404 | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
-| Edit, submit, withdraw, delete | ✓ (state rules apply) | 404 | 403 `NOT_ORDER_OWNER` (if readable) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
-| Approve or reject | 403 `SELF_APPROVAL` (if also Approver) | 404 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Edit, submit, withdraw, delete | ✓ (state rules apply) | 404; a Buyer+Approver on another buyer's non-draft order: 403 `NOT_ORDER_OWNER` | 403 `FORBIDDEN`, "Approvers can review orders but not change them." (route level) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
+| Approve or reject | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 403 `SELF_APPROVAL` | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 404 on a draft, ✓ on a pending order | ✓ | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Cancel approved order | 403 `SELF_APPROVAL` (if also Approver) | 404 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Record receipt | ✓ | 404 | 403 `NOT_ORDER_OWNER` | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Outstanding report and order lists | own orders | — | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
@@ -90,7 +91,8 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Timeline of a deleted draft (by order id) | 404 (former owner) | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Vendor history | ✓ | ✓ | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Read approval policy | ✓ | ✓ | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
-| Pending-approvals count (approver queue `total`) | 403 | 403 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Pending-approvals count (approver queue `total`) | 403 | 403 | ✓ (others' pending orders only) | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Approval queue (list) | 403 `FORBIDDEN` | 403 `FORBIDDEN` | ✓ (others' pending orders only) | 403 `FORBIDDEN` | 403 `NO_ROLE_ASSIGNED` |
 | Organisation-wide audit log | 403 | 403 | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | `GET /me`, `PATCH /me` (name only) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Change password; list and revoke own sessions (another user's session → 404) | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -105,15 +107,44 @@ cell changes a permission, so it needs sign-off (Principle X).
     delete dialog warns the owner of this.
   - **Buyer+Approver order list**: one list holding their own orders (any state) and every
     non-draft order. Slice 4 revisits it together with the approval queue.
+  - **Admin on an order write** (create, edit, delete, and later submit and withdraw):
+    `403 FORBIDDEN` at route level, before validation, never `NOT_ORDER_OWNER`; the
+    problem's `detail` and the web app's message say "Admins can view orders but not
+    change them." Clients still branch on `code`.
 - **Approval queue** (amended 2026-11-17, slice 4, owner decision): the Buyer+Approver
   order list stays one combined list. The approval queue, and the nav's pending-approvals
   count read from its `total`, hold only `PENDING_APPROVAL` orders the caller may approve:
   never their own, so a Buyer+Approver's own pending orders appear in their order list
   but not in their queue or count.
-  - **Admin on an order write** (create, edit, delete, and later submit and withdraw):
-    `403 FORBIDDEN` at route level, before validation, never `NOT_ORDER_OWNER`; the
-    problem's `detail` and the web app's message say "Admins can view orders but not
-    change them." Clients still branch on `code`.
+- **Cells added 2026-11-17** (slice 4 plan, owner decision; research R9 of
+  `specs/005-submit-approve`):
+  - **S1 Approval queue (list)**: the row above; same scope as the count.
+  - **S2 Approver on edit, submit, withdraw, delete**: a pure Approver is refused at route
+    level (`403 FORBIDDEN`, before validation) with "Approvers can review orders but not change them."
+    `NOT_ORDER_OWNER` is for a Buyer+Approver on another buyer's non-draft order; on
+    another buyer's draft, `404`.
+  - **S3 Buyer on approve or reject**: a pure Buyer is refused at route level (`403
+    FORBIDDEN`) with "Only Approvers can approve or reject orders." A Buyer+Approver gets `SELF_APPROVAL` on their own order and
+    `404` on another buyer's draft.
+  - **S4 Admin on submit, withdraw, approve, reject**: `403 FORBIDDEN` at route level with
+    "Admins can view orders but not change them."
+  - **S5 `ownerCanAct`**: a boolean on order reads and queue rows, for everyone who can read
+    the order. It says the owner can't act, never whether they were deactivated or lost
+    BUYER.
+  - **S6 Deciders' names**: each approval step's decider is shown by name to everyone who
+    can read the order, as the audit timeline already does.
+  - **S7 Withdrawn orders**: a withdrawn order is a draft, so an Approver (even one who
+    decided an earlier step) gets `404` on it and its timeline until it is resubmitted.
+  - **Role-specific `FORBIDDEN` messages**: one shared constant each, used for the API
+    problem's `detail` and the web app's message; clients still branch on `code`.
+    Admin on any order write: "Admins can view orders but not change them." Pure Approver on edit, submit, withdraw or delete:
+    "Approvers can review orders but not change them." Pure Buyer on approve or reject: "Only Approvers can approve or reject orders."
+  - **The acting Approver re-checked under lock**: approve and reject lock the owner's and
+    the Approver's `users` rows `FOR SHARE` (last in ADR-0006's lock order, in id order)
+    and refuse if the Approver has meanwhile been deactivated (`401
+    ACCOUNT_DEACTIVATED`) or lost APPROVER (`403 FORBIDDEN`), the same codes the
+    request-level check gives. So no decision commits after the decider lost the right
+    to make it.
 - **Public endpoints** (no session): login, signup, verify-email, resend-verification,
   forgot-password and reset-password. Refresh, logout and logout-all are authenticated by
   the refresh cookie.

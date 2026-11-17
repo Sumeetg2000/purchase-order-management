@@ -7,7 +7,8 @@
   deleting a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`, no longer
   `INVALID_STATE_TRANSITION`, **owner decision**; slice 4) · amended 2026-11-17 (approve
   refused while the owner can't act, `409 ORDER_OWNER_INACTIVE`, **owner decision**;
-  slice 4)
+  slice 4) · amended 2026-11-17 (slice 4 plan: approval rounds and steps, and what the
+  database refuses, research R2–R4)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -55,6 +56,16 @@ complains of "no numbering discipline".
   - A trigger rejects any status change not in the table.
   - It also rejects `→ APPROVED` unless the current round's chain is complete or a
     `SYSTEM` auto-approval exists.
+  - *Amended 2026-11-17 (slice 4 plan, research R2–R4)*: each submission is an
+    `approval_rounds` row (policy version, total, vendor snapshot, outcome, withdraw
+    reason), with one `approval_steps` row per tier step. At commit, a deferred check
+    re-derives the expected chain from the round's policy tiers and total and refuses any
+    status, round or step state that disagrees (`APPROVED` with an open step included).
+    Row triggers refuse a decision on any step but the lowest open one of the current round
+    of a pending order, a step decided by the owner or by anyone but the acting user, an
+    `AUTO_APPROVED` outcome outside the `SYSTEM` context, and any step or round change once
+    its round is closed. The vendor and the submission columns (`current_round`,
+    `submitted_at`, `approved_at`) change only with a transition.
   - A trigger allows `DELETE` of an order only while it's `DRAFT`. Lines may change only
     while their order is `DRAFT`.
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the

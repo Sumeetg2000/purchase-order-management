@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset) ·
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
-  ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis)
+  ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
+  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -14,6 +15,11 @@
     Approver**, matching the business (ADR-0002). This is also the worst case for the
     approver queue: every pending order is in one queue. Approval policy: the single-tier
     seed.
+  - **Order status mix** (amended 2026-11-17, slice 4): 5,000 `DRAFT`, 3,000
+    `PENDING_APPROVAL`, 2,000 `REJECTED`, 90,000 `APPROVED` (later slices split the
+    approved orders into cancelled and receipt states), with matching approval rounds and
+    steps. For the queue's own-order exclusion, the plan fixture also gives one of the top
+    10 Buyers `{BUYER, APPROVER}`.
   - **Audit entries**: about **2M**, matching the production dataset above (about 100k
     orders × their lifecycle events, plus about 1.5M receipt events and the vendor and user
     events); for vendor history, about 10,000 vendor entries across the 2,000 vendors.
