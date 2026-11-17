@@ -35,5 +35,57 @@ export const order = (extra: Record<string, unknown> = {}) => ({
   version: 1,
   createdAt: '2026-11-12T09:00:00.000Z',
   updatedAt: '2026-11-12T09:00:00.000Z',
+  submittedAt: null,
+  approvedAt: null,
+  ownerCanAct: true,
+  vendorSnapshot: null,
+  approval: null,
   ...extra,
 });
+
+/** The seeded policy as GET /approval-policy returns it. */
+export const policy = (threshold = '100000.0000') => ({
+  version: 1,
+  effectiveAt: '2026-11-01T00:00:00.000Z',
+  tiers: [{ tier: 1, threshold }],
+});
+
+/** A pending round under the seeded policy: one open step. */
+export const pendingRound = () => ({
+  round: 1,
+  policyVersion: 1,
+  outcome: null,
+  submittedAt: '2026-11-17T10:00:00.000Z',
+  closedAt: null,
+  withdrawReason: null,
+  steps: [
+    {
+      step: 1,
+      tier: 1,
+      threshold: '100000.0000',
+      state: 'OPEN',
+      decidedBy: null,
+      decidedAt: null,
+      reason: null,
+    },
+  ],
+});
+
+/** A pending order above the seeded tier, its one step open. */
+export const pendingOrder = (extra: Record<string, unknown> = {}) =>
+  order({
+    status: 'PENDING_APPROVAL',
+    total: '150000.0000',
+    version: 2,
+    submittedAt: '2026-11-17T10:00:00.000Z',
+    vendorSnapshot: {
+      id: ACME_ID,
+      name: 'Acme Supplies (as submitted)',
+      contactName: 'Ravi Shah',
+      contactEmail: 'ravi@acme.example',
+      contactPhone: null,
+      paymentTerms: { type: 'NET', netDays: 30 },
+    },
+    approval: pendingRound(),
+    ...extra,
+  });
