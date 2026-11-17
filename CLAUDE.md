@@ -22,8 +22,8 @@ If a task conflicts with these, stop and ask. Don't work around them.
 
 ## Slices
 Build in the constitution's slice order, one slice at a time: 0 Foundation; 1 Accounts and
-user management; 2 Vendors; 3 Draft orders and the integrity suite; 4 Submission and
-routing; 5 Lock, withdraw, reject, cancel; 6 Goods receipt and concurrency; 7 Outstanding
+user management; 2 Vendors; 3 Draft orders and the integrity suite; 4 Submission,
+routing, approve, reject and withdraw; 5 Lock and cancel; 6 Goods receipt and concurrency; 7 Outstanding
 report, load tests and query plans. Use one branch per slice, `NNN-slice-name`, created by
 `/speckit-specify` (NNN is the spec number, so slice 0 is `001-…`). Merge to `main` only
 when the slice is done.

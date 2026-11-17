@@ -18,7 +18,8 @@
   amended 2026-11-06 (slice 2, **owner decision**: a `409` about a clash with another
   resource names it in one typed extension member, `existingVendor` first; the vendor
   field rules) · amended 2026-11-12 (slice 3, **owner decisions**: line descriptions,
-  unit prices as strings, order list filters, the order-write body limit)
+  unit prices as strings, order list filters, the order-write body limit) · amended
+  2026-11-17 (slice 4, **owner decision**: `409 ORDER_PENDING_APPROVAL`, ADR-0001)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -121,6 +122,8 @@ One registry module holds every code. Every endpoint documents its codes in the 
     resend-verification)
 - `409`:
   - `ORDER_LOCKED`, `INVALID_STATE_TRANSITION`, `VERSION_CONFLICT`
+  - `ORDER_PENDING_APPROVAL`: edit or delete of a `PENDING_APPROVAL` order, "This order
+    is waiting for approval. Withdraw it to make changes." (ADR-0001)
   - `ORDER_NOT_RECEIVABLE`, `ORDER_FULLY_RECEIVED`, `RECEIPT_EXCEEDS_OUTSTANDING`
   - `VENDOR_INACTIVE`, `DUPLICATE_VENDOR_NAME`
   - `IDEMPOTENCY_KEY_REUSED`

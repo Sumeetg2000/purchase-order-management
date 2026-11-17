@@ -1,8 +1,15 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 3.0.0 → 3.0.1
-Bump rationale: PATCH. The owner confirmed every [DEFAULT]/[TARGET] value in the ADRs on
+Version change: 3.0.1 → 3.0.2
+Bump rationale: PATCH. Slice order only (owner decision, 2026-11-17): reject and withdraw
+move from slice 5 into slice 4, because submit and approve alone strand pending orders
+(no way to say no or take a wrong submission back). Slice 5 keeps the remaining locks and
+cancel. No principle, guarantee or gate changed. Impact: slice 4 spec
+(specs/005-submit-approve) takes T8 and T9; CLAUDE.md's slice list updated to match.
+Templates reviewed: no change needed. Follow-up TODOs: none.
+
+Previous change, 3.0.0 → 3.0.1: PATCH. The owner confirmed every [DEFAULT]/[TARGET] value in the ADRs on
 2026-10-21 (one change: login rate limit per IP raised to 30/min, ADR-0017), and the
 markers were removed. No principle changed.
 
@@ -294,8 +301,8 @@ starts.
 A slice is **done** only when every brief row it touches in `docs/traceability.md` has a
 passing test. Slice order: (0) foundation: compose, nginx, auth, errors, audit, DB
 roles, contracts, frontend shell, mail, bootstrap; (1) accounts and user management; (2)
-vendors; (3) draft orders and the integrity suite; (4) submission and routing; (5) lock,
-withdraw, reject, cancel; (6) goods receipt and concurrency; (7) outstanding report, load
+vendors; (3) draft orders and the integrity suite; (4) submission, routing, approve, reject and
+withdraw; (5) lock and cancel (owner decision, 2026-11-17); (6) goods receipt and concurrency; (7) outstanding report, load
 tests and query plans.
 
 Conventional Commits. `main` is always releasable.
@@ -324,4 +331,4 @@ Conventional Commits. `main` is always releasable.
   number) is named as unconfirmed in that ADR's status line until the owner confirms it.
 - Runtime guidance for agents lives in `CLAUDE.md` and MUST NOT contradict this document.
 
-**Version**: 3.0.1 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-10-21
+**Version**: 3.0.2 | **Ratified**: 2026-10-15 | **Last Amended**: 2026-11-17

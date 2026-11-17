@@ -3,7 +3,9 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (state table moved here from the
   constitution; single-step approval guards; financial-year PO numbering) · amended
   2026-11-12 (PO numbers allocated at the end of the create transaction, so only deleted
-  drafts leave gaps, **owner decision**; slice 3)
+  drafts leave gaps, **owner decision**; slice 3) · amended 2026-11-17 (editing or
+  deleting a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`, no longer
+  `INVALID_STATE_TRANSITION`, **owner decision**; slice 4)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -51,7 +53,9 @@ complains of "no numbering discipline".
   database trigger above).
   - In the API, editing an `APPROVED`, `REJECTED` or `CANCELLED` order →
     `409 ORDER_LOCKED`, with the current status in `details`.
-  - Editing a `PENDING_APPROVAL` order → `409 INVALID_STATE_TRANSITION`. The owner
+  - Editing or deleting a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`
+    (amended 2026-11-17, owner decision), with the current status in `details` and the
+    message "This order is waiting for approval. Withdraw it to make changes." The owner
     withdraws, edits and resubmits. Routing is recomputed, and resubmission always builds a
     fresh chain.
 - Cancellation is a distinct `PO_CANCELLED` event with a reason, never an edit.
@@ -88,6 +92,9 @@ complains of "no numbering discipline".
 ## Alternatives
 - Create directly into `PENDING_APPROVAL`/`APPROVED`: no working draft, and every typo
   needs a new order.
+- `INVALID_STATE_TRANSITION` for a pending edit (this ADR until 2026-11-17): correct but
+  generic; it doesn't tell the owner that withdrawing is the way to make changes.
+  Replaced by `ORDER_PENDING_APPROVAL`.
 - Auto-revert to `DRAFT` on any pending edit (the old T8): makes approval state change as a
   side effect of an edit. Rejected in favour of an explicit, audited withdraw.
 - A `DISCARDED` state: rejected. Hard delete plus the audit entry keeps history without a
@@ -111,6 +118,8 @@ complains of "no numbering discipline".
 
 ## Tests
 - One test per transition, allowed and refused.
+- Edit and delete of a `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL`; of an
+  `APPROVED`, `REJECTED` or `CANCELLED` order → `409 ORDER_LOCKED`.
 - The submit → withdraw → edit → resubmit timeline.
 - A raw-SQL illegal status change is rejected. A raw-SQL delete of a non-draft order is
   rejected.

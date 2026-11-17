@@ -6,7 +6,9 @@
   decision: no phone field, ADR-0016) · amended 2026-11-03 (**owner decision**: a route's
   access level is checked before validation, like `NO_ROLE_ASSIGNED`) · amended 2026-11-12
   (slice 3, **owner decision**: deleted-draft timelines, the Buyer+Approver order list,
-  the Admin message on order writes)
+  the Admin message on order writes) · amended 2026-11-17 (slice 4, **owner decision**:
+  the Buyer+Approver order list stays combined; the approval queue holds only orders the
+  caller may approve)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -103,6 +105,11 @@ cell changes a permission, so it needs sign-off (Principle X).
     delete dialog warns the owner of this.
   - **Buyer+Approver order list**: one list holding their own orders (any state) and every
     non-draft order. Slice 4 revisits it together with the approval queue.
+- **Approval queue** (amended 2026-11-17, slice 4, owner decision): the Buyer+Approver
+  order list stays one combined list. The approval queue, and the nav's pending-approvals
+  count read from its `total`, hold only `PENDING_APPROVAL` orders the caller may approve:
+  never their own, so a Buyer+Approver's own pending orders appear in their order list
+  but not in their queue or count.
   - **Admin on an order write** (create, edit, delete, and later submit and withdraw):
     `403 FORBIDDEN` at route level, before validation, never `NOT_ORDER_OWNER`; the
     problem's `detail` and the web app's message say "Admins can view orders but not
