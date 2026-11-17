@@ -122,7 +122,7 @@ draft PR) and a short summary stop.
   with the Approver text, an Admin's unchanged — `packages/contracts/src/operations.ts`,
   `orders.ts`, `backend/src/http/` (route access), `backend/tests/integration/orders-access.test.ts`
   — ADR-0004 2026-11-17, R9 S2, S4.
-- [ ] T008 [P] Database errors `PO012`–`PO017` → `INTERNAL_ERROR` with their names, unit
+- [X] T008 [P] Database errors `PO012`–`PO017` → `INTERNAL_ERROR` with their names, unit
   test first — `backend/src/db/errors.ts`, `backend/tests/unit/db-errors.test.ts` — R8.
 
 ### Platform: actor switch, audit events, web plumbing
