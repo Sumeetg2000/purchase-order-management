@@ -46,6 +46,34 @@ export async function ordersHarness() {
     return h.send('delete', `/orders/${id}`, as, body, headers);
   }
 
+  /** POST /orders/:id/submit; `version` null sends no If-Match, `body` undefined none. */
+  function submitOrder(id: string, version: number | null, as: CookieJar = h.jar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/submit`, as, body, headers);
+  }
+
+  /** A draft of one line at `unitPrice` (quantity 1), created through the API. */
+  async function draftAt(unitPrice: string, as: CookieJar = h.jar) {
+    const res = await createOrder(orderBody([lineBody({ quantity: 1, unitPrice })]), { as });
+    return res.body as { id: string; version: number; lines: { id: string }[] };
+  }
+
+  /**
+   * Adds policy version `version` with these tiers, below the guards (as the superuser,
+   * triggers off): a fixture, never how production changes its policy.
+   */
+  async function addPolicy(version: number, thresholds: string[]) {
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query(`INSERT INTO approval_policies (version) VALUES ($1)`, [version]);
+    await h.query(
+      `INSERT INTO approval_policy_tiers (policy_version, tier, threshold)
+       SELECT $1, t.tier, t.threshold FROM unnest($2::numeric[]) WITH ORDINALITY AS t(threshold, tier)`,
+      [version, thresholds],
+    );
+    await h.query('COMMIT');
+  }
+
   function getOrder(id: string, as: CookieJar = h.jar) {
     return h.get(`/orders/${id}`, as);
   }
@@ -84,6 +112,9 @@ export async function ordersHarness() {
     editOrder,
     deleteOrder,
     getOrder,
+    submitOrder,
+    draftAt,
+    addPolicy,
     count,
     orderAudit,
   };
