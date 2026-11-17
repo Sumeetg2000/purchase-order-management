@@ -48,6 +48,14 @@ export function useRefreshApprovals() {
   return () => queryClient.invalidateQueries({ queryKey: APPROVALS_KEY });
 }
 
+/** Rejects the order's current step with a reason and the version it shows. */
+export function rejectOrder(id: string, version: number, reason: string) {
+  return api.POST('/orders/{id}/reject', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+    body: { reason },
+  });
+}
+
 /** Approves the order's current step with the version it shows. */
 export function approveOrder(id: string, version: number) {
   return api.POST('/orders/{id}/approve', {

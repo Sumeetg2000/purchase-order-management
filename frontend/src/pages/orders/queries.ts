@@ -55,6 +55,14 @@ export function editOrder(id: string, version: number, body: EditOrderBody) {
   });
 }
 
+/** Takes the owner's pending order back to draft, with a reason and its version. */
+export function withdrawOrder(id: string, version: number, reason: string) {
+  return api.POST('/orders/{id}/withdraw', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+    body: { reason },
+  });
+}
+
 /** Submits a draft with the version it shows (slice 4); the server routes it. */
 export function submitOrder(id: string, version: number) {
   return api.POST('/orders/{id}/submit', {

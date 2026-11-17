@@ -4,7 +4,7 @@ import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem } from './support/fake-api';
 import { order, ORDER_ID, pendingOrder, pendingRound } from './support/orders';
 import { renderApp } from './support/render-app';
-import { page } from './support/vendors';
+import { page, vendor } from './support/vendors';
 
 // The Withdraw dialog (contracts/ui.md, ADR-0018; US5 scenario 5, US2 scenario 5): a
 // required reason, what withdrawing means; the draft then shows why it came back; a stale
@@ -12,6 +12,7 @@ import { page } from './support/vendors';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const OWNER = { ...ME, id: order().owner.id, roles: ['BUYER'] };
@@ -74,11 +75,13 @@ describe('[FR-APR-02] the Withdraw dialog', () => {
         problem(409, 'ORDER_PENDING_APPROVAL', {
           orderState: { status: 'PENDING_APPROVAL', action: 'EDIT' },
         }),
-      'GET /vendors': () => json(200, page([])),
+      'GET /vendors': () => json(200, page([vendor()])),
     });
+    // jsdom lays nothing out: give the virtual line table a viewport, as a browser would.
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1024);
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(768);
     const { user } = renderApp(`/orders/${ORDER_ID}/edit`);
-    const quantity = (await screen.findAllByLabelText(/Quantity/))[0];
-    if (!quantity) throw new Error('no quantity field');
+    const quantity = await screen.findByLabelText('Quantity, line 1');
     await user.clear(quantity);
     await user.type(quantity, '4');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));

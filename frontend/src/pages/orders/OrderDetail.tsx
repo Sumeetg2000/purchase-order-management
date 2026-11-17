@@ -1,12 +1,13 @@
 import { formatInr, ORDER_OWNER_CANNOT_ACT_LABEL, toMoney } from '@po/contracts';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
 import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { ApproveDialog } from '../approvals/ApproveDialog';
+import { RejectDialog } from '../approvals/RejectDialog';
 import { useRefreshApprovals } from '../approvals/queries';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
 import { ApprovalPanel } from './ApprovalPanel';
@@ -14,6 +15,7 @@ import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
 import { useOrder, useOrderSaved, type Order } from './queries';
 import { SubmitDialog } from './SubmitDialog';
+import { WithdrawDialog } from './WithdrawDialog';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
@@ -49,6 +51,10 @@ export function OrderDetail() {
   const [deleting, setDeleting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  // The editor's "Withdraw" (a pending order's stale save) opens the dialog here.
+  const askedToWithdraw = (useLocation().state as { withdraw?: boolean } | null)?.withdraw === true;
+  const [withdrawing, setWithdrawing] = useState(askedToWithdraw);
   const refreshApprovals = useRefreshApprovals();
   const [notice, setNotice] = useState<string>();
   const saved = useOrderSaved();
@@ -57,6 +63,8 @@ export function OrderDetail() {
   const canDelete = useCan('deleteOrder');
   const canSubmit = useCan('submitOrder');
   const canApprove = useCan('approveOrder');
+  const canReject = useCan('rejectOrder');
+  const canWithdraw = useCan('withdrawOrder');
   if (states.view) {
     return (
       <>
@@ -70,6 +78,9 @@ export function OrderDetail() {
   const pending = order.status === 'PENDING_APPROVAL';
   // Never on one's own order (ADR-0004), nor while its owner can't act (ADR-0001).
   const mayApprove = canApprove && pending && order.owner.id !== me?.id && order.ownerCanAct;
+  // Reject stays open when the owner can't act: it is how such an order is closed.
+  const mayReject = canReject && pending && order.owner.id !== me?.id;
+  const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
   // A submitted order shows its vendor as submitted (ADR-0005).
   const vendorName = order.vendorSnapshot?.name ?? order.vendor.name;
   return (
@@ -100,6 +111,28 @@ export function OrderDetail() {
             }}
           >
             Approve
+          </button>
+        )}
+        {mayReject && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setRejecting(true);
+            }}
+          >
+            Reject
+          </button>
+        )}
+        {mayWithdraw && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setWithdrawing(true);
+            }}
+          >
+            Withdraw
           </button>
         )}
         {pending && !order.ownerCanAct && (
@@ -172,6 +205,40 @@ export function OrderDetail() {
             void refreshApprovals();
             setSubmitting(false);
             setNotice(submittedNotice(routed));
+          }}
+        />
+      )}
+      {rejecting && (
+        <RejectDialog
+          order={order}
+          onClose={() => {
+            setRejecting(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onRejected={(decided) => {
+            saved(decided);
+            void refreshApprovals();
+            setRejecting(false);
+            setNotice('Rejected.');
+          }}
+        />
+      )}
+      {withdrawing && mayWithdraw && (
+        <WithdrawDialog
+          order={order}
+          onClose={() => {
+            setWithdrawing(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onWithdrawn={(draft) => {
+            saved(draft);
+            void refreshApprovals();
+            setWithdrawing(false);
+            setNotice('Withdrawn. It is a draft again.');
           }}
         />
       )}

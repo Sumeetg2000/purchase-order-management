@@ -356,7 +356,7 @@ queue, edit → `ORDER_LOCKED` "rejected and is closed".
   APPROVER, `ifMatch`, `decisionReasonBody`, role details): locks order → steps → both
   `users` rows; checks in R8's order; OpenAPI, inventory, matrix pins; T037 green —
   `backend/src/approvals/` — R6, R8.
-- [ ] T040 [US4] Web `RejectDialog` (required reason ≤ 500; "Rejection is final; the buyer
+- [X] T040 [US4] Web `RejectDialog` (required reason ≤ 500; "Rejection is final; the buyer
   must raise a new order"; safe choice focused), offered beside Approve and alone when the
   owner can't act; component tests first — `frontend/src/pages/approvals/RejectDialog.tsx`
   — US4 scenario 6.
@@ -386,7 +386,7 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 - [X] T043 [US5] Service, repository, route `withdrawOrder` (`POST /orders/:id/withdraw`,
   BUYER, `ifMatch`, `decisionReasonBody`, role details): locks order → steps; OpenAPI,
   inventory, matrix pins; T041 green — `backend/src/approvals/` — R6, R8.
-- [ ] T044 [US5] Web `WithdrawDialog` (required reason; "It returns to Draft, and approval
+- [X] T044 [US5] Web `WithdrawDialog` (required reason; "It returns to Draft, and approval
   starts again when you resubmit"); `ORDER_PENDING_APPROVAL` in a stale editor offers
   "Withdraw"; the withdrawn round's reason shown on the draft; component tests first —
   `frontend/src/pages/orders/WithdrawDialog.tsx`, `OrderEditor.tsx` — US5 scenario 5,
