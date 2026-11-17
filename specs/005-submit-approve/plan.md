@@ -51,7 +51,7 @@ timing tests; Testing Library + vitest-axe + MSW; Playwright + axe.
 **Project Type**: web application (API + SPA), npm workspaces.
 
 **Performance Goals**: ADR-0012: submit a 500-line order p95 ≤ 500 ms; one approval
-≤ 150 ms; approver queue ≤ 150 ms. Plans at 100k orders (3,000 pending), ~1M lines, ~2M
+≤ 150 ms; approval queue ≤ 150 ms. Plans at 100k orders (3,000 pending), ~1M lines, ~2M
 audit entries.
 
 **Constraints**: routing only in SQL, exact `numeric`; every state rule enforced by the
@@ -161,13 +161,15 @@ helper is shared from `orders/repository.ts`, so every command uses the same fir
    database rules: trigger and attack tests seen failing on part 1, then part 2 (the
    guards and `order_approval_consistent`); the lock codes in the order service.
 2. **US1 Submit and routing** (P1): seed boundaries, multi-tier fixtures, snapshot,
-   auto-approval as `SYSTEM`; Submit dialog.
+   auto-approval as `SYSTEM`; the policy read endpoint `GET /approval-policy` (the Submit
+   dialog needs it); Submit dialog.
 3. **US3 Approve and the queue** (P1): step decisions, owner-can-act under lock, queue and
    count; queue screen, Approve dialog, nav count; plans and timings.
 4. **US4 Reject** (P1) and **US5 Withdraw and resubmit** (P1).
 5. **US6 Separation of duties** and **US8 Visibility** (P1): matrix rows for four states
    (after R9 sign-off).
-6. **US7 Policy** (P2): CLI `policy:set`/`policy:show`, read endpoint.
+6. **US7 Policy** (P2): CLI `policy:set`/`policy:show` (the read endpoint lands with
+   US1).
 7. **Polish**: concurrency suite, demo seed, e2e, traceability rows (FR-APR-01..05,
    FR-SM-01, FR-SM-03, FR-SOD-01, FR-LCK-01 part, FR-VEN-03, NFR rows), quickstart run.
 

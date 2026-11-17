@@ -41,6 +41,15 @@ Every number and list below is a named constant in `packages/contracts/src/order
 - Migration `0014_approvals` seeds version 1 with one tier, `100000.0000`
   (`APPROVAL_POLICY_SEED_TIERS`), audited as `APPROVAL_POLICY_CHANGED` with actor
   `SYSTEM` (the migration's context, as slice 0's bootstrap), before → `null` → after.
+- **What the `OPERATOR` check protects against** (analysis, 2026-11-17): every API
+  code path, since only the CLI's `withTransaction` sets `OPERATOR`. It is not a defence
+  against a compromised `po_app` role: anyone running raw SQL as `po_app` can set the
+  transaction's actor context to `OPERATOR` and call the function, and can equally set a
+  USER context to forge a step decision under another user's id (D5 checks the decider
+  against the context, not against a session). Those are code-path checks, not a
+  boundary against the application's own role. A dedicated CLI database role, holding
+  `EXECUTE` on `set_approval_policy` while `po_app` holds none, is the hardening option,
+  recorded for slice 7 (ADR-0020's least-privilege review).
 - CLI: `policy:set --tier1 <amount>` and `policy:show` in `backend/src/cli/commands/`,
   same exit-code and advisory-lock rules as the admin commands. `--tier1` only today
   (ADR-0002); the function already takes an array, so repeated `--tier` flags are a CLI
@@ -99,8 +108,11 @@ a rejected one). Nothing else, and nothing once the round is closed.
 
 **D1, the commit-time check** `order_approval_consistent(order_id)`, fired by deferred
 constraint triggers on `purchase_orders` (update), `approval_rounds` and
-`approval_steps` (insert, update), so it runs once per touched order at commit, after the
-command's statements, in whatever order they ran:
+`approval_steps` (insert, update). A row-level constraint trigger fires at commit once per
+changed row, so a command checks its order at most 2 + tier-count times (the order row,
+the round, one row per step), after the command's statements, in whatever order they
+ran. Each run reads one order, its rounds and steps by primary key; the cost is bounded
+by the tier count, not by lines:
 - the **expected chain** of the current round is recomputed from data: the tiers of the
   round's `policy_version` whose `threshold < round.total`, ascending; the round's steps
   must match it exactly (count, step numbers, tiers, thresholds). This is R3's routing,

@@ -47,7 +47,7 @@ T4–T9, the lock rules, `ORDER_PENDING_APPROVAL`), ADR-0002 (policy, chain, see
 withdraw voids the round), ADR-0004 (visibility, matrix, `SELF_APPROVAL`,
 `NOT_ORDER_OWNER`, the approval queue), ADR-0005 (active vendor at submit and approve,
 vendor snapshot), ADR-0006 (versions, lock order, concurrency tests), ADR-0007 (errors),
-ADR-0012 (targets), ADR-0016 (audit catalogue), ADR-0018 (dialogs, approver queue, nav
+ADR-0012 (targets), ADR-0016 (audit catalogue), ADR-0018 (dialogs, approval queue, nav
 count) and ADR-0019 (deferred counts).
 
 Traceability:
@@ -57,7 +57,7 @@ Traceability:
 - §3.5 → FR-LCK-01 (the edit and delete paths of submitted orders; the `REJECTED` and
   `CANCELLED` lock tests complete in slice 5 with cancel)
 - §6 → NFR-AUTH-01 (approve, reject), NFR-AUD-01 (each approval decision), NFR-PERF-01
-  (approver queue)
+  (approval queue)
 - §8 → FR-APR-03
 - Production layer: FR-SM-01 (T4–T9), FR-SM-03 (withdraw and reject), FR-SOD-01 (approve,
   reject), FR-OWN-01 (non-draft cells), FR-APR-04, FR-APR-05, NFR-CON-01, NFR-CON-03
@@ -518,7 +518,7 @@ anonymous.
 **Performance**
 
 - **FR-022** (NFR-PERF-01): Submitting a 500-line order MUST meet ADR-0012's p95 of
-  500 ms, a single approval 150 ms, and the approver queue 150 ms with every pending order
+  500 ms, a single approval 150 ms, and the approval queue 150 ms with every pending order
   in one queue (one Approver, production dataset). The queue's page and count query plans
   MUST be committed at ADR-0012's dataset sizes, and the order-list plans re-committed
   where the Approver's scope adds a path.
@@ -577,7 +577,7 @@ anonymous.
   approved after its owner lost the ability to act; every edit-vs-submit race ends with one success
   and a final status matching the final total.
 - **SC-006**: Submit of a 500-line order within 500 ms, a single approval within 150 ms,
-  and the approver queue's first page within 150 ms, all at p95 on ADR-0012's production
+  and the approval queue's first page within 150 ms, all at p95 on ADR-0012's production
   dataset.
 - **SC-007**: Every matrix cell for `DRAFT`, `PENDING_APPROVAL`, `APPROVED` and `REJECTED`
   (seven caller kinds, anonymous included) has a passing test; every successful submit,

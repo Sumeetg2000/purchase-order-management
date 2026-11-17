@@ -13,7 +13,7 @@
   - **Production**: 100k orders, about 1M lines (1% of orders with 200–500 lines), about
     1.5M receipts, 2,000 vendors (top 20 ≈ 30%), 300 buyers (top 10 ≈ 25%), and **one
     Approver**, matching the business (ADR-0002). This is also the worst case for the
-    approver queue: every pending order is in one queue. Approval policy: the single-tier
+    approval queue: every pending order is in one queue. Approval policy: the single-tier
     seed.
   - **Order status mix** (amended 2026-11-17, slice 4): 5,000 `DRAFT`, 3,000
     `PENDING_APPROVAL`, 2,000 `REJECTED`, 90,000 `APPROVED` (later slices split the
@@ -28,7 +28,7 @@
   - **Users** (for the admin user list plan only): 10,000 generated users across every
     status and role set (ADR-0016), built in slice 7 (ADR-0021).
 - p95 targets: outstanding report 200 ms; vendor summary 300 ms; "my orders" for the
-  **busiest** buyer 150 ms; approver queue 150 ms; create, replace or submit a 500-line
+  **busiest** buyer 150 ms; approval queue 150 ms; create, replace or submit a 500-line
   order 500 ms each; a single receipt or approval 150 ms; 50 concurrent virtual users for
   10 min with zero pool-exhaustion or timeout errors, < 0.1% errors, and zero reconciliation
   rows.

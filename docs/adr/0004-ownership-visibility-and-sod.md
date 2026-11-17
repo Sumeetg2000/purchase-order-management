@@ -91,7 +91,7 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Timeline of a deleted draft (by order id) | 404 (former owner) | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Vendor history | ✓ | ✓ | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Read approval policy | ✓ | ✓ | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
-| Pending-approvals count (approver queue `total`) | 403 | 403 | ✓ (others' pending orders only) | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Pending-approvals count (approval queue `total`) | 403 | 403 | ✓ (others' pending orders only) | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Approval queue (list) | 403 `FORBIDDEN` | 403 `FORBIDDEN` | ✓ (others' pending orders only) | 403 `FORBIDDEN` | 403 `NO_ROLE_ASSIGNED` |
 | Organisation-wide audit log | 403 | 403 | 403 | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | `GET /me`, `PATCH /me` (name only) | ✓ | ✓ | ✓ | ✓ | ✓ |
