@@ -152,12 +152,14 @@ export interface LockedOrder {
   vendorId: string;
   status: OrderStatus;
   version: number;
+  currentRound: number | null;
 }
 
 /** Locks the order FOR UPDATE (ADR-0006: the order first, then its lines, then the vendor). */
 export async function lockOrder(tx: AuditedTransaction, id: string): Promise<LockedOrder | null> {
   const [row] = await tx.$queryRaw<LockedOrder[]>`
-    SELECT id::text, owner_id::text AS "ownerId", vendor_id::text AS "vendorId", status, version
+    SELECT id::text, owner_id::text AS "ownerId", vendor_id::text AS "vendorId", status, version,
+           current_round::int AS "currentRound"
       FROM purchase_orders WHERE id = ${id}::uuid FOR UPDATE`;
   return row ?? null;
 }
@@ -341,7 +343,8 @@ function branchSql(branch: Branch, filters: Prisma.Sql[], columns: Prisma.Sql): 
  * size of at most 50), and a generic plan that can't see the LIMIT may plan for the whole
  * table.
  */
-function pageNumber(value: number): Prisma.Sql {
+/** A checked page bound as an SQL literal, so a generic plan sees it (research R7). */
+export function pageNumber(value: number): Prisma.Sql {
   if (!Number.isSafeInteger(value) || value < 0)
     throw new RangeError(`bad page bound ${String(value)}`);
   return Prisma.raw(String(value));

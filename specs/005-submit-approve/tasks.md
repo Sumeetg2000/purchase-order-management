@@ -263,7 +263,7 @@ orders; the owner and the Approver are re-checked under lock.
 **Independent test**: a ₹2,00,000 order appears in the Approver's queue; approve →
 `APPROVED`, `APPROVAL_STEP_APPROVED`, gone from the queue and the count.
 
-- [ ] T027 [P] [US3] Approve API tests, seen failing: one step → `APPROVED` (T7) with
+- [X] T027 [P] [US3] Approve API tests, seen failing: one step → `APPROVED` (T7) with
   `approved_at`; two-tier fixture: step 1 → still pending (T6), step 2 → `APPROVED`;
   `decided_version` = `If-Match`; inactive vendor → 409 `VENDOR_INACTIVE`; owner deactivated
   or without BUYER → 409 `ORDER_OWNER_INACTIVE` with its detail, reject still allowed, and
@@ -275,7 +275,7 @@ orders; the owner and the Approver are re-checked under lock.
   `404` and before every `409`, with no step or audit change —
   `backend/tests/integration/approvals-approve.test.ts` — US3 scenarios 1–5, US6
   scenario 1, FR-010, FR-013, FR-SM-01, FR-SOD-01.
-- [ ] T028 [P] [US3] Approve races and lock order, seen failing: double approve on one
+- [X] T028 [P] [US3] Approve races and lock order, seen failing: double approve on one
   step (one decision); approve vs owner deactivation and vs owner BUYER removal (approved
   before, or 409 `ORDER_OWNER_INACTIVE` after, never after); approve vs the acting
   Approver's own deactivation and APPROVER removal (decided before, or `401
@@ -287,25 +287,25 @@ orders; the owner and the Approver are re-checked under lock.
   and no order-side row on the user side — `backend/tests/concurrency/approvals.test.ts`,
   `backend/tests/concurrency/lock-order.test.ts` (new) — R6 races 4, 5, 5a, 6, ADR-0006,
   FR-017, SC-005.
-- [ ] T029 [P] [US3] Queue tests, seen failing: only `PENDING_APPROVAL`, never the
+- [X] T029 [P] [US3] Queue tests, seen failing: only `PENDING_APPROVAL`, never the
   caller's own (a Buyer+Approver's own pending order absent); oldest `submittedAt` first,
   then id; vendor filter; PO prefix sorts by PO number desc; `ownerCanAct` false for a
   deactivated owner; `total` = the nav count with `pageSize=1`; Buyer and Admin → 403
   `FORBIDDEN`; no role → `NO_ROLE_ASSIGNED` — `backend/tests/integration/approvals-queue.test.ts`
   — FR-014, S1, US3 scenario 6.
-- [ ] T030 [P] [US3] Approve audit test, seen failing: one `APPROVAL_STEP_APPROVED` (round,
+- [X] T030 [P] [US3] Approve audit test, seen failing: one `APPROVAL_STEP_APPROVED` (round,
   step, tier, version approved), `actingRole` `APPROVER` also for a dual-role user; none on
   refusal — `backend/tests/integration/approvals-audit.test.ts` — FR-020, US3 scenario 8.
-- [ ] T031 [US3] Repository: lock current round's steps (step asc) `FOR UPDATE`; lock the
+- [X] T031 [US3] Repository: lock current round's steps (step asc) `FOR UPDATE`; lock the
   owner's and the Approver's `users` rows `FOR SHARE` in id order, returning status and
   roles; decide the lowest open step; queue page and count (deferred join, literal bounds,
   one statement, partial indexes, `owner_id <> $caller`) with snapshot name, current step,
   `ownerCanAct` — `backend/src/approvals/repository.ts` — R6, R7.
-- [ ] T032 [US3] Service `approveOrder`: locks in R6's order, then checks in R8's order
+- [X] T032 [US3] Service `approveOrder`: locks in R6's order, then checks in R8's order
   (Approver re-check → 404 → `SELF_APPROVAL` → state → version → vendor → owner can act);
   T6 or T7; `listApprovalQueue` — `backend/src/approvals/service.ts` — R6, R8, FR-010,
   FR-013.
-- [ ] T033 [US3] Routes and operations `approveOrder` (`POST /orders/:id/approve`,
+- [X] T033 [US3] Routes and operations `approveOrder` (`POST /orders/:id/approve`,
   APPROVER, `ifMatch`, role details) and `listApprovalQueue` (`GET /approvals`); OpenAPI,
   inventory, matrix pins; T027–T030 green — `backend/src/approvals/routes.ts`,
   `packages/contracts/src/operations.ts` — contracts/api.md.

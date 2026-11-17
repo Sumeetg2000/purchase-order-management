@@ -76,6 +76,7 @@ const EXPECTED: BodyInventory = {
   deleteOrder: { reason: 'optional' },
   // Slice 4: submit takes no input besides If-Match.
   submitOrder: 'no body',
+  approveOrder: 'no body',
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {

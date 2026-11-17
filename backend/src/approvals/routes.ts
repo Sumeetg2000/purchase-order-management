@@ -1,4 +1,4 @@
-import { etagFor, OPERATIONS } from '@po/contracts';
+import { etagFor, OPERATIONS, type ApprovalQueueQuery } from '@po/contracts';
 import {
   defineRoute,
   idParamOf,
@@ -20,6 +20,28 @@ export function approvalRoutes(approvals: ApprovalsService): RouteDefinition[] {
           requestContext(req, res),
         );
         res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.approveOrder,
+      handler: async (req, res) => {
+        const order = await approvals.approveOrder(
+          authOf(res),
+          { id: idParamOf(req), version: ifMatchVersionOf(res) },
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.listApprovalQueue,
+      handler: async (req, res) => {
+        res.json(
+          await approvals.listApprovalQueue(
+            authOf(res),
+            req.query as unknown as ApprovalQueueQuery,
+          ),
+        );
       },
     }),
     defineRoute({

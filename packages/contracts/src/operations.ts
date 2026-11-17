@@ -26,7 +26,11 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
-import { ORDER_BODY_LIMIT_BYTES, ORDER_WRITE_FORBIDDEN_DETAIL } from './orders.js';
+import {
+  ORDER_BODY_LIMIT_BYTES,
+  ORDER_DECISION_FORBIDDEN_DETAIL,
+  ORDER_WRITE_FORBIDDEN_DETAIL,
+} from './orders.js';
 import {
   createOrderBody,
   deleteOrderBody,
@@ -36,7 +40,7 @@ import {
   orderListQuery,
   orderTimelineItem,
 } from './schemas/orders.js';
-import { approvalPolicy } from './schemas/approvals.js';
+import { approvalPolicy, approvalQueueItem, approvalQueueQuery } from './schemas/approvals.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -629,6 +633,43 @@ export const OPERATIONS = {
     access: 'role',
     roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
     responses: { 200: approvalPolicy },
+    errors: [],
+  },
+
+  // Slice 4, US3: approve the current step; the approval queue (specs/005-submit-approve).
+  approveOrder: {
+    method: 'post',
+    path: '/orders/:id/approve',
+    operationId: 'approveOrder',
+    summary:
+      "Approve the current step of a pending order you don't own, with its current version; the last step approves the order.",
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    forbiddenDetail: ORDER_DECISION_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'SELF_APPROVAL',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+      'ORDER_OWNER_INACTIVE',
+    ],
+  },
+  listApprovalQueue: {
+    method: 'get',
+    path: '/approvals',
+    operationId: 'listApprovalQueue',
+    summary:
+      'Pending orders the caller may approve (never their own), oldest submission first; its total is the pending-approvals count.',
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    request: { query: approvalQueueQuery },
+    responses: { 200: pageOf(approvalQueueItem).meta({ id: 'PageOfApprovalQueueItem' }) },
     errors: [],
   },
 } as const satisfies Record<string, OperationContract>;

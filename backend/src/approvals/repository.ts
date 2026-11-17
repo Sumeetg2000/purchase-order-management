@@ -1,4 +1,7 @@
-import type { VendorOrderSnapshot } from '@po/contracts';
+import type { ApprovalStepState, UserRole, UserStatus, VendorOrderSnapshot } from '@po/contracts';
+import { Prisma } from '../generated/prisma/client.js';
+import type { PageArgs } from '../lib/pagination.js';
+import { pageNumber } from '../orders/repository.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { APPROVAL_POLICY_LOCK } from '../db/locks.js';
 import type { AuditedTransaction } from '../db/transaction.js';
@@ -127,4 +130,173 @@ export async function selectCurrentPolicy(db: AppPrismaClient): Promise<PolicyRo
      LIMIT 1`;
   if (!row) throw new Error('no approval policy: migration 0014 seeds version 1');
   return row;
+}
+
+/** A step of the current round, locked for a decision. */
+export interface LockedStep {
+  step: number;
+  tier: number;
+  state: ApprovalStepState;
+}
+
+/** Locks the round's steps in step order (ADR-0006: after the order, before the vendor). */
+export async function lockSteps(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+): Promise<LockedStep[]> {
+  return tx.$queryRaw<LockedStep[]>`
+    SELECT step::int AS step, tier::int AS tier, state FROM approval_steps
+     WHERE order_id = ${orderId}::uuid AND round = ${round}
+     ORDER BY step FOR UPDATE`;
+}
+
+/** A user as the decision re-checks them under lock. */
+export interface LockedUser {
+  id: string;
+  status: UserStatus;
+  roles: UserRole[];
+}
+
+/**
+ * Locks users rows FOR SHARE in id order, last in ADR-0006's lock order: an admin change
+ * of either waits for the decision, or the decision sees it (research R6).
+ */
+export async function lockUsers(
+  tx: AuditedTransaction,
+  ids: readonly string[],
+): Promise<Map<string, LockedUser>> {
+  const rows = await tx.$queryRaw<LockedUser[]>`
+    SELECT id::text, status, roles FROM users
+     WHERE id = ANY(${[...new Set(ids)]}::uuid[])
+     ORDER BY id FOR SHARE`;
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Approves one step as the acting user, bound to the version they saw. */
+export async function approveStep(
+  tx: AuditedTransaction,
+  target: { orderId: string; round: number; step: number; approverId: string; version: number },
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_steps
+       SET state = 'APPROVED', decided_by = ${target.approverId}::uuid, decided_at = now(),
+           decided_version = ${target.version}
+     WHERE order_id = ${target.orderId}::uuid AND round = ${target.round}
+       AND step = ${target.step}`;
+}
+
+/** T7: the round closes APPROVED and the order is approved, its approval time the close. */
+export async function approveRoundAndOrder(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_rounds SET outcome = 'APPROVED', closed_at = now()
+     WHERE order_id = ${orderId}::uuid AND round = ${round}`;
+  await tx.$executeRaw`
+    UPDATE purchase_orders o
+       SET status = 'APPROVED', approved_at = r.closed_at, version = o.version + 1
+      FROM approval_rounds r
+     WHERE o.id = ${orderId}::uuid AND r.order_id = o.id AND r.round = ${round}`;
+}
+
+/** T6: a step decided, more remain; the order's version moves. */
+export async function bumpOrderVersion(tx: AuditedTransaction, orderId: string): Promise<void> {
+  await tx.$executeRaw`UPDATE purchase_orders SET version = version + 1 WHERE id = ${orderId}::uuid`;
+}
+
+export interface QueueFilter {
+  vendorId?: string | undefined;
+  /** Upper-cased by the contract. */
+  poNumber?: string | undefined;
+}
+
+/** One queue row as SQL returns it: money and times as text. */
+export interface QueueRow {
+  id: string;
+  poNumber: string;
+  owner: { id: string; name: string };
+  vendor: { id: string; name: string };
+  total: string;
+  submittedAt: string;
+  currentStep: { step: number; tier: number; of: number };
+  ownerCanAct: boolean;
+  version: number;
+}
+
+/** The highest code point, closing a PO-number prefix range (as the order list). */
+const MAX_CHAR = 1_114_111;
+
+/**
+ * The approval queue (research R7): pending orders not the caller's, on the partial
+ * indexes. The page picks its keys from the index, cut at LIMIT/OFFSET literals, then joins
+ * back for its rows; rows and total come from one statement, one snapshot. Oldest
+ * submission first, or by PO number, newest first, with a prefix.
+ */
+export function approvalQueueSql(
+  callerId: string,
+  filter: QueueFilter,
+  { offset, limit }: PageArgs,
+) {
+  const conditions = [
+    Prisma.sql`status = 'PENDING_APPROVAL'`,
+    Prisma.sql`owner_id <> ${callerId}::uuid`,
+  ];
+  if (filter.vendorId !== undefined)
+    conditions.push(Prisma.sql`vendor_id = ${filter.vendorId}::uuid`);
+  const byPoNumber = filter.poNumber !== undefined;
+  if (filter.poNumber !== undefined) {
+    conditions.push(Prisma.sql`po_number >= ${filter.poNumber}
+      AND po_number < ${filter.poNumber} || chr(${MAX_CHAR}::int)`);
+  }
+  const where = Prisma.join(conditions, ' AND ');
+  const order = (alias: string) =>
+    byPoNumber
+      ? Prisma.raw(`${alias}.po_number DESC`)
+      : Prisma.raw(`${alias}.submitted_at, ${alias}.id`);
+  const page = Prisma.sql`
+    SELECT k.id FROM (SELECT id, po_number, submitted_at FROM purchase_orders WHERE ${where}
+                       ORDER BY ${order('purchase_orders')}
+                       LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}) k`;
+  const count = Prisma.sql`SELECT count(*) FROM purchase_orders WHERE ${where}`;
+  const statement = Prisma.sql`
+    SELECT (${count})::int AS total,
+           coalesce((
+             SELECT json_agg(json_build_object(
+                      'id', o.id::text,
+                      'poNumber', o.po_number,
+                      'owner', json_build_object('id', u.id::text, 'name', u.name),
+                      'vendor', json_build_object('id', o.vendor_id::text,
+                                                  'name', r.vendor_snapshot ->> 'name'),
+                      'total', o.total::text,
+                      'submittedAt', o.submitted_at,
+                      'currentStep', (SELECT json_build_object(
+                                               'step', min(s.step) FILTER (WHERE s.state = 'OPEN'),
+                                               'tier', min(s.tier) FILTER (WHERE s.state = 'OPEN'),
+                                               'of', count(*))
+                                        FROM approval_steps s
+                                       WHERE s.order_id = o.id AND s.round = o.current_round),
+                      'ownerCanAct', (u.status = 'ACTIVE' AND 'BUYER' = ANY (u.roles)),
+                      'version', o.version)
+                    ORDER BY ${order('o')})
+               FROM (${page}) p
+               JOIN purchase_orders o ON o.id = p.id
+               JOIN users u ON u.id = o.owner_id
+               JOIN approval_rounds r ON r.order_id = o.id AND r.round = o.current_round), '[]'::json)
+             AS items`;
+  return { statement, page, count };
+}
+
+export async function listApprovalQueue(
+  db: AppPrismaClient,
+  callerId: string,
+  filter: QueueFilter,
+  page: PageArgs,
+): Promise<{ total: number; items: QueueRow[] }> {
+  const [row] = await db.$queryRaw<{ total: number; items: QueueRow[] }[]>(
+    approvalQueueSql(callerId, filter, page).statement,
+  );
+  return row ?? { total: 0, items: [] };
 }
