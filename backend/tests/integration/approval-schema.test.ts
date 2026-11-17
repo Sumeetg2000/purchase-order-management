@@ -9,6 +9,7 @@ import {
   plant,
   sqlstate,
 } from '../support/orders-sql.js';
+import { plantsViolations } from '../support/setup.js';
 
 // Migration 0014, part 1 (specs/005-submit-approve/data-model.md): the approval policy,
 // round and step tables, the submission columns on purchase_orders, the slice 4
@@ -179,6 +180,8 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
     ]);
     expect(await constraintNames(q, 'approval_rounds')).toEqual([
       'approval_rounds_closed_matches_outcome',
+      // The commit-time consistency check is a constraint trigger (part 2).
+      'approval_rounds_consistent',
       'approval_rounds_order_id_fkey',
       'approval_rounds_outcome_valid',
       'approval_rounds_pkey',
@@ -191,6 +194,7 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
       'approval_rounds_withdraw_reason_valid',
     ]);
     expect(await constraintNames(q, 'approval_steps')).toEqual([
+      'approval_steps_consistent',
       'approval_steps_decided_by_fkey',
       'approval_steps_decided_version_positive',
       'approval_steps_order_id_round_fkey',
@@ -215,6 +219,8 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
 
   it('[FR-SM-01] round CHECKs refuse a bad outcome, an unpaired close and a stray reason', async () => {
     const f = await orderFixture();
+    // CHECKs only: rows planted below the guards, inconsistent on purpose.
+    plantsViolations(f.db);
     const { orderId } = await createDraft(f, [{ quantity: 1, unitPrice: '1' }]);
     expect(await plantRound(f, orderId, { outcome: 'LOST', closed_at: new Date() })).toBe(
       CHECK_VIOLATION,
@@ -255,6 +261,8 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
 
   it('[FR-SM-01] each step state has exactly its decision and void columns', async () => {
     const f = await orderFixture();
+    // CHECKs only: rows planted below the guards, inconsistent on purpose.
+    plantsViolations(f.db);
     const { orderId } = await createDraft(f, [{ quantity: 1, unitPrice: '1' }]);
     expect(await plantRound(f, orderId, {})).toBeUndefined();
     const at = new Date();
@@ -297,6 +305,8 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
 
   it('[FR-SM-01] an order is submitted exactly when it is not a draft, approved when approved', async () => {
     const f = await orderFixture();
+    // CHECKs only: rows planted below the guards, inconsistent on purpose.
+    plantsViolations(f.db);
     const { orderId } = await createDraft(f, [{ quantity: 1, unitPrice: '1' }]);
     const set = (sql: string) => sqlstate(() => plant(f, sql, [orderId]));
     expect(await set(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`)).toBe(

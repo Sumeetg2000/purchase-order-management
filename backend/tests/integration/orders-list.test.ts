@@ -101,7 +101,7 @@ describe('[FR-OWN-01] order lists are scoped in the database', () => {
     const approver = await h.loggedIn(await h.seedUser({ roles: '{APPROVER}' }));
     expect((await list(h, {}, approver)).body).toMatchObject({ items: [], total: 0 });
     // Once an order leaves DRAFT, an Approver sees it.
-    await plantSubmitted(h, b[0]?.id ?? '', 'PENDING_APPROVAL');
+    await plantSubmitted(h, b[0]?.id ?? '', 'APPROVED');
     expect(ids((await list(h, {}, approver)).body)).toEqual([b[0]?.id]);
   });
 

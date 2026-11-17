@@ -363,8 +363,13 @@ describe('[NFR-CON-01] concurrent line changes on one order', () => {
               jsonb_build_object('id', v.id, 'name', v.name, 'contactName', v.contact_name,
                                  'contactEmail', v.contact_email, 'contactPhone', v.contact_phone,
                                  'paymentTerms', jsonb_build_object('type', 'NET', 'netDays', 30)),
-              o.owner_id, 'AUTO_APPROVED', now()
+              o.owner_id, NULL, NULL
          FROM purchase_orders o JOIN vendors v ON v.id = o.vendor_id WHERE o.id = $1`,
+      [orderId],
+    );
+    await f.owner.query(
+      `UPDATE approval_rounds SET outcome = 'AUTO_APPROVED', closed_at = now()
+        WHERE order_id = $1`,
       [orderId],
     );
     await f.owner.query(

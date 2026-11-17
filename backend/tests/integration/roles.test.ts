@@ -232,7 +232,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
-  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except vendor_name_key and po_financial_year to po_app', async () => {
+  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except four to po_app', async () => {
     const { admin } = await freshDb();
     const grants = await rows<{ grant: string }>(
       admin,
@@ -242,9 +242,13 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         WHERE n.nspname = 'public' AND a.grantee <> p.proowner ORDER BY 1`,
     );
     // The list's prefix filter runs vendor_name_key($q) as po_app (research R2, slice 2);
-    // the PO number allocation runs po_financial_year(now()) (slice 3 research R2).
+    // the PO number allocation runs po_financial_year(now()) (slice 3 research R2); the
+    // reconciliation runs approval_inconsistency, and the policy CLI set_approval_policy,
+    // which refuses any actor but OPERATOR (slice 4 research R1, R2).
     expect(grants).toEqual([
+      { grant: 'approval_inconsistency po_app' },
       { grant: 'po_financial_year po_app' },
+      { grant: 'set_approval_policy po_app' },
       { grant: 'vendor_name_key po_app' },
     ]);
   });
@@ -279,7 +283,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(defaults).toEqual([]);
   });
 
-  it('[NFR-AUD-02] functions are SECURITY INVOKER with a fixed search_path, except the order recompute and its triggers', async () => {
+  it('[NFR-AUD-02] functions are SECURITY INVOKER with a fixed search_path, except the order recompute, the policy write and their triggers', async () => {
     const { admin } = await freshDb();
     const functions = await rows<{ proname: string; prosecdef: boolean; config: string[] | null }>(
       admin,
@@ -305,6 +309,10 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'order_lines_after_delete',
       'purchase_orders_has_lines',
       'order_lines_order_has_lines',
+      // Slice 4: the policy's only write path, and the commit-time approval checks.
+      'set_approval_policy',
+      'purchase_orders_approval_consistent',
+      'approval_rows_consistent',
     ]);
     for (const fn of functions) {
       expect(fn.prosecdef, fn.proname).toBe(definers.has(fn.proname));
@@ -328,9 +336,17 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
       'access_requests access_requests_set_updated_at O',
+      'approval_policies approval_policies_immutable O',
+      'approval_policies approval_policies_no_truncate O',
       'approval_policies require_actor_context O',
+      'approval_policy_tiers approval_policy_tiers_immutable O',
+      'approval_policy_tiers approval_policy_tiers_no_truncate O',
       'approval_policy_tiers require_actor_context O',
+      'approval_rounds approval_rounds_consistent O',
+      'approval_rounds approval_rounds_guard O',
       'approval_rounds require_actor_context O',
+      'approval_steps approval_steps_consistent O',
+      'approval_steps approval_steps_guard O',
       'approval_steps require_actor_context O',
       'audit_entries audit_fill_actor O',
       'audit_entries audit_immutable O',
@@ -342,6 +358,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'order_lines order_lines_recompute_ins O',
       'order_lines order_lines_recompute_upd O',
       'order_lines require_actor_context O',
+      'purchase_orders purchase_orders_approval_consistent O',
       'purchase_orders purchase_orders_delete_draft_only O',
       'purchase_orders purchase_orders_derived_guard O',
       'purchase_orders purchase_orders_has_lines O',
@@ -349,6 +366,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'purchase_orders purchase_orders_po_number_assigned O',
       'purchase_orders purchase_orders_set_updated_at O',
       'purchase_orders purchase_orders_status_transition O',
+      'purchase_orders purchase_orders_submission_lock O',
       'purchase_orders require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',

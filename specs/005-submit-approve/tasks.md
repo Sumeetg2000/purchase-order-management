@@ -154,7 +154,7 @@ change; the API answers edits of submitted orders with their specific codes.
 superuser in the test, then checked), every edit path is refused with its specific
 outcome, and reconciliation returns zero rows.
 
-- [ ] T012 [P] [US2] Trigger tests on part 1, seen failing, one per rule D1–D8 of R2, as
+- [X] T012 [P] [US2] Trigger tests on part 1, seen failing, one per rule D1–D8 of R2, as
   `po_app` and as a privileged role: `APPROVED` with an open step (`PO014` at commit);
   a chain that skips or adds a tier, or whose round total differs from the order's
   (`PO014`); a decision on step 2 while step 1 is open, on a closed round, on a draft
@@ -164,16 +164,16 @@ outcome, and reconciliation returns zero rows.
   `approved_at` changed outside a transition (`PO015`); each non-listed status change
   (`PO009`); the allowed moves succeed — `backend/tests/integration/approval-triggers.test.ts`
   — R2, R4, FR-006, FR-007, FR-SM-01, FR-LCK-01.
-- [ ] T013 [P] [US2] Raw-SQL approval attacks join the integrity suite, seen failing:
+- [X] T013 [P] [US2] Raw-SQL approval attacks join the integrity suite, seen failing:
   every attack above plus a hand-built `DRAFT → APPROVED` above the threshold with no
   round; each refused with its SQLSTATE; reconciliation (with the new approval branch)
   zero rows after — `backend/tests/integrity/approval-attacks.test.ts` — FR-LCK-01,
   SC-003.
-- [ ] T014 [P] [US2] Reconciliation gains the approval-consistency branch (orders for
+- [X] T014 [P] [US2] Reconciliation gains the approval-consistency branch (orders for
   which `order_approval_consistent` would fail), test first with a privileged inconsistent
   row — `backend/src/db/reconciliation.sql`, `backend/tests/integrity/reconciliation.test.ts`
   — data-model.md.
-- [ ] T015 [US2] Migration `0014_approvals` part 2: `set_approval_policy`,
+- [X] T015 [US2] Migration `0014_approvals` part 2: `set_approval_policy`,
   `approval_policy_immutable`, `approval_rounds_guard`, `approval_steps_guard`,
   `purchase_orders_submission_lock`, `order_approval_consistent` (deferred constraint
   triggers on the three tables), all `SET search_path = pg_catalog, pg_temp`, `REVOKE ALL

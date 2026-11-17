@@ -310,8 +310,8 @@ export async function plantSubmitted(
     )) as { rows: { round: number; steps: number }[] };
     const planted = rows[0];
     if (!planted) throw new Error(`order ${orderId} is not a draft`);
-    if (status === 'REJECTED' && planted.steps === 0) {
-      throw new Error('a rejected order needs a total above the lowest tier');
+    if (status !== 'APPROVED' && planted.steps === 0) {
+      throw new Error(`a ${status} order needs a total above the lowest tier`);
     }
     await superuser.query('COMMIT');
     return { ...planted, approverId: decider };
