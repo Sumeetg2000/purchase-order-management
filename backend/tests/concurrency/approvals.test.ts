@@ -73,3 +73,25 @@ describe('[NFR-CON-01] concurrent submissions', () => {
     ).toBe(true);
   });
 });
+
+describe('[NFR-CON-01] a submit and a policy change, deterministically interleaved', () => {
+  it('[NFR-CON-01] a submit waits for a policy change in progress, then routes by the new version', async () => {
+    const h = await ordersHarness();
+    const draft = await h.draftAt('150000');
+    // A policy change holds its lock until it commits.
+    await h.query('BEGIN');
+    await h.query(`SELECT set_config('app.actor_txid', txid_current()::text, true),
+                          set_config('app.actor_type', 'OPERATOR', true),
+                          set_config('app.os_user', 'tester', true),
+                          set_config('app.os_host', 'ci', true)`);
+    await h.query(`SELECT set_approval_policy('{200000}')`);
+    // supertest sends on then(): start it now, while the policy change is open.
+    const submitting = h.submitOrder(draft.id, 1).then((r) => r);
+    // Long enough for the submit to reach the policy read and wait there.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await h.query('COMMIT');
+    const res = await submitting;
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'APPROVED', approval: { policyVersion: 2 } });
+  });
+});
