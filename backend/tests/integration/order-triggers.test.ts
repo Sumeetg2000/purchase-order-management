@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  CHECK_VIOLATION,
   DERIVED_VALUE_READ_ONLY,
   ORDER_DELETE_REFUSED,
   ORDER_FIELD_IMMUTABLE,
@@ -13,7 +14,7 @@ import {
   inTransaction,
   insertLines,
   orderFixture,
-  plant,
+  plantSubmitted,
   readOrder,
   sqlstate,
   type OrderFixture,
@@ -33,9 +34,9 @@ async function recomputeCount(f: OrderFixture, work: (q: OrderFixture['app']) =>
   });
 }
 
-/** Makes an order non-draft below every guard, as only later slices' transitions will. */
+/** Makes an order approved below every guard, consistently with its round (slice 4). */
 async function makeApproved(f: OrderFixture, orderId: string) {
-  await plant(f, `UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`, [orderId]);
+  await plantSubmitted(f, orderId, 'APPROVED');
 }
 
 describe('[FR-PO-03] the database keeps order totals and open-line counts', () => {
@@ -180,18 +181,20 @@ describe('[FR-PO-05] PO numbers are assigned once and never change', () => {
 });
 
 describe('[FR-SM-02] only drafts change, and status changes only by the transition table', () => {
-  it('[FR-SM-02] a status change of a draft is refused (no transition exists yet)', async () => {
+  it('[FR-SM-02] a status change of a draft outside the transitions, or without a submission, is refused', async () => {
     const f = await orderFixture();
     const { orderId } = await createDraft(f, [{ quantity: 1, unitPrice: '1' }]);
-    expect(
-      await sqlstate(() =>
+    const change = (status: string) =>
+      sqlstate(() =>
         inTransaction(f.owner, (q) =>
-          q.query(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`, [
-            orderId,
-          ]),
+          q.query(`UPDATE purchase_orders SET status = $2 WHERE id = $1`, [orderId, status]),
         ),
-      ),
-    ).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+      );
+    // Slice 4 adds DRAFT → PENDING_APPROVAL and → APPROVED, never → REJECTED or CANCELLED.
+    expect(await change('REJECTED')).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+    expect(await change('CANCELLED')).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+    // A listed transition still needs its submission: a bare status change is refused.
+    expect(await change('PENDING_APPROVAL')).toBe(CHECK_VIOLATION);
   });
 
   it("[FR-SM-02] lines of a non-draft order can't be inserted, changed or deleted", async () => {
