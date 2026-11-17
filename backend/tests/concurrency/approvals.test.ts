@@ -284,7 +284,9 @@ describe('[NFR-CON-01] decisions and withdrawals racing each other', () => {
         h.approveOrder(id, 2, priya.jar),
         h.withdrawOrder(id, 2, h.jar, reason),
       ]);
-      expect([approve.status, withdraw.status].sort()).toEqual([200, 409]);
+      // A withdraw that wins makes the order a draft, unreadable to the Approver: 404 (S7).
+      if (withdraw.status === 200) expect(approve.status).toBe(404);
+      else expect([approve.status, withdraw.status]).toEqual([200, 409]);
       const states = await h.query<{ state: string; decided: boolean }>(
         `SELECT state, decided_by IS NOT NULL AS decided FROM approval_steps WHERE order_id = $1`,
         [id],
