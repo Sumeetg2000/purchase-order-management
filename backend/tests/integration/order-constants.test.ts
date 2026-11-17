@@ -17,6 +17,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { APPROVAL_POLICY_LOCK } from '../../src/db/locks.js';
 import { IDEMPOTENT_OPERATIONS } from '../../src/idempotency/repository.js';
 import { inTransaction, orderFixture, sqlstate, type OrderFixture } from '../support/orders-sql.js';
 
@@ -187,5 +188,13 @@ describe('[FR-SM-01] approval constants equal their SQL copies (0014)', () => {
         WHERE policy_version = 1 ORDER BY tier`,
     );
     expect(rows.map((r) => r.threshold)).toEqual([...APPROVAL_POLICY_SEED_TIERS]);
+  });
+
+  it('[FR-APR-05] set_approval_policy takes APPROVAL_POLICY_LOCK, the key submit shares', async () => {
+    const { superuser: q } = await orderFixture();
+    const { rows } = await q.query<{ def: string }>(
+      `SELECT pg_get_functiondef('set_approval_policy(numeric[])'::regprocedure) AS def`,
+    );
+    expect(rows[0]?.def).toContain(`pg_advisory_xact_lock(${String(APPROVAL_POLICY_LOCK)})`);
   });
 });
