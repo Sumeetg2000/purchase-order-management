@@ -178,7 +178,7 @@ outcome, and reconciliation returns zero rows.
   `purchase_orders_submission_lock`, `order_approval_consistent` (deferred constraint
   triggers on the three tables), all `SET search_path = pg_catalog, pg_temp`, `REVOKE ALL
   FROM PUBLIC`; T012–T014 green — same migration file — R1, R2, R4.
-- [ ] T016 [US2] Order service lock codes, tests first: edit and delete of a
+- [X] T016 [US2] Order service lock codes, tests first: edit and delete of a
   `PENDING_APPROVAL` order → `409 ORDER_PENDING_APPROVAL` (status in `orderState`); of an
   `APPROVED` or `REJECTED` order → `409 ORDER_LOCKED` with the status's detail; a
   Buyer+Approver on another buyer's non-draft order → `403 NOT_ORDER_OWNER`; slice 3's

@@ -4111,7 +4111,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN or NOT_ORDER_OWNER. */
             403: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
@@ -4131,7 +4131,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code VERSION_CONFLICT. */
+            /** @description Problem document with code ORDER_PENDING_APPROVAL or ORDER_LOCKED or VERSION_CONFLICT. */
             409: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
@@ -4224,7 +4224,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN. */
+            /** @description Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN or NOT_ORDER_OWNER. */
             403: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
@@ -4244,7 +4244,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code VERSION_CONFLICT or VENDOR_INACTIVE. */
+            /** @description Problem document with code ORDER_PENDING_APPROVAL or ORDER_LOCKED or VERSION_CONFLICT or VENDOR_INACTIVE. */
             409: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];

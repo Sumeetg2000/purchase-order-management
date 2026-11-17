@@ -1,7 +1,12 @@
 import {
   AppError,
+  NOT_ORDER_OWNER_DETAIL,
+  ORDER_LOCKED_MESSAGES,
+  ORDER_PENDING_APPROVAL_DETAIL,
+  oneOf,
   ROLE,
   toMoney,
+  type LockedOrderStatus,
   type CreateOrderBody,
   type EditOrderBody,
   type Order,
@@ -92,6 +97,38 @@ export interface OrdersService {
   /** An order the caller may read (ADR-0004); NOT_FOUND otherwise, never FORBIDDEN. */
   getOrder(user: AuthenticatedUser, id: string): Promise<Order>;
 }
+
+/**
+ * The order-level checks of an edit or delete, after the read check (ADR-0004 precedence:
+ * 403 before 409). A Buyer+Approver can read another buyer's submitted order but not
+ * change it; a submitted order has its specific code by state, naming the state and the
+ * action refused (ADR-0001, ADR-0007, amended 2026-11-17).
+ */
+function requireEditableDraft(
+  buyer: AuthenticatedUser,
+  order: Pick<OrderRow, 'ownerId' | 'status'>,
+  action: 'EDIT' | 'DELETE',
+): void {
+  if (order.ownerId !== buyer.userId) {
+    throw new AppError('NOT_ORDER_OWNER', { detail: NOT_ORDER_OWNER_DETAIL });
+  }
+  const { status } = order;
+  if (status === 'DRAFT') return;
+  const orderState = { status, action };
+  if (status === 'PENDING_APPROVAL') {
+    throw new AppError('ORDER_PENDING_APPROVAL', {
+      detail: ORDER_PENDING_APPROVAL_DETAIL,
+      orderState,
+    });
+  }
+  const detail = oneOf(LOCKED_STATUSES, status) ? ORDER_LOCKED_MESSAGES[status] : undefined;
+  throw new AppError(
+    'ORDER_LOCKED',
+    detail === undefined ? { orderState } : { detail, orderState },
+  );
+}
+
+const LOCKED_STATUSES = Object.keys(ORDER_LOCKED_MESSAGES) as LockedOrderStatus[];
 
 /**
  * Who may read an order (ADR-0004): its owner, an Admin, and an Approver once it has left
@@ -230,10 +267,7 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
       runAs(deps.transactions, buyer, ROLE.BUYER, ctx, async (tx) => {
         const locked = await lockOrder(tx, id);
         if (!locked || !canRead(buyer, locked)) throw new AppError('NOT_FOUND');
-        // Not reachable while every order is a draft only its owner reads: slices 4 and 5
-        // answer a readable order someone else owns, or one past DRAFT, with their codes.
-        if (locked.ownerId !== buyer.userId) throw new AppError('FORBIDDEN');
-        if (locked.status !== 'DRAFT') throw new AppError('INVALID_STATE_TRANSITION');
+        requireEditableDraft(buyer, locked, 'EDIT');
         if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
         await lockOrderLines(tx, id);
         const stored = await selectOrder(tx, id);
@@ -323,9 +357,7 @@ export function createOrdersService(deps: OrdersServiceDependencies): OrdersServ
       runAs(deps.transactions, buyer, ROLE.BUYER, ctx, async (tx) => {
         const locked = await lockOrder(tx, id);
         if (!locked || !canRead(buyer, locked)) throw new AppError('NOT_FOUND');
-        // Not reachable while every order is a draft only its owner reads (as for edit).
-        if (locked.ownerId !== buyer.userId) throw new AppError('FORBIDDEN');
-        if (locked.status !== 'DRAFT') throw new AppError('INVALID_STATE_TRANSITION');
+        requireEditableDraft(buyer, locked, 'DELETE');
         if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
         const stored = await selectOrder(tx, id);
         if (!stored) throw new Error(`order ${id} vanished under its lock`);

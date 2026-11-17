@@ -566,7 +566,14 @@ export const OPERATIONS = {
     etag: true,
     request: { params: idParams, body: editOrderBody },
     responses: { 200: order },
-    errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'VENDOR_INACTIVE'],
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'ORDER_PENDING_APPROVAL',
+      'ORDER_LOCKED',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+    ],
   },
 
   // Slice 3, US4: delete a draft, with an optional reason (no body is no reason).
@@ -582,6 +589,12 @@ export const OPERATIONS = {
     ifMatch: 'required',
     request: { params: idParams, body: deleteOrderBody },
     responses: { 204: z.void() },
-    errors: ['NOT_FOUND', 'VERSION_CONFLICT'],
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'ORDER_PENDING_APPROVAL',
+      'ORDER_LOCKED',
+      'VERSION_CONFLICT',
+    ],
   },
 } as const satisfies Record<string, OperationContract>;

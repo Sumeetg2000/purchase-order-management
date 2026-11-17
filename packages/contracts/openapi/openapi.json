@@ -6468,11 +6468,12 @@
             }
           },
           "403": {
-            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN or NOT_ORDER_OWNER.",
             "x-error-codes": [
               "CSRF_REJECTED",
               "NO_ROLE_ASSIGNED",
-              "FORBIDDEN"
+              "FORBIDDEN",
+              "NOT_ORDER_OWNER"
             ],
             "headers": {
               "X-Request-Id": {
@@ -6506,8 +6507,10 @@
             }
           },
           "409": {
-            "description": "Problem document with code VERSION_CONFLICT or VENDOR_INACTIVE.",
+            "description": "Problem document with code ORDER_PENDING_APPROVAL or ORDER_LOCKED or VERSION_CONFLICT or VENDOR_INACTIVE.",
             "x-error-codes": [
+              "ORDER_PENDING_APPROVAL",
+              "ORDER_LOCKED",
               "VERSION_CONFLICT",
               "VENDOR_INACTIVE"
             ],
@@ -6680,11 +6683,12 @@
             }
           },
           "403": {
-            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN.",
+            "description": "Problem document with code CSRF_REJECTED or NO_ROLE_ASSIGNED or FORBIDDEN or NOT_ORDER_OWNER.",
             "x-error-codes": [
               "CSRF_REJECTED",
               "NO_ROLE_ASSIGNED",
-              "FORBIDDEN"
+              "FORBIDDEN",
+              "NOT_ORDER_OWNER"
             ],
             "headers": {
               "X-Request-Id": {
@@ -6718,8 +6722,10 @@
             }
           },
           "409": {
-            "description": "Problem document with code VERSION_CONFLICT.",
+            "description": "Problem document with code ORDER_PENDING_APPROVAL or ORDER_LOCKED or VERSION_CONFLICT.",
             "x-error-codes": [
+              "ORDER_PENDING_APPROVAL",
+              "ORDER_LOCKED",
               "VERSION_CONFLICT"
             ],
             "headers": {
