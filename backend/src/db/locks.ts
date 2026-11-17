@@ -17,6 +17,13 @@ export const ADMIN_LOCK = 7_310_001n;
 export const PURGE_LOCK = 7_310_002n;
 
 /**
+ * The approval policy (slice 4 research R3, ADR-0006): set_approval_policy (migration
+ * 0014, a pinned SQL copy) takes it exclusively, every submit shares it, so a submit and a
+ * policy change never interleave. Held for the transaction.
+ */
+export const APPROVAL_POLICY_LOCK = 7_310_003n;
+
+/**
  * Takes ADMIN_LOCK for the rest of the transaction, waiting at most timeoutMs. A blocked
  * query never returns to Prisma, so its transaction timeout can't end the wait; the
  * transaction-local lock_timeout does, failing with 55P03 (DatabaseUnavailableError), and

@@ -1,5 +1,6 @@
 import type { VendorOrderSnapshot } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
+import { APPROVAL_POLICY_LOCK } from '../db/locks.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 
 // Approval rounds, steps and the policy (specs/005-submit-approve/data-model.md). Routing
@@ -31,10 +32,10 @@ export async function insertRound(
   orderId: string,
   snapshot: VendorOrderSnapshot,
 ): Promise<OpenedRound> {
-  // Shared with every submit, exclusive in set_approval_policy: a policy change in
-  // progress finishes first, so this statement and the round's guard read the same
-  // highest version (research R3, ADR-0006).
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext('approval_policies'))`;
+  // APPROVAL_POLICY_LOCK: shared by every submit, exclusive in set_approval_policy. A
+  // policy change in progress finishes first, so this statement and the round's guard
+  // read the same highest version (research R3, ADR-0006).
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(${APPROVAL_POLICY_LOCK})`;
   const [row] = await tx.$queryRaw<OpenedRound[]>`
     INSERT INTO approval_rounds (order_id, round, policy_version, total, vendor_snapshot,
                                  submitted_by)

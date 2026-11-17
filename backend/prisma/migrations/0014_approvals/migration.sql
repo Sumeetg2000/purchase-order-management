@@ -214,8 +214,10 @@ BEGIN
         DETAIL = format('tier %s: thresholds are > 0, at most 4 decimal places, increasing', i);
     END IF;
   END LOOP;
-  -- One writer at a time, so two concurrent sets can't both read the same version.
-  PERFORM pg_advisory_xact_lock(hashtext('approval_policies'));
+  -- APPROVAL_POLICY_LOCK (backend/src/db/locks.ts, pinned by order-constants.test.ts):
+  -- exclusive here, shared by every submit, so two sets can't both read the same version
+  -- and a submit never routes between a set's reads.
+  PERFORM pg_advisory_xact_lock(7310003);
   SELECT max(version) INTO current_version FROM public.approval_policies;
   SELECT array_agg(threshold ORDER BY tier) INTO current_tiers
     FROM public.approval_policy_tiers WHERE policy_version = current_version;

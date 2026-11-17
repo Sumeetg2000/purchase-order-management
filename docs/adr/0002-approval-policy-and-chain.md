@@ -32,6 +32,9 @@ The company currently has **one Approver**, and it wants one approval step above
   DEFINER` function that refuses unless the transaction's actor is `OPERATOR`. Submit
   builds the chain in SQL, `threshold < total` on `numeric(22,4)` (exact), from the
   highest version, which the submission's round records as a foreign key.
+- **Version 1 comes from migration 0014** (amended 2026-11-17, owner decision): it is
+  seed data, and its record is the migration in git, so it writes no audit entry. Every
+  later `policy:set` is audited as `APPROVAL_POLICY_CHANGED`.
 - **Changing the policy: operator CLI only**, run on the server and never exposed over
   HTTP (same CLI, advisory lock and exit-code rules as the admin commands in ADR-0016):
   - `docker compose exec api npm run admin -- policy:set --tier1 <amount>`
