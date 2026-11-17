@@ -145,6 +145,20 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
         },
       ],
     },
+    // The approval queue: Approvers only (slice 4, ADR-0004 S1).
+    {
+      path: 'approvals',
+      element: <RequireRole operation="listApprovalQueue" />,
+      children: [
+        {
+          index: true,
+          lazy: lazyPage(() =>
+            import('../pages/approvals/ApprovalQueue').then((m) => m.ApprovalQueue),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+      ],
+    },
     ...(includeDemo ? demoRoutes : []),
     {
       path: '*',

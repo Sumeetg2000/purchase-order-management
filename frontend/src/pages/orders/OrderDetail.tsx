@@ -1,4 +1,4 @@
-import { formatInr, toMoney } from '@po/contracts';
+import { formatInr, ORDER_OWNER_CANNOT_ACT_LABEL, toMoney } from '@po/contracts';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
@@ -6,6 +6,8 @@ import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
+import { ApproveDialog } from '../approvals/ApproveDialog';
+import { useRefreshApprovals } from '../approvals/queries';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
 import { ApprovalPanel } from './ApprovalPanel';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
@@ -46,12 +48,15 @@ export function OrderDetail() {
   const states = useQueryStates(query, { loadingLabel: 'Loading the order' });
   const [deleting, setDeleting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const refreshApprovals = useRefreshApprovals();
   const [notice, setNotice] = useState<string>();
   const saved = useOrderSaved();
   const me = useCurrentUser().data;
   const canEdit = useCan('editOrder');
   const canDelete = useCan('deleteOrder');
   const canSubmit = useCan('submitOrder');
+  const canApprove = useCan('approveOrder');
   if (states.view) {
     return (
       <>
@@ -62,6 +67,9 @@ export function OrderDetail() {
   }
   const order = states.data;
   const ownDraft = order.status === 'DRAFT' && order.owner.id === me?.id;
+  const pending = order.status === 'PENDING_APPROVAL';
+  // Never on one's own order (ADR-0004), nor while its owner can't act (ADR-0001).
+  const mayApprove = canApprove && pending && order.owner.id !== me?.id && order.ownerCanAct;
   // A submitted order shows its vendor as submitted (ADR-0005).
   const vendorName = order.vendorSnapshot?.name ?? order.vendor.name;
   return (
@@ -82,6 +90,20 @@ export function OrderDetail() {
           >
             Submit
           </button>
+        )}
+        {mayApprove && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setApproving(true);
+            }}
+          >
+            Approve
+          </button>
+        )}
+        {pending && !order.ownerCanAct && (
+          <span className={styles.badge}>{ORDER_OWNER_CANNOT_ACT_LABEL}</span>
         )}
         {canDelete && ownDraft && (
           <button
@@ -147,8 +169,28 @@ export function OrderDetail() {
           }}
           onSubmitted={(routed) => {
             saved(routed);
+            void refreshApprovals();
             setSubmitting(false);
             setNotice(submittedNotice(routed));
+          }}
+        />
+      )}
+      {approving && (
+        <ApproveDialog
+          order={order}
+          onClose={() => {
+            setApproving(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onApproved={(decided) => {
+            saved(decided);
+            void refreshApprovals();
+            setApproving(false);
+            setNotice(
+              decided.status === 'APPROVED' ? 'Approved.' : 'Step approved. The next step waits.',
+            );
           }}
         />
       )}

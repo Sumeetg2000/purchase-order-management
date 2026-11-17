@@ -309,7 +309,7 @@ orders; the owner and the Approver are re-checked under lock.
   APPROVER, `ifMatch`, role details) and `listApprovalQueue` (`GET /approvals`); OpenAPI,
   inventory, matrix pins; T027–T030 green — `backend/src/approvals/routes.ts`,
   `packages/contracts/src/operations.ts` — contracts/api.md.
-- [ ] T034 [US3] Web: `/approvals` queue screen (columns, filters in the URL, page
+- [X] T034 [US3] Web: `/approvals` queue screen (columns, filters in the URL, page
   numbers, empty state, marker), `ApproveDialog` (PO number, buyer, vendor, total; "The
   buyer can then receive goods; the order can't be edited"), marker "Owner can no longer
   act on this order" replacing Approve with Reject on detail and dialog, nav "Approvals"
