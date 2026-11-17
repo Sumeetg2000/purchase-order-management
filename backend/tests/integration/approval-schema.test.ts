@@ -132,7 +132,7 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
     }
   });
 
-  it('[FR-APR-05] the seeded policy is version 1 with exactly one tier at 100000.0000', async () => {
+  it('[FR-APR-05] the seeded policy is version 1 with exactly one tier at 100000.0000, and no audit entry', async () => {
     const { app } = await orderFixture();
     const { rows: tiers } = await app.query<{
       policy_version: number;
@@ -143,26 +143,12 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
         ORDER BY policy_version, tier`,
     );
     expect(tiers).toEqual([{ policy_version: 1, tier: 1, threshold: '100000.0000' }]);
-    const { rows: entries } = await app.query<{
-      actor_type: string;
-      entity_type: string;
-      entity_id: string;
-      details: unknown;
-    }>(
-      `SELECT actor_type, entity_type, entity_id, details FROM audit_entries
-        WHERE action = 'APPROVAL_POLICY_CHANGED'`,
+    // The seed is migration data, like the transition rows: no actor changed a policy, so
+    // no entry is written (research R1). Every later policy:set is audited.
+    const { rows: entries } = await app.query(
+      `SELECT 1 FROM audit_entries WHERE action = 'APPROVAL_POLICY_CHANGED'`,
     );
-    expect(entries).toEqual([
-      {
-        actor_type: 'SYSTEM',
-        entity_type: 'approval_policy',
-        entity_id: '1',
-        details: {
-          before: null,
-          after: { version: 1, tiers: [{ tier: 1, threshold: '100000.0000' }] },
-        },
-      },
-    ]);
+    expect(entries).toEqual([]);
   });
 
   it('[FR-SM-01] the slice 4 transitions are exactly T4, T5, T7, T8 and T9', async () => {

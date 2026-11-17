@@ -159,21 +159,15 @@ GRANT UPDATE (state, decided_by, decided_at, decided_version, reason, voided_at)
 
 GRANT UPDATE (status, current_round, submitted_at, approved_at) ON TABLE purchase_orders TO po_app;
 
--- The seeded policy, APPROVAL_POLICY_SEED_TIERS (ADR-0002), audited as SYSTEM in this
--- migration's transaction.
+-- The seeded policy, APPROVAL_POLICY_SEED_TIERS (ADR-0002). Migration data, like the
+-- transition rows: no actor changes a policy here, so no audit entry is written (research
+-- R1); every later policy:set is audited. The tables require an actor context.
 DO $$
 BEGIN
   PERFORM set_config('app.actor_txid', txid_current()::text, true);
   PERFORM set_config('app.actor_type', 'SYSTEM', true);
   INSERT INTO approval_policies (version) VALUES (1);
   INSERT INTO approval_policy_tiers (policy_version, tier, threshold) VALUES (1, 1, 100000.0000);
-  INSERT INTO audit_entries (action, entity_type, entity_id, details)
-  VALUES ('APPROVAL_POLICY_CHANGED', 'approval_policy', '1',
-          jsonb_build_object(
-            'before', NULL,
-            'after', jsonb_build_object(
-              'version', 1,
-              'tiers', jsonb_build_array(jsonb_build_object('tier', 1, 'threshold', '100000.0000')))));
   PERFORM set_config('app.actor_type', '', true);
   PERFORM set_config('app.actor_txid', '', true);
 END

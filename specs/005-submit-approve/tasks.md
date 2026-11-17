@@ -64,7 +64,7 @@ draft PR) and a short summary stop.
   - `approval_policies (version integer PK ≥ 1, effective_at, created_at)`,
     `approval_policy_tiers (policy_version, tier smallint ≥ 1, threshold numeric(22,4) > 0,
     PK (policy_version, tier))`; `po_app` `SELECT` only; seed version 1 with exactly one tier
-    `100000.0000` and one `APPROVAL_POLICY_CHANGED` entry, actor `SYSTEM`
+    `100000.0000` and no audit entry (migration data, research R1)
   - `approval_rounds`: PK `(order_id, round)`, FK to `purchase_orders ON DELETE CASCADE`;
     `vendor_snapshot` "object with `id`, `name`, `contactName`, `contactEmail`,
     `contactPhone`, `paymentTerms`"; `outcome IN ('AUTO_APPROVED','APPROVED','REJECTED',
@@ -88,7 +88,7 @@ draft PR) and a short summary stop.
   — `backend/tests/integration/migrations.test.ts`, `approval-schema.test.ts` (new) —
   data-model.md, R1, R2, R4, R7, FR-SM-01.
 - [X] T003 Migration `0014_approvals` part 1: the tables, columns, checks, grants, indexes,
-  transition rows, and the policy seed with its audit entry (migration actor `SYSTEM`);
+  transition rows, and the policy seed (no audit entry, research R1);
   Prisma models (derived and submission columns read-only to the client) —
   `backend/prisma/migrations/0014_approvals/migration.sql`, `backend/prisma/schema.prisma`
   — R1–R4, R7.

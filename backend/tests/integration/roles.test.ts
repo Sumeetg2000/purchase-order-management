@@ -14,6 +14,11 @@ const EXPECTED_RELATION_GRANTS = [
   'access_requests po_app INSERT',
   'access_requests po_app SELECT',
   'access_requests po_app UPDATE',
+  // Approvals (0014): policies read only; rounds and steps written per column, below.
+  'approval_policies po_app SELECT',
+  'approval_policy_tiers po_app SELECT',
+  'approval_rounds po_app SELECT',
+  'approval_steps po_app SELECT',
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
   'audit_entries po_maintenance SELECT',
@@ -185,8 +190,8 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'sessions.revoke_reason po_app UPDATE',
       'sessions.revoked_at po_app UPDATE',
       ...[...VENDOR_EDITABLE_COLUMNS, 'id'].map((col) => `vendors.${col} po_app INSERT`),
-      // Orders (0013): never a derived column (total, open_line_count, line_total), status
-      // (slice 4), received_quantity (slice 6), the owner or the timestamps.
+      // Orders (0013): never a derived column (total, open_line_count, line_total),
+      // received_quantity (slice 6), the owner or the timestamps.
       'idempotency_keys.response po_app UPDATE',
       'idempotency_keys.status po_app UPDATE',
       ...['description', 'id', 'order_id', 'position', 'quantity', 'unit_price'].map(
@@ -197,7 +202,29 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       ),
       'po_number_counters.last_value po_app UPDATE',
       ...['id', 'owner_id', 'vendor_id'].map((col) => `purchase_orders.${col} po_app INSERT`),
-      ...['po_number', 'vendor_id', 'version'].map((col) => `purchase_orders.${col} po_app UPDATE`),
+      // Slice 4 (0014): status and the submission columns, written with a transition only.
+      ...[
+        'approved_at',
+        'current_round',
+        'po_number',
+        'status',
+        'submitted_at',
+        'vendor_id',
+        'version',
+      ].map((col) => `purchase_orders.${col} po_app UPDATE`),
+      // Approvals (0014): never a round's outcome at insert, nor a step's state or decision.
+      ...['order_id', 'policy_version', 'round', 'submitted_by', 'total', 'vendor_snapshot'].map(
+        (col) => `approval_rounds.${col} po_app INSERT`,
+      ),
+      ...['closed_at', 'outcome', 'withdraw_reason'].map(
+        (col) => `approval_rounds.${col} po_app UPDATE`,
+      ),
+      ...['order_id', 'round', 'step', 'threshold', 'tier'].map(
+        (col) => `approval_steps.${col} po_app INSERT`,
+      ),
+      ...['decided_at', 'decided_by', 'decided_version', 'reason', 'state', 'voided_at'].map(
+        (col) => `approval_steps.${col} po_app UPDATE`,
+      ),
       ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
         (col) => `vendors.${col} po_app UPDATE`,
       ),
@@ -301,6 +328,10 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
       'access_requests access_requests_set_updated_at O',
+      'approval_policies require_actor_context O',
+      'approval_policy_tiers require_actor_context O',
+      'approval_rounds require_actor_context O',
+      'approval_steps require_actor_context O',
       'audit_entries audit_fill_actor O',
       'audit_entries audit_immutable O',
       'audit_entries audit_no_truncate O',

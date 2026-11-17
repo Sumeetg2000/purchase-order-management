@@ -39,8 +39,10 @@ Every number and list below is a named constant in `packages/contracts/src/order
   `withTransaction` sets it), so no HTTP path can write the policy, and the route-table
   test asserts no route does.
 - Migration `0014_approvals` seeds version 1 with one tier, `100000.0000`
-  (`APPROVAL_POLICY_SEED_TIERS`), audited as `APPROVAL_POLICY_CHANGED` with actor
-  `SYSTEM` (the migration's context, as slice 0's bootstrap), before → `null` → after.
+  (`APPROVAL_POLICY_SEED_TIERS`). It is migration data, like the transition rows, so it
+  writes no audit entry (implementation, 2026-11-17: an entry in every database broke
+  every test that reads the audit log, and no actor changed a policy); its version row
+  records when it took effect, and every later `policy:set` is audited.
 - **What the `OPERATOR` check protects against** (analysis, 2026-11-17): every API
   code path, since only the CLI's `withTransaction` sets `OPERATOR`. It is not a defence
   against a compromised `po_app` role: anyone running raw SQL as `po_app` can set the

@@ -22,7 +22,7 @@ Decisions are in [research.md](research.md); numbers and lists are constants in
 | `threshold` | `numeric(22,4)` | > 0; strictly increasing with `tier` (checked by `set_approval_policy`) |
 
 Both tables: `po_app` `SELECT` only; `BEFORE UPDATE OR DELETE` → `PO017` for every role.
-Seed: version 1, tier 1 = `100000.0000`, audited `APPROVAL_POLICY_CHANGED` (`SYSTEM`).
+Seed: version 1, tier 1 = `100000.0000`; migration data, so no audit entry (research R1).
 
 ## Table `approval_rounds` (R2, R4): one row per submission
 
@@ -125,7 +125,7 @@ by the after-every-suite check too).
 | `APPROVAL_STEP_APPROVED` | Approver (`APPROVER`) | round, step, tier, version approved |
 | `APPROVAL_STEP_REJECTED` | Approver (`APPROVER`) | round, step, tier, reason |
 | `PO_WITHDRAWN` | owner (`BUYER`) | round, reason, voided steps (step, tier, earlier decision if any) |
-| `APPROVAL_POLICY_CHANGED` | `OPERATOR` (`SYSTEM` for the seed) | version and tiers before → after; `osUser`, `host` |
+| `APPROVAL_POLICY_CHANGED` | `OPERATOR` | version and tiers before → after; `osUser`, `host` |
 
 `ORDER_AUDIT_ACTIONS` gains the five order events.
 
