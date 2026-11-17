@@ -8706,7 +8706,7 @@
           },
           "action": {
             "type": "string",
-            "enum": [
+            "x-extensible-enum": [
               "PO_CREATED",
               "PO_EDITED",
               "PO_DRAFT_DELETED",

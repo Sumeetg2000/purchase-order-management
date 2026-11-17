@@ -15,6 +15,7 @@ import {
 } from '../orders.js';
 import { VENDOR_STATUSES } from '../vendors.js';
 import { approvalRound, vendorOrderSnapshot } from './approvals.js';
+import { extensibleEnum } from './extensible-enum.js';
 import { pageQueryShape } from './pagination.js';
 import { readOnlyGuarded } from './read-only.js';
 import { plainText, poNumberPrefix } from './text.js';
@@ -136,7 +137,8 @@ export const orderTimelineItem = z
   .strictObject({
     /** The audit entry's id. */
     id: z.string(),
-    action: z.enum(ORDER_AUDIT_ACTIONS),
+    /** Grows as slices add order events: published as x-extensible-enum (ADR-0008). */
+    action: z.enum(ORDER_AUDIT_ACTIONS).meta(extensibleEnum),
     occurredAt: z.iso.datetime(),
     actor: z.strictObject({
       type: z.enum(AUDIT_ACTOR_TYPES),

@@ -9,19 +9,7 @@ import {
 } from '../errors.js';
 import { ORDER_ACTIONS, ORDER_STATUSES } from '../orders.js';
 import { PUBLIC_REVOKE_REASONS } from '../sessions.js';
-
-/**
- * Publishes a Zod enum as `x-extensible-enum` instead of `enum`. Error and field codes
- * grow with every slice, and clients must handle a code they don't know (the web app
- * shows the internal-error message), so a new code is not a breaking change (ADR-0008,
- * amended 2026-11-03). Validation in code still accepts only the listed values.
- */
-const extensibleEnum = {
-  override: ({ jsonSchema }: { jsonSchema: Record<string, unknown> }) => {
-    jsonSchema['x-extensible-enum'] = jsonSchema['enum'];
-    delete jsonSchema['enum'];
-  },
-};
+import { extensibleEnum } from './extensible-enum.js';
 
 export const errorCodeSchema = z.enum(ERROR_CODES as [string, ...string[]]).meta({
   id: 'ErrorCode',
