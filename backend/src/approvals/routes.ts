@@ -1,4 +1,9 @@
-import { etagFor, OPERATIONS, type ApprovalQueueQuery } from '@po/contracts';
+import {
+  etagFor,
+  OPERATIONS,
+  type ApprovalQueueQuery,
+  type DecisionReasonBody,
+} from '@po/contracts';
 import {
   defineRoute,
   idParamOf,
@@ -28,6 +33,30 @@ export function approvalRoutes(approvals: ApprovalsService): RouteDefinition[] {
         const order = await approvals.approveOrder(
           authOf(res),
           { id: idParamOf(req), version: ifMatchVersionOf(res) },
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.rejectOrder,
+      handler: async (req, res) => {
+        const { reason } = req.body as DecisionReasonBody;
+        const order = await approvals.rejectOrder(
+          authOf(res),
+          { id: idParamOf(req), version: ifMatchVersionOf(res), reason },
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
+      ...OPERATIONS.withdrawOrder,
+      handler: async (req, res) => {
+        const { reason } = req.body as DecisionReasonBody;
+        const order = await approvals.withdrawOrder(
+          authOf(res),
+          { id: idParamOf(req), version: ifMatchVersionOf(res), reason },
           requestContext(req, res),
         );
         res.set('ETag', etagFor(order.version)).json(order);

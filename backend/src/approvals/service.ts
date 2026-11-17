@@ -38,6 +38,11 @@ import {
   listApprovalQueue,
   lockSteps,
   lockUsers,
+  rejectRoundAndOrder,
+  rejectStep,
+  selectStepRecords,
+  voidSteps,
+  withdrawRoundAndOrder,
   type LockedUser,
   insertSteps,
   lowestThreshold,
@@ -62,6 +67,18 @@ export interface ApprovalsService {
   approveOrder(
     approver: AuthenticatedUser,
     target: { id: string; version: number },
+    ctx: RequestContext,
+  ): Promise<Order>;
+  /** Reject the current step of a pending order with a reason: T8, final. */
+  rejectOrder(
+    approver: AuthenticatedUser,
+    target: { id: string; version: number; reason: string },
+    ctx: RequestContext,
+  ): Promise<Order>;
+  /** The owner takes a pending order back to draft with a reason: T9. */
+  withdrawOrder(
+    buyer: AuthenticatedUser,
+    target: { id: string; version: number; reason: string },
     ctx: RequestContext,
   ): Promise<Order>;
   /** Pending orders the caller may approve, never their own (research R7). */
@@ -92,6 +109,47 @@ function requireStillApprover(approver: LockedUser | undefined): void {
 /** The owner can still act on their order: active and holding BUYER (ADR-0001). */
 function ownerCanAct(owner: LockedUser | undefined): boolean {
   return owner?.status === 'ACTIVE' && owner.roles.includes(ROLE.BUYER);
+}
+
+/**
+ * Approve's and reject's locks and shared checks (research R6, R8): the order, its current
+ * round's steps, the vendor, then the owner's and the Approver's users rows in id order;
+ * then the Approver re-checked, 404, SELF_APPROVAL, the state and the version.
+ */
+async function lockForDecision(
+  tx: AuditedTransaction,
+  approver: AuthenticatedUser,
+  { id, version }: { id: string; version: number },
+  action: 'APPROVE' | 'REJECT',
+) {
+  const locked = await lockOrder(tx, id);
+  const steps =
+    locked?.status === 'PENDING_APPROVAL' && locked.currentRound !== null
+      ? await lockSteps(tx, id, locked.currentRound)
+      : [];
+  const vendorStatus = locked ? await lockVendorStatus(tx, locked.vendorId) : null;
+  const users = await lockUsers(tx, locked ? [locked.ownerId, approver.userId] : [approver.userId]);
+
+  requireStillApprover(users.get(approver.userId));
+  if (!locked || !canRead(approver, locked)) throw new AppError('NOT_FOUND');
+  if (locked.ownerId === approver.userId) {
+    throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAIL });
+  }
+  const open = steps.find((step) => step.state === 'OPEN');
+  if (locked.status !== 'PENDING_APPROVAL' || locked.currentRound === null || !open) {
+    throw new AppError('INVALID_STATE_TRANSITION', {
+      orderState: { status: locked.status, action },
+    });
+  }
+  if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+  return {
+    locked,
+    open,
+    steps,
+    round: locked.currentRound,
+    vendorStatus,
+    owner: users.get(locked.ownerId),
+  };
 }
 
 async function readOrder(tx: AuditedTransaction, id: string): Promise<Order> {
@@ -174,35 +232,16 @@ export function createApprovalsService(deps: ApprovalsServiceDependencies): Appr
       // vendor, then the owner's and the Approver's users rows in id order. Then the checks,
       // in ADR-0004's precedence (research R8).
       runAs(deps.transactions, approver, ROLE.APPROVER, ctx, async (tx) => {
-        const locked = await lockOrder(tx, id);
-        const steps =
-          locked?.status === 'PENDING_APPROVAL' && locked.currentRound !== null
-            ? await lockSteps(tx, id, locked.currentRound)
-            : [];
-        const vendorStatus = locked ? await lockVendorStatus(tx, locked.vendorId) : null;
-        const users = await lockUsers(
+        const { open, steps, round, vendorStatus, owner } = await lockForDecision(
           tx,
-          locked ? [locked.ownerId, approver.userId] : [approver.userId],
+          approver,
+          { id, version },
+          'APPROVE',
         );
-
-        requireStillApprover(users.get(approver.userId));
-        if (!locked || !canRead(approver, locked)) throw new AppError('NOT_FOUND');
-        if (locked.ownerId === approver.userId) {
-          throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAIL });
-        }
-        const open = steps.find((step) => step.state === 'OPEN');
-        if (locked.status !== 'PENDING_APPROVAL' || locked.currentRound === null || !open) {
-          throw new AppError('INVALID_STATE_TRANSITION', {
-            orderState: { status: locked.status, action: 'APPROVE' },
-          });
-        }
-        if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
         if (vendorStatus !== 'ACTIVE') throw new AppError('VENDOR_INACTIVE');
-        if (!ownerCanAct(users.get(locked.ownerId))) {
+        if (!ownerCanAct(owner)) {
           throw new AppError('ORDER_OWNER_INACTIVE', { detail: ORDER_OWNER_INACTIVE_DETAIL });
         }
-
-        const round = locked.currentRound;
         await approveStep(tx, {
           orderId: id,
           round,
@@ -221,6 +260,81 @@ export function createApprovalsService(deps: ApprovalsServiceDependencies): Appr
           orderId: id,
           poNumber: order.poNumber,
           details: { round, step: open.step, tier: open.tier, versionApproved: version },
+        });
+        return order;
+      }),
+
+    rejectOrder: (approver, { id, version, reason }, ctx) =>
+      // As approve's locks and checks; reject is allowed with the vendor inactive or the
+      // owner unable to act (ADR-0001 T8): it is how such an order is closed.
+      runAs(deps.transactions, approver, ROLE.APPROVER, ctx, async (tx) => {
+        const { open, round } = await lockForDecision(tx, approver, { id, version }, 'REJECT');
+        await rejectStep(tx, {
+          orderId: id,
+          round,
+          step: open.step,
+          approverId: approver.userId,
+          version,
+          reason,
+        });
+        await voidSteps(tx, id, round, ['OPEN']);
+        await rejectRoundAndOrder(tx, id, round);
+        const order = await readOrder(tx, id);
+        await writeAudit(tx, {
+          action: 'APPROVAL_STEP_REJECTED',
+          entityType: 'order',
+          entityId: id,
+          orderId: id,
+          poNumber: order.poNumber,
+          details: { round, step: open.step, tier: open.tier, reason },
+        });
+        return order;
+      }),
+
+    withdrawOrder: (buyer, { id, version, reason }, ctx) =>
+      // Locks the order, then its current round's steps (research R6); the owner only.
+      runAs(deps.transactions, buyer, ROLE.BUYER, ctx, async (tx) => {
+        const locked = await lockOrder(tx, id);
+        if (!locked || !canRead(buyer, locked)) throw new AppError('NOT_FOUND');
+        if (locked.status === 'PENDING_APPROVAL' && locked.currentRound !== null) {
+          await lockSteps(tx, id, locked.currentRound);
+        }
+        if (locked.ownerId !== buyer.userId) {
+          throw new AppError('NOT_ORDER_OWNER', { detail: NOT_ORDER_OWNER_DETAIL });
+        }
+        if (locked.status !== 'PENDING_APPROVAL' || locked.currentRound === null) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            orderState: { status: locked.status, action: 'WITHDRAW' },
+          });
+        }
+        if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+        const round = locked.currentRound;
+        const voided = await selectStepRecords(tx, id, round);
+        await voidSteps(tx, id, round, ['OPEN', 'APPROVED']);
+        await withdrawRoundAndOrder(tx, id, round, reason);
+        const order = await readOrder(tx, id);
+        await writeAudit(tx, {
+          action: 'PO_WITHDRAWN',
+          entityType: 'order',
+          entityId: id,
+          orderId: id,
+          poNumber: order.poNumber,
+          details: {
+            round,
+            reason,
+            voidedSteps: voided.map((step) => ({
+              step: step.step,
+              tier: step.tier,
+              earlierDecision:
+                step.decision === null
+                  ? null
+                  : {
+                      by: { id: step.decision.id, name: step.decision.name },
+                      at: step.decision.at.toISOString(),
+                      version: step.decision.version,
+                    },
+            })),
+          },
         });
         return order;
       }),

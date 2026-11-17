@@ -340,19 +340,19 @@ orders; the owner and the Approver are re-checked under lock.
 **Independent test**: reject a pending order with a reason → `REJECTED`, gone from the
 queue, edit → `ORDER_LOCKED` "rejected and is closed".
 
-- [ ] T037 [P] [US4] Reject API and audit tests, seen failing: reason required (missing,
-  `""`, whitespace → 400 `REQUIRED`; 501 → `TOO_LONG`); → `REJECTED` (T8), current step
+- [X] T037 [P] [US4] Reject API and audit tests, seen failing: reason required (missing →
+  400 `REQUIRED`; `""` or whitespace → `TOO_SHORT`, after trimming; 501 → `TOO_LONG`); → `REJECTED` (T8), current step
   `REJECTED` with reason, later steps `VOIDED`, round `REJECTED`; inactive vendor allowed;
   two-step chain, first approved, second rejected keeps the first's record; from
   `REJECTED`, submit/approve/reject/withdraw → 409 `INVALID_STATE_TRANSITION`; owner →
   403 `SELF_APPROVAL`; Approver re-check under lock as approve; one
   `APPROVAL_STEP_REJECTED` (round, step, tier, reason) — `backend/tests/integration/approvals-reject.test.ts`
   — US4 scenarios 1–5, FR-011, FR-SM-03.
-- [ ] T038 [P] [US4] Reject races, seen failing: approve vs reject on one step (one
+- [X] T038 [P] [US4] Reject races, seen failing: approve vs reject on one step (one
   decision; status matches); reject vs the acting Approver's deactivation (rejected
   before, or 401 after) — `backend/tests/concurrency/approvals.test.ts` — R6 races 1, 5a,
   SC-005.
-- [ ] T039 [US4] Service, repository, route `rejectOrder` (`POST /orders/:id/reject`,
+- [X] T039 [US4] Service, repository, route `rejectOrder` (`POST /orders/:id/reject`,
   APPROVER, `ifMatch`, `decisionReasonBody`, role details): locks order → steps → both
   `users` rows; checks in R8's order; OpenAPI, inventory, matrix pins; T037 green —
   `backend/src/approvals/` — R6, R8.
@@ -371,7 +371,7 @@ is recomputed.
 **Independent test**: ₹1,50,000 submitted → withdraw → edit to ₹90,000 → submit →
 auto-approved; round 1's step `VOIDED`; timeline in order.
 
-- [ ] T041 [P] [US5] Withdraw API and audit tests, seen failing: reason required (as
+- [X] T041 [P] [US5] Withdraw API and audit tests, seen failing: reason required (as
   reject); → `DRAFT` (T9), every step of the round `VOIDED` with any earlier approval kept,
   round `WITHDRAWN` with the reason, `submitted_at` null; editable and deletable again;
   shows the live vendor and the withdrawn round; resubmit opens round 2 under the current
@@ -379,11 +379,11 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
   403 `NOT_ORDER_OWNER`; Approver after withdraw → 404 on the order and its timeline (S7);
   one `PO_WITHDRAWN` (round, reason, voided steps) — `backend/tests/integration/approvals-withdraw.test.ts`
   — US5 scenarios 1–3, FR-012, FR-APR-02, FR-SM-03.
-- [ ] T042 [P] [US5] Withdraw races, seen failing: approve vs withdraw (`APPROVED` with no
+- [X] T042 [P] [US5] Withdraw races, seen failing: approve vs withdraw (`APPROVED` with no
   voided step, or `DRAFT` with every step `VOIDED` and no approval); withdraw vs reject
   (`DRAFT` or `REJECTED`) — `backend/tests/concurrency/approvals.test.ts` — R6 races 2, 8,
   US5 scenario 4, SC-005.
-- [ ] T043 [US5] Service, repository, route `withdrawOrder` (`POST /orders/:id/withdraw`,
+- [X] T043 [US5] Service, repository, route `withdrawOrder` (`POST /orders/:id/withdraw`,
   BUYER, `ifMatch`, `decisionReasonBody`, role details): locks order → steps; OpenAPI,
   inventory, matrix pins; T041 green — `backend/src/approvals/` — R6, R8.
 - [ ] T044 [US5] Web `WithdrawDialog` (required reason; "It returns to Draft, and approval

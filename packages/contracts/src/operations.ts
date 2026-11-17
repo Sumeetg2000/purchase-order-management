@@ -40,7 +40,12 @@ import {
   orderListQuery,
   orderTimelineItem,
 } from './schemas/orders.js';
-import { approvalPolicy, approvalQueueItem, approvalQueueQuery } from './schemas/approvals.js';
+import {
+  approvalPolicy,
+  approvalQueueItem,
+  approvalQueueQuery,
+  decisionReasonBody,
+} from './schemas/approvals.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -671,5 +676,43 @@ export const OPERATIONS = {
     request: { query: approvalQueueQuery },
     responses: { 200: pageOf(approvalQueueItem).meta({ id: 'PageOfApprovalQueueItem' }) },
     errors: [],
+  },
+
+  // Slice 4, US4 and US5: reject the current step; withdraw a pending order.
+  rejectOrder: {
+    method: 'post',
+    path: '/orders/:id/reject',
+    operationId: 'rejectOrder',
+    summary:
+      "Reject a pending order you don't own, with a reason and its current version; rejection is final.",
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    forbiddenDetail: ORDER_DECISION_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: decisionReasonBody },
+    responses: { 200: order },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'SELF_APPROVAL',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+    ],
+  },
+  withdrawOrder: {
+    method: 'post',
+    path: '/orders/:id/withdraw',
+    operationId: 'withdrawOrder',
+    summary:
+      'Take your pending order back to draft, with a reason and its current version; approval starts again when you resubmit.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: decisionReasonBody },
+    responses: { 200: order },
+    errors: ['NOT_FOUND', 'NOT_ORDER_OWNER', 'INVALID_STATE_TRANSITION', 'VERSION_CONFLICT'],
   },
 } as const satisfies Record<string, OperationContract>;

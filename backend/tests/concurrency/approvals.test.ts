@@ -309,7 +309,9 @@ describe('[NFR-CON-01] decisions and withdrawals racing each other', () => {
         h.withdrawOrder(id, 2, h.jar, reason),
         h.rejectOrder(id, 2, priya.jar, reason),
       ]);
-      expect([withdraw.status, reject.status].sort()).toEqual([200, 409]);
+      // A withdraw that wins makes the order a draft, unreadable to the Approver: 404 (S7).
+      if (withdraw.status === 200) expect(reject.status).toBe(404);
+      else expect([withdraw.status, reject.status]).toEqual([409, 200]);
       const order = (await h.getOrder(id)).body as Order;
       expect(order.status).toBe(withdraw.status === 200 ? 'DRAFT' : 'REJECTED');
     }

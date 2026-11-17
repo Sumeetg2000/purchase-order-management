@@ -300,3 +300,104 @@ export async function listApprovalQueue(
   );
   return row ?? { total: 0, items: [] };
 }
+
+/** Rejects one step as the acting user, with the reason, bound to the version they saw. */
+export async function rejectStep(
+  tx: AuditedTransaction,
+  target: {
+    orderId: string;
+    round: number;
+    step: number;
+    approverId: string;
+    version: number;
+    reason: string;
+  },
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_steps
+       SET state = 'REJECTED', decided_by = ${target.approverId}::uuid, decided_at = now(),
+           decided_version = ${target.version}, reason = ${target.reason}
+     WHERE order_id = ${target.orderId}::uuid AND round = ${target.round}
+       AND step = ${target.step}`;
+}
+
+/**
+ * Voids the round's steps in `states` (ADR-0001): a reject voids the steps still open after
+ * it; a withdraw voids every step, an approved one keeping its decision.
+ */
+export async function voidSteps(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+  states: readonly ('OPEN' | 'APPROVED')[],
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_steps SET state = 'VOIDED', voided_at = now()
+     WHERE order_id = ${orderId}::uuid AND round = ${round} AND state = ANY(${[...states]}::text[])`;
+}
+
+/** T8: the round closes REJECTED and the order is rejected, final. */
+export async function rejectRoundAndOrder(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_rounds SET outcome = 'REJECTED', closed_at = now()
+     WHERE order_id = ${orderId}::uuid AND round = ${round}`;
+  await tx.$executeRaw`
+    UPDATE purchase_orders SET status = 'REJECTED', version = version + 1
+     WHERE id = ${orderId}::uuid`;
+}
+
+/** T9: the round closes WITHDRAWN with the owner's reason, and the order is a draft again. */
+export async function withdrawRoundAndOrder(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+  reason: string,
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE approval_rounds SET outcome = 'WITHDRAWN', closed_at = now(), withdraw_reason = ${reason}
+     WHERE order_id = ${orderId}::uuid AND round = ${round}`;
+  await tx.$executeRaw`
+    UPDATE purchase_orders SET status = 'DRAFT', submitted_at = NULL, version = version + 1
+     WHERE id = ${orderId}::uuid`;
+}
+
+/** The round's steps with any decision, for PO_WITHDRAWN's voided steps. */
+export interface StepRecord {
+  step: number;
+  tier: number;
+  decision: { id: string; name: string; at: Date; version: number } | null;
+}
+
+export async function selectStepRecords(
+  tx: AuditedTransaction,
+  orderId: string,
+  round: number,
+): Promise<StepRecord[]> {
+  const rows = await tx.$queryRaw<
+    {
+      step: number;
+      tier: number;
+      id: string | null;
+      name: string | null;
+      at: Date | null;
+      version: number | null;
+    }[]
+  >`
+    SELECT s.step::int AS step, s.tier::int AS tier, s.decided_by::text AS id, u.name,
+           s.decided_at AS at, s.decided_version AS version
+      FROM approval_steps s LEFT JOIN users u ON u.id = s.decided_by
+     WHERE s.order_id = ${orderId}::uuid AND s.round = ${round}
+     ORDER BY s.step`;
+  return rows.map((row) => ({
+    step: row.step,
+    tier: row.tier,
+    decision:
+      row.id !== null && row.name !== null && row.at !== null && row.version !== null
+        ? { id: row.id, name: row.name, at: row.at, version: row.version }
+        : null,
+  }));
+}
