@@ -42,11 +42,11 @@ describe('[NFR-FE-09] Reload order when the order behind a dialog changed', () =
           [`POST /orders/${ORDER_ID}/${dialog.action}`]: () => problem(status, code),
         });
         const { user } = renderApp(`/orders/${ORDER_ID}`);
-        await user.click(await screen.findByRole('button', { name: dialog.name, exact: true }));
+        await user.click(await screen.findByRole('button', { name: dialog.name }));
         const box = await screen.findByRole('alertdialog');
         const reason = within(box).queryByLabelText('Reason');
         if (reason) await user.type(reason, 'Not needed any more');
-        await user.click(within(box).getByRole('button', { name: dialog.name, exact: true }));
+        await user.click(within(box).getByRole('button', { name: dialog.name }));
         const reload = await within(box).findByRole('button', { name: 'Reload order' });
         const reads = () =>
           seen.filter((r) => r.method === 'GET' && new URL(r.url).pathname.endsWith(ORDER_ID))

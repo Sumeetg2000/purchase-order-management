@@ -212,3 +212,10 @@
 .notice {
   margin: var(--space-2, 0.5rem) 0;
 }
+
+/* The vendor as submitted: name, contact and terms, one per line. */
+.snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}

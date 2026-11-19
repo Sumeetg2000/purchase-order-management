@@ -48,3 +48,36 @@ export function reloadAction(
 /** Only a version conflict: the dialog's data changed under the user. */
 export const isVersionConflict = (code: string): boolean =>
   code === ('VERSION_CONFLICT' satisfies ErrorCode);
+
+/**
+ * Failures meaning the order behind a dialog has changed: its version moved, another action
+ * moved its state first (an approve, reject or withdraw), or it is no longer readable (a
+ * withdrawn order, for an Approver).
+ */
+const ORDER_STALE_CODES = [
+  'VERSION_CONFLICT',
+  'INVALID_STATE_TRANSITION',
+  'NOT_FOUND',
+] as const satisfies readonly ErrorCode[];
+
+export const isOrderStale = (code: string): boolean =>
+  (ORDER_STALE_CODES as readonly string[]).includes(code);
+
+/** An order dialog's "Reload order": rereads the order and closes the dialog. */
+export function reloadOrderAction(
+  error: ApiFailure | undefined,
+  onReload: () => void,
+  onClose: () => void,
+): readonly { label: string; onPress: () => void }[] {
+  return error && isOrderStale(error.problem.code)
+    ? [
+        {
+          label: 'Reload order',
+          onPress: () => {
+            onReload();
+            onClose();
+          },
+        },
+      ]
+    : [];
+}

@@ -1,7 +1,7 @@
 import { DECISION_REASON_MAX } from '@po/contracts';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { REASON_REQUIRED_MESSAGE } from '../../errors/messages';
-import { isVersionConflict, useDialogAction } from '../../hooks/useDialogAction';
+import { reloadOrderAction, useDialogAction } from '../../hooks/useDialogAction';
 import { withdrawOrder, type Order } from './queries';
 
 export interface WithdrawDialogProps {
@@ -34,19 +34,7 @@ export function WithdrawDialog({ order, onClose, onReload, onWithdrawn }: Withdr
       onClose={onClose}
       error={action.error}
       errorLabels={{ 'body.reason': 'Reason' }}
-      errorActions={
-        action.error && isVersionConflict(action.error.problem.code)
-          ? [
-              {
-                label: 'Reload order',
-                onPress: () => {
-                  onReload();
-                  onClose();
-                },
-              },
-            ]
-          : []
-      }
+      errorActions={reloadOrderAction(action.error, onReload, onClose)}
     >
       <p>It returns to Draft, and approval starts again when you resubmit.</p>
     </ConfirmDialog>

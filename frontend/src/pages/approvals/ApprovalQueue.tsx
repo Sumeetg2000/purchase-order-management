@@ -8,7 +8,7 @@ import {
 import { Link } from 'react-router';
 import { Pager } from '../../components/Pager';
 import { SearchField } from '../../components/SearchField';
-import { formatDate } from '../../format/date';
+import { formatAge, formatDate } from '../../format/date';
 import { TEXT, useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
@@ -139,6 +139,7 @@ export function ApprovalQueue() {
                     {item.currentStep.step} of {item.currentStep.of}
                   </td>
                   <td>
+                    {formatAge(item.submittedAt)} ·{' '}
                     <time dateTime={item.submittedAt}>{formatDate(item.submittedAt)}</time>
                   </td>
                 </tr>

@@ -9,6 +9,7 @@ import controlsCss from '../../styles/controls.module.css';
 import { ApproveDialog } from '../approvals/ApproveDialog';
 import { RejectDialog } from '../approvals/RejectDialog';
 import { useRefreshApprovals } from '../approvals/queries';
+import { formatPaymentTerms } from '../vendors/payment-terms';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
 import { ApprovalPanel } from './ApprovalPanel';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
@@ -30,6 +31,7 @@ const styles = classes(
   'number',
   'total',
   'notice',
+  'snapshot',
 );
 
 /** What submitting did, in words: the server's routing, not the dialog's expectation. */
@@ -93,8 +95,6 @@ export function OrderDetail() {
   // Reject stays open when the owner can't act: it is how such an order is closed.
   const mayReject = canReject && pending && order.owner.id !== me?.id;
   const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
-  // A submitted order shows its vendor as submitted (ADR-0005).
-  const vendorName = order.vendorSnapshot?.name ?? order.vendor.name;
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -170,10 +170,17 @@ export function OrderDetail() {
       <OrderTabs id={order.id} />
       <dl className={styles.details}>
         <dt className={styles.term}>Vendor</dt>
+        {/* A submitted order shows its vendor as submitted (ADR-0005); a draft, as it is now. */}
         <dd>
-          {vendorName}{' '}
-          {order.vendorSnapshot === null && order.vendor.status === 'INACTIVE' && (
-            <span className={styles.badge}>{VENDOR_STATUS_LABELS.INACTIVE}</span>
+          {order.vendorSnapshot === null ? (
+            <>
+              {order.vendor.name}{' '}
+              {order.vendor.status === 'INACTIVE' && (
+                <span className={styles.badge}>{VENDOR_STATUS_LABELS.INACTIVE}</span>
+              )}
+            </>
+          ) : (
+            <VendorAsSubmitted snapshot={order.vendorSnapshot} />
           )}
         </dd>
         <dt className={styles.term}>Raised by</dt>
@@ -285,5 +292,21 @@ export function OrderDetail() {
         />
       )}
     </>
+  );
+}
+
+/** The vendor as the order was submitted (ADR-0005): name, contact and payment terms. */
+function VendorAsSubmitted({ snapshot }: { snapshot: NonNullable<Order['vendorSnapshot']> }) {
+  return (
+    <div role="group" aria-label="Vendor as submitted" className={styles.snapshot}>
+      <span>
+        {snapshot.name} <span className={styles.badge}>as submitted</span>
+      </span>
+      <span>
+        {snapshot.contactName} · {snapshot.contactEmail}
+        {snapshot.contactPhone !== null && ` · ${snapshot.contactPhone}`}
+      </span>
+      <span>{formatPaymentTerms(snapshot.paymentTerms)}</span>
+    </div>
   );
 }

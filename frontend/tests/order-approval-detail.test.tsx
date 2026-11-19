@@ -57,9 +57,12 @@ describe('[FR-VEN-03] the vendor as submitted', () => {
     show(
       pendingOrder({
         vendorSnapshot: {
-          ...pendingOrder().vendorSnapshot,
+          id: pendingOrder().vendor.id,
           name: 'Acme Supplies',
+          contactName: 'Ravi Shah',
+          contactEmail: 'ravi@acme.example',
           contactPhone: '+91 22 4000 1234',
+          paymentTerms: { type: 'NET', netDays: 30 },
         },
       }),
     );

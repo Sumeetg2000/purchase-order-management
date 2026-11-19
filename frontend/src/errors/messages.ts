@@ -10,6 +10,8 @@ import {
   ORDER_WRITE_FORBIDDEN_DETAIL,
   SELF_APPROVAL_DETAIL,
   type LockedOrderStatus,
+  type OrderAction,
+  type OrderStatus,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
@@ -179,7 +181,7 @@ export interface ProblemLike {
   /** The vendor a name clashed with, on DUPLICATE_VENDOR_NAME only. */
   existingVendor?: { id: string; name: string } | undefined;
   /** The order's status and the refused action, on the order state codes. */
-  orderState?: { status: string; action?: string | undefined } | undefined;
+  orderState?: { status: OrderStatus; action?: OrderAction | undefined } | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -189,6 +191,11 @@ export function messageFor(code: string): ErrorMessage {
 
 function isPublicRevokeReason(value: unknown): value is PublicRevokeReason {
   return oneOf(PUBLIC_REVOKE_REASONS, value);
+}
+
+/** A status ORDER_LOCKED has its own sentence for (approved, rejected). */
+function isLockedStatus(status: OrderStatus): status is LockedOrderStatus {
+  return Object.hasOwn(ORDER_LOCKED_MESSAGES, status);
 }
 
 /**
@@ -203,8 +210,8 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
   }
   if (problem.code === 'ORDER_LOCKED') {
     const status = problem.orderState?.status;
-    if (status !== undefined && Object.hasOwn(ORDER_LOCKED_MESSAGES, status)) {
-      return { message: ORDER_LOCKED_MESSAGES[status as LockedOrderStatus] };
+    if (status !== undefined && isLockedStatus(status)) {
+      return { message: ORDER_LOCKED_MESSAGES[status] };
     }
   }
   return messageFor(problem.code);

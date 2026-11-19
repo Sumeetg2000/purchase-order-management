@@ -1,6 +1,6 @@
 import { formatInr, moneyAbove, toMoney } from '@po/contracts';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { isVersionConflict, useDialogAction } from '../../hooks/useDialogAction';
+import { reloadOrderAction, useDialogAction } from '../../hooks/useDialogAction';
 import { submitOrder, useApprovalPolicy, type ApprovalPolicy, type Order } from './queries';
 
 export interface SubmitDialogProps {
@@ -12,13 +12,23 @@ export interface SubmitDialogProps {
   onSubmitted: (order: Order) => void;
 }
 
-/** What the published policy says will happen; the server's routing is what counts. */
-function expectedOutcome(order: Order, policy: ApprovalPolicy | undefined): string {
-  const lowest = policy?.tiers[0];
-  if (!lowest) return 'Checking the approval policy…';
-  return moneyAbove(toMoney(order.total), toMoney(lowest.threshold))
+/**
+ * What the published policy says will happen; the server's routing is what counts. If the
+ * policy can't be read, the dialog says so: submitting still routes the order.
+ */
+function expectedOutcome(
+  order: Order,
+  policy: { data?: ApprovalPolicy | undefined; isError: boolean },
+): string {
+  if (policy.isError) {
+    return "The expected outcome isn't available right now; submitting still routes the order.";
+  }
+  const lowest = policy.data?.tiers[0];
+  if (!lowest) return 'Checking the approval policy… (expected: the result shows once you submit).';
+  const expected = moneyAbove(toMoney(order.total), toMoney(lowest.threshold))
     ? 'Will go to the Approver for approval'
     : 'Will be auto-approved';
+  return `${expected} (expected: the result shows once you submit).`;
 }
 
 /**
@@ -38,24 +48,12 @@ export function SubmitDialog({ order, onClose, onReload, onSubmitted }: SubmitDi
       onConfirm={confirm}
       onClose={onClose}
       error={action.error}
-      errorActions={
-        action.error && isVersionConflict(action.error.problem.code)
-          ? [
-              {
-                label: 'Reload order',
-                onPress: () => {
-                  onReload();
-                  onClose();
-                },
-              },
-            ]
-          : []
-      }
+      errorActions={reloadOrderAction(action.error, onReload, onClose)}
     >
       <p>
         {order.vendor.name} · {formatInr(toMoney(order.total))}
       </p>
-      <p>{expectedOutcome(order, policy.data)} (expected: the result shows once you submit).</p>
+      <p>{expectedOutcome(order, policy)}</p>
       <p>You can&apos;t edit it after submitting; you can withdraw it while it&apos;s pending.</p>
     </ConfirmDialog>
   );

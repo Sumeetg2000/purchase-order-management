@@ -25,3 +25,16 @@ const DATE_TIME = new Intl.DateTimeFormat('en-IN', {
 export function formatDateTime(iso: string): string {
   return DATE_TIME.format(new Date(iso));
 }
+
+const RELATIVE = new Intl.RelativeTimeFormat('en-IN', { numeric: 'auto' });
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+/** How long ago a moment was, e.g. "3 days ago", "2 hours ago", "this minute". */
+export function formatAge(iso: string, now: Date = new Date()): string {
+  const elapsed = now.getTime() - new Date(iso).getTime();
+  if (elapsed >= DAY_MS) return RELATIVE.format(-Math.floor(elapsed / DAY_MS), 'day');
+  if (elapsed >= HOUR_MS) return RELATIVE.format(-Math.floor(elapsed / HOUR_MS), 'hour');
+  return RELATIVE.format(-Math.floor(Math.max(elapsed, 0) / MINUTE_MS), 'minute');
+}

@@ -1,7 +1,7 @@
 import { DECISION_REASON_MAX } from '@po/contracts';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { REASON_REQUIRED_MESSAGE } from '../../errors/messages';
-import { isVersionConflict, useDialogAction } from '../../hooks/useDialogAction';
+import { reloadOrderAction, useDialogAction } from '../../hooks/useDialogAction';
 import type { Order } from '../orders/queries';
 import { rejectOrder } from './queries';
 
@@ -36,19 +36,7 @@ export function RejectDialog({ order, onClose, onReload, onRejected }: RejectDia
       onClose={onClose}
       error={action.error}
       errorLabels={{ 'body.reason': 'Reason' }}
-      errorActions={
-        action.error && isVersionConflict(action.error.problem.code)
-          ? [
-              {
-                label: 'Reload order',
-                onPress: () => {
-                  onReload();
-                  onClose();
-                },
-              },
-            ]
-          : []
-      }
+      errorActions={reloadOrderAction(action.error, onReload, onClose)}
     >
       <p>Rejection is final; the buyer must raise a new order.</p>
     </ConfirmDialog>
