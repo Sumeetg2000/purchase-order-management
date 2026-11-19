@@ -58,9 +58,15 @@ export function OrderDetail() {
   const navigate = useNavigate();
   const askedToWithdraw = (location.state as { withdraw?: boolean } | null)?.withdraw === true;
   const [withdrawing, setWithdrawing] = useState(askedToWithdraw);
+  // Clears the request in place (same path, query and hash), so a refresh doesn't reopen it.
   useEffect(() => {
-    if (askedToWithdraw) void navigate(location.pathname, { replace: true, state: null });
-  }, [askedToWithdraw, location.pathname, navigate]);
+    if (askedToWithdraw) {
+      void navigate(
+        { pathname: location.pathname, search: location.search, hash: location.hash },
+        { replace: true, state: null },
+      );
+    }
+  }, [askedToWithdraw, location.pathname, location.search, location.hash, navigate]);
   const refreshApprovals = useRefreshApprovals();
   const [notice, setNotice] = useState<string>();
   const saved = useOrderSaved();

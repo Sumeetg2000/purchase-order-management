@@ -139,7 +139,7 @@ describe('[FR-APR-02] the Withdraw dialog', () => {
       [`GET /orders/${ORDER_ID}`]: () => json(200, pendingOrder(), { ETag: '"2"' }),
     });
     const { router } = renderApp('/');
-    await router.navigate(`/orders/${ORDER_ID}`, { state: { withdraw: true } });
+    await router.navigate(`/orders/${ORDER_ID}?from=queue#lines`, { state: { withdraw: true } });
     expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
       'Withdraw PO-2026-27-000123?',
     );
@@ -147,6 +147,8 @@ describe('[FR-APR-02] the Withdraw dialog', () => {
       expect(router.state.location.state).toBeNull();
     });
     expect(router.state.location.pathname).toBe(`/orders/${ORDER_ID}`);
+    expect(router.state.location.search).toBe('?from=queue');
+    expect(router.state.location.hash).toBe('#lines');
     expect(router.state.historyAction).toBe('REPLACE');
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
