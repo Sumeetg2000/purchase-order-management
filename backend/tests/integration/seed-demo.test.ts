@@ -15,6 +15,9 @@ import { testLogger } from '../support/log-capture.js';
 // Demo data for local stacks (FR-037): two Buyers and one Approver, never an admin, never
 // in production, created once.
 
+// Per demo Buyer: three drafts, and one order in each of five approval states.
+const DEMO_ORDER_COUNT = 2 * (3 + 5);
+
 const clients: AppPrismaClient[] = [];
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((c) => c.$disconnect()));
@@ -136,7 +139,7 @@ describe('[FR-PO-01] demo orders', () => {
     const { h, seed, seedVendors, seedOrders } = await setup();
     await seed();
     await seedVendors();
-    expect(await seedOrders()).toBe(6);
+    expect(await seedOrders()).toBe(DEMO_ORDER_COUNT);
     const orders = await h.query<{
       email: string;
       vendor: string;
@@ -147,6 +150,7 @@ describe('[FR-PO-01] demo orders', () => {
       `SELECT u.email, v.name AS vendor, v.status, count(l.id)::int AS lines, o.total::text AS total
          FROM purchase_orders o JOIN users u ON u.id = o.owner_id JOIN vendors v ON v.id = o.vendor_id
          JOIN order_lines l ON l.order_id = o.id
+        WHERE o.current_round IS NULL
         GROUP BY u.email, v.name, v.status, o.id, o.total ORDER BY u.email, o.po_number`,
     );
     const buyers = DEMO_USERS.filter((u) => u.roles.includes('BUYER')).map((u) => u.email);
@@ -166,7 +170,7 @@ describe('[FR-PO-01] demo orders', () => {
         `SELECT count(*)::int AS n FROM audit_entries
           WHERE action = 'PO_CREATED' AND acting_role = 'BUYER' AND actor_type = 'USER'`,
       ),
-    ).toEqual([{ n: 6 }]);
+    ).toEqual([{ n: DEMO_ORDER_COUNT }]);
     expect(await reconciliationViolations(h.db)).toEqual([]);
   });
 
@@ -175,8 +179,12 @@ describe('[FR-PO-01] demo orders', () => {
     await seed();
     await seedVendors();
     await seedOrders();
+    const audit = await h.query('SELECT count(*)::int AS n FROM audit_entries');
     expect(await seedOrders()).toBe(0);
-    expect(await h.query('SELECT count(*)::int AS n FROM purchase_orders')).toEqual([{ n: 6 }]);
+    expect(await h.query('SELECT count(*)::int AS n FROM purchase_orders')).toEqual([
+      { n: DEMO_ORDER_COUNT },
+    ]);
+    expect(await h.query('SELECT count(*)::int AS n FROM audit_entries')).toEqual(audit);
   });
 
   it('[FR-PO-01] refuses to run in production', async () => {
@@ -185,5 +193,88 @@ describe('[FR-PO-01] demo orders', () => {
     await seedVendors();
     await expect(seedOrders('production')).rejects.toThrow(/production/);
     expect(await h.query('SELECT id FROM purchase_orders')).toEqual([]);
+  });
+});
+
+describe('[FR-SM-01] demo orders in each reachable approval state', () => {
+  it('[FR-SM-01] each demo Buyer has one pending, auto-approved, step-approved, rejected and withdrawn order, made through the services', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    await seedOrders();
+    const rows = await h.query<{
+      email: string;
+      status: string;
+      outcome: string | null;
+      steps: string[];
+      decider: string | null;
+      reason: string | null;
+    }>(
+      `SELECT u.email, o.status, r.outcome,
+              coalesce(array_agg(s.state ORDER BY s.step) FILTER (WHERE s.step IS NOT NULL), '{}')
+                AS steps,
+              max(d.email) AS decider, coalesce(max(s.reason), r.withdraw_reason) AS reason
+         FROM purchase_orders o
+         JOIN users u ON u.id = o.owner_id
+         JOIN approval_rounds r ON r.order_id = o.id
+         LEFT JOIN approval_steps s ON s.order_id = r.order_id AND s.round = r.round
+         LEFT JOIN users d ON d.id = s.decided_by
+        GROUP BY u.email, o.id, o.status, r.round, r.outcome, r.withdraw_reason
+        ORDER BY u.email, o.po_number`,
+    );
+    for (const email of ['buyer1@example.com', 'buyer2@example.com']) {
+      expect(
+        rows
+          .filter((r) => r.email === email)
+          .map(({ status, outcome, steps, decider, reason }) => ({
+            status,
+            outcome,
+            steps,
+            decider,
+            reason,
+          })),
+        email,
+      ).toEqual([
+        { status: 'PENDING_APPROVAL', outcome: null, steps: ['OPEN'], decider: null, reason: null },
+        { status: 'APPROVED', outcome: 'AUTO_APPROVED', steps: [], decider: null, reason: null },
+        {
+          status: 'APPROVED',
+          outcome: 'APPROVED',
+          steps: ['APPROVED'],
+          decider: 'approver@example.com',
+          reason: null,
+        },
+        {
+          status: 'REJECTED',
+          outcome: 'REJECTED',
+          steps: ['REJECTED'],
+          decider: 'approver@example.com',
+          reason: expect.any(String) as string,
+        },
+        {
+          status: 'DRAFT',
+          outcome: 'WITHDRAWN',
+          steps: ['VOIDED'],
+          decider: null,
+          reason: expect.any(String) as string,
+        },
+      ]);
+    }
+    // The decisions are the Demo Approver's, the auto-approvals the system's.
+    expect(
+      await h.query(
+        `SELECT action, actor_type, acting_role, count(*)::int AS n FROM audit_entries
+          WHERE action IN ('PO_AUTO_APPROVED', 'APPROVAL_STEP_APPROVED', 'APPROVAL_STEP_REJECTED',
+                           'PO_WITHDRAWN', 'PO_SUBMITTED')
+          GROUP BY action, actor_type, acting_role ORDER BY action`,
+      ),
+    ).toEqual([
+      { action: 'APPROVAL_STEP_APPROVED', actor_type: 'USER', acting_role: 'APPROVER', n: 2 },
+      { action: 'APPROVAL_STEP_REJECTED', actor_type: 'USER', acting_role: 'APPROVER', n: 2 },
+      { action: 'PO_AUTO_APPROVED', actor_type: 'SYSTEM', acting_role: null, n: 2 },
+      { action: 'PO_SUBMITTED', actor_type: 'USER', acting_role: 'BUYER', n: 10 },
+      { action: 'PO_WITHDRAWN', actor_type: 'USER', acting_role: 'BUYER', n: 2 },
+    ]);
+    expect(await reconciliationViolations(h.db)).toEqual([]);
   });
 });
