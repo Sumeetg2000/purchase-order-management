@@ -1,4 +1,8 @@
-import { API_PATH_PREFIX, ORDER_ADMIN_READ_ONLY_MESSAGE } from '@po/contracts';
+import {
+  API_PATH_PREFIX,
+  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_APPROVER_READ_ONLY_MESSAGE,
+} from '@po/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorMessages, fieldMessages } from '../src/errors/messages';
@@ -262,6 +266,16 @@ describe('[FR-PO-01] the order editor', () => {
     editorApi({}, ['ADMIN']);
     renderApp('/orders/new');
     expect(await screen.findByText(ORDER_ADMIN_READ_ONLY_MESSAGE)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Create order' })).toBeNull();
+  });
+
+  it('[NFR-AUTH-01] an Approver is told they can review orders but not change them', async () => {
+    editorApi({}, ['APPROVER']);
+    renderApp('/orders/new');
+    expect(await screen.findByText(ORDER_APPROVER_READ_ONLY_MESSAGE)).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Orders are read-only for Approvers',
+    );
     expect(screen.queryByRole('button', { name: 'Create order' })).toBeNull();
   });
 });

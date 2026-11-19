@@ -409,13 +409,13 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 
 ## Phase 9: User Story 8 — Visibility of submitted orders (P1)
 
-- [ ] T047 [US8] Authorization matrix rows for `DRAFT`, `PENDING_APPROVAL`, `APPROVED`,
+- [X] T047 [US8] Authorization matrix rows for `DRAFT`, `PENDING_APPROVAL`, `APPROVED`,
   `REJECTED` × owner Buyer, other Buyer, Approver, Buyer+Approver (owner and not), Admin,
   no role, anonymous, for read, list, timeline, edit, delete, submit, withdraw, approve,
   reject, queue, count, policy; the exact codes and role details of ADR-0004 (2026-11-17,
   S1–S7); generated from the route table — `backend/tests/integration/authorization-matrix.test.ts`
   — FR-019, FR-OWN-01, NFR-AUTH-02, SC-007.
-- [ ] T048 [US8] Web: Approvers' order list shows non-draft orders (slice 3's empty state
+- [X] T048 [US8] Web: Approvers' order list shows non-draft orders (slice 3's empty state
   removed); role details on `FORBIDDEN`; component tests — `frontend/src/pages/orders/OrdersList.tsx`
   — US8, contracts/ui.md.
 - [ ] T049 [US8] `/security-review` of the permission changes (CLAUDE.md: permissions

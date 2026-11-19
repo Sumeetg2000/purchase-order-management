@@ -10,7 +10,7 @@ states, no double submit, `ConfirmDialog`, axe on every screen). Research R11.
 | `/orders/:id` | readable callers | Non-draft: read-only; vendor from the snapshot (name, contacts, terms) with "as submitted"; **Approval** panel: round, policy version, each step (tier, threshold, state, decider, time, rejection reason), withdraw reason on a withdrawn draft. Actions: draft owner → Edit, Delete, **Submit**; pending owner → **Withdraw**; Approver not the owner, pending → **Approve**, **Reject**; when `ownerCanAct` is false the marker "Owner can no longer act on this order" and Reject only |
 | `/orders/:id/edit` | owner of a draft | unchanged; never offered for a non-draft order |
 | `/approvals` | Approver | **New.** Queue: PO number, buyer, vendor, total, step "1 of 1", submitted (relative and absolute), marker; oldest first; filters vendor and PO prefix in the URL; page numbers; empty state "No orders are waiting for your approval." |
-| `/orders` | all | Approver empty state removed (the list now has non-draft orders) |
+| `/orders` | all | An Approver's list holds non-draft orders; its empty state ("Orders appear here once buyers submit them.") shows only until one is submitted. `/orders/new` and the editor tell a pure Approver `ORDER_APPROVER_READ_ONLY_MESSAGE`, as they tell an Admin theirs |
 
 Nav: "Approvals" for Approvers, with the pending count (`GET /approvals?pageSize=1` →
 `total`, hidden at 0), refreshed every 60 s, on focus and after submit, withdraw, approve
