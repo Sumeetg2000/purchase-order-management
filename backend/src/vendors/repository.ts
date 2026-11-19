@@ -5,6 +5,7 @@ import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PaymentTermColumns, VendorRow } from './snapshot.js';
+import { MAX_CODE_POINT } from '../db/prefix-range.js';
 
 // Vendors (ADR-0005, data-model.md). The name rule lives only in SQL (research R2): the
 // generated name_key column and vendor_name_key(), which every lookup by name calls, so
@@ -122,12 +123,6 @@ interface VendorListFilter {
 }
 
 /**
- * The highest code point (U+10FFFF, a noncharacter): every name key that starts with `key`
- * sorts below `key || chr(MAX_CHAR)`, unless that very character follows the prefix.
- */
-const MAX_CHAR = 1_114_111;
-
-/**
  * The filter in SQL. The prefix is a range on the "C"-collated name_key, from the key of
  * `q` to that key plus the highest code point, so an index serves it even under a generic
  * plan, and `%` or `_` in `q` mean themselves (research R11).
@@ -137,7 +132,7 @@ function whereOf(filter: VendorListFilter): Prisma.Sql {
   if (filter.status !== 'ALL') conditions.push(Prisma.sql`status = ${filter.status}`);
   if (filter.q !== undefined) {
     conditions.push(Prisma.sql`name_key >= vendor_name_key(${filter.q})
-      AND name_key < vendor_name_key(${filter.q}) || chr(${MAX_CHAR}::int)`);
+      AND name_key < vendor_name_key(${filter.q}) || chr(${MAX_CODE_POINT}::int)`);
   }
   return conditions.length > 0
     ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`

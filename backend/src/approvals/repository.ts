@@ -5,6 +5,7 @@ import { pageNumber } from '../orders/repository.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { APPROVAL_POLICY_LOCK } from '../db/locks.js';
 import type { AuditedTransaction } from '../db/transaction.js';
+import { MAX_CODE_POINT } from '../db/prefix-range.js';
 
 // Approval rounds, steps and the policy (specs/005-submit-approve/data-model.md). Routing
 // is SQL's (research R3): the steps come from the policy tiers the round's own total
@@ -250,9 +251,6 @@ export interface QueueRow {
   version: number;
 }
 
-/** The highest code point, closing a PO-number prefix range (as the order list). */
-const MAX_CHAR = 1_114_111;
-
 /**
  * The approval queue (research R7): pending orders not the caller's, on the partial
  * indexes. The page picks its keys from the index, cut at LIMIT/OFFSET literals, then joins
@@ -273,7 +271,7 @@ export function approvalQueueSql(
   const byPoNumber = filter.poNumber !== undefined;
   if (filter.poNumber !== undefined) {
     conditions.push(Prisma.sql`po_number >= ${filter.poNumber}
-      AND po_number < ${filter.poNumber} || chr(${MAX_CHAR}::int)`);
+      AND po_number < ${filter.poNumber} || chr(${MAX_CODE_POINT}::int)`);
   }
   const where = Prisma.join(conditions, ' AND ');
   const order = (alias: string) =>

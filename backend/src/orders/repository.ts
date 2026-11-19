@@ -12,6 +12,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { PageArgs } from '../lib/pagination.js';
 import type { AppPrismaClient } from '../db/client.js';
 import type { AuditedTransaction } from '../db/transaction.js';
+import { MAX_CODE_POINT } from '../db/prefix-range.js';
 
 // Purchase orders and their lines (data-model.md). Money columns are read as text, so no
 // decimal object or JavaScript number ever holds an amount (ADR-0010); the service turns the
@@ -297,9 +298,6 @@ function statusLiteral(status: OrderStatus): Prisma.Sql {
   return Prisma.raw(`'${status}'`);
 }
 
-/** The highest code point: every PO number with prefix p sorts below p || chr(MAX_CHAR). */
-const MAX_CHAR = 1_114_111;
-
 function filterConditions(filter: OrderListFilter): Prisma.Sql[] {
   const conditions: Prisma.Sql[] = [];
   if (filter.vendorId !== undefined)
@@ -307,7 +305,7 @@ function filterConditions(filter: OrderListFilter): Prisma.Sql[] {
   if (filter.poNumber !== undefined) {
     // A range on the "C"-collated column, so the index serves it under a generic plan too.
     conditions.push(Prisma.sql`po_number >= ${filter.poNumber}
-      AND po_number < ${filter.poNumber} || chr(${MAX_CHAR}::int)`);
+      AND po_number < ${filter.poNumber} || chr(${MAX_CODE_POINT}::int)`);
   }
   if (filter.createdFrom !== undefined) {
     conditions.push(
