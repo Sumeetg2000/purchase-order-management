@@ -451,7 +451,7 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
   pending, auto-approved, step-approved, rejected, withdrawn draft) through the services;
   reconciliation zero rows after — `backend/src/migrate/seed-demo.ts`,
   `backend/tests/integration/seed-demo.test.ts` — FR-025.
-- [ ] T054 E2E: create → submit ≤ threshold → auto-approved, Edit gone; create → submit >
+- [X] T054 E2E: create → submit ≤ threshold → auto-approved, Edit gone; create → submit >
   threshold → queue and nav count → approve; submit → reject → stale edit shows the
   rejected message; submit → withdraw → edit → resubmit re-routes; Buyer+Approver's own
   order not in their queue, no Approve; axe on each new screen and dialog; the four dialogs
