@@ -464,7 +464,7 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
   NFR-FE-07/08/09 parts — each with its passing test; `npm run check:traceability` green —
   `docs/traceability.md`.
 - [X] T056 Quickstart run and results — `specs/005-submit-approve/quickstart-results.md`.
-- [ ] T057 Slice-end review: `/code-review`, `/security-review` (permissions, SECURITY
+- [X] T057 Slice-end review: `/code-review`, `/security-review` (permissions, SECURITY
   DEFINER policy function, actor switching), constitution pass; fix findings; full gate,
   lint, typecheck green.
 
