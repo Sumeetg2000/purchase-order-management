@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem } from './support/fake-api';
@@ -43,8 +43,46 @@ describe('[FR-APR-02] the Withdraw dialog', () => {
       'It returns to Draft, and approval starts again when you resubmit.',
     );
     expect(within(dialog).getByRole('button', { name: 'Keep it pending' })).toHaveFocus();
-    expect(within(dialog).getByRole('button', { name: 'Withdraw' })).toBeDisabled();
+    expect(within(dialog).getByLabelText('Reason')).toBeRequired();
     expect(await axeViolations(document.body)).toEqual([]);
+  });
+
+  it('[FR-APR-02] a blank reason says "Enter a reason." at the field and sends nothing', async () => {
+    const seen = fakeApi({
+      'GET /me': () => json(200, OWNER),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, pendingOrder(), { ETag: '"2"' }),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const reason = within(dialog).getByLabelText('Reason');
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }));
+    expect(reason).toBeRequired();
+    expect(reason).toBeInvalid();
+    expect(reason).toHaveAccessibleDescription('Enter a reason.');
+    expect(seen.filter((r) => r.method === 'POST')).toEqual([]);
+    // Typing a reason clears the error.
+    await user.type(reason, 'Wrong quantity');
+    expect(reason).toBeValid();
+  });
+
+  it('[FR-APR-02] the server refusing the reason as too short says the same at the field', async () => {
+    fakeApi({
+      'GET /me': () => json(200, OWNER),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, pendingOrder(), { ETag: '"2"' }),
+      [WITHDRAW]: () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.reason', code: 'TOO_SHORT' }],
+        }),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const reason = within(dialog).getByLabelText('Reason');
+    await user.type(reason, 'x');
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }));
+    await waitFor(() => expect(reason).toHaveAccessibleDescription('Enter a reason.'));
+    expect(dialog).not.toHaveTextContent('This is too short.');
   });
 
   it('[FR-APR-02] withdraws with If-Match and the reason; the draft says why it came back and can be edited', async () => {
@@ -93,5 +131,23 @@ describe('[FR-APR-02] the Withdraw dialog', () => {
       'href',
       `/orders/${ORDER_ID}`,
     );
+  });
+
+  it("[FR-APR-02] the editor's Withdraw opens the dialog once: the request is cleared, so a refresh does not reopen it", async () => {
+    fakeApi({
+      'GET /me': () => json(200, OWNER),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, pendingOrder(), { ETag: '"2"' }),
+    });
+    const { router } = renderApp('/');
+    await router.navigate(`/orders/${ORDER_ID}`, { state: { withdraw: true } });
+    expect(await screen.findByRole('alertdialog')).toHaveAccessibleName(
+      'Withdraw PO-2026-27-000123?',
+    );
+    await waitFor(() => {
+      expect(router.state.location.state).toBeNull();
+    });
+    expect(router.state.location.pathname).toBe(`/orders/${ORDER_ID}`);
+    expect(router.state.historyAction).toBe('REPLACE');
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 });

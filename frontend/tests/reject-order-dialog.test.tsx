@@ -1,7 +1,7 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from './support/axe';
-import { fakeApi, json, ME } from './support/fake-api';
+import { fakeApi, json, ME, problem } from './support/fake-api';
 import { ORDER_ID, pendingOrder, pendingRound } from './support/orders';
 import { renderApp } from './support/render-app';
 import { page } from './support/vendors';
@@ -49,8 +49,45 @@ describe('[FR-SM-03] the Reject dialog', () => {
     expect(dialog).toHaveAccessibleName('Reject PO-2026-27-000123?');
     expect(dialog).toHaveTextContent('Rejection is final; the buyer must raise a new order.');
     expect(within(dialog).getByRole('button', { name: 'Not now' })).toHaveFocus();
-    expect(within(dialog).getByRole('button', { name: 'Reject' })).toBeDisabled();
+    expect(within(dialog).getByLabelText('Reason')).toBeRequired();
     expect(await axeViolations(document.body)).toEqual([]);
+  });
+
+  it('[FR-SM-03] a blank reason says "Enter a reason." at the field and sends nothing', async () => {
+    const seen = rejectApi(pendingOrder());
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const reason = within(dialog).getByLabelText('Reason');
+    await user.type(reason, '   ');
+    await user.click(within(dialog).getByRole('button', { name: 'Reject' }));
+    expect(reason).toBeRequired();
+    expect(reason).toBeInvalid();
+    expect(reason).toHaveAccessibleDescription('Enter a reason.');
+    expect(reason).toHaveFocus();
+    expect(seen.filter((r) => r.method === 'POST')).toEqual([]);
+    expect(await axeViolations(document.body)).toEqual([]);
+  });
+
+  it('[FR-SM-03] the server refusing the reason as too short says the same at the field', async () => {
+    fakeApi({
+      'GET /me': () => json(200, APPROVER),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, pendingOrder(), { ETag: '"2"' }),
+      'GET /approvals': () => json(200, page([])),
+      [REJECT]: () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.reason', code: 'TOO_SHORT' }],
+        }),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const reason = within(dialog).getByLabelText('Reason');
+    await user.type(reason, 'x');
+    await user.click(within(dialog).getByRole('button', { name: 'Reject' }));
+    await waitFor(() => expect(reason).toHaveAccessibleDescription('Enter a reason.'));
+    expect(reason).toBeInvalid();
+    expect(dialog).not.toHaveTextContent('This is too short.');
   });
 
   it('[FR-SM-03] rejects with If-Match and the reason, then shows the order rejected', async () => {
