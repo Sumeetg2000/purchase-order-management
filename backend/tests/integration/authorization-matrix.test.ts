@@ -2,6 +2,8 @@ import {
   OPERATIONS,
   ORDER_ADMIN_READ_ONLY_MESSAGE,
   ORDER_APPROVER_READ_ONLY_MESSAGE,
+  ORDER_DECISION_APPROVER_ONLY_MESSAGE,
+  PAGE_SIZE_MAX,
   type Access,
   type OperationContract,
 } from '@po/contracts';
@@ -345,5 +347,257 @@ describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
       expect((res.body as { detail?: string }).detail, roles).toBe(detail);
     }
     expect(await h.count('purchase_orders')).toBe(0);
+  });
+});
+
+// The order rows (ADR-0004, 2026-11-17 S1–S7): every order state × every caller kind,
+// relative to the order, × every order action. Each write is sent valid but with a stale
+// If-Match, so a cell the caller may use stops at 409 and nothing changes; a refused cell
+// shows its exact code, and its role detail where ADR-0004 gives one.
+
+const ORDER_STATES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const;
+type OrderState = (typeof ORDER_STATES)[number];
+
+const ORDER_CALLERS = [
+  'owner Buyer',
+  'owner Buyer+Approver',
+  'other Buyer',
+  'Approver',
+  'other Buyer+Approver',
+  'Admin',
+  'no role',
+  'anonymous',
+] as const;
+type OrderCaller = (typeof ORDER_CALLERS)[number];
+
+type Cell =
+  | { code: 'OK' }
+  | { code: 'UNAUTHENTICATED' | 'NO_ROLE_ASSIGNED' | 'NOT_FOUND' }
+  | { code: 'NOT_ORDER_OWNER' | 'SELF_APPROVAL' }
+  | { code: 'FORBIDDEN'; detail: string };
+
+const OK: Cell = { code: 'OK' };
+const forbidden = (detail: string): Cell => ({ code: 'FORBIDDEN', detail });
+
+function owns(caller: OrderCaller) {
+  return caller === 'owner Buyer' || caller === 'owner Buyer+Approver';
+}
+
+/** ADR-0004's "Read DRAFT order" and "Read non-draft order" rows. */
+function canRead(caller: OrderCaller, state: OrderState) {
+  if (owns(caller) || caller === 'Admin') return true;
+  if (caller === 'Approver' || caller === 'other Buyer+Approver') return state !== 'DRAFT';
+  return false;
+}
+
+/** Refusals before any order is looked at: 401, then the role checks. */
+function gate(caller: OrderCaller): Cell | null {
+  if (caller === 'anonymous') return { code: 'UNAUTHENTICATED' };
+  if (caller === 'no role') return { code: 'NO_ROLE_ASSIGNED' };
+  return null;
+}
+
+/** Edit, delete, submit, withdraw: the row "Edit, submit, withdraw, delete" with S2, S4. */
+function ownerWrite(caller: OrderCaller, state: OrderState): Cell {
+  const refused = gate(caller);
+  if (refused) return refused;
+  if (caller === 'Admin') return forbidden(ORDER_ADMIN_READ_ONLY_MESSAGE);
+  if (caller === 'Approver') return forbidden(ORDER_APPROVER_READ_ONLY_MESSAGE);
+  if (!canRead(caller, state)) return { code: 'NOT_FOUND' };
+  if (!owns(caller)) return { code: 'NOT_ORDER_OWNER' };
+  return OK;
+}
+
+/** Approve, reject: the row "Approve or reject" with S3, S4 and separation of duties. */
+function decision(caller: OrderCaller, state: OrderState): Cell {
+  const refused = gate(caller);
+  if (refused) return refused;
+  if (caller === 'Admin') return forbidden(ORDER_ADMIN_READ_ONLY_MESSAGE);
+  if (caller === 'owner Buyer' || caller === 'other Buyer') {
+    return forbidden(ORDER_DECISION_APPROVER_ONLY_MESSAGE);
+  }
+  if (!canRead(caller, state)) return { code: 'NOT_FOUND' };
+  if (owns(caller)) return { code: 'SELF_APPROVAL' };
+  return OK;
+}
+
+function read(caller: OrderCaller, state: OrderState): Cell {
+  return gate(caller) ?? (canRead(caller, state) ? OK : { code: 'NOT_FOUND' });
+}
+
+/** The approval queue and its count (S1): Approvers only, others' pending orders only. */
+function queue(caller: OrderCaller): Cell {
+  const refused = gate(caller);
+  if (refused) return refused;
+  if (caller === 'Approver' || caller.endsWith('Buyer+Approver')) return OK;
+  return { code: 'FORBIDDEN' };
+}
+
+describe('[FR-OWN-01] the order rows: every state × every caller × every action (ADR-0004)', () => {
+  it('[NFR-AUTH-02] each cell has the exact code, the role detail, and nothing changes', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const dual = await h.approver('{BUYER,APPROVER}', 'Dev Dual');
+    const jars: Record<OrderCaller, CookieJar | null> = {
+      'owner Buyer': h.jar,
+      'owner Buyer+Approver': dual.jar,
+      'other Buyer': await h.loggedIn(await h.seedUser({ roles: '{BUYER}' })),
+      Approver: priya.jar,
+      'other Buyer+Approver': (await h.approver('{BUYER,APPROVER}', 'Oli Other')).jar,
+      Admin: await h.loggedIn(await h.seedUser({ roles: '{ADMIN}' })),
+      'no role': await h.loggedIn(await h.seedUser({ roles: '{}' })),
+      anonymous: null,
+    };
+
+    /** One order in each state, owned through `jar`. */
+    async function ordersOf(jar: CookieJar): Promise<Record<OrderState, string>> {
+      const draft = (await h.draftAt('200000', jar)).id;
+      const pending = (await h.draftAt('200000', jar)).id;
+      await h.submitOrder(pending, 1, jar);
+      const approved = (await h.draftAt('10', jar)).id;
+      await h.submitOrder(approved, 1, jar);
+      const rejected = (await h.draftAt('200000', jar)).id;
+      await h.submitOrder(rejected, 1, jar);
+      await h.rejectOrder(rejected, 2, priya.jar, { reason: 'Vendor quote expired' });
+      return {
+        DRAFT: draft,
+        PENDING_APPROVAL: pending,
+        APPROVED: approved,
+        REJECTED: rejected,
+      };
+    }
+    const buyerOrders = await ordersOf(h.jar);
+    const dualOrders = await ordersOf(dual.jar);
+    const statuses = await h.query<{ id: string; status: string; version: number }>(
+      `SELECT id::text, status, version FROM purchase_orders ORDER BY id`,
+    );
+    for (const state of ORDER_STATES) {
+      expect(statuses.find((o) => o.id === buyerOrders[state])?.status).toBe(state);
+      expect(statuses.find((o) => o.id === dualOrders[state])?.status).toBe(state);
+    }
+
+    function send(
+      caller: OrderCaller,
+      method: 'get' | 'post' | 'patch' | 'delete',
+      path: string,
+      body?: unknown,
+    ) {
+      const jar = jars[caller];
+      const stale = method === 'get' ? {} : { 'If-Match': '"999"' };
+      if (jar) return h.send(method, path, jar, body, stale);
+      const anonymous = request(h.app);
+      return anonymous[method](path)
+        .set('Origin', APP_ORIGIN)
+        .set(stale)
+        .send(body as object);
+    }
+
+    const reason = { reason: 'Matrix probe reason' };
+    const ACTIONS = {
+      read: { rule: read, call: (c: OrderCaller, id: string) => send(c, 'get', `/orders/${id}`) },
+      timeline: {
+        rule: read,
+        call: (c: OrderCaller, id: string) => send(c, 'get', `/orders/${id}/timeline`),
+      },
+      edit: {
+        rule: ownerWrite,
+        call: (c: OrderCaller, id: string) => send(c, 'patch', `/orders/${id}`, h.orderBody()),
+      },
+      delete: {
+        rule: ownerWrite,
+        call: (c: OrderCaller, id: string) => send(c, 'delete', `/orders/${id}`),
+      },
+      submit: {
+        rule: ownerWrite,
+        call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/submit`),
+      },
+      withdraw: {
+        rule: ownerWrite,
+        call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/withdraw`, reason),
+      },
+      approve: {
+        rule: decision,
+        call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/approve`),
+      },
+      reject: {
+        rule: decision,
+        call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/reject`, reason),
+      },
+    } as const;
+
+    const cells: string[] = [];
+    for (const caller of ORDER_CALLERS) {
+      const orders = caller === 'owner Buyer+Approver' ? dualOrders : buyerOrders;
+      for (const state of ORDER_STATES) {
+        for (const [action, { rule, call }] of Object.entries(ACTIONS)) {
+          const cell = `${action} ${state} × ${caller}`;
+          cells.push(cell);
+          const want = rule(caller, state);
+          const res = await call(caller, orders[state]);
+          const body = res.body as { code?: string; detail?: string };
+          if (want.code === 'OK') {
+            // Reads succeed; a write the caller may make stops at a 409 (state or version).
+            expect(res.status, cell).toBe(action === 'read' || action === 'timeline' ? 200 : 409);
+          } else {
+            expect(body.code, cell).toBe(want.code);
+            if ('detail' in want) expect(body.detail, cell).toBe(want.detail);
+          }
+        }
+
+        // The order lists: an order is listed exactly when the caller can read it.
+        const list = `list ${state} × ${caller}`;
+        cells.push(list);
+        const listed = await send(caller, 'get', `/orders?pageSize=${String(PAGE_SIZE_MAX)}`);
+        const listRefused = gate(caller);
+        if (listRefused) {
+          expect((listed.body as { code?: string }).code, list).toBe(listRefused.code);
+        } else {
+          const ids = (listed.body as { items: { id: string }[] }).items.map((i) => i.id);
+          expect(ids.includes(orders[state]), list).toBe(canRead(caller, state));
+        }
+
+        // The queue and its count (S1): only others' pending orders.
+        for (const [kind, query] of [
+          ['queue', `?pageSize=${String(PAGE_SIZE_MAX)}`],
+          ['count', '?pageSize=1'],
+        ] as const) {
+          const qcell = `${kind} ${state} × ${caller}`;
+          cells.push(qcell);
+          const res = await send(caller, 'get', `/approvals${query}`);
+          const want = queue(caller);
+          if (want.code !== 'OK') {
+            expect((res.body as { code?: string }).code, qcell).toBe(want.code);
+            continue;
+          }
+          const page = res.body as { items: { id: string }[]; total: number };
+          const visible = state === 'PENDING_APPROVAL' && !owns(caller);
+          if (kind === 'queue') {
+            expect(
+              page.items.some((i) => i.id === orders[state]),
+              qcell,
+            ).toBe(visible);
+          } else {
+            // Of the two pending orders, the caller's count holds those they don't own.
+            const expectedCount = caller === 'owner Buyer+Approver' ? 1 : 2;
+            expect(page.total, qcell).toBe(expectedCount);
+          }
+        }
+
+        // The approval policy: every role reads it.
+        const pcell = `policy × ${caller}`;
+        cells.push(pcell);
+        const policy = await send(caller, 'get', '/approval-policy');
+        const pwant = gate(caller) ?? OK;
+        if (pwant.code === 'OK') expect(policy.status, pcell).toBe(200);
+        else expect((policy.body as { code?: string }).code, pcell).toBe(pwant.code);
+      }
+    }
+
+    // 8 callers × 4 states × (8 actions + list + queue + count + policy).
+    expect(cells).toHaveLength(8 * 4 * 12);
+    // Nothing changed: every order kept its status and version.
+    expect(
+      await h.query(`SELECT id::text, status, version FROM purchase_orders ORDER BY id`),
+    ).toEqual(statuses);
   });
 });
