@@ -103,7 +103,7 @@ describe('[FR-APR-01] the Approve dialog', () => {
     expect(await within(dialog).findByText(ORDER_OWNER_INACTIVE_DETAIL)).toBeInTheDocument();
   });
 
-  it('[FR-SOD-01] the owner, also an Approver, is never offered Approve', async () => {
+  it('[FR-SOD-01] the owner, also an Approver, is never offered Approve or Reject, only Withdraw', async () => {
     fakeApi({
       'GET /me': () =>
         json(200, { ...APPROVER, id: pendingOrder().owner.id, roles: ['BUYER', 'APPROVER'] }),
@@ -113,5 +113,21 @@ describe('[FR-APR-01] the Approve dialog', () => {
     renderApp(`/orders/${ORDER_ID}`);
     await screen.findByText('Acme Supplies (as submitted)');
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
+  });
+
+  it('[FR-SOD-01] even while the owner can no longer act, the owner is offered no decision', async () => {
+    fakeApi({
+      'GET /me': () =>
+        json(200, { ...APPROVER, id: pendingOrder().owner.id, roles: ['BUYER', 'APPROVER'] }),
+      [`GET /orders/${ORDER_ID}`]: () =>
+        json(200, pendingOrder({ ownerCanAct: false }), { ETag: '"2"' }),
+      'GET /approvals': () => json(200, page([])),
+    });
+    renderApp(`/orders/${ORDER_ID}`);
+    await screen.findByText('Acme Supplies (as submitted)');
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
   });
 });

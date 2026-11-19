@@ -396,13 +396,13 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 
 ## Phase 8: User Story 6 — Separation of duties (P1)
 
-- [ ] T045 [US6] Separation-of-duties suite, gathered by requirement (the
+- [X] T045 [US6] Separation-of-duties suite, gathered by requirement (the
   `SELF_APPROVAL` cells were seen failing first in T027 and T037, the database half in
   T012): a Buyer+Approver approving another buyer's order succeeds with `actingRole`
   `APPROVER`; their own pending order is in their order list but never in their queue or
   count; no `DUPLICATE_APPROVER` in the registry or source — `backend/tests/integration/approvals-sod.test.ts`
   — US6 scenarios 2–4, FR-013, FR-SOD-01, SC-004.
-- [ ] T046 [US6] Web: no Approve or Reject on an order the caller owns; component test —
+- [X] T046 [US6] Web: no Approve or Reject on an order the caller owns; component test —
   `frontend/src/pages/orders/OrderDetail.tsx` — US6 scenario 3.
 
 ---
