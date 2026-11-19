@@ -56,6 +56,12 @@ Every number and list below is a named constant in `packages/contracts/src/order
   same exit-code and advisory-lock rules as the admin commands. `--tier1` only today
   (ADR-0002); the function already takes an array, so repeated `--tier` flags are a CLI
   change only.
+  `policy:set` takes `APPROVAL_POLICY_LOCK` exclusively with the admin lock's timeout
+  (`ONE_SHOT.adminLockTimeoutMs`) before reading the current policy (implementation,
+  2026-11-19): a submit in progress shares the lock, so the command waits for it and,
+  past the timeout, exits 3 `UNAVAILABLE` with nothing changed. It uses the CLI's
+  existing database connection (`DATABASE_URL`, `po_app`) and actor context; no new role
+  or setting. The audit entry's `entityId` is the new version number.
 - `GET /approval-policy` (Buyer, Approver, Admin) returns `{ version, effectiveAt,
   tiers: [{ tier, threshold }] }` from the highest version.
 

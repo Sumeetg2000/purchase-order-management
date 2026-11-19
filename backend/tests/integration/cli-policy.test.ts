@@ -48,8 +48,8 @@ async function submitted(h: Harness, unitPrice: string) {
   return (await h.submitOrder(draft.id, draft.version)).body as Order;
 }
 
-describe('[FR-015] policy:set', () => {
-  it('[FR-015] creates version 2, used by the next submission; an earlier order keeps version 1', async () => {
+describe('[FR-APR-05] policy:set', () => {
+  it('[FR-APR-05] creates version 2, used by the next submission; an earlier order keeps version 1', async () => {
     const h = await ordersHarness();
     const before = await submitted(h, '150000');
     expect(before).toMatchObject({ status: 'PENDING_APPROVAL', approval: { policyVersion: 1 } });
@@ -70,7 +70,7 @@ describe('[FR-015] policy:set', () => {
     expect(earlier.approval?.steps).toHaveLength(1);
   });
 
-  it('[FR-015] is audited APPROVAL_POLICY_CHANGED as OPERATOR, before → after, with osUser and host', async () => {
+  it('[FR-APR-05] is audited APPROVAL_POLICY_CHANGED as OPERATOR, before → after, with osUser and host', async () => {
     const h = await ordersHarness();
     expect((await cli(h, ['policy:set', '--tier1', '250000.5'])).code).toBe(0);
     expect(await policyAudits(h)).toEqual([
@@ -89,7 +89,7 @@ describe('[FR-015] policy:set', () => {
     ]);
   });
 
-  it('[FR-015] the current value is a no-op: a message, exit 0, no version, no audit', async () => {
+  it('[FR-APR-05] the current value is a no-op: a message, exit 0, no version, no audit', async () => {
     const h = await ordersHarness();
     for (const same of ['100000', '100000.0000']) {
       expect(await cli(h, ['policy:set', '--tier1', same])).toEqual({
@@ -102,7 +102,7 @@ describe('[FR-015] policy:set', () => {
     expect(await policyAudits(h)).toEqual([]);
   });
 
-  it('[FR-015] an invalid amount is exit 1, the value not echoed, and nothing changes', async () => {
+  it('[FR-APR-05] an invalid amount is exit 1, the value not echoed, and nothing changes', async () => {
     const h = await ordersHarness();
     const bad = [
       ['--tier1', '0'],
@@ -129,7 +129,7 @@ describe('[FR-015] policy:set', () => {
     expect(await policyAudits(h)).toEqual([]);
   });
 
-  it('[FR-015] refused while a submit holds the policy lock: exit 3 UNAVAILABLE, nothing changes; then it runs', async () => {
+  it('[FR-APR-05] refused while a submit holds the policy lock: exit 3 UNAVAILABLE, nothing changes; then it runs', async () => {
     const h = await ordersHarness();
     // A submit holds APPROVAL_POLICY_LOCK shared until it commits (approvals/repository.ts).
     const submit = await h.db.client('postgres');
@@ -150,8 +150,8 @@ describe('[FR-015] policy:set', () => {
   }, 15_000);
 });
 
-describe('[FR-015] policy:show', () => {
-  it('[FR-015] prints the current version, its tiers and when it took effect, and changes nothing', async () => {
+describe('[FR-APR-05] policy:show', () => {
+  it('[FR-APR-05] prints the current version, its tiers and when it took effect, and changes nothing', async () => {
     const h = await ordersHarness();
     const seeded = await cli(h, ['policy:show']);
     expect(seeded.stderr).toBe('');
@@ -172,7 +172,7 @@ describe('[FR-015] policy:show', () => {
     expect(await policyAudits(h)).toHaveLength(1);
   });
 
-  it('[FR-015] takes no flags', async () => {
+  it('[FR-APR-05] takes no flags', async () => {
     const h = await ordersHarness();
     const result = await cli(h, ['policy:show', '--tier1', '1']);
     expect(result.code).toBe(1);

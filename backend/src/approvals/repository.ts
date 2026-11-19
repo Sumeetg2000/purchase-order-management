@@ -119,7 +119,9 @@ export interface PolicyRow {
   tiers: { tier: number; threshold: string }[];
 }
 
-export async function selectCurrentPolicy(db: AppPrismaClient): Promise<PolicyRow> {
+export async function selectCurrentPolicy(
+  db: AppPrismaClient | AuditedTransaction,
+): Promise<PolicyRow> {
   const [row] = await db.$queryRaw<PolicyRow[]>`
     SELECT p.version, p.effective_at AS "effectiveAt",
            (SELECT json_agg(json_build_object('tier', t.tier, 'threshold', t.threshold::text)
@@ -130,6 +132,21 @@ export async function selectCurrentPolicy(db: AppPrismaClient): Promise<PolicyRo
      LIMIT 1`;
   if (!row) throw new Error('no approval policy: migration 0014 seeds version 1');
   return row;
+}
+
+/**
+ * Writes the policy through its only write path, set_approval_policy (migration 0014),
+ * which needs the OPERATOR context. Returns the current version: new, or unchanged when
+ * the tiers equal the current ones.
+ */
+export async function callSetApprovalPolicy(
+  tx: AuditedTransaction,
+  thresholds: readonly string[],
+): Promise<number> {
+  const [row] = await tx.$queryRaw<{ version: number }[]>`
+    SELECT set_approval_policy(${[...thresholds]}::numeric[]) AS version`;
+  if (!row) throw new Error('set_approval_policy returned no row');
+  return row.version;
 }
 
 /** A step of the current round, locked for a decision. */

@@ -33,7 +33,23 @@ export async function lockAdmins(
   tx: AuditedTransaction,
   { timeoutMs = ONE_SHOT.adminLockTimeoutMs }: { timeoutMs?: number } = {},
 ): Promise<void> {
+  await lockExclusively(tx, ADMIN_LOCK, timeoutMs);
+}
+
+/**
+ * Takes APPROVAL_POLICY_LOCK exclusively for the rest of the transaction, as the admin
+ * commands take ADMIN_LOCK: a submit in progress (which shares it) finishes first, or the
+ * wait ends after timeoutMs with 55P03. set_approval_policy takes it again, re-entrantly.
+ */
+export async function lockApprovalPolicy(
+  tx: AuditedTransaction,
+  { timeoutMs = ONE_SHOT.adminLockTimeoutMs }: { timeoutMs?: number } = {},
+): Promise<void> {
+  await lockExclusively(tx, APPROVAL_POLICY_LOCK, timeoutMs);
+}
+
+async function lockExclusively(tx: AuditedTransaction, key: bigint, timeoutMs: number) {
   await tx.$executeRaw`SELECT set_config('lock_timeout', ${`${String(timeoutMs)}ms`}, true)`;
   // $executeRaw: pg_advisory_xact_lock returns void, which has no result type to read.
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ADMIN_LOCK})`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${key})`;
 }

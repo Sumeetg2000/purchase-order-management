@@ -418,7 +418,7 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 - [X] T048 [US8] Web: Approvers' order list shows non-draft orders (slice 3's empty state
   removed); role details on `FORBIDDEN`; component tests — `frontend/src/pages/orders/OrdersList.tsx`
   — US8, contracts/ui.md.
-- [ ] T049 [US8] `/security-review` of the permission changes (CLAUDE.md: permissions
+- [X] T049 [US8] `/security-review` of the permission changes (CLAUDE.md: permissions
   stories): route role details (T007), the order-level 403s, the under-lock re-check of
   owner and Approver, the queue scope, `ownerCanAct` exposure, the `SECURITY DEFINER`
   policy function and the actor switch; fix findings tests first — review notes in the
@@ -428,14 +428,14 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 
 ## Phase 10: User Story 7 — Approval policy CLI (P2)
 
-- [ ] T050 [P] [US7] CLI tests, seen failing: `policy:set --tier1 200000` → version 2,
+- [X] T050 [P] [US7] CLI tests, seen failing: `policy:set --tier1 200000` → version 2,
   next submission uses it, earlier orders keep version 1; same value → no-op, exit 0, no
   version; `0`, negative, 5 decimals, `abc` → non-zero exit, no version; audited
   `APPROVAL_POLICY_CHANGED` `OPERATOR` with before → after, `osUser`, `host`;
   `policy:show` prints version, tiers, effective time; `set_approval_policy` under a USER
   context → `PO017` — `backend/tests/integration/cli-policy.test.ts` — US7, FR-015,
   FR-APR-05.
-- [ ] T051 [US7] `policy:set`, `policy:show` commands (advisory lock, exit codes as the
+- [X] T051 [US7] `policy:set`, `policy:show` commands (advisory lock, exit codes as the
   admin commands) calling `set_approval_policy` through `backend/src/approvals/policy.ts`;
   T050 green — `backend/src/cli/commands/policy-set.ts`, `policy-show.ts`,
   `backend/src/cli/admin.ts` — R1.
