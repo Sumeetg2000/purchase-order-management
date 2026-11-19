@@ -36,6 +36,20 @@ async function openDialog() {
 }
 
 describe('[FR-APR-01] the Submit order dialog', () => {
+  it('[FR-APR-01] if the policy cannot be read, says the expected outcome is unavailable', async () => {
+    submitApi(order({ total: '150000.0000' }), {
+      'GET /approval-policy': () => problem(500, 'INTERNAL_ERROR'),
+    });
+    const { dialog } = await openDialog();
+    expect(
+      await within(dialog).findByText(
+        "The expected outcome isn't available right now; submitting still routes the order.",
+        { exact: false },
+      ),
+    ).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent('Checking the approval policy');
+  });
+
   it('[NFR-FE-09] names the order and total, the expected approval, and what submitting means', async () => {
     submitApi(order({ total: '150000.0000' }));
     const { dialog } = await openDialog();

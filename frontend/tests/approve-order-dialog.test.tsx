@@ -101,6 +101,27 @@ describe('[FR-APR-01] the Approve dialog', () => {
     const { user, dialog } = await openDialog();
     await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
     expect(await within(dialog).findByText(ORDER_OWNER_INACTIVE_DETAIL)).toBeInTheDocument();
+    // The dialog offers no other decision: Reject stays on the page.
+    expect(within(dialog).queryByRole('button', { name: 'Reject' })).toBeNull();
+  });
+
+  it('[FR-APR-01] after ORDER_OWNER_INACTIVE, closing the dialog rereads the order: the marker, and Reject only', async () => {
+    let reads = 0;
+    approveApi(pendingOrder(), {
+      [`GET /orders/${ORDER_ID}`]: () => {
+        reads += 1;
+        return json(200, pendingOrder({ ownerCanAct: reads === 1 }), { ETag: '"2"' });
+      },
+      [APPROVE]: () => problem(409, 'ORDER_OWNER_INACTIVE'),
+    });
+    const { user, dialog } = await openDialog();
+    await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
+    await within(dialog).findByText(ORDER_OWNER_INACTIVE_DETAIL);
+    await user.click(within(dialog).getByRole('button', { name: 'Not now' }));
+    expect(await screen.findByText('Owner can no longer act on this order')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+    expect(reads).toBeGreaterThan(1);
   });
 
   it('[FR-SOD-01] the owner, also an Approver, is never offered Approve or Reject, only Withdraw', async () => {

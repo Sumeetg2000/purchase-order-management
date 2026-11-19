@@ -278,3 +278,35 @@ describe('[FR-SM-01] demo orders in each reachable approval state', () => {
     expect(await reconciliationViolations(h.db)).toEqual([]);
   });
 });
+
+describe('[FR-APR-05] demo orders under a changed policy', () => {
+  it('[FR-APR-05] reads the current policy first: an order at or below its tier is auto-approved and never decided', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    // The operator raised the tier above every demo order before the seed ran.
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query('INSERT INTO approval_policies (version) VALUES (2)');
+    await h.query(
+      `INSERT INTO approval_policy_tiers (policy_version, tier, threshold) VALUES (2, 1, 300000)`,
+    );
+    await h.query('COMMIT');
+
+    expect(await seedOrders()).toBe(DEMO_ORDER_COUNT);
+    expect(
+      await h.query(
+        `SELECT o.status, r.outcome, r.policy_version, count(*)::int AS n
+           FROM purchase_orders o JOIN approval_rounds r ON r.order_id = o.id
+          GROUP BY o.status, r.outcome, r.policy_version`,
+      ),
+    ).toEqual([{ status: 'APPROVED', outcome: 'AUTO_APPROVED', policy_version: 2, n: 10 }]);
+    expect(
+      await h.query(
+        `SELECT count(*)::int AS n FROM audit_entries
+          WHERE action LIKE 'APPROVAL_STEP_%' OR action = 'PO_WITHDRAWN'`,
+      ),
+    ).toEqual([{ n: 0 }]);
+    expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+});

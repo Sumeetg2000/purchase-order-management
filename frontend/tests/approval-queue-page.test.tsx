@@ -43,6 +43,29 @@ describe('[FR-OWN-01] the approval queue screen', () => {
     expect(await axeViolations(document.body)).toEqual([]);
   });
 
+  it('[FR-OWN-01] says how long each order has waited, beside when it was submitted', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-20T10:00:00.000Z'));
+    try {
+      fakeApi({
+        'GET /me': () => json(200, APPROVER),
+        'GET /approvals': () => json(200, page([queueItem()])),
+      });
+      renderApp('/approvals');
+      const table = await screen.findByRole('table', { name: 'Orders waiting for approval' });
+      const [row] = within(table).getAllByRole('row').slice(1);
+      expect(row).toHaveTextContent('3 days ago');
+      expect(row).toHaveTextContent('17 November 2026');
+      expect(
+        within(row as HTMLElement)
+          .getByText(/17 November 2026/)
+          .closest('time'),
+      ).toHaveAttribute('datetime', '2026-11-17T10:00:00.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('[FR-OWN-01] says when nothing is waiting', async () => {
     fakeApi({
       'GET /me': () => json(200, APPROVER),
