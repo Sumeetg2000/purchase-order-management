@@ -134,6 +134,13 @@ export async function selectCurrentPolicy(
   return row;
 }
 
+/** Whether this user has ever submitted an order (any round, any outcome). */
+export async function hasSubmitted(tx: AuditedTransaction, userId: string): Promise<boolean> {
+  const [row] = await tx.$queryRaw<{ found: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM approval_rounds WHERE submitted_by = ${userId}::uuid) AS found`;
+  return row?.found === true;
+}
+
 /**
  * Writes the policy through its only write path, set_approval_policy (migration 0014),
  * which needs the OPERATOR context. Returns the current version: new, or unchanged when
