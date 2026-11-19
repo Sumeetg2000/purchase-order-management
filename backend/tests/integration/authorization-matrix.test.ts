@@ -426,7 +426,7 @@ function read(caller: OrderCaller, state: OrderState): Cell {
 }
 
 /** The approval queue and its count (S1): Approvers only, others' pending orders only. */
-function queue(caller: OrderCaller): Cell {
+function queue(caller: OrderCaller): Cell | { code: 'FORBIDDEN' } {
   const refused = gate(caller);
   if (refused) return refused;
   if (caller === 'Approver' || caller.endsWith('Buyer+Approver')) return OK;
@@ -484,7 +484,7 @@ describe('[FR-OWN-01] the order rows: every state × every caller × every actio
     ) {
       const jar = jars[caller];
       const stale = method === 'get' ? {} : { 'If-Match': '"999"' };
-      if (jar) return h.send(method, path, jar, body, stale);
+      if (jar) return method === 'get' ? h.get(path, jar) : h.send(method, path, jar, body, stale);
       const anonymous = request(h.app);
       return anonymous[method](path)
         .set('Origin', APP_ORIGIN)
