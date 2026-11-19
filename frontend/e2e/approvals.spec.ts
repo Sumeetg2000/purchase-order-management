@@ -1,6 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Browser, Locator, Page, TestInfo } from '@playwright/test';
-import { ORDER_LOCKED_MESSAGES } from '@po/contracts';
 import { expect, test } from './support/test';
 import { loggedInAdmin } from './support/accounts';
 import { assignRole, logInAs, signUpAndVerify } from './support/signup';
@@ -21,6 +20,9 @@ let dual: Page;
 let admin: Page;
 let buyerName = '';
 const run = String(Date.now());
+// ORDER_LOCKED_MESSAGES.REJECTED, as the user reads it. The e2e job runs against the built
+// stack without building the contracts package, so the text is written out here.
+const REJECTED_MESSAGE = 'This order was rejected and is closed. Raise a new order instead.';
 
 async function newPage(browser: Browser, testInfo: TestInfo): Promise<Page> {
   const { baseURL, ignoreHTTPSErrors } = testInfo.project.use;
@@ -187,7 +189,7 @@ test.describe('[FR-APR-01] submission and approval end to end', () => {
 
     await cell(stale, 'Description', 1).fill('Pallet racking, galvanised');
     await stale.getByRole('button', { name: 'Save changes' }).click();
-    await expect(stale.getByText(ORDER_LOCKED_MESSAGES.REJECTED)).toBeVisible();
+    await expect(stale.getByText(REJECTED_MESSAGE)).toBeVisible();
     await stale.close();
   });
 
