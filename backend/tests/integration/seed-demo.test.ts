@@ -280,7 +280,7 @@ describe('[FR-SM-01] demo orders in each reachable approval state', () => {
 });
 
 describe('[FR-APR-05] demo orders under a changed policy', () => {
-  it('[FR-APR-05] reads the current policy first: an order at or below its tier is auto-approved and never decided', async () => {
+  it('[FR-APR-05] under a raised tier, an order the submit approved is never decided', async () => {
     const { h, seed, seedVendors, seedOrders } = await setup();
     await seed();
     await seedVendors();

@@ -1,14 +1,5 @@
 import type { Logger } from 'pino';
-import {
-  createOrderBody,
-  lineTotal,
-  moneyAbove,
-  ROLE,
-  sum,
-  toMoney,
-  type UserRole,
-  type VendorBody,
-} from '@po/contracts';
+import { createOrderBody, ROLE, type UserRole, type VendorBody } from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
 import type { AuthenticatedUser } from '../auth/service.js';
 import type { AppEnv } from '../config/rules.js';
@@ -19,7 +10,7 @@ import {
   withTransaction,
   type AuditedTransaction,
 } from '../db/transaction.js';
-import { hasSubmitted, selectCurrentPolicy } from '../approvals/repository.js';
+import { hasSubmitted } from '../approvals/repository.js';
 import { createApprovalsService } from '../approvals/service.js';
 import { createOrdersService } from '../orders/service.js';
 import { listOrders } from '../orders/repository.js';
@@ -273,12 +264,6 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
     options,
     DEMO_USERS.find((u) => u.email === DEMO_APPROVER),
   );
-  // The current policy, read first: the operator may have changed the seeded tier, and an
-  // order at or below it is approved on submit, so it is never decided here.
-  const policy = await asSystem(options, 'orders', (tx) => selectCurrentPolicy(tx));
-  const lowest = toMoney(policy.tiers[0]?.threshold ?? '0');
-  const routed = (lines: readonly { quantity: number; unitPrice: string }[]) =>
-    moneyAbove(sum(lines.map((l) => lineTotal(l.quantity, toMoney(l.unitPrice)))), lowest);
   let raised = 0;
   for (const demo of DEMO_USERS.filter((u) => u.roles.includes(ROLE.BUYER))) {
     const buyer = await demoSession(options, demo);
@@ -302,8 +287,9 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
     for (const demoOrder of DEMO_APPROVAL_ORDERS) {
       const draft = await raise(demoOrder);
       const submitted = await approvals.submitOrder(buyer, draft, ctx());
-      // At or below the current policy's tier the submit approved it: nothing to decide.
-      if (!routed(demoOrder.lines)) continue;
+      // The operator may have raised the tier: an order the submit approved (at or below
+      // it) has nothing left to decide.
+      if (submitted.status === 'APPROVED') continue;
       const decided = { id: submitted.id, version: submitted.version };
       const reason = demoOrder.reason ?? '';
       if (demoOrder.end === 'APPROVED') await approvals.approveOrder(approver, decided, ctx());
