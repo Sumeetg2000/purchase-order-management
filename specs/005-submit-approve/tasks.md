@@ -457,13 +457,13 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
   order not in their queue, no Approve; axe on each new screen and dialog; the four dialogs
   in the Playwright dialog checks — `frontend/e2e/approvals.spec.ts` — FR-024, NFR-FE-07,
   NFR-FE-09. Run `npm run e2e:local`.
-- [ ] T055 Traceability: FR-APR-01, FR-APR-02, FR-APR-03, FR-APR-04, FR-APR-05,
+- [X] T055 Traceability: FR-APR-01, FR-APR-02, FR-APR-03, FR-APR-04, FR-APR-05,
   FR-SM-01, FR-SM-03, FR-SOD-01, FR-VEN-03, FR-LCK-01 (pending/approved/rejected parts),
   FR-OWN-01 (non-draft cells), FR-ACT-01 (approve row), NFR-AUTH-01/02, NFR-AUD-01
   (decisions), NFR-AUD-03 (Approver timelines), NFR-CON-01, NFR-CON-03, NFR-PERF-01 (queue),
   NFR-FE-07/08/09 parts — each with its passing test; `npm run check:traceability` green —
   `docs/traceability.md`.
-- [ ] T056 Quickstart run and results — `specs/005-submit-approve/quickstart-results.md`.
+- [X] T056 Quickstart run and results — `specs/005-submit-approve/quickstart-results.md`.
 - [ ] T057 Slice-end review: `/code-review`, `/security-review` (permissions, SECURITY
   DEFINER policy function, actor switching), constitution pass; fix findings; full gate,
   lint, typecheck green.
