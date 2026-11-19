@@ -444,7 +444,7 @@ auto-approved; round 1's step `VOIDED`; timeline in order.
 
 ## Phase 11: Polish & cross-cutting
 
-- [ ] T052 [P] Service timings on the plan fixture: submit a 500-line order p95 ≤ 500 ms,
+- [X] T052 [P] Service timings on the plan fixture: submit a 500-line order p95 ≤ 500 ms,
   one approval ≤ 150 ms, queue page 1 ≤ 150 ms; results recorded in R7 —
   `backend/tests/plans/orders.timing.test.ts` — FR-022, SC-006.
 - [ ] T053 [P] Demo seed: per demo Buyer one order in each reachable state (draft,

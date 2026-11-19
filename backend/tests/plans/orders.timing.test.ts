@@ -1,4 +1,5 @@
 import {
+  approvalQueueQuery,
   createOrderBody,
   editOrderBody,
   ORDER_LINES_MAX,
@@ -8,6 +9,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createApprovalsService, type ApprovalsService } from '../../src/approvals/service.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { createTransactionRunner } from '../../src/db/transaction.js';
 import { createOrdersService, type OrdersService } from '../../src/orders/service.js';
@@ -15,13 +17,15 @@ import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.js';
 
-// The order service's timings on the plan fixture (FR-022, SC-005, ADR-0012): raising and
-// replacing a 500-line order within 500 ms and the busiest Buyer's first page within
-// 150 ms, at the 95th percentile, through the service as the API calls it. Results are
-// printed for research R7.
+// The order and approval services' timings on the plan fixture (FR-022, SC-005, SC-006,
+// ADR-0012): raising, replacing and submitting a 500-line order within 500 ms; the busiest
+// Buyer's first page, one approval and the approval queue's first page within 150 ms; at
+// the 95th percentile, through the services as the API calls them. Results are printed for
+// research R7.
 
 const WRITE_P95_MS = 500;
 const LIST_P95_MS = 150;
+const DECISION_P95_MS = 150;
 const WARM_UP_RUNS = 3;
 const WRITE_RUNS = 20;
 const LIST_RUNS = 50;
@@ -39,11 +43,11 @@ async function timed<T>(samples: number[], run: () => Promise<T>): Promise<T> {
 }
 
 /** 500 lines; `tag` makes each set differ from the last, so a replace changes every line. */
-function fullLines(tag: string) {
+function fullLines(tag: string, unitPrice = '12.3456') {
   return Array.from({ length: ORDER_LINES_MAX }, (_, i) => ({
     description: `Timed part ${tag}-${String(i + 1)}`,
     quantity: (i % 9) + 1,
-    unitPrice: '12.3456',
+    unitPrice,
   }));
 }
 
@@ -51,7 +55,9 @@ let db: TestDatabase;
 let app: pg.Client;
 let prisma: AppPrismaClient;
 let orders: OrdersService;
+let approvals: ApprovalsService;
 let buyer: Parameters<OrdersService['createOrder']>[0];
+let approver: Parameters<ApprovalsService['approveOrder']>[0];
 let vendorId: string;
 const results: Record<string, number> = {};
 
@@ -84,6 +90,19 @@ beforeAll(async () => {
   );
   const user = rows[0];
   if (!user) throw new Error('no busiest Buyer');
+  const { rows: approvers } = await app.query<{ name: string; email: string }>(
+    'SELECT name, email FROM users WHERE id = $1',
+    [ids.approver],
+  );
+  const planApprover = approvers[0];
+  if (!planApprover) throw new Error('no plan Approver');
+  approver = {
+    userId: ids.approver,
+    sessionId: randomUUID(),
+    name: planApprover.name,
+    email: planApprover.email,
+    roles: ['APPROVER'],
+  };
   buyer = {
     userId: ids.buyer,
     sessionId: randomUUID(),
@@ -92,10 +111,9 @@ beforeAll(async () => {
     roles: ['BUYER'],
   };
   prisma = createPrismaClient({ url: db.url('po_app'), poolSize: 8, connectionTimeoutMs: 5_000 });
-  orders = createOrdersService({
-    prisma,
-    transactions: createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 5_000 }),
-  });
+  const transactions = createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 5_000 });
+  orders = createOrdersService({ prisma, transactions });
+  approvals = createApprovalsService({ prisma, transactions });
 });
 
 afterAll(async () => {
@@ -147,5 +165,50 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     }
     results.busiestBuyerPageP95 = Math.round(p95(samples));
     expect(results.busiestBuyerPageP95).toBeLessThanOrEqual(LIST_P95_MS);
+  });
+
+  it('[NFR-PERF-01] submitting a 500-line order within 500 ms and approving it within 150 ms, p95', async () => {
+    const submits: number[] = [];
+    const approves: number[] = [];
+    const ignored: number[] = [];
+    for (let run = 0; run < WARM_UP_RUNS + WRITE_RUNS; run += 1) {
+      const counted = run < WARM_UP_RUNS ? ignored : null;
+      // Above the seeded tier, so the submit routes one step and the approve closes it.
+      const body = createOrderBody.parse({
+        vendorId,
+        lines: fullLines(`s${String(run)}`, '1000'),
+      });
+      const { order } = await orders.createOrder(
+        buyer,
+        { body, idempotencyKey: randomUUID() },
+        ctx(),
+      );
+      const pending = await timed(counted ?? submits, () =>
+        approvals.submitOrder(buyer, { id: order.id, version: order.version }, ctx()),
+      );
+      expect(pending.status).toBe('PENDING_APPROVAL');
+      const approved = await timed(counted ?? approves, () =>
+        approvals.approveOrder(approver, { id: pending.id, version: pending.version }, ctx()),
+      );
+      expect(approved.status).toBe('APPROVED');
+    }
+    results.submitP95 = Math.round(p95(submits));
+    results.approveP95 = Math.round(p95(approves));
+    expect(results.submitP95).toBeLessThanOrEqual(WRITE_P95_MS);
+    expect(results.approveP95).toBeLessThanOrEqual(DECISION_P95_MS);
+  });
+
+  it("[NFR-PERF-01] the Approver's queue, first page: p95 within 150 ms", async () => {
+    const query = approvalQueueQuery.parse({});
+    const samples: number[] = [];
+    const ignored: number[] = [];
+    for (let run = 0; run < WARM_UP_RUNS + LIST_RUNS; run += 1) {
+      const page = await timed(run < WARM_UP_RUNS ? ignored : samples, () =>
+        approvals.listApprovalQueue(approver, query),
+      );
+      expect(page.items.length).toBeGreaterThan(0);
+    }
+    results.queuePageP95 = Math.round(p95(samples));
+    expect(results.queuePageP95).toBeLessThanOrEqual(LIST_P95_MS);
   });
 });

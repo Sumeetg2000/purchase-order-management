@@ -375,6 +375,10 @@ command (fine for one row, but approve must read four tables consistently).
   Admin counts slice 3 accepted included.
 - **Timings** (`orders.timing.test.ts`): submit of a 500-line order p95 ≤ 500 ms; a
   single approval p95 ≤ 150 ms; queue page 1 p95 ≤ 150 ms (ADR-0012).
+  Results (2026-11-19, local Docker PostgreSQL, the plan fixture, 20 runs after 3
+  warm-up; 50 for pages): submit 33 ms, approve (the round's last step) 29 ms, the plan
+  Approver's queue page 1 6 ms; slice 3's create 51 ms, replace 80 ms, busiest Buyer's
+  page 5 ms.
 
 **Alternatives**: a full index `(status, submitted_at)` (covers more rows than needed;
 the partial index stays small as approved orders accumulate); a queue table maintained by
