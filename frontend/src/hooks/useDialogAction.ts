@@ -36,13 +36,27 @@ export function useDialogAction({ refresh, isStale }: DialogActionOptions = {}) 
   return { error, clearError, run };
 }
 
-/** A dialog's Reload, offered when the failure means its data is out of date. */
+/**
+ * A dialog's Reload, offered when the failure means its data is out of date: it rereads
+ * the data, then closes the dialog when `onClose` is given.
+ */
 export function reloadAction(
   error: ApiFailure | undefined,
   isStale: (code: string) => boolean,
   onReload: () => void,
+  { label = 'Reload', onClose }: { label?: string; onClose?: () => void } = {},
 ): readonly { label: string; onPress: () => void }[] {
-  return error && isStale(error.problem.code) ? [{ label: 'Reload', onPress: onReload }] : [];
+  return error && isStale(error.problem.code)
+    ? [
+        {
+          label,
+          onPress: () => {
+            onReload();
+            onClose?.();
+          },
+        },
+      ]
+    : [];
 }
 
 /** Only a version conflict: the dialog's data changed under the user. */
@@ -69,15 +83,5 @@ export function reloadOrderAction(
   onReload: () => void,
   onClose: () => void,
 ): readonly { label: string; onPress: () => void }[] {
-  return error && isOrderStale(error.problem.code)
-    ? [
-        {
-          label: 'Reload order',
-          onPress: () => {
-            onReload();
-            onClose();
-          },
-        },
-      ]
-    : [];
+  return reloadAction(error, isOrderStale, onReload, { label: 'Reload order', onClose });
 }

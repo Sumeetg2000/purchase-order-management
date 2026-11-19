@@ -3,13 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { api } from '../../api/app-client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { isVersionConflict, useDialogAction } from '../../hooks/useDialogAction';
+import { reloadOrderAction, useDialogAction } from '../../hooks/useDialogAction';
 import { ORDERS_KEY, type Order } from './queries';
 
 export interface DeleteDraftDialogProps {
   order: Order;
   onClose: () => void;
-  /** Rereads the order, for Reload order after a version conflict. */
+  /** Rereads the order, for Reload order when the draft changed or is gone. */
   onReload: () => void;
 }
 
@@ -55,19 +55,7 @@ export function DeleteDraftDialog({ order, onClose, onReload }: DeleteDraftDialo
       onClose={onClose}
       error={action.error}
       errorLabels={{ 'body.reason': 'Reason' }}
-      errorActions={
-        action.error && isVersionConflict(action.error.problem.code)
-          ? [
-              {
-                label: 'Reload order',
-                onPress: () => {
-                  onReload();
-                  onClose();
-                },
-              },
-            ]
-          : []
-      }
+      errorActions={reloadOrderAction(action.error, onReload, onClose)}
     >
       <p>
         {order.vendor.name} · {lines} · {formatInr(toMoney(order.total))}

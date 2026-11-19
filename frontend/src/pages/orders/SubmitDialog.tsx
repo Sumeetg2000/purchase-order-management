@@ -6,7 +6,7 @@ import { submitOrder, useApprovalPolicy, type ApprovalPolicy, type Order } from 
 export interface SubmitDialogProps {
   order: Order;
   onClose: () => void;
-  /** Rereads the order, for Reload order after a version conflict. */
+  /** Rereads the order, for Reload order when it changed or is gone. */
   onReload: () => void;
   /** The order as the server routed it: the page shows the actual outcome. */
   onSubmitted: (order: Order) => void;
