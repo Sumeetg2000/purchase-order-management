@@ -1,5 +1,6 @@
 import { DECISION_REASON_MAX } from '@po/contracts';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { REASON_REQUIRED_MESSAGE } from '../../errors/messages';
 import { isVersionConflict, useDialogAction } from '../../hooks/useDialogAction';
 import { withdrawOrder, type Order } from './queries';
 
@@ -21,7 +22,12 @@ export function WithdrawDialog({ order, onClose, onReload, onWithdrawn }: Withdr
       title={`Withdraw ${order.poNumber}?`}
       confirmLabel="Withdraw"
       cancelLabel="Keep it pending"
-      reason={{ label: 'Reason', minLength: 1, maxLength: DECISION_REASON_MAX }}
+      reason={{
+        label: 'Reason',
+        minLength: 1,
+        maxLength: DECISION_REASON_MAX,
+        required: { message: REASON_REQUIRED_MESSAGE, path: 'body.reason' },
+      }}
       onConfirm={(reason = '') =>
         action.run(() => withdrawOrder(order.id, order.version, reason), onWithdrawn)
       }

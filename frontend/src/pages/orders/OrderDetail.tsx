@@ -1,6 +1,6 @@
 import { formatInr, ORDER_OWNER_CANNOT_ACT_LABEL, toMoney } from '@po/contracts';
-import { useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
 import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
@@ -53,8 +53,14 @@ export function OrderDetail() {
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   // The editor's "Withdraw" (a pending order's stale save) opens the dialog here.
-  const askedToWithdraw = (useLocation().state as { withdraw?: boolean } | null)?.withdraw === true;
+  // The request is cleared once read, so a refresh or Back doesn't open the dialog again.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const askedToWithdraw = (location.state as { withdraw?: boolean } | null)?.withdraw === true;
   const [withdrawing, setWithdrawing] = useState(askedToWithdraw);
+  useEffect(() => {
+    if (askedToWithdraw) void navigate(location.pathname, { replace: true, state: null });
+  }, [askedToWithdraw, location.pathname, navigate]);
   const refreshApprovals = useRefreshApprovals();
   const [notice, setNotice] = useState<string>();
   const saved = useOrderSaved();

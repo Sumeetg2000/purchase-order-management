@@ -233,6 +233,9 @@ export function isRetryable(code: string): boolean {
   return oneOf(RETRYABLE_CODES, code);
 }
 
+/** A required reason left blank, or refused by the server as missing or too short. */
+export const REASON_REQUIRED_MESSAGE = 'Enter a reason.';
+
 /** What a field error says, by field code (ADR-0007), next to the field. */
 export const fieldMessages = {
   MALFORMED_JSON: 'The request could not be read.',
