@@ -5,7 +5,7 @@
   2026-11-12 (the PO counter row is locked last; replays leave no gap; slice 3) ·
   amended 2026-11-17 (approve reads the owner's user row `FOR SHARE`; slice 4) · amended
   2026-11-17 (one lock order per order command; no user-then-order lock; slice 4 plan,
-  research R6)
+  research R6) · amended 2026-11-20 (cancel's lock order; receipts lock the order first; slice 5 plan)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
@@ -54,7 +54,11 @@
 | approve | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → vendor `FOR SHARE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order (always two different rows) |
 | reject | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order |
 | withdraw | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` |
+| cancel (amended 2026-11-20, slice 5 plan) | order `FOR UPDATE` → the acting Approver's `users` row `FOR SHARE` (lines, the closed round and its steps are frozen under the order lock; vendor and owner aren't read for the decision) |
 
+- **Receipts lock the order first** (amended 2026-11-20): a receipt (slice 6) locks its
+  order before its lines, like every line change, so a cancel's per-line ordered and
+  received quantities can't move under the cancel's order lock.
 - **No code path may lock a `users` row and then an order, line, round, step or
   vendor.** Order commands take `users` rows only last (approve's and reject's owner and
   Approver rows, in id order, then the `FOR KEY SHARE` of the step's `decided_by` foreign
@@ -75,6 +79,6 @@ reject; submit vs vendor deactivation; submit vs a policy change (the chain matc
 version recorded); an approve and an admin deactivation of the owner, started in either
 order, and an approve and an admin deactivation or role change of the acting Approver,
 started in either order, finish without deadlock; two concurrent approve requests on the same step (a double
-click, or two tabs; exactly one decision recorded); cancel vs receive; concurrent PO number
+click, or two tabs; exactly one decision recorded); cancel vs cancel (one cancel recorded); cancel vs the acting Approver's deactivation or APPROVER removal, started in either order (cancelled before the change, or `401` / `403` after it, never after it); cancel vs the vendor's or the owner's deactivation (both succeed, no deadlock); cancel vs receive; concurrent PO number
 allocation; a simulated pool timeout → 503; missing `If-Match` on each listed command →
 400 `VERSION_REQUIRED`; stale `If-Match` → 409; receipts accepted without `If-Match`.
