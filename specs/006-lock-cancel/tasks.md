@@ -105,7 +105,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   position, quantity, receivedQuantity }] }`; `ORDER_AUDIT_ACTIONS` extended; unit test
   first — `backend/src/audit/events.ts`, `packages/contracts/src/orders.ts`,
   `backend/tests/unit/audit-write.test.ts` — R7, ADR-0016 2026-11-20.
-- [ ] T010 [P] Web messages: `ORDER_LOCKED` with `CANCELLED`; `SELF_APPROVAL` by action;
+- [X] T010 [P] Web messages: `ORDER_LOCKED` with `CANCELLED`; `SELF_APPROVAL` by action;
   `FORBIDDEN` cancel details; `INVALID_STATE_TRANSITION` with action `CANCEL`;
   `isLockedStatus` covers `CANCELLED`; tests first — `frontend/src/errors/messages.ts`,
   `frontend/tests/error-messages.test.ts` — contracts/errors.md.

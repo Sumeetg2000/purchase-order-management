@@ -3,12 +3,14 @@ import {
   isFieldCode,
   oneOf,
   NOT_ORDER_OWNER_DETAIL,
+  ORDER_CANCEL_FORBIDDEN_DETAIL,
   ORDER_DECISION_FORBIDDEN_DETAIL,
   ORDER_LOCKED_MESSAGES,
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
   ORDER_WRITE_FORBIDDEN_DETAIL,
   SELF_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAILS,
   type LockedOrderStatus,
   type OrderAction,
   type OrderStatus,
@@ -193,7 +195,7 @@ function isPublicRevokeReason(value: unknown): value is PublicRevokeReason {
   return oneOf(PUBLIC_REVOKE_REASONS, value);
 }
 
-/** A status ORDER_LOCKED has its own sentence for (approved, rejected). */
+/** A status ORDER_LOCKED has its own sentence for (approved, rejected, cancelled). */
 function isLockedStatus(status: OrderStatus): status is LockedOrderStatus {
   return Object.hasOwn(ORDER_LOCKED_MESSAGES, status);
 }
@@ -225,11 +227,18 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
  */
 export function messageForOrderAction(
   problem: ProblemLike,
-  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' },
+  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' | 'cancel' },
 ): ErrorMessage {
+  if (problem.code === 'SELF_APPROVAL' && action === 'cancel') {
+    return { message: SELF_APPROVAL_DETAILS.CANCEL };
+  }
   if (problem.code === 'FORBIDDEN') {
     const details: Partial<Record<UserRole, string>> =
-      action === 'write' ? ORDER_WRITE_FORBIDDEN_DETAIL : ORDER_DECISION_FORBIDDEN_DETAIL;
+      action === 'write'
+        ? ORDER_WRITE_FORBIDDEN_DETAIL
+        : action === 'cancel'
+          ? ORDER_CANCEL_FORBIDDEN_DETAIL
+          : ORDER_DECISION_FORBIDDEN_DETAIL;
     const message = roles.map((role) => details[role]).find((d) => d !== undefined);
     if (message !== undefined) return { message };
   }
