@@ -237,7 +237,7 @@ reconciliation zero rows.
 
 ## Phase 6: User Story 4 — Cancelled orders visible to the right people (P2)
 
-- [ ] T027 [US4] Read, timeline and list rows for `CANCELLED`: owner, Approver, Admin
+- [X] T027 [US4] Read, timeline and list rows for `CANCELLED`: owner, Approver, Admin
   read it and its timeline; other Buyer `404`; no role `403`; list filtered to Cancelled
   returns only readable cancelled orders per scope; never in the queue or its count —
   `backend/tests/integration/authorization-matrix.test.ts`, `orders-list.test.ts`,
