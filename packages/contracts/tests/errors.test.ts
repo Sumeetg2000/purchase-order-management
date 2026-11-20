@@ -231,6 +231,18 @@ describe('[NFR-API-02] problem schema', () => {
     expect(problemSchema.safeParse({ ...locked, orderState: { status: 'LOST' } }).success).toBe(
       false,
     );
+    const refused = {
+      ...valid,
+      code: 'INVALID_STATE_TRANSITION',
+      status: 409,
+      title: 'Invalid state transition',
+    };
+    expect(
+      problemSchema.safeParse({
+        ...refused,
+        orderState: { status: 'PENDING_APPROVAL', action: 'CANCEL' },
+      }).success,
+    ).toBe(true);
     expect(problemSchema.safeParse({ ...valid, orderState: { status: 'DRAFT' } }).success).toBe(
       false,
     );

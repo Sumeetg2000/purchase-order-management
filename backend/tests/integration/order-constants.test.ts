@@ -168,6 +168,7 @@ describe('[FR-SM-01] approval constants equal their SQL copies (0014)', () => {
     for (const [name, column] of [
       ['approval_rounds_withdraw_reason_valid', 'withdraw_reason'],
       ['approval_steps_reason_valid', 'reason'],
+      ['purchase_orders_cancel_reason_valid', 'cancel_reason'],
     ] as const) {
       expect(await constraintDef(q, name), name).toContain(
         `(char_length(${column}) <= ${String(DECISION_REASON_MAX)})`,
