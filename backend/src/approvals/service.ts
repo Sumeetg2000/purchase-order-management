@@ -1,10 +1,11 @@
 import {
   AppError,
   NOT_ORDER_OWNER_DETAIL,
+  ORDER_CANCEL_FORBIDDEN_DETAIL,
   ORDER_DECISION_FORBIDDEN_DETAIL,
   ORDER_OWNER_INACTIVE_DETAIL,
   ROLE,
-  SELF_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAILS,
   toMoney,
   type ApprovalPolicy,
   type ApprovalQueueItem,
@@ -34,12 +35,14 @@ import {
   approveStep,
   autoApprove,
   bumpOrderVersion,
+  cancelApprovedOrder,
   insertRound,
   listApprovalQueue,
   lockSteps,
   lockUsers,
   rejectRoundAndOrder,
   rejectStep,
+  selectLineQuantities,
   selectStepRecords,
   voidSteps,
   withdrawRoundAndOrder,
@@ -81,6 +84,12 @@ export interface ApprovalsService {
     target: { id: string; version: number; reason: string },
     ctx: RequestContext,
   ): Promise<Order>;
+  /** Cancel an approved order the caller doesn't own, with a reason: T10, final. */
+  cancelOrder(
+    approver: AuthenticatedUser,
+    target: { id: string; version: number; reason: string },
+    ctx: RequestContext,
+  ): Promise<Order>;
   /** Pending orders the caller may approve, never their own (research R7). */
   listApprovalQueue(
     approver: AuthenticatedUser,
@@ -93,14 +102,14 @@ export interface ApprovalsService {
  * a deactivation or role removal that committed since the request's own check refuses the
  * decision with the same codes that check gives.
  */
-function requireStillApprover(approver: LockedUser | undefined): void {
+function requireStillApprover(
+  approver: LockedUser | undefined,
+  details: Partial<Record<UserRole, string>> = ORDER_DECISION_FORBIDDEN_DETAIL,
+): void {
   if (!approver || approver.status !== 'ACTIVE') throw new AppError('ACCOUNT_DEACTIVATED');
   if (!approver.roles.includes(ROLE.APPROVER)) {
     const detail = approver.roles
-      .map(
-        (role: UserRole) =>
-          (ORDER_DECISION_FORBIDDEN_DETAIL as Partial<Record<UserRole, string>>)[role],
-      )
+      .map((role: UserRole) => details[role])
       .find((d) => d !== undefined);
     throw new AppError('FORBIDDEN', detail === undefined ? {} : { detail });
   }
@@ -133,7 +142,7 @@ async function lockForDecision(
   requireStillApprover(users.get(approver.userId));
   if (!locked || !canRead(approver, locked)) throw new AppError('NOT_FOUND');
   if (locked.ownerId === approver.userId) {
-    throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAIL });
+    throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAILS[action] });
   }
   const open = steps.find((step) => step.state === 'OPEN');
   if (locked.status !== 'PENDING_APPROVAL' || locked.currentRound === null || !open) {
@@ -287,6 +296,38 @@ export function createApprovalsService(deps: ApprovalsServiceDependencies): Appr
           orderId: id,
           poNumber: order.poNumber,
           details: { round, step: open.step, tier: open.tier, reason },
+        });
+        return order;
+      }),
+
+    cancelOrder: (approver, { id, version, reason }, ctx) =>
+      // Locks the order, then the acting Approver's users row (ADR-0006, 2026-11-20). Lines,
+      // the closed round and its steps are frozen under the order lock; the vendor and the
+      // owner aren't read: cancel is allowed whatever their status.
+      runAs(deps.transactions, approver, ROLE.APPROVER, ctx, async (tx) => {
+        const locked = await lockOrder(tx, id);
+        const users = await lockUsers(tx, [approver.userId]);
+        requireStillApprover(users.get(approver.userId), ORDER_CANCEL_FORBIDDEN_DETAIL);
+        if (!locked || !canRead(approver, locked)) throw new AppError('NOT_FOUND');
+        if (locked.ownerId === approver.userId) {
+          throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAILS.CANCEL });
+        }
+        if (locked.status !== 'APPROVED' || locked.currentRound === null) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            orderState: { status: locked.status, action: 'CANCEL' },
+          });
+        }
+        if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+        const lines = await selectLineQuantities(tx, id);
+        await cancelApprovedOrder(tx, { orderId: id, approverId: approver.userId, reason });
+        const order = await readOrder(tx, id);
+        await writeAudit(tx, {
+          action: 'PO_CANCELLED',
+          entityType: 'order',
+          entityId: id,
+          orderId: id,
+          poNumber: order.poNumber,
+          details: { round: locked.currentRound, reason, lines },
         });
         return order;
       }),

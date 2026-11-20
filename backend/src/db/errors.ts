@@ -176,6 +176,10 @@ const TRIGGER_ERRORS: Readonly<Record<string, string>> = {
   PO016: 'SELF_DECISION_REFUSED',
   // A policy row changed, or set_approval_policy outside OPERATOR or with invalid tiers.
   PO017: 'APPROVAL_POLICY_IMMUTABLE',
+  // Any change to a rejected or cancelled order: both are final (slice 5, D9).
+  PO018: 'ORDER_CLOSED',
+  // The cancel record set outside the cancel, or the cancel changing anything else (D10).
+  PO019: 'ORDER_CANCEL_REFUSED',
 };
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 

@@ -63,6 +63,14 @@ export function withdrawOrder(id: string, version: number, reason: string) {
   });
 }
 
+/** Cancels an approved order with a reason and its version (slice 5); final. */
+export function cancelOrder(id: string, version: number, reason: string) {
+  return api.POST('/orders/{id}/cancel', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+    body: { reason },
+  });
+}
+
 /** Submits a draft with the version it shows (slice 4); the server routes it. */
 export function submitOrder(id: string, version: number) {
   return api.POST('/orders/{id}/submit', {

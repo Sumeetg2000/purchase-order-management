@@ -320,3 +320,48 @@ export async function plantSubmitted(
     throw error;
   }
 }
+
+/**
+ * Plants a consistent cancelled order on a draft (slice 5, data-model.md): approved as
+ * `plantSubmitted` plants it, then cancelled by its Approver with a reason, as the
+ * superuser with triggers off.
+ */
+export async function plantCancelled(
+  target: PlantTarget,
+  orderId: string,
+  { approverId }: { approverId?: string } = {},
+): Promise<{ round: number; steps: number; approverId: string }> {
+  const planted = await plantSubmitted(
+    target,
+    orderId,
+    'APPROVED',
+    approverId === undefined ? {} : { approverId },
+  );
+  const sql = `UPDATE purchase_orders
+                  SET status = 'CANCELLED', cancelled_by = $2, cancelled_at = now(),
+                      cancel_reason = 'Planted cancel', version = version + 1
+                WHERE id = $1 AND status = 'APPROVED'`;
+  const params = [orderId, planted.approverId];
+  if ('superuser' in target) {
+    await target.superuser.query('BEGIN');
+    try {
+      await target.superuser.query(`SET LOCAL session_replication_role = replica`);
+      await target.superuser.query(sql, params);
+      await target.superuser.query('COMMIT');
+    } catch (error) {
+      await target.superuser.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
+  } else {
+    await target.query('BEGIN');
+    try {
+      await target.query(`SET LOCAL session_replication_role = replica`);
+      await target.query(sql, params);
+      await target.query('COMMIT');
+    } catch (error) {
+      await target.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
+  }
+  return planted;
+}

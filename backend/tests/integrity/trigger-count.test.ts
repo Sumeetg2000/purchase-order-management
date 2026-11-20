@@ -5,6 +5,7 @@ import {
   inTransaction,
   insertLines,
   orderFixture,
+  plantSubmitted,
   type OrderFixture,
 } from '../support/orders-sql.js';
 
@@ -101,5 +102,27 @@ describe('[NFR-PERF-03] derived values recompute once per statement', () => {
         ]),
       ),
     ).toBe(1);
+  });
+
+  it('[NFR-PERF-03] a cancel recomputes nothing: the guard reads only the row', async () => {
+    const f = await orderFixture();
+    const { orderId } = await createDraft(f, lines(500));
+    const { approverId } = await plantSubmitted(f, orderId, 'APPROVED');
+    const count = await countIn(f, async (q) => {
+      await q.query(
+        `SELECT set_config('app.actor_type', 'USER', true),
+                set_config('app.actor_user_id', $1, true),
+                set_config('app.actor_name', 'Approver', true),
+                set_config('app.actor_email', 'approver@example.test', true),
+                set_config('app.acting_role', 'APPROVER', true)`,
+        [approverId],
+      );
+      await q.query(
+        `UPDATE purchase_orders SET status = 'CANCELLED', cancelled_by = $2,
+                cancel_reason = 'Not needed', version = version + 1 WHERE id = $1`,
+        [orderId, approverId],
+      );
+    });
+    expect(count).toBe(0);
   });
 });

@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM (SELECT 1 AS one FROM purchase_orders WHERE status = 'CANCELLED') c
+-- values: []
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders
+        Index Cond: (status = 'CANCELLED'::text)

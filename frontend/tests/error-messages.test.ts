@@ -8,7 +8,9 @@ import {
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
   PUBLIC_REVOKE_REASONS,
+  ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
   SELF_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAILS,
 } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import {
@@ -95,6 +97,32 @@ describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)
       messageForOrderAction({ code: 'VERSION_CONFLICT' }, { roles: ['ADMIN'], action: 'write' }),
     ).toEqual(errorMessages.VERSION_CONFLICT);
   });
+
+  it('[FR-SOD-01] a refused cancel says why: Buyer, Admin, or the order is your own', () => {
+    const forbidden = { code: 'FORBIDDEN' };
+    expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'cancel' })).toEqual({
+      message: ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'cancel' })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
+    expect(
+      messageForOrderAction(
+        { code: 'SELF_APPROVAL' },
+        { roles: ['BUYER', 'APPROVER'], action: 'cancel' },
+      ),
+    ).toEqual({ message: SELF_APPROVAL_DETAILS.CANCEL });
+    // Approve and reject keep their own words.
+    expect(
+      messageForOrderAction({ code: 'SELF_APPROVAL' }, { roles: ['APPROVER'], action: 'decision' }),
+    ).toEqual({ message: SELF_APPROVAL_DETAIL });
+    expect(
+      messageForOrderAction(
+        { code: 'INVALID_STATE_TRANSITION', orderState: { status: 'CANCELLED', action: 'CANCEL' } },
+        { roles: ['APPROVER'], action: 'cancel' },
+      ),
+    ).toEqual(errorMessages.INVALID_STATE_TRANSITION);
+  });
 });
 
 describe('[NFR-FE-02] logged-out messages', () => {
@@ -105,8 +133,12 @@ describe('[NFR-FE-02] logged-out messages', () => {
     expect(
       sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'REJECTED', action: 'EDIT' } }),
     ).toBe(ORDER_LOCKED_MESSAGES.REJECTED);
-    // A status the web app doesn't know yet (a newer server) keeps the neutral words.
+    // Slice 5: a cancelled order has its own sentence.
     expect(sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'CANCELLED' } })).toBe(
+      'This order was cancelled and is closed.',
+    );
+    // A status with no sentence (none today) keeps the neutral words.
+    expect(sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'DRAFT' } })).toBe(
       "This order can't be changed any more.",
     );
     expect(sentenceFor({ code: 'ORDER_LOCKED' })).toBe("This order can't be changed any more.");

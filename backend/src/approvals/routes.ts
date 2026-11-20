@@ -63,6 +63,18 @@ export function approvalRoutes(approvals: ApprovalsService): RouteDefinition[] {
       },
     }),
     defineRoute({
+      ...OPERATIONS.cancelOrder,
+      handler: async (req, res) => {
+        const { reason } = req.body as DecisionReasonBody;
+        const order = await approvals.cancelOrder(
+          authOf(res),
+          { id: idParamOf(req), version: ifMatchVersionOf(res), reason },
+          requestContext(req, res),
+        );
+        res.set('ETag', etagFor(order.version)).json(order);
+      },
+    }),
+    defineRoute({
       ...OPERATIONS.listApprovalQueue,
       handler: async (req, res) => {
         res.json(

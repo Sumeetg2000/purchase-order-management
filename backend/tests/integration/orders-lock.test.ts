@@ -5,7 +5,7 @@ import {
 } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import { lineBody, ordersHarness } from '../support/orders.js';
-import { plantSubmitted, type SubmittedStatus } from '../support/orders-sql.js';
+import { plantCancelled, plantSubmitted, type SubmittedStatus } from '../support/orders-sql.js';
 
 // Edits and deletes of a submitted order through the API (slice 4 research R8, FR-007,
 // FR-008): a specific 409 per state, with the order's status and the refused action in
@@ -93,5 +93,49 @@ describe('[FR-LCK-01] edits and deletes of a submitted order', () => {
       [id],
     );
     expect(row).toEqual({ status: 'PENDING_APPROVAL', version: 2, quantity: 2 });
+  });
+});
+
+describe('[FR-LCK-01] a cancelled order is closed to every action', () => {
+  it('[FR-LCK-01] edit and delete: 409 ORDER_LOCKED, "This order was cancelled and is closed."', async () => {
+    const h = await ordersHarness();
+    const res = await h.createOrder(h.orderBody([lineBody({ quantity: 2, unitPrice: '100000' })]));
+    const order = res.body as { id: string; lines: { id: string }[] };
+    await plantCancelled(h, order.id);
+    const body = h.orderBody([lineBody({ quantity: 1, unitPrice: '1', id: order.lines[0]?.id })]);
+    const edit = await h.editOrder(order.id, body, 3);
+    expect(edit.status).toBe(409);
+    expect(edit.body).toMatchObject({
+      code: 'ORDER_LOCKED',
+      detail: ORDER_LOCKED_MESSAGES.CANCELLED,
+      orderState: { status: 'CANCELLED', action: 'EDIT' },
+    });
+    const del = await h.deleteOrder(order.id, 3);
+    expect(del.body).toMatchObject({
+      code: 'ORDER_LOCKED',
+      detail: 'This order was cancelled and is closed.',
+      orderState: { status: 'CANCELLED', action: 'DELETE' },
+    });
+  });
+
+  it('[FR-SM-01] submit, withdraw, approve and reject: 409 INVALID_STATE_TRANSITION naming each', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const draft = await h.draftAt('150000');
+    await plantCancelled(h, draft.id, { approverId: priya.id });
+    const reason = { reason: 'Too late' };
+    const refused = [
+      ['SUBMIT', await h.submitOrder(draft.id, 3)],
+      ['WITHDRAW', await h.withdrawOrder(draft.id, 3, h.jar, reason)],
+      ['APPROVE', await h.approveOrder(draft.id, 3, priya.jar)],
+      ['REJECT', await h.rejectOrder(draft.id, 3, priya.jar, reason)],
+    ] as const;
+    for (const [action, response] of refused) {
+      expect(response.status, action).toBe(409);
+      expect(response.body, action).toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+        orderState: { status: 'CANCELLED', action },
+      });
+    }
   });
 });

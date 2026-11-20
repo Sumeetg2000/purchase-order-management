@@ -152,12 +152,13 @@ describe('[FR-SM-01] migration 0014: approval tables', () => {
     expect(entries).toEqual([]);
   });
 
-  it('[FR-SM-01] the slice 4 transitions are exactly T4, T5, T7, T8 and T9', async () => {
+  it('[FR-SM-01] the transitions are exactly T4, T5, T7, T8, T9 and T10 (cancel)', async () => {
     const { app } = await orderFixture();
     const { rows } = await app.query<{ from_status: string; to_status: string }>(
       `SELECT from_status, to_status FROM order_status_transitions ORDER BY 1, 2`,
     );
     expect(rows).toEqual([
+      { from_status: 'APPROVED', to_status: 'CANCELLED' },
       { from_status: 'DRAFT', to_status: 'APPROVED' },
       { from_status: 'DRAFT', to_status: 'PENDING_APPROVAL' },
       { from_status: 'PENDING_APPROVAL', to_status: 'APPROVED' },

@@ -43,6 +43,14 @@ export interface AuditPolicy {
 }
 
 /** A step a withdraw voided, with the approval it had, if any (ADR-0001). */
+/** One line of a cancelled order, as PO_CANCELLED records it (ADR-0016, 2026-11-20). */
+export interface AuditCancelledLine {
+  lineId: string;
+  position: number;
+  quantity: number;
+  receivedQuantity: number;
+}
+
 export interface AuditVoidedStep {
   step: number;
   tier: number;
@@ -183,6 +191,12 @@ export interface AuditEventCatalogue {
   PO_WITHDRAWN: {
     entityType: 'order';
     details: { round: number; reason: string; voidedSteps: AuditVoidedStep[] };
+  };
+  /** An Approver cancelled an approved order (slice 5): each line's ordered and received
+   * quantity, in position order. */
+  PO_CANCELLED: {
+    entityType: 'order';
+    details: { round: number; reason: string; lines: AuditCancelledLine[] };
   };
   /** A new policy version: by the operator CLI, or SYSTEM for the migration's seed. */
   APPROVAL_POLICY_CHANGED: {

@@ -136,6 +136,20 @@ describe('[FR-PO-06] edit a draft in the web app', () => {
     expect(patches(seen)[1]?.headers.get('If-Match')).toBe('"3"');
   });
 
+  it('[NFR-FE-09] saving a draft that was since submitted and cancelled says it is cancelled', async () => {
+    // Another tab submitted the draft (auto-approved) and an Approver then cancelled it.
+    editApi({
+      [`PATCH /orders/${ORDER_ID}`]: () =>
+        problem(409, 'ORDER_LOCKED', { orderState: { status: 'CANCELLED', action: 'EDIT' } }),
+    });
+    const { user } = renderApp(EDIT_PATH);
+    await user.type(await screen.findByLabelText('Description, line 1'), ' M8');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This order was cancelled and is closed.',
+    );
+  });
+
   it('[NFR-FE-03] has no automated accessibility violations', async () => {
     editApi();
     renderApp(EDIT_PATH);

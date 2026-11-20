@@ -78,6 +78,7 @@ const EXPECTED: BodyInventory = {
   submitOrder: 'no body',
   approveOrder: 'no body',
   rejectOrder: { reason: 'required' },
+  cancelOrder: { reason: 'required' },
   withdrawOrder: { reason: 'required' },
 };
 

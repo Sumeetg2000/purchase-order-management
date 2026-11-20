@@ -40,6 +40,7 @@ export const order = (extra: Record<string, unknown> = {}) => ({
   ownerCanAct: true,
   vendorSnapshot: null,
   approval: null,
+  cancellation: null,
   ...extra,
 });
 
@@ -87,6 +88,41 @@ export const pendingOrder = (extra: Record<string, unknown> = {}) =>
       paymentTerms: { type: 'NET', netDays: 30 },
     },
     approval: pendingRound(),
+    ...extra,
+  });
+
+/** The pending order above, its step approved by Priya: version 3. */
+export const approvedOrder = (extra: Record<string, unknown> = {}) =>
+  pendingOrder({
+    status: 'APPROVED',
+    version: 3,
+    approvedAt: '2026-11-18T05:30:00.000Z',
+    approval: {
+      ...pendingRound(),
+      outcome: 'APPROVED',
+      closedAt: '2026-11-18T05:30:00.000Z',
+      steps: [
+        {
+          ...pendingRound().steps[0],
+          state: 'APPROVED',
+          decidedBy: { id: '0192e4a0-0000-7000-8000-00000000aaaa', name: 'Priya Approver' },
+          decidedAt: '2026-11-18T05:30:00.000Z',
+        },
+      ],
+    },
+    ...extra,
+  });
+
+/** The approved order above, cancelled by Priya: version 4. */
+export const cancelledOrder = (extra: Record<string, unknown> = {}) =>
+  approvedOrder({
+    status: 'CANCELLED',
+    version: 4,
+    cancellation: {
+      cancelledBy: { id: '0192e4a0-0000-7000-8000-00000000aaaa', name: 'Priya Approver' },
+      cancelledAt: '2026-11-19T06:00:00.000Z',
+      reason: 'Supplier closed',
+    },
     ...extra,
   });
 

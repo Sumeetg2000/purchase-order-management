@@ -28,6 +28,7 @@ import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
 import {
   ORDER_BODY_LIMIT_BYTES,
+  ORDER_CANCEL_FORBIDDEN_DETAIL,
   ORDER_DECISION_FORBIDDEN_DETAIL,
   ORDER_WRITE_FORBIDDEN_DETAIL,
 } from './orders.js';
@@ -688,6 +689,27 @@ export const OPERATIONS = {
     access: 'role',
     roles: [ROLE.APPROVER],
     forbiddenDetail: ORDER_DECISION_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: decisionReasonBody },
+    responses: { 200: order },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'SELF_APPROVAL',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+    ],
+  },
+  cancelOrder: {
+    method: 'post',
+    path: '/orders/:id/cancel',
+    operationId: 'cancelOrder',
+    summary:
+      "Cancel an approved order you don't own, with a reason and its current version; cancelling is final.",
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    forbiddenDetail: ORDER_CANCEL_FORBIDDEN_DETAIL,
     ifMatch: 'required',
     etag: true,
     request: { params: idParams, body: decisionReasonBody },

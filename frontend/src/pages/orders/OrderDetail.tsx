@@ -1,4 +1,10 @@
-import { formatInr, ORDER_OWNER_CANNOT_ACT_LABEL, toMoney } from '@po/contracts';
+import {
+  formatInr,
+  ORDER_OWNER_CANNOT_ACT_LABEL,
+  ORDER_OWNER_INACTIVE_APPROVED_MARKER,
+  ORDER_OWNER_INACTIVE_CANCEL_HINT,
+  toMoney,
+} from '@po/contracts';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
@@ -12,6 +18,8 @@ import { useRefreshApprovals } from '../approvals/queries';
 import { formatPaymentTerms } from '../vendors/payment-terms';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
 import { ApprovalPanel } from './ApprovalPanel';
+import { CancelDialog } from './CancelDialog';
+import { CancellationSection } from './CancellationSection';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
 import { useOrder, useOrderSaved, type Order } from './queries';
@@ -54,6 +62,7 @@ export function OrderDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   // The editor's "Withdraw" (a pending order's stale save) opens the dialog here.
   // The request is cleared once read, so a refresh or Back doesn't open the dialog again.
   const location = useLocation();
@@ -79,6 +88,7 @@ export function OrderDetail() {
   const canApprove = useCan('approveOrder');
   const canReject = useCan('rejectOrder');
   const canWithdraw = useCan('withdrawOrder');
+  const canCancel = useCan('cancelOrder');
   if (states.view) {
     return (
       <>
@@ -95,6 +105,9 @@ export function OrderDetail() {
   // Reject stays open when the owner can't act: it is how such an order is closed.
   const mayReject = canReject && pending && order.owner.id !== me?.id;
   const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
+  // An Approver cancels an approved order they don't own (ADR-0001 T10, ADR-0004).
+  const approved = order.status === 'APPROVED';
+  const mayCancel = canCancel && approved && order.owner.id !== me?.id;
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -147,6 +160,17 @@ export function OrderDetail() {
             Withdraw
           </button>
         )}
+        {mayCancel && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setCancelling(true);
+            }}
+          >
+            Cancel order
+          </button>
+        )}
         {pending && !order.ownerCanAct && (
           <span className={styles.badge}>{ORDER_OWNER_CANNOT_ACT_LABEL}</span>
         )}
@@ -165,6 +189,18 @@ export function OrderDetail() {
       {notice && (
         <p role="status" className={styles.notice}>
           {notice}
+        </p>
+      )}
+      {/* ADR-0004 S5, extended 2026-11-20: cancelling is how such an order is closed. */}
+      {approved && !order.ownerCanAct && (
+        <p className={styles.notice}>
+          <span>{ORDER_OWNER_INACTIVE_APPROVED_MARKER}</span>
+          {mayCancel && (
+            <>
+              {' '}
+              <span>{ORDER_OWNER_INACTIVE_CANCEL_HINT}</span>
+            </>
+          )}
         </p>
       )}
       <OrderTabs id={order.id} />
@@ -209,7 +245,24 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
+      {order.cancellation && <CancellationSection cancellation={order.cancellation} />}
       {order.approval && <ApprovalPanel round={order.approval} />}
+      {cancelling && (
+        <CancelDialog
+          order={order}
+          onClose={() => {
+            setCancelling(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onCancelled={(closed) => {
+            saved(closed);
+            setCancelling(false);
+            setNotice('Cancelled.');
+          }}
+        />
+      )}
       {submitting && (
         <SubmitDialog
           order={order}

@@ -14,6 +14,12 @@ import {
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
   SELF_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAILS,
+  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+  ORDER_CANCEL_FORBIDDEN_DETAIL,
+  ORDER_OWNER_INACTIVE_APPROVED_MARKER,
+  ORDER_OWNER_INACTIVE_CANCEL_HINT,
   carriesOrderState,
 } from '../src/index.js';
 
@@ -89,9 +95,32 @@ describe('[NFR-API-02] error code registry', () => {
     expect(ORDER_LOCKED_MESSAGES).toEqual({
       APPROVED: 'This order is approved and locked.',
       REJECTED: 'This order was rejected and is closed. Raise a new order instead.',
+      CANCELLED: 'This order was cancelled and is closed.',
     });
     expect(NOT_ORDER_OWNER_DETAIL).toBe('Only the buyer who raised this order can do that.');
     expect(SELF_APPROVAL_DETAIL).toBe("You can't approve or reject an order you raised.");
+  });
+
+  it('[FR-SOD-01] cancel has its own SELF_APPROVAL and FORBIDDEN details (ADR-0004, 2026-11-20)', () => {
+    expect(SELF_APPROVAL_DETAILS).toEqual({
+      APPROVE: SELF_APPROVAL_DETAIL,
+      REJECT: SELF_APPROVAL_DETAIL,
+      CANCEL: "You can't cancel an order you raised.",
+    });
+    expect(ORDER_CANCEL_APPROVER_ONLY_MESSAGE).toBe('Only Approvers can cancel orders.');
+    expect(ORDER_CANCEL_FORBIDDEN_DETAIL).toEqual({
+      ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+      BUYER: ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+    });
+  });
+
+  it("[NFR-FE-08] the owner-can't-act marker on an approved order, and the Approver's hint", () => {
+    expect(ORDER_OWNER_INACTIVE_APPROVED_MARKER).toBe(
+      "Its owner can no longer act on it, so receipts can't be recorded.",
+    );
+    expect(ORDER_OWNER_INACTIVE_CANCEL_HINT).toBe(
+      'To close it, cancel it, and a buyer can raise a new order if the goods are still needed.',
+    );
   });
 
   it('[NFR-API-02] never uses status 422', () => {
@@ -231,6 +260,18 @@ describe('[NFR-API-02] problem schema', () => {
     expect(problemSchema.safeParse({ ...locked, orderState: { status: 'LOST' } }).success).toBe(
       false,
     );
+    const refused = {
+      ...valid,
+      code: 'INVALID_STATE_TRANSITION',
+      status: 409,
+      title: 'Invalid state transition',
+    };
+    expect(
+      problemSchema.safeParse({
+        ...refused,
+        orderState: { status: 'PENDING_APPROVAL', action: 'CANCEL' },
+      }).success,
+    ).toBe(true);
     expect(problemSchema.safeParse({ ...valid, orderState: { status: 'DRAFT' } }).success).toBe(
       false,
     );

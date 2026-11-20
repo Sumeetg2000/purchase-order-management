@@ -83,9 +83,12 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
       'owner_id',
       'vendor_id',
     ]);
-    // Migration 0014 adds status and the submission columns (slice 4, data-model.md).
+    // Migration 0014 adds status and the submission columns (slice 4, data-model.md); 0015
+    // the canceller and the reason (slice 5), never cancelled_at, which the guard sets.
     expect(await columnPrivileges(q, 'po_app', 'purchase_orders', 'UPDATE')).toEqual([
       'approved_at',
+      'cancel_reason',
+      'cancelled_by',
       'current_round',
       'po_number',
       'status',
@@ -327,11 +330,12 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
     expect(await key('createOrder', 32)).toBeUndefined();
     expect(await key('deleteOrder', 32)).toBe(CHECK_VIOLATION);
     expect(await key('createOrder', 31)).toBe(CHECK_VIOLATION);
-    // Migration 0014 inserts the five slice 4 transitions (approval-schema.test.ts).
+    // Migration 0014 inserts the five slice 4 transitions, 0015 the cancel
+    // (approval-schema.test.ts).
     const { rows } = await f.app.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM order_status_transitions`,
     );
-    expect(rows[0]?.n).toBe('5');
+    expect(rows[0]?.n).toBe('6');
   });
 
   it('[NFR-PERF-01] the order list indexes exist exactly as planned', async () => {
@@ -346,6 +350,8 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
     expect(defs).toEqual({
       idempotency_keys_created_at_idx: '(created_at)',
       idempotency_keys_pkey: '(user_id, operation, key)',
+      // Migration 0015: the canceller's foreign key (slice 5, research R8).
+      purchase_orders_cancelled_by_idx: '(cancelled_by) WHERE (cancelled_by IS NOT NULL)',
       purchase_orders_created_idx: '(created_at DESC, id DESC)',
       purchase_orders_owner_created_idx: '(owner_id, created_at DESC, id DESC)',
       purchase_orders_owner_po_number_idx: '(owner_id, po_number)',

@@ -3,7 +3,7 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset) ·
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
   ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
-  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan)
+  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan) · amended 2026-11-20 (1,000 cancelled orders in the status mix, slice 5 plan)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -17,7 +17,9 @@
     seed.
   - **Order status mix** (amended 2026-11-17, slice 4): 5,000 `DRAFT`, 3,000
     `PENDING_APPROVAL`, 2,000 `REJECTED`, 90,000 `APPROVED` (later slices split the
-    approved orders into cancelled and receipt states), with matching approval rounds and
+    approved orders into cancelled and receipt states). *Amended 2026-11-20 (slice 5,
+    owner sign-off)*: 1,000 of the 90,000 are `CANCELLED` (so 89,000 `APPROVED`), each
+    with its cancel record and its round closed approved, with matching approval rounds and
     steps. For the queue's own-order exclusion, the plan fixture also gives one of the top
     10 Buyers `{BUYER, APPROVER}`.
   - **Order lists at this mix** (amended 2026-11-18, owner decision): the non-draft

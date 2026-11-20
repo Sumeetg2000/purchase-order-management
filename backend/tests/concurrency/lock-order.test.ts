@@ -43,6 +43,38 @@ describe('[NFR-CON-01] lock order between order commands and user management', (
     );
   });
 
+  it("[NFR-CON-01] a cancel waiting on its Approver's users row already holds the order", async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const draft = await h.draftAt('10');
+    await h.submitOrder(draft.id, 1);
+    // Hold the Approver's row, as an admin change in progress would (ADR-0006, 2026-11-20).
+    await h.query('BEGIN');
+    await h.query(`SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, [priya.id]);
+    const cancelling = h
+      .cancelOrder(draft.id, 2, priya.jar, { reason: 'Supplier closed' })
+      .then((r) => r);
+    let held: string[] = [];
+    let waitingOn: string[] = [];
+    for (let i = 0; i < 250 && waitingOn.length === 0; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const rows = await h.query<{ relname: string | null; locktype: string; granted: boolean }>(
+        `SELECT c.relname, l.locktype, l.granted
+           FROM pg_locks l
+           JOIN pg_stat_activity a ON a.pid = l.pid
+           LEFT JOIN pg_class c ON c.oid = l.relation
+          WHERE a.datname = current_database() AND a.pid <> pg_backend_pid()
+            AND a.wait_event_type = 'Lock'`,
+      );
+      waitingOn = rows.filter((r) => !r.granted).map((r) => r.locktype);
+      held = rows.filter((r) => r.granted && r.relname !== null).map((r) => r.relname ?? '');
+    }
+    await h.query('COMMIT');
+    expect((await cancelling).status).toBe(200);
+    expect(waitingOn).toContain('transactionid');
+    expect(held).toEqual(expect.arrayContaining(['purchase_orders', 'users']));
+  });
+
   it('[NFR-CON-01] user-management code never touches order data', async () => {
     const areas = [
       'auth',
