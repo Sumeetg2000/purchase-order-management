@@ -362,6 +362,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'order_lines order_lines_recompute_upd O',
       'order_lines require_actor_context O',
       'purchase_orders purchase_orders_approval_consistent O',
+      'purchase_orders purchase_orders_cancel_guard O',
       'purchase_orders purchase_orders_delete_draft_only O',
       'purchase_orders purchase_orders_derived_guard O',
       'purchase_orders purchase_orders_has_lines O',

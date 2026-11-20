@@ -911,7 +911,7 @@ describe('[FR-LCK-01] a rejected or cancelled order never changes', () => {
     expect(
       await attempt(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`),
     ).toBe(ORDER_CLOSED);
-    expect(await attempt(`UPDATE purchase_orders SET updated_at = now() WHERE id = $1`)).toBe(
+    expect(await attempt(`UPDATE purchase_orders SET vendor_id = vendor_id WHERE id = $1`)).toBe(
       ORDER_CLOSED,
     );
   });

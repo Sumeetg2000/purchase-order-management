@@ -120,7 +120,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 cancel without its record. **Independent test**: the attacks below, each refused, then
 reconciliation zero rows.
 
-- [ ] T011 [P] [US3] Trigger tests, seen failing on part 1: as `po_app` with an actor
+- [X] T011 [P] [US3] Trigger tests, seen failing on part 1: as `po_app` with an actor
   context, on a planted cancelled order: `version`, `cancel_reason`, `cancelled_at`,
   `vendor_id`, `status` → `PO018`; on a planted rejected order: `version`, `status`
   (reopen) → `PO018`; on an approved order: setting the cancel columns without the status
@@ -129,7 +129,7 @@ reconciliation zero rows.
   `CANCELLED` with no record → `23514`; the allowed cancel sets `cancelled_at` from the
   database clock — `backend/tests/integration/approval-triggers.test.ts` — D9–D11,
   FR-011, FR-LCK-01, FR-SM-01.
-- [ ] T012 [P] [US3] Attack suite, seen failing: the T011 attacks as `po_app` and as a
+- [X] T012 [P] [US3] Attack suite, seen failing: the T011 attacks as `po_app` and as a
   privileged role (loud error, no silent fix); D1's cancelled branch: a cancelled order
   whose round is reopened, or whose `approved_at` moves → `PO014`; every attack ends in
   reconciliation zero rows. Update the slice 4 attack "reopen a rejected order": its
@@ -137,7 +137,7 @@ reconciliation zero rows.
   before `PO009`; still refused, owner sign-off R10 Q4); the commit body names the
   `PO009 → PO018` change and why — `backend/tests/integrity/approval-attacks.test.ts`,
   `reconciliation.test.ts` — FR-011, SC-002.
-- [ ] T013 [US3] Migration part 2: `purchase_orders_cancel_guard()` (D9 for `REJECTED`
+- [X] T013 [US3] Migration part 2: `purchase_orders_cancel_guard()` (D9 for `REJECTED`
   and `CANCELLED`, D10, D11, `cancelled_at := now()`), `SECURITY INVOKER`, pinned
   `search_path`, `REVOKE … FROM PUBLIC`; `approval_inconsistency` replaced with the
   `CANCELLED` branch and no "not reachable" fallback; T011, T012 green —
