@@ -129,3 +129,38 @@ describe('[FR-LCK-02] cancel an approved order', () => {
     expect(invalid.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 });
+
+describe('[FR-SM-01] cancel starts only from APPROVED (T10)', () => {
+  it('[FR-SM-01] pending, rejected and cancelled orders: 409 INVALID_STATE_TRANSITION, action CANCEL', async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const pending = await h.draftAt('150000');
+    await h.submitOrder(pending.id, 1);
+    const rejected = await h.draftAt('150000');
+    await h.submitOrder(rejected.id, 1);
+    await h.rejectOrder(rejected.id, 2, priya.jar, reason);
+    const cancelled = await h.draftAt('10');
+    await h.submitOrder(cancelled.id, 1);
+    await h.cancelOrder(cancelled.id, 2, priya.jar, reason);
+    for (const [status, id, version] of [
+      ['PENDING_APPROVAL', pending.id, 2],
+      ['REJECTED', rejected.id, 3],
+      ['CANCELLED', cancelled.id, 3],
+    ] as const) {
+      const res = await h.cancelOrder(id, version, priya.jar, reason);
+      expect(res.status, status).toBe(409);
+      expect(res.body, status).toMatchObject({
+        code: 'INVALID_STATE_TRANSITION',
+        orderState: { status, action: 'CANCEL' },
+      });
+    }
+    expect(await cancels(h)).toHaveLength(1);
+  });
+
+  it("[FR-SM-01] a draft is another buyer's and unreadable to an Approver: 404", async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const draft = await h.draftAt('10');
+    expect((await h.cancelOrder(draft.id, 1, priya.jar, reason)).status).toBe(404);
+  });
+});

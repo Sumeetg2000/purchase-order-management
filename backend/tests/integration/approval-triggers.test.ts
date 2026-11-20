@@ -970,3 +970,23 @@ describe('[FR-SM-01] the commit-time check covers cancelled orders', () => {
     expect(await inconsistency(moved.orderId)).toBe("approved_at is not the round's close");
   });
 });
+
+describe('[FR-SM-01] the database allows T10 from APPROVED only', () => {
+  it('[FR-SM-01] a full cancel from draft or pending is PO009; from rejected or cancelled PO018', async () => {
+    const f = await fixture();
+    const draft = (await draftOf(f, 2)).orderId;
+    const pending = (await draftOf(f, 2)).orderId;
+    await plantSubmitted(f, pending, 'PENDING_APPROVAL', { approverId: f.approverId });
+    const rejected = (await draftOf(f, 2)).orderId;
+    await plantSubmitted(f, rejected, 'REJECTED', { approverId: f.approverId });
+    const cancelled = (await draftOf(f, 2)).orderId;
+    await plantCancelled(f, cancelled, { approverId: f.approverId });
+    const attempt = (orderId: string) =>
+      sqlstate(() => as(f.app, f.approver, (q) => cancelOrder(q, orderId, f.approverId)));
+    expect(await attempt(draft)).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+    expect(await attempt(pending)).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+    expect(await attempt(rejected)).toBe(ORDER_CLOSED);
+    expect(await attempt(cancelled)).toBe(ORDER_CLOSED);
+    expect(await attempt(await approved(f))).toBeUndefined();
+  });
+});
