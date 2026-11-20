@@ -101,7 +101,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 - [X] T008 [P] Database errors `PO018` (`ORDER_CLOSED`), `PO019` (`ORDER_CANCEL_REFUSED`) →
   `INTERNAL_ERROR` with their names, unit test first — `backend/src/db/errors.ts`,
   `backend/tests/unit/db-errors.test.ts` — R2.
-- [ ] T009 [P] Audit event `PO_CANCELLED` with `details { round, reason, lines: [{ lineId,
+- [X] T009 [P] Audit event `PO_CANCELLED` with `details { round, reason, lines: [{ lineId,
   position, quantity, receivedQuantity }] }`; `ORDER_AUDIT_ACTIONS` extended; unit test
   first — `backend/src/audit/events.ts`, `packages/contracts/src/orders.ts`,
   `backend/tests/unit/audit-write.test.ts` — R7, ADR-0016 2026-11-20.

@@ -113,5 +113,7 @@ export const ORDER_AUDIT_ACTIONS = [
   'APPROVAL_STEP_APPROVED',
   'APPROVAL_STEP_REJECTED',
   'PO_WITHDRAWN',
+  // Slice 5.
+  'PO_CANCELLED',
 ] as const;
 export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];

@@ -9632,7 +9632,8 @@
               "PO_AUTO_APPROVED",
               "APPROVAL_STEP_APPROVED",
               "APPROVAL_STEP_REJECTED",
-              "PO_WITHDRAWN"
+              "PO_WITHDRAWN",
+              "PO_CANCELLED"
             ]
           },
           "occurredAt": {
