@@ -159,6 +159,8 @@ describe('[NFR-API-02] central database error mapper', () => {
     ['PO015', 'ORDER_SUBMISSION_FIELD_LOCKED'],
     ['PO016', 'SELF_DECISION_REFUSED'],
     ['PO017', 'APPROVAL_POLICY_IMMUTABLE'],
+    ['PO018', 'ORDER_CLOSED'],
+    ['PO019', 'ORDER_CANCEL_REFUSED'],
   ])(
     '[NFR-API-02] trigger SQLSTATE %s (%s) is INTERNAL_ERROR, logged as a bug by name',
     (sqlstate, name) => {
