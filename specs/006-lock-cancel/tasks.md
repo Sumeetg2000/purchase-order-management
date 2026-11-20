@@ -248,7 +248,7 @@ reconciliation zero rows.
   plans committed; **no new index unless a case fails** — if one does, stop and show the
   owner — `backend/tests/plans/orders-fixture.ts`, `orders.plan.test.ts`,
   `docs/query-plans/orders/` — R8, NFR-PERF-01.
-- [ ] T029 [P] [US4] Web: the list's status filter offers Cancelled (pinned); a cancelled
+- [X] T029 [P] [US4] Web: the list's status filter offers Cancelled (pinned); a cancelled
   row shows its status — `frontend/tests/orders-list.test.tsx` — FR-018.
 
 ---
