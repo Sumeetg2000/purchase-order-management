@@ -22,9 +22,11 @@ export const BUYER_COUNT = 300;
 export const VENDOR_COUNT = 2_000;
 export const AUDIT_ENTRY_COUNT = 2_000_000;
 export const ORDER_ENTRY_COUNT = 300_000;
-/** ADR-0012's status mix (amended 2026-11-17), by series number: n % 100 decides. */
+/** ADR-0012's status mix (amended 2026-11-17 and 2026-11-20), by series number: n % 100
+ * decides. */
 export const STATUS_MIX = {
-  APPROVED: 90_000,
+  APPROVED: 89_000,
+  CANCELLED: 1_000,
   DRAFT: 5_000,
   PENDING_APPROVAL: 3_000,
   REJECTED: 2_000,
@@ -231,6 +233,9 @@ export function orderPlanQueries(ids: {
     ['po-prefix-short', { poNumber: PO_PREFIX_SHORT }],
     ['created', { createdFrom: '2026-06-01', createdTo: '2026-06-30' }],
     ['status-vendor', { status: 'DRAFT', vendorId: ids.vendor }],
+    // Slice 5: a rare status (1 %), which a walk of a status-free index would not stop on.
+    ['cancelled', { status: 'CANCELLED' }],
+    ['cancelled-vendor', { status: 'CANCELLED', vendorId: ids.vendor }],
     [
       'vendor-created',
       { vendorId: ids.vendor, createdFrom: '2026-06-01', createdTo: '2026-09-30' },
