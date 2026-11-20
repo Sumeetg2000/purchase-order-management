@@ -155,6 +155,9 @@ jobs:
     with:
       browsers: ${{ github.event_name == 'push' && 'chromium,firefox,webkit' || 'chromium' }}
       report-name: reports-e2e
+      # Three browsers on main need the longer budget, chiefly for their system packages;
+      # a pull request (Chromium only) keeps 20.
+      timeout-minutes: ${{ github.event_name == 'push' && 35 || 20 }}
 
   # Query plans at the ADR-0012 sizes (slice 2 research R11): too slow for the default run.
   # On a pull request it runs only when a change could move a plan; otherwise plans-scope

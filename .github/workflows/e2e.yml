@@ -63,6 +63,9 @@ jobs:
       # itself, so the option goes in apt's config), and the whole install is tried up to
       # 3 times, 30 s apart.
       - name: Install the browsers
+        # Its own limit, so a slow mirror fails here as an install timeout rather than
+        # cancelling the tests when the job's budget runs out.
+        timeout-minutes: 20
         run: |
           echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
           IFS=, read -ra engines <<<"$E2E_BROWSERS"
