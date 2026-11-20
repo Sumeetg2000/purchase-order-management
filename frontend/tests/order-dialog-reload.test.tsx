@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, ME, problem } from './support/fake-api';
-import { order, ORDER_ID, pendingOrder, policy } from './support/orders';
+import { approvedOrder, order, ORDER_ID, pendingOrder, policy } from './support/orders';
 import { renderApp } from './support/render-app';
 import { page } from './support/vendors';
 
@@ -22,6 +22,7 @@ const DIALOGS = [
   { name: 'Reject', user: APPROVER, shown: pendingOrder(), request: 'POST reject' },
   { name: 'Withdraw', user: OWNER, shown: pendingOrder(), request: 'POST withdraw' },
   { name: 'Delete draft', user: OWNER, shown: order(), request: 'DELETE' },
+  { name: 'Cancel order', user: APPROVER, shown: approvedOrder(), request: 'POST cancel' },
 ] as const;
 
 /** The fake API's key for a dialog's request: `POST /orders/:id/submit`, `DELETE /orders/:id`. */
