@@ -255,7 +255,7 @@ reconciliation zero rows.
 
 ## Phase 7: User Story 5 — Concurrent cancels end in one outcome (P2)
 
-- [ ] T030 [US5] Races, barriers, 10 runs each, business outcomes asserted (research R4):
+- [X] T030 [US5] Races, barriers, 10 runs each, business outcomes asserted (research R4):
   cancel vs cancel; cancel vs the Approver's deactivation and vs APPROVER removal, each
   started in either order; cancel vs vendor deactivation; cancel vs owner deactivation or
   BUYER removal; cancel vs the owner's edit or delete; no deadlock; one `PO_CANCELLED` at
