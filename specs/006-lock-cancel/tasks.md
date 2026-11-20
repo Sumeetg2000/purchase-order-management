@@ -193,7 +193,7 @@ reconciliation zero rows.
 - [X] T021 [US1] Order read gains `cancellation` (canceller's current name, time, reason)
   for everyone who can read it; tests first — `backend/src/orders/repository.ts`,
   `backend/tests/integration/orders-read.test.ts` — FR-003, R6, ADR-0004 2026-11-20.
-- [ ] T022 [P] [US1] Cancel dialog, component tests first: names PO number, buyer,
+- [X] T022 [P] [US1] Cancel dialog, component tests first: names PO number, buyer,
   vendor, total; "Nothing has been received against this order."; the final-and-no-receipts
   sentence; reason required ("Enter a reason." for empty or whitespace), 500 limit, server
   field errors at the field; focus starts on "Keep order"; Reload order on
@@ -202,7 +202,7 @@ reconciliation zero rows.
   `ACCOUNT_DEACTIVATED` by code; axe — `frontend/src/pages/orders/CancelDialog.tsx`,
   `frontend/tests/cancel-order-dialog.test.tsx` (new), `order-dialog-reload.test.tsx` —
   FR-017, contracts/ui.md, NFR-FE-09.
-- [ ] T023 [US1] Order detail, tests first: Cancel order button only for an Approver who
+- [X] T023 [US1] Order detail, tests first: Cancel order button only for an Approver who
   isn't the owner on `APPROVED`; Cancellation section ("Cancelled by {name} on {date}",
   reason) and no actions on a cancelled order; the owner-can't-act marker on an approved
   order (first sentence for every reader, the second only for an Approver who may

@@ -18,16 +18,24 @@ export interface ErrorStateProps {
   labels?: FormFields['labels'];
   /** Offered as Retry only for temporary failures (503-class codes). */
   onRetry?: () => void;
+  /** The screen's own words for a problem (FormFields['messageFor']). */
+  messageFor?: FormFields['messageFor'];
 }
 
 /**
  * The message for a problem (a revoke reason, a wait, field errors included), its next
  * step, the request id and, if it helps, Retry.
  */
-export function ErrorState({ problem, retryAfterSeconds, labels, onRetry }: ErrorStateProps) {
+export function ErrorState({
+  problem,
+  retryAfterSeconds,
+  labels,
+  onRetry,
+  messageFor,
+}: ErrorStateProps) {
   const { message, action } = describeFailure(
     { problem, retryAfterSeconds },
-    labels ? { labels } : {},
+    { ...(labels ? { labels } : {}), messageFor },
   );
   return (
     <div role="alert" className={styles.error}>

@@ -301,6 +301,8 @@ export interface FormFields {
   highlighted?: readonly string[];
   /** Labels for paths said at form level, such as { 'body.email': 'Email' }. */
   labels?: Readonly<Record<string, string>>;
+  /** The screen's own words for a problem, by its code (e.g. cancel's SELF_APPROVAL). */
+  messageFor?: ((problem: ProblemLike) => ErrorMessage) | undefined;
 }
 
 /** What a field error says; a code this build doesn't know reads as not valid. */
@@ -316,7 +318,7 @@ export function fieldMessageFor(code: string): string {
  */
 export function describeFailure(failure: FailureLike, form: FormFields = {}): ErrorMessage {
   const { problem, retryAfterSeconds } = failure;
-  const { message, action } = messageForProblem(problem);
+  const { message, action } = (form.messageFor ?? messageForProblem)(problem);
   if (retryAfterSeconds !== undefined && WAIT_CODES.includes(problem.code)) {
     const minutes = Math.max(1, Math.ceil(retryAfterSeconds / SECONDS_PER_MINUTE));
     return {
