@@ -83,9 +83,12 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
       'owner_id',
       'vendor_id',
     ]);
-    // Migration 0014 adds status and the submission columns (slice 4, data-model.md).
+    // Migration 0014 adds status and the submission columns (slice 4, data-model.md); 0015
+    // the canceller and the reason (slice 5), never cancelled_at, which the guard sets.
     expect(await columnPrivileges(q, 'po_app', 'purchase_orders', 'UPDATE')).toEqual([
       'approved_at',
+      'cancel_reason',
+      'cancelled_by',
       'current_round',
       'po_number',
       'status',

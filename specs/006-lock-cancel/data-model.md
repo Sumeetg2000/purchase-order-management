@@ -9,7 +9,7 @@ R7, R8.
 |---|---|---|
 | `cancelled_by` | `uuid` null, FK `users (id)` | the acting Approver; never the owner (D11) |
 | `cancelled_at` | `timestamptz` null | database clock, set by the guard (D10) |
-| `cancel_reason` | `text` null | trimmed, 1–500 characters, no line breaks |
+| `cancel_reason` | `text` null | trimmed, 1–500 characters, line breaks allowed |
 
 Constraints:
 - `purchase_orders_cancel_matches_status`:

@@ -8,8 +8,8 @@ owner sign-offs are listed in R10.
 - **Decision**: three columns on `purchase_orders`: `cancelled_by uuid` (FK `users`),
   `cancelled_at timestamptz`, `cancel_reason text`. One CHECK ties them to the status:
   all three set iff `status = 'CANCELLED'`. A second CHECK applies the reason rule
-  (ADR-0007, as `approval_rounds_withdraw_reason_valid`: trimmed, 1–500 characters, no
-  line breaks). `cancelled_at` is set by the database clock in the guard (R2), never by
+  (ADR-0007, as `approval_rounds_withdraw_reason_valid`: trimmed, 1–500 characters,
+  line breaks allowed). `cancelled_at` is set by the database clock in the guard (R2), never by
   the caller.
 - **Rationale**: one cancel per order, final; the order read and the list need it
   without a join; the CHECK makes a `CANCELLED` row without its record impossible

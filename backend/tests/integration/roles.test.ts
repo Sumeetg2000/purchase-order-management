@@ -202,9 +202,12 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       ),
       'po_number_counters.last_value po_app UPDATE',
       ...['id', 'owner_id', 'vendor_id'].map((col) => `purchase_orders.${col} po_app INSERT`),
-      // Slice 4 (0014): status and the submission columns, written with a transition only.
+      // Slice 4 (0014): status and the submission columns, written with a transition only;
+      // slice 5 (0015): the canceller and the reason, written with the cancel only.
       ...[
         'approved_at',
+        'cancel_reason',
+        'cancelled_by',
         'current_round',
         'po_number',
         'status',

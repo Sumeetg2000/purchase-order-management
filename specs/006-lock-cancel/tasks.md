@@ -65,7 +65,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   - `purchase_orders` gains `cancelled_by uuid` (FK `users (id)`), `cancelled_at
     timestamptz`, `cancel_reason text`; "`purchase_orders_cancel_matches_status`: all three
     set iff `status = 'CANCELLED'`"; "`purchase_orders_cancel_reason_valid`" with the
-    `withdraw_reason` rule (trimmed, 1–500, no line breaks); `po_app` gains `UPDATE
+    `withdraw_reason` rule (trimmed, 1–500, line breaks allowed); `po_app` gains `UPDATE
     (cancelled_by, cancel_reason)` only (not `cancelled_at`, set by the guard)
   - `order_status_transitions` holds exactly T4, T5, T7, T8, T9 and `APPROVED → CANCELLED`
   - "`purchase_orders_cancelled_by_idx ON purchase_orders (cancelled_by) WHERE
