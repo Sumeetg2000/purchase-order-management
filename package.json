@@ -62,7 +62,13 @@
     "unrs-resolver": false,
     "lefthook": false
   },
+  "//": [
+    "overrides.@prisma/config.effect: GHSA-7589-6fvf-x4pw (high) in effect <=3.22.0, which @prisma/config 7.10.1 pins to 3.20.0. Pinned to 3.22.4 (patched; 3.22.5 is too new). Remove once @prisma/config allows effect >=3.22.1. Recorded in ADR-0020, Dependency exceptions."
+  ],
   "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.4"
+    },
     "openapi-typescript": {
       "typescript": "6.0.3"
     },

@@ -25,7 +25,8 @@ jobs:
       browsers: chromium,firefox,webkit
       report-name: reports-nightly
       if-no-files-found: warn
-      timeout-minutes: 30
+      # Three browsers: the same budget as main's (ci.yml).
+      timeout-minutes: 35
 
   plans:
     name: plans

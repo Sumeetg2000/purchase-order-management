@@ -6,7 +6,9 @@
   libraries from the slice 0 plan) · amended 2026-10-27 (shutdown waits for mail within
   the drain deadline) · amended 2026-11-03 (POC scope, owner decision: no user phone, so
   no phone purge and no `UPDATE` grant for it) · amended 2026-11-12 (`big.js`,
-  `@tanstack/react-virtual`, `fast-check`; slice 3)
+  `@tanstack/react-virtual`, `fast-check`; slice 3) · amended 2026-11-20 (dependency
+  exceptions: the `effect` override; CI browser-install limits, and the slice 7
+  container follow-up)
 - **Brief:** stack, §6 ("`docker compose up` and a documented `.env` only")
 - **Principles:** IX, XII
 
@@ -78,6 +80,18 @@
 - Parameterized SQL only.
 - No secrets in the repository or images. Containers run as non-root.
 - Dependency scanning with no unresolved high or critical findings.
+- **Dependency exceptions** (an npm `overrides` entry that changes a dependency's own
+  pin, each noted under the root `package.json`'s `"//"` key, and removed once upstream
+  allows the fix):
+  - `@prisma/config` → `effect` `3.22.4` (2026-11-20): GHSA-7589-6fvf-x4pw (high, ReDoS)
+    affects `effect` ≤3.22.0, which `@prisma/config` 7.10.1 pins to `3.20.0`; no Prisma 7
+    release allows a patched version yet. `3.22.4` is the newest patched release at least
+    two weeks old. Remove once `@prisma/config` allows `effect` ≥3.22.1.
+- **CI browsers** (2026-11-20): the e2e job installs Playwright's system packages with
+  apt, so a slow Ubuntu mirror can take most of its budget. The install has its own
+  20-minute limit, and three-browser runs (main, nightly) a 35-minute job budget; pull
+  requests keep 20. Slice 7 follow-up: run e2e in the Playwright container image, which
+  carries the browsers' packages, so no run depends on apt.
 - **Install scripts**: npm runs them only for packages on the root `allowScripts` list,
   each pinned to an exact version. Upgrading such a package requires approving its script
   again.
