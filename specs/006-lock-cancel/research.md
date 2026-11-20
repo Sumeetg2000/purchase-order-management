@@ -148,6 +148,8 @@ Cancel vs receive is slice 6 (spec Assumptions).
 - **T001 results (2026-11-20, local, 50 timed runs after 3 warm-up)**: p95 create 76 ms,
   replace 124 ms, busiest Buyer's page 11 ms, submit 47 ms, approve 41 ms, queue page
   11 ms; all within their targets.
+- **T031 results (2026-11-20, local)**: cancel of a 500-line order p95 34 ms (target
+  150 ms), measured in the same 50 runs as submit (42 ms) and approve (37 ms).
 
 ## R9 Web app
 

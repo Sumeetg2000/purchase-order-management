@@ -266,7 +266,7 @@ reconciliation zero rows.
 
 ## Phase 8: Polish & cross-cutting
 
-- [ ] T031 [P] Cancel timing: p95 ≤ `DECISION_P95_MS` (150 ms), 50 timed runs after 3
+- [X] T031 [P] Cancel timing: p95 ≤ `DECISION_P95_MS` (150 ms), 50 timed runs after 3
   warm-up, on the plan fixture — `backend/tests/plans/orders.timing.test.ts` — SC-006.
 - [ ] T032 [P] Demo seed: one cancelled order per demo Buyer through the cancel service,
   by the Demo Approver; idempotent on reseed; reconciliation zero rows —
