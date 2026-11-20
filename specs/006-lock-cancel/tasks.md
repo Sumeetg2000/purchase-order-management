@@ -46,7 +46,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ## Phase 1: Setup and the carried-over timings
 
-- [ ] T001 Service timings: submit and approve take `WARM_UP_RUNS = 3` then 50 timed runs,
+- [X] T001 Service timings: submit and approve take `WARM_UP_RUNS = 3` then 50 timed runs,
   through one shared `TIMED_RUNS = 50` replacing `WRITE_RUNS` and `LIST_RUNS`; targets unchanged (submit ≤ 500 ms, approve
   `DECISION_P95_MS` = 150 ms); `npm run test:plans` green; results in research R8 —
   `backend/tests/plans/orders.timing.test.ts` — FR-019, NFR-PERF-01.

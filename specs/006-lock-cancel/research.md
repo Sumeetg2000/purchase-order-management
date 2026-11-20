@@ -145,6 +145,10 @@ Cancel vs receive is slice 6 (spec Assumptions).
 - **Timings**: FR-019 first (submit and approve: 50 timed runs after 3 warm-up, targets
   unchanged), then cancel at `DECISION_P95_MS` (150 ms), same 50/3.
 
+- **T001 results (2026-11-20, local, 50 timed runs after 3 warm-up)**: p95 create 76 ms,
+  replace 124 ms, busiest Buyer's page 11 ms, submit 47 ms, approve 41 ms, queue page
+  11 ms; all within their targets.
+
 ## R9 Web app
 
 - `CancelDialog` (ConfirmDialog, ADR-0018): names the PO number, buyer, vendor and total;
