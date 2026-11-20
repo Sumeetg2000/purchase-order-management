@@ -151,7 +151,7 @@ reconciliation zero rows.
   with status and action (after role, visibility, ownership) —
   `backend/tests/integration/orders-lock.test.ts`, `backend/src/orders/service.ts` —
   FR-010, FR-LCK-01.
-- [ ] T016 [P] [US3] Editor: saving an order cancelled meanwhile shows the cancelled
+- [X] T016 [P] [US3] Editor: saving an order cancelled meanwhile shows the cancelled
   message, component test first — `frontend/tests/order-editor-edit.test.tsx`,
   `frontend/src/pages/orders/` — US3 scenario 5, NFR-FE-09.
 - [ ] T017 [US3] State machine: T10 allowed from `APPROVED`; refused from `DRAFT`,
