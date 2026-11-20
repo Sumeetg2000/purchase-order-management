@@ -5,6 +5,7 @@ import {
   AUDIT_ENTRY_COUNT,
   ORDER_COUNT,
   ORDER_ENTRY_COUNT,
+  STATUS_MIX,
   orderPlanIds,
   orderPlanQueries,
   seedOrderPlanData,
@@ -29,7 +30,13 @@ function nodes(node: PlanNode): PlanNode[] {
   return [node, ...(node.Plans ?? []).flatMap(nodes)];
 }
 
-const TABLES = new Set(['purchase_orders', 'order_lines', 'audit_entries']);
+const TABLES = new Set([
+  'purchase_orders',
+  'order_lines',
+  'audit_entries',
+  'approval_rounds',
+  'approval_steps',
+]);
 const SORTS = new Set(['Sort', 'Incremental Sort']);
 
 /** A page query's faults: a Seq Scan, a Sort or a filter over more than page plus offset. */
@@ -100,6 +107,13 @@ describe('[NFR-PERF-01] order query plans at the ADR-0012 sizes', () => {
     });
     expect(rows[0]?.lines).toBeGreaterThan(1_000_000);
     expect(rows[0]?.lines).toBeLessThan(1_200_000);
+  });
+
+  it("[NFR-PERF-01] holds ADR-0012's status mix, every pending order in one queue", async () => {
+    const { rows } = await app.query<{ status: string; n: number }>(
+      `SELECT status, count(*)::int AS n FROM purchase_orders GROUP BY status ORDER BY status`,
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.status, r.n]))).toEqual(STATUS_MIX);
   });
 
   it('[NFR-PERF-01] page queries with bound values: through an index, nothing past the page', async () => {

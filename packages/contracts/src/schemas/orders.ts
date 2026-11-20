@@ -12,40 +12,15 @@ import {
   ORDER_READ_ONLY_FIELDS,
   ORDER_STATUSES,
   PO_NUMBER_PATTERN,
-  PO_NUMBER_PREFIX_MAX,
 } from '../orders.js';
 import { VENDOR_STATUSES } from '../vendors.js';
+import { approvalRound, vendorOrderSnapshot } from './approvals.js';
+import { extensibleEnum } from './extensible-enum.js';
 import { pageQueryShape } from './pagination.js';
 import { readOnlyGuarded } from './read-only.js';
+import { plainText, poNumberPrefix } from './text.js';
 
 // Draft orders (specs/004-draft-orders/contracts/api.md, research R6 and R9).
-
-/**
- * Length in Unicode code points: an emoji counts once, not as two UTF-16 units. That is
- * the UTF-16 length less one per surrogate pair, as PostgreSQL's char_length counts.
- */
-const codePoints = (s: string) => s.length - (s.match(SURROGATE_PAIR)?.length ?? 0);
-const SURROGATE_PAIR = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
-
-/**
- * Well-formed Unicode: no lone surrogate (an escaped JSON string can carry one, and
- * PostgreSQL can't store it). With the u flag a surrogate pair is one code point, so this
- * class matches only an unpaired half. String.prototype.isWellFormed is ES2024.
- */
-const LONE_SURROGATE = /[\uD800-\uDFFF]/u;
-
-/** Trimmed, well-formed text of 1 to `max` code points; `allowed` control characters only. */
-function plainText(max: number, allowedControls: RegExp | undefined) {
-  return z
-    .string()
-    .trim()
-    .refine((s) => !LONE_SURROGATE.test(s), { params: { fieldCode: 'INVALID_FORMAT' } })
-    .refine((s) => !/\p{Cc}/u.test(allowedControls ? s.replace(allowedControls, '') : s), {
-      params: { fieldCode: 'INVALID_FORMAT' },
-    })
-    .refine((s) => codePoints(s) >= 1, { params: { fieldCode: 'TOO_SHORT' } })
-    .refine((s) => codePoints(s) <= max, { params: { fieldCode: 'TOO_LONG' } });
-}
 
 /** Single-line plain text: every control character, line breaks and tabs included, refused. */
 const description = plainText(LINE_DESCRIPTION_MAX, undefined);
@@ -115,11 +90,29 @@ export const order = z
     version: z.int(),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
+    /** The current round's submission time; null on a draft (slice 4, research R4). */
+    submittedAt: z.iso.datetime().nullable(),
+    approvedAt: z.iso.datetime().nullable(),
+    /** Whether the owner is active and still holds BUYER (ADR-0004 S5). */
+    ownerCanAct: z.boolean(),
+    /** The vendor as submitted; null on a draft, which shows the live vendor. */
+    vendorSnapshot: vendorOrderSnapshot.nullable(),
+    /** The current round (a withdrawn draft shows its withdrawn one); null if never submitted. */
+    approval: approvalRound.nullable(),
   })
   .meta({ id: 'Order' });
 
 export const orderListItem = order
-  .omit({ lines: true, version: true, updatedAt: true })
+  .omit({
+    lines: true,
+    version: true,
+    updatedAt: true,
+    submittedAt: true,
+    approvedAt: true,
+    ownerCanAct: true,
+    vendorSnapshot: true,
+    approval: true,
+  })
   .extend({ vendor: z.strictObject({ id: z.uuid(), name: z.string() }) })
   .meta({ id: 'OrderListItem' });
 
@@ -129,14 +122,7 @@ export const orderListQuery = z
     status: z.enum(ORDER_STATUSES).optional(),
     vendorId: z.uuid().optional(),
     /** A PO-number prefix, case-insensitive: upper-cased before matching. */
-    poNumber: z
-      .string()
-      .trim()
-      .min(1)
-      .max(PO_NUMBER_PREFIX_MAX)
-      .regex(/^[A-Za-z0-9-]+$/)
-      .transform((s) => s.toUpperCase())
-      .optional(),
+    poNumber: poNumberPrefix.optional(),
     /** Inclusive calendar dates in Asia/Kolkata. */
     createdFrom: z.iso.date().optional(),
     createdTo: z.iso.date().optional(),
@@ -151,7 +137,8 @@ export const orderTimelineItem = z
   .strictObject({
     /** The audit entry's id. */
     id: z.string(),
-    action: z.enum(ORDER_AUDIT_ACTIONS),
+    /** Grows as slices add order events: published as x-extensible-enum (ADR-0008). */
+    action: z.enum(ORDER_AUDIT_ACTIONS).meta(extensibleEnum),
     occurredAt: z.iso.datetime(),
     actor: z.strictObject({
       type: z.enum(AUDIT_ACTOR_TYPES),

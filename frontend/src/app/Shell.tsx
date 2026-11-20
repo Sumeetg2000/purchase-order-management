@@ -4,6 +4,7 @@ import { useCan } from '../auth/can';
 import { useCurrentUser } from '../auth/current-user';
 import { useLogOutHere } from '../auth/log-out-here';
 import { useOpenRequestCount } from '../pages/admin/queries';
+import { useApprovalCount } from '../pages/approvals/queries';
 import { classes } from '../styles/classes';
 import controlsCss from '../styles/controls.module.css';
 import css from './Shell.module.css';
@@ -18,6 +19,7 @@ export function Shell() {
   const canListVendors = useCan('listVendors');
   const canListOrders = useCan('listOrders');
   const canListUsers = useCan('listUsers');
+  const canApprove = useCan('listApprovalQueue');
 
   async function logOut() {
     // Whatever the API answers, this browser is logged out: its cookies are cleared or dead.
@@ -38,6 +40,7 @@ export function Shell() {
           </NavLink>
           {canListVendors && <NavLink to="/vendors">Vendors</NavLink>}
           {canListOrders && <NavLink to="/orders">Orders</NavLink>}
+          {canApprove && <ApprovalsLink />}
           {canListUsers && <UsersLink />}
           <NavLink to="/profile">Profile</NavLink>
         </nav>
@@ -67,6 +70,25 @@ function UsersLink() {
   return (
     <NavLink to="/admin/users" aria-label={label}>
       Users
+      {count > 0 && (
+        <span className={styles.badge} aria-hidden="true">
+          {count}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
+/** Approvals, with how many orders wait for the caller (ADR-0018). */
+function ApprovalsLink() {
+  const count = useApprovalCount(true).data ?? 0;
+  const label =
+    count > 0
+      ? `Approvals, ${String(count)} ${count === 1 ? 'order' : 'orders'} waiting`
+      : undefined;
+  return (
+    <NavLink to="/approvals" aria-label={label}>
+      Approvals
       {count > 0 && (
         <span className={styles.badge} aria-hidden="true">
           {count}

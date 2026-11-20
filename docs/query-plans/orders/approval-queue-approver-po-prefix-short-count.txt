@@ -1,0 +1,7 @@
+-- SELECT count(*) FROM purchase_orders WHERE status = 'PENDING_APPROVAL' AND owner_id <> $1::uuid AND po_number >= $2 AND po_number < $3 || chr($4::int)
+-- values: ["1d781443-d3fe-cfb6-2b0b-12db84e7b78a","PO-2026-27-","PO-2026-27-",1114111]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_pending_po_number_idx on purchase_orders
+        Index Cond: ((po_number >= 'PO-2026-27-'::text) AND (po_number < 'PO-2026-27-􏿿'::text))
+        Filter: (owner_id <> '1d781443-d3fe-cfb6-2b0b-12db84e7b78a'::uuid)

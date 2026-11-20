@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  CHECK_VIOLATION,
   DERIVED_VALUE_READ_ONLY,
   GENERATED_ALWAYS,
   INSUFFICIENT_PRIVILEGE,
@@ -52,7 +53,6 @@ describe('[FR-PO-04] attacks as the application role (po_app)', () => {
     for (const set of [
       'total = 1',
       'open_line_count = 0',
-      "status = 'APPROVED'",
       'id = gen_random_uuid()',
       'owner_id = gen_random_uuid()',
       'created_at = now()',
@@ -72,7 +72,15 @@ describe('[FR-PO-04] attacks as the application role (po_app)', () => {
     expect(
       await asApp(f, `UPDATE order_lines SET line_total = 1 WHERE order_id = $1`, [orderId]),
     ).toBe(GENERATED_ALWAYS);
-    expect(await readOrder(f.app, orderId)).toMatchObject({ total: '0.3875', open_line_count: 2 });
+    // Slice 4 grants status for the submit, yet a bare status write has no submission.
+    expect(
+      await asApp(f, `UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`, [orderId]),
+    ).toBe(CHECK_VIOLATION);
+    expect(await readOrder(f.app, orderId)).toMatchObject({
+      total: '0.3875',
+      open_line_count: 2,
+      status: 'DRAFT',
+    });
   });
 
   it('[FR-PO-04] an insert carrying a total, line total or received quantity is refused', async () => {
@@ -239,7 +247,8 @@ describe('[FR-PO-04] attacks as the privileged owner role (po_owner)', () => {
   it('[FR-SM-02] a status change outside the transition table is refused', async () => {
     const { f, orderId } = await setup();
     expect(
-      await asOwner(f, `UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`, [orderId]),
+      // DRAFT → REJECTED is in no slice's transitions (ADR-0001).
+      await asOwner(f, `UPDATE purchase_orders SET status = 'REJECTED' WHERE id = $1`, [orderId]),
     ).toBe(ORDER_STATUS_TRANSITION_REFUSED);
   });
 });
@@ -344,14 +353,31 @@ describe('[NFR-CON-01] concurrent line changes on one order', () => {
   it('[FR-SM-02] a line change waits for a transaction holding the order, and is refused once it leaves DRAFT', async () => {
     const { f, orderId, lineIds } = await setup();
     const app = await f.db.client('po_app');
-    // A transition slice 4 will add, here only for this test's database.
+    // The owner auto-approves the order as a submit would (slice 4: a SYSTEM round at or
+    // below the threshold), holding the order until it commits.
     await begin(f.owner);
     await f.owner.query(
-      `INSERT INTO order_status_transitions (from_status, to_status) VALUES ('DRAFT', 'PENDING_APPROVAL')`,
+      `INSERT INTO approval_rounds (order_id, round, policy_version, total, vendor_snapshot,
+                                    submitted_by, outcome, closed_at)
+       SELECT o.id, 1, 1, o.total,
+              jsonb_build_object('id', v.id, 'name', v.name, 'contactName', v.contact_name,
+                                 'contactEmail', v.contact_email, 'contactPhone', v.contact_phone,
+                                 'paymentTerms', jsonb_build_object('type', 'NET', 'netDays', 30)),
+              o.owner_id, NULL, NULL
+         FROM purchase_orders o JOIN vendors v ON v.id = o.vendor_id WHERE o.id = $1`,
+      [orderId],
     );
-    await f.owner.query(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`, [
-      orderId,
-    ]);
+    await f.owner.query(
+      `UPDATE approval_rounds SET outcome = 'AUTO_APPROVED', closed_at = now()
+        WHERE order_id = $1`,
+      [orderId],
+    );
+    await f.owner.query(
+      `UPDATE purchase_orders SET status = 'APPROVED', current_round = 1, submitted_at = now(),
+                                  approved_at = now()
+        WHERE id = $1`,
+      [orderId],
+    );
     // A description-only change reads no derived value, yet must wait all the same.
     const pid = await begin(app);
     const renaming = outcomeOf(

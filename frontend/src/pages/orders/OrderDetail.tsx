@@ -1,20 +1,45 @@
-import { formatInr, toMoney } from '@po/contracts';
-import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { formatInr, ORDER_OWNER_CANNOT_ACT_LABEL, toMoney } from '@po/contracts';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCan } from '../../auth/can';
 import { useCurrentUser } from '../../auth/current-user';
 import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
+import { ApproveDialog } from '../approvals/ApproveDialog';
+import { RejectDialog } from '../approvals/RejectDialog';
+import { useRefreshApprovals } from '../approvals/queries';
+import { formatPaymentTerms } from '../vendors/payment-terms';
 import { VENDOR_STATUS_LABELS } from '../vendors/status';
+import { ApprovalPanel } from './ApprovalPanel';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
-import { useOrder } from './queries';
+import { useOrder, useOrderSaved, type Order } from './queries';
+import { SubmitDialog } from './SubmitDialog';
+import { WithdrawDialog } from './WithdrawDialog';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
 const controls = classes(controlsCss, 'button');
-const styles = classes(css, 'header', 'badge', 'details', 'term', 'lines', 'number', 'total');
+const styles = classes(
+  css,
+  'header',
+  'badge',
+  'details',
+  'term',
+  'lines',
+  'number',
+  'total',
+  'notice',
+  'snapshot',
+);
+
+/** What submitting did, in words: the server's routing, not the dialog's expectation. */
+function submittedNotice(order: Order): string {
+  return order.status === 'APPROVED'
+    ? 'Submitted and approved automatically.'
+    : 'Submitted. It is waiting for approval.';
+}
 
 /**
  * One order (specs/004-draft-orders/contracts/ui.md): its PO number, status, vendor as it
@@ -26,9 +51,34 @@ export function OrderDetail() {
   const query = useOrder(id);
   const states = useQueryStates(query, { loadingLabel: 'Loading the order' });
   const [deleting, setDeleting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  // The editor's "Withdraw" (a pending order's stale save) opens the dialog here.
+  // The request is cleared once read, so a refresh or Back doesn't open the dialog again.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const askedToWithdraw = (location.state as { withdraw?: boolean } | null)?.withdraw === true;
+  const [withdrawing, setWithdrawing] = useState(askedToWithdraw);
+  // Clears the request in place (same path, query and hash), so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (askedToWithdraw) {
+      void navigate(
+        { pathname: location.pathname, search: location.search, hash: location.hash },
+        { replace: true, state: null },
+      );
+    }
+  }, [askedToWithdraw, location.pathname, location.search, location.hash, navigate]);
+  const refreshApprovals = useRefreshApprovals();
+  const [notice, setNotice] = useState<string>();
+  const saved = useOrderSaved();
   const me = useCurrentUser().data;
   const canEdit = useCan('editOrder');
   const canDelete = useCan('deleteOrder');
+  const canSubmit = useCan('submitOrder');
+  const canApprove = useCan('approveOrder');
+  const canReject = useCan('rejectOrder');
+  const canWithdraw = useCan('withdrawOrder');
   if (states.view) {
     return (
       <>
@@ -38,6 +88,13 @@ export function OrderDetail() {
     );
   }
   const order = states.data;
+  const ownDraft = order.status === 'DRAFT' && order.owner.id === me?.id;
+  const pending = order.status === 'PENDING_APPROVAL';
+  // Never on one's own order (ADR-0004), nor while its owner can't act (ADR-0001).
+  const mayApprove = canApprove && pending && order.owner.id !== me?.id && order.ownerCanAct;
+  // Reject stays open when the owner can't act: it is how such an order is closed.
+  const mayReject = canReject && pending && order.owner.id !== me?.id;
+  const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -45,10 +102,55 @@ export function OrderDetail() {
       <div className={styles.header}>
         <h1>{order.poNumber}</h1>
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
-        {canEdit && order.status === 'DRAFT' && order.owner.id === me?.id && (
-          <Link to={`/orders/${order.id}/edit`}>Edit</Link>
+        {canEdit && ownDraft && <Link to={`/orders/${order.id}/edit`}>Edit</Link>}
+        {canSubmit && ownDraft && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setSubmitting(true);
+            }}
+          >
+            Submit
+          </button>
         )}
-        {canDelete && order.status === 'DRAFT' && order.owner.id === me?.id && (
+        {mayApprove && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setApproving(true);
+            }}
+          >
+            Approve
+          </button>
+        )}
+        {mayReject && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setRejecting(true);
+            }}
+          >
+            Reject
+          </button>
+        )}
+        {mayWithdraw && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setWithdrawing(true);
+            }}
+          >
+            Withdraw
+          </button>
+        )}
+        {pending && !order.ownerCanAct && (
+          <span className={styles.badge}>{ORDER_OWNER_CANNOT_ACT_LABEL}</span>
+        )}
+        {canDelete && ownDraft && (
           <button
             type="button"
             className={controls.button}
@@ -60,13 +162,25 @@ export function OrderDetail() {
           </button>
         )}
       </div>
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
       <OrderTabs id={order.id} />
       <dl className={styles.details}>
         <dt className={styles.term}>Vendor</dt>
+        {/* A submitted order shows its vendor as submitted (ADR-0005); a draft, as it is now. */}
         <dd>
-          {order.vendor.name}{' '}
-          {order.vendor.status === 'INACTIVE' && (
-            <span className={styles.badge}>{VENDOR_STATUS_LABELS.INACTIVE}</span>
+          {order.vendorSnapshot === null ? (
+            <>
+              {order.vendor.name}{' '}
+              {order.vendor.status === 'INACTIVE' && (
+                <span className={styles.badge}>{VENDOR_STATUS_LABELS.INACTIVE}</span>
+              )}
+            </>
+          ) : (
+            <VendorAsSubmitted snapshot={order.vendorSnapshot} />
           )}
         </dd>
         <dt className={styles.term}>Raised by</dt>
@@ -95,6 +209,77 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
+      {order.approval && <ApprovalPanel round={order.approval} />}
+      {submitting && (
+        <SubmitDialog
+          order={order}
+          onClose={() => {
+            setSubmitting(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onSubmitted={(routed) => {
+            saved(routed);
+            void refreshApprovals();
+            setSubmitting(false);
+            setNotice(submittedNotice(routed));
+          }}
+        />
+      )}
+      {rejecting && (
+        <RejectDialog
+          order={order}
+          onClose={() => {
+            setRejecting(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onRejected={(decided) => {
+            saved(decided);
+            void refreshApprovals();
+            setRejecting(false);
+            setNotice('Rejected.');
+          }}
+        />
+      )}
+      {withdrawing && mayWithdraw && (
+        <WithdrawDialog
+          order={order}
+          onClose={() => {
+            setWithdrawing(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onWithdrawn={(draft) => {
+            saved(draft);
+            void refreshApprovals();
+            setWithdrawing(false);
+            setNotice('Withdrawn. It is a draft again.');
+          }}
+        />
+      )}
+      {approving && (
+        <ApproveDialog
+          order={order}
+          onClose={() => {
+            setApproving(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onApproved={(decided) => {
+            saved(decided);
+            void refreshApprovals();
+            setApproving(false);
+            setNotice(
+              decided.status === 'APPROVED' ? 'Approved.' : 'Step approved. The next step waits.',
+            );
+          }}
+        />
+      )}
       {deleting && (
         <DeleteDraftDialog
           order={order}
@@ -107,5 +292,21 @@ export function OrderDetail() {
         />
       )}
     </>
+  );
+}
+
+/** The vendor as the order was submitted (ADR-0005): name, contact and payment terms. */
+function VendorAsSubmitted({ snapshot }: { snapshot: NonNullable<Order['vendorSnapshot']> }) {
+  return (
+    <div role="group" aria-label="Vendor as submitted" className={styles.snapshot}>
+      <span>
+        {snapshot.name} <span className={styles.badge}>as submitted</span>
+      </span>
+      <span>
+        {snapshot.contactName} · {snapshot.contactEmail}
+        {snapshot.contactPhone !== null && ` · ${snapshot.contactPhone}`}
+      </span>
+      <span>{formatPaymentTerms(snapshot.paymentTerms)}</span>
+    </div>
   );
 }

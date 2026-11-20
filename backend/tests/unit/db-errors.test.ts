@@ -153,6 +153,12 @@ describe('[NFR-API-02] central database error mapper', () => {
     ['PO009', 'ORDER_STATUS_TRANSITION_REFUSED'],
     ['PO010', 'ORDER_DELETE_REFUSED'],
     ['PO011', 'PO_NUMBER_UNASSIGNED'],
+    ['PO012', 'APPROVAL_STEP_REFUSED'],
+    ['PO013', 'APPROVAL_ROUND_REFUSED'],
+    ['PO014', 'ORDER_APPROVAL_INCONSISTENT'],
+    ['PO015', 'ORDER_SUBMISSION_FIELD_LOCKED'],
+    ['PO016', 'SELF_DECISION_REFUSED'],
+    ['PO017', 'APPROVAL_POLICY_IMMUTABLE'],
   ])(
     '[NFR-API-02] trigger SQLSTATE %s (%s) is INTERNAL_ERROR, logged as a bug by name',
     (sqlstate, name) => {

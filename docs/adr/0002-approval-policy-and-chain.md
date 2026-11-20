@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (single-tier seed,
   `DUPLICATE_APPROVER` removed, approval levels not adopted: **owner decision 2026-10-20**;
-  policy changes through the operator CLI)
+  policy changes through the operator CLI) · amended 2026-11-17 (slice 4 plan: policy
+  storage, the write function and routing in SQL, research R1, R3)
 - **Brief:** §3.4, §8 · Gaps G9, G19, G23, Q3c, Q8
 - **Principles:** II, III, IV
 
@@ -25,6 +26,15 @@ The company currently has **one Approver**, and it wants one approval step above
   `--tier` flags when a second tier is wanted. This keeps §8 met.
 - Each submission records the policy version it used. A policy change never affects an
   order already submitted.
+- **Storage and routing** (amended 2026-11-17, slice 4 plan): immutable
+  `approval_policies` versions with `approval_policy_tiers`; the highest version is
+  current. The only write path is `set_approval_policy(thresholds[])`, a `SECURITY
+  DEFINER` function that refuses unless the transaction's actor is `OPERATOR`. Submit
+  builds the chain in SQL, `threshold < total` on `numeric(22,4)` (exact), from the
+  highest version, which the submission's round records as a foreign key.
+- **Version 1 comes from migration 0014** (amended 2026-11-17, owner decision): it is
+  seed data, and its record is the migration in git, so it writes no audit entry. Every
+  later `policy:set` is audited as `APPROVAL_POLICY_CHANGED`.
 - **Changing the policy: operator CLI only**, run on the server and never exposed over
   HTTP (same CLI, advisory lock and exit-code rules as the admin commands in ADR-0016):
   - `docker compose exec api npm run admin -- policy:set --tier1 <amount>`

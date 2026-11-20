@@ -163,6 +163,33 @@ describe('[FR-OWN-01] the orders list by role', () => {
     expect(screen.queryByRole('link', { name: 'New order' })).toBeNull();
   });
 
+  it('[FR-OWN-01] an Approver lists submitted orders with their status, and no New order', async () => {
+    listApi(
+      {
+        'GET /orders': () =>
+          json(
+            200,
+            page([
+              item({ status: 'PENDING_APPROVAL' }),
+              item({
+                id: '0192e4a0-0000-7000-8000-0000000000b2',
+                poNumber: 'PO-2026-27-000124',
+                status: 'APPROVED',
+              }),
+            ]),
+          ),
+      },
+      ['APPROVER'],
+    );
+    renderApp('/orders');
+    const table = await screen.findByRole('table');
+    expect(within(table).getByRole('link', { name: 'PO-2026-27-000123' })).toBeVisible();
+    expect(within(table).getByRole('link', { name: 'PO-2026-27-000124' })).toBeVisible();
+    expect(within(table).getByText('Pending approval')).toBeVisible();
+    expect(within(table).getByText('Approved')).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'New order' })).toBeNull();
+  });
+
   it('[FR-OWN-01] an Admin lists every order read-only: no New order, no Edit', async () => {
     listApi({ [`GET /orders/${ORDER_ID}`]: () => json(200, order(), { ETag: '"1"' }) }, ['ADMIN']);
     const { user } = renderApp('/orders');

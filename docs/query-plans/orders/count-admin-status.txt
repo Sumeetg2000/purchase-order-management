@@ -2,5 +2,5 @@
 -- values: []
 
 Aggregate
-  ->  Seq Scan on purchase_orders
-        Filter: (status = 'DRAFT'::text)
+  ->  Index Only Scan using purchase_orders_status_created_idx on purchase_orders
+        Index Cond: (status = 'DRAFT'::text)

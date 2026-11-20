@@ -213,3 +213,110 @@ export async function plant(f: OrderFixture, sql: string, params: unknown[] = []
     throw error;
   }
 }
+
+export type SubmittedStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
+/** A fixture's superuser client, or a harness's superuser `query` (rows only). */
+export type PlantTarget =
+  | { superuser: pg.Client }
+  | { query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]> };
+
+/**
+ * Plants a consistent submitted state on a draft (slice 4, data-model.md), as the
+ * superuser with triggers off: the next approval round under the current policy, with the
+ * order's total and a snapshot of its vendor, one step per tier the total exceeds, and the
+ * order's status and submission columns to match. PENDING_APPROVAL has every step open;
+ * APPROVED has every step approved (or none: an auto-approval); REJECTED has its first step
+ * rejected and the rest voided, so it needs a total above the lowest tier. Decisions are
+ * made by `approverId`, or a planted Approver. The reconciliation's consistency check
+ * accepts the result, unlike a bare status change.
+ */
+export async function plantSubmitted(
+  target: PlantTarget,
+  orderId: string,
+  status: SubmittedStatus,
+  { approverId }: { approverId?: string } = {},
+): Promise<{ round: number; steps: number; approverId: string }> {
+  const superuser = {
+    query: async (sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> =>
+      'superuser' in target
+        ? target.superuser.query(sql, params)
+        : { rows: await target.query(sql, params) },
+  };
+  await superuser.query('BEGIN');
+  try {
+    await superuser.query(`SET LOCAL session_replication_role = replica`);
+    const decider = approverId ?? randomUUID();
+    if (approverId === undefined) {
+      await superuser.query(
+        `INSERT INTO users (id, name, email, roles, status)
+         VALUES ($1, 'Planted Approver', $2, '{APPROVER}', 'ACTIVE')`,
+        [decider, `approver-${decider}@example.test`],
+      );
+    }
+    const { rows } = (await superuser.query(
+      `WITH o AS (
+         SELECT o.id, o.owner_id, o.total, coalesce(o.current_round, 0) + 1 AS round,
+                jsonb_build_object(
+                  'id', v.id, 'name', v.name, 'contactName', v.contact_name,
+                  'contactEmail', v.contact_email, 'contactPhone', v.contact_phone,
+                  'paymentTerms', jsonb_strip_nulls(jsonb_build_object(
+                    'type', v.payment_term_type, 'netDays', v.net_days,
+                    'advancePercent', v.advance_percent))) AS snapshot
+           FROM purchase_orders o JOIN vendors v ON v.id = o.vendor_id
+          WHERE o.id = $1 AND o.status = 'DRAFT'
+       ), p AS (SELECT max(version) AS version FROM approval_policies),
+       t AS (
+         SELECT row_number() OVER (ORDER BY tier)::smallint AS step, tier, threshold
+           FROM approval_policy_tiers, o, p
+          WHERE policy_version = p.version AND threshold < o.total
+       ), r AS (
+         INSERT INTO approval_rounds (order_id, round, policy_version, total, vendor_snapshot,
+                                      submitted_by, outcome, closed_at)
+         SELECT o.id, o.round, p.version, o.total, o.snapshot, o.owner_id,
+                CASE $2::text
+                  WHEN 'PENDING_APPROVAL' THEN NULL
+                  WHEN 'APPROVED' THEN CASE WHEN (SELECT count(*) FROM t) = 0
+                                            THEN 'AUTO_APPROVED' ELSE 'APPROVED' END
+                  ELSE 'REJECTED' END,
+                CASE WHEN $2::text = 'PENDING_APPROVAL' THEN NULL ELSE now() END
+           FROM o, p
+         RETURNING order_id, round
+       ), s AS (
+         INSERT INTO approval_steps (order_id, round, step, tier, threshold, state, decided_by,
+                                     decided_at, decided_version, reason, voided_at)
+         SELECT r.order_id, r.round, t.step, t.tier, t.threshold, d.state,
+                CASE WHEN d.state IN ('APPROVED', 'REJECTED') THEN $3::uuid END,
+                CASE WHEN d.state IN ('APPROVED', 'REJECTED') THEN now() END,
+                CASE WHEN d.state IN ('APPROVED', 'REJECTED') THEN 1 END,
+                CASE WHEN d.state = 'REJECTED' THEN 'Planted rejection' END,
+                CASE WHEN d.state = 'VOIDED' THEN now() END
+           FROM r, t,
+                LATERAL (SELECT CASE $2::text
+                                  WHEN 'PENDING_APPROVAL' THEN 'OPEN'
+                                  WHEN 'APPROVED' THEN 'APPROVED'
+                                  ELSE CASE WHEN t.step = 1 THEN 'REJECTED' ELSE 'VOIDED' END
+                                END AS state) d
+         RETURNING 1
+       )
+       UPDATE purchase_orders po
+          SET status = $2::text, current_round = r.round, submitted_at = now(),
+              approved_at = CASE WHEN $2::text = 'APPROVED' THEN now() END,
+              version = po.version + 1
+         FROM r
+        WHERE po.id = r.order_id
+       RETURNING r.round::int AS round, (SELECT count(*) FROM s)::int AS steps`,
+      [orderId, status, decider],
+    )) as { rows: { round: number; steps: number }[] };
+    const planted = rows[0];
+    if (!planted) throw new Error(`order ${orderId} is not a draft`);
+    if (status !== 'APPROVED' && planted.steps === 0) {
+      throw new Error(`a ${status} order needs a total above the lowest tier`);
+    }
+    await superuser.query('COMMIT');
+    return { ...planted, approverId: decider };
+  } catch (error) {
+    await superuser.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  }
+}

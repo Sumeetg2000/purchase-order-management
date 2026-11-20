@@ -84,6 +84,12 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'createOrder post /orders',
         'editOrder patch /orders/{id}',
         'deleteOrder delete /orders/{id}',
+        'submitOrder post /orders/{id}/submit',
+        'getApprovalPolicy get /approval-policy',
+        'approveOrder post /orders/{id}/approve',
+        'listApprovalQueue get /approvals',
+        'rejectOrder post /orders/{id}/reject',
+        'withdrawOrder post /orders/{id}/withdraw',
         'reactivateVendor post /vendors/{id}/reactivate',
       ].sort(),
     );

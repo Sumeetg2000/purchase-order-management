@@ -1,10 +1,21 @@
-import { ERROR_CODES, ORDER_ADMIN_READ_ONLY_MESSAGE, PUBLIC_REVOKE_REASONS } from '@po/contracts';
+import {
+  ERROR_CODES,
+  NOT_ORDER_OWNER_DETAIL,
+  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  ORDER_APPROVER_READ_ONLY_MESSAGE,
+  ORDER_DECISION_APPROVER_ONLY_MESSAGE,
+  ORDER_LOCKED_MESSAGES,
+  ORDER_OWNER_INACTIVE_DETAIL,
+  ORDER_PENDING_APPROVAL_DETAIL,
+  PUBLIC_REVOKE_REASONS,
+  SELF_APPROVAL_DETAIL,
+} from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   describeFailure,
   errorMessages,
   fieldMessages,
-  messageForOrderWrite,
+  messageForOrderAction,
   messageForProblem,
   revokeReasonText,
   sentenceFor,
@@ -62,20 +73,52 @@ describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)
     );
   });
 
-  it('[NFR-AUTH-01] FORBIDDEN on an order write tells an Admin why, and anyone else the usual words', () => {
-    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: true })).toEqual({
+  it('[NFR-AUTH-01] FORBIDDEN on an order action says why, by the caller role and the action', () => {
+    const forbidden = { code: 'FORBIDDEN' };
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'write' })).toEqual({
       message: ORDER_ADMIN_READ_ONLY_MESSAGE,
     });
-    expect(messageForOrderWrite({ code: 'FORBIDDEN' }, { isAdmin: false })).toEqual(
+    expect(messageForOrderAction(forbidden, { roles: ['APPROVER'], action: 'write' })).toEqual({
+      message: ORDER_APPROVER_READ_ONLY_MESSAGE,
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'decision' })).toEqual({
+      message: ORDER_DECISION_APPROVER_ONLY_MESSAGE,
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'decision' })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
+    // A Buyer refused a write (a role removed mid-session) gets the usual words.
+    expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'write' })).toEqual(
       errorMessages.FORBIDDEN,
     );
-    expect(messageForOrderWrite({ code: 'VERSION_CONFLICT' }, { isAdmin: true })).toEqual(
-      errorMessages.VERSION_CONFLICT,
-    );
+    expect(
+      messageForOrderAction({ code: 'VERSION_CONFLICT' }, { roles: ['ADMIN'], action: 'write' }),
+    ).toEqual(errorMessages.VERSION_CONFLICT);
   });
 });
 
 describe('[NFR-FE-02] logged-out messages', () => {
+  it('[FR-LCK-01] a locked order says why, by its status', () => {
+    expect(sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'APPROVED' } })).toBe(
+      ORDER_LOCKED_MESSAGES.APPROVED,
+    );
+    expect(
+      sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'REJECTED', action: 'EDIT' } }),
+    ).toBe(ORDER_LOCKED_MESSAGES.REJECTED);
+    // A status the web app doesn't know yet (a newer server) keeps the neutral words.
+    expect(sentenceFor({ code: 'ORDER_LOCKED', orderState: { status: 'CANCELLED' } })).toBe(
+      "This order can't be changed any more.",
+    );
+    expect(sentenceFor({ code: 'ORDER_LOCKED' })).toBe("This order can't be changed any more.");
+  });
+
+  it('[FR-APR-02] the slice 4 order codes use the API details word for word', () => {
+    expect(sentenceFor({ code: 'ORDER_PENDING_APPROVAL' })).toBe(ORDER_PENDING_APPROVAL_DETAIL);
+    expect(sentenceFor({ code: 'ORDER_OWNER_INACTIVE' })).toBe(ORDER_OWNER_INACTIVE_DETAIL);
+    expect(sentenceFor({ code: 'NOT_ORDER_OWNER' })).toBe(NOT_ORDER_OWNER_DETAIL);
+    expect(sentenceFor({ code: 'SELF_APPROVAL' })).toBe(SELF_APPROVAL_DETAIL);
+  });
+
   it('[NFR-FE-02] every public revoke reason has its words', () => {
     for (const reason of PUBLIC_REVOKE_REASONS) {
       expect(revokeReasonText[reason].length, reason).toBeGreaterThan(0);

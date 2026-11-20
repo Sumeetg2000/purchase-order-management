@@ -9,6 +9,8 @@ import { createSessionService, type SessionServiceDependencies } from '../../aut
 import { healthRoutes } from '../../health/routes.js';
 import { createReadinessService, type HealthDependencies } from '../../health/service.js';
 import type { MailDispatcher } from '../../mail/dispatcher.js';
+import { approvalRoutes } from '../../approvals/routes.js';
+import { createApprovalsService } from '../../approvals/service.js';
 import { orderRoutes } from '../../orders/routes.js';
 import { createOrdersService } from '../../orders/service.js';
 import { profileRoutes } from '../../profile/routes.js';
@@ -43,5 +45,6 @@ export function productionRoutes(deps: RouteDependencies): RouteDefinition[] {
     ...accessRequestRoutes(createAccessRequestsService(deps)),
     ...vendorRoutes(createVendorsService(deps)),
     ...orderRoutes(createOrdersService(deps)),
+    ...approvalRoutes(createApprovalsService(deps)),
   ];
 }

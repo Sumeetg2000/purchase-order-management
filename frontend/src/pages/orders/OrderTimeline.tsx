@@ -1,4 +1,11 @@
-import { formatInr, MONEY_PATTERN, toMoney, type OrderAuditAction } from '@po/contracts';
+import {
+  formatInr,
+  MONEY_PATTERN,
+  oneOf,
+  ORDER_AUDIT_ACTIONS,
+  toMoney,
+  type OrderAuditAction,
+} from '@po/contracts';
 import { useParams } from 'react-router';
 import { Pager } from '../../components/Pager';
 import { formatDateTime } from '../../format/date';
@@ -16,7 +23,17 @@ const ACTION_LABELS = {
   PO_CREATED: 'Raised',
   PO_EDITED: 'Edited',
   PO_DRAFT_DELETED: 'Draft deleted',
+  PO_SUBMITTED: 'Submitted',
+  PO_AUTO_APPROVED: 'Auto-approved',
+  APPROVAL_STEP_APPROVED: 'Approved',
+  APPROVAL_STEP_REJECTED: 'Rejected',
+  PO_WITHDRAWN: 'Withdrawn',
 } as const satisfies Record<OrderAuditAction, string>;
+
+/** An event a newer server records that this app doesn't name yet (x-extensible-enum). */
+function actionLabel(action: string): string {
+  return oneOf(ORDER_AUDIT_ACTIONS, action) ? ACTION_LABELS[action] : 'Other change';
+}
 
 type Item = NonNullable<ReturnType<typeof useOrderTimeline>['data']>['items'][number];
 
@@ -74,7 +91,7 @@ export function OrderTimeline() {
               const total = totalOf(item);
               return (
                 <li key={item.id}>
-                  <h2>{ACTION_LABELS[item.action]}</h2>
+                  <h2>{actionLabel(item.action)}</h2>
                   <p className={styles.hint}>
                     {actorOf(item)} ·{' '}
                     <time dateTime={item.occurredAt}>{formatDateTime(item.occurredAt)}</time>

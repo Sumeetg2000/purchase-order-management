@@ -46,5 +46,13 @@ violations AS (
   SELECT 'PO_NUMBER', o.id::text, 'po_number is NULL'
     FROM purchase_orders o
    WHERE o.po_number IS NULL
+  UNION ALL
+  -- An order's status, rounds and steps agree, and its chain is the policy's (slice 4
+  -- research R2, D1). Drafts never submitted have nothing to check.
+  SELECT 'APPROVAL', c.id::text, c.problem
+    FROM (SELECT o.id, approval_inconsistency(o.id) AS problem
+            FROM purchase_orders o
+           WHERE o.current_round IS NOT NULL OR o.status <> 'DRAFT') c
+   WHERE c.problem IS NOT NULL
 )
 SELECT invariant, entity_id, detail FROM violations ORDER BY invariant, entity_id;

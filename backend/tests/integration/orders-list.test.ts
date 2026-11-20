@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { CookieJar } from '../support/accounts.js';
 import { lineBody, ordersHarness, type OrdersHarness } from '../support/orders.js';
+import { plantSubmitted } from '../support/orders-sql.js';
 
 // Order lists (spec US5; FR-015, FR-016, FR-024; research R7, R11): scoped in the database
 // to what the caller may read, filtered there, paginated newest first (by PO number,
@@ -100,9 +101,7 @@ describe('[FR-OWN-01] order lists are scoped in the database', () => {
     const approver = await h.loggedIn(await h.seedUser({ roles: '{APPROVER}' }));
     expect((await list(h, {}, approver)).body).toMatchObject({ items: [], total: 0 });
     // Once an order leaves DRAFT, an Approver sees it.
-    await plant(h, `UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`, [
-      b[0]?.id,
-    ]);
+    await plantSubmitted(h, b[0]?.id ?? '', 'APPROVED');
     expect(ids((await list(h, {}, approver)).body)).toEqual([b[0]?.id]);
   });
 
@@ -112,7 +111,7 @@ describe('[FR-OWN-01] order lists are scoped in the database', () => {
     const jar = await h.loggedIn(both);
     const res = await h.createOrder(h.orderBody([lineBody()]), { as: jar });
     const own = res.body as Item;
-    await plant(h, `UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`, [b[1]?.id]);
+    await plantSubmitted(h, b[1]?.id ?? '', 'APPROVED');
     const page = (await list(h, {}, jar)).body;
     expect(page.total).toBe(2);
     expect(ids(page)).toEqual([own.id, b[1]?.id]);

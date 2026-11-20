@@ -188,7 +188,7 @@ Everyone:
   - An **Access requests** tab: a paginated list with a status filter, showing the user,
     message, dates and actions "Assign role" (opens the role dialog) and "Dismiss".
 - **Nav**:
-  - Approvers see a pending-approvals count, read from the approver queue's `total` with
+  - Approvers see a pending-approvals count, read from the approval queue's `total` with
     `pageSize=1`.
   - Admins see an open access-request count badge on Users (`status=OPEN&pageSize=1`).
   - Both refresh every 60 s, on window focus and after each related action.

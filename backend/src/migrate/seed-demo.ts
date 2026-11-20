@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import { createOrderBody, ROLE, type UserRole, type VendorBody } from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
+import type { AuthenticatedUser } from '../auth/service.js';
 import type { AppEnv } from '../config/rules.js';
 import type { AppPrismaClient } from '../db/client.js';
 import { ONE_SHOT } from '../db/one-shot.js';
@@ -9,6 +10,8 @@ import {
   withTransaction,
   type AuditedTransaction,
 } from '../db/transaction.js';
+import { hasSubmitted } from '../approvals/repository.js';
+import { createApprovalsService } from '../approvals/service.js';
 import { createOrdersService } from '../orders/service.js';
 import { listOrders } from '../orders/repository.js';
 import { uuidv7 } from '../lib/uuid.js';
@@ -26,10 +29,12 @@ import { fieldsOf } from '../vendors/snapshot.js';
 /** The password every demo user logs in with (local stacks only; documented in quickstart). */
 export const DEMO_PASSWORD = 'po demo passphrase';
 
+const DEMO_APPROVER = 'approver@example.com';
+
 export const DEMO_USERS: readonly { email: string; name: string; roles: readonly UserRole[] }[] = [
   { email: 'buyer1@example.com', name: 'Demo Buyer One', roles: [ROLE.BUYER] },
   { email: 'buyer2@example.com', name: 'Demo Buyer Two', roles: [ROLE.BUYER] },
-  { email: 'approver@example.com', name: 'Demo Approver', roles: [ROLE.APPROVER] },
+  { email: DEMO_APPROVER, name: 'Demo Approver', roles: [ROLE.APPROVER] },
 ];
 
 /** What every seed step needs. */
@@ -171,10 +176,56 @@ const DEMO_DRAFTS: readonly {
   },
 ];
 
+/** How a demo order that went for approval ends (ADR-0001's reachable states). */
+type DemoApprovalEnd = 'PENDING' | 'AUTO_APPROVED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+
+/**
+ * Each demo Buyer's orders that went for approval, one per reachable state, above the
+ * seeded ₹1,00,000 tier except the auto-approved one. Decisions are the Demo Approver's;
+ * under a policy whose tier is above an order's total, the order is approved on submit and
+ * not decided.
+ */
+export const DEMO_APPROVAL_ORDERS: readonly {
+  end: DemoApprovalEnd;
+  vendor: string;
+  lines: { description: string; quantity: number; unitPrice: string }[];
+  reason?: string;
+}[] = [
+  {
+    end: 'PENDING',
+    vendor: 'Bright Office Goods',
+    lines: [{ description: 'Ergonomic office chair', quantity: 3, unitPrice: '45000' }],
+  },
+  {
+    end: 'AUTO_APPROVED',
+    vendor: 'Acme Supplies',
+    lines: [{ description: 'Safety helmet', quantity: 10, unitPrice: '2500' }],
+  },
+  {
+    end: 'APPROVED',
+    vendor: 'Bright Office Goods',
+    lines: [{ description: 'Standing desk', quantity: 2, unitPrice: '125000' }],
+  },
+  {
+    end: 'REJECTED',
+    vendor: 'Acme Supplies',
+    lines: [{ description: 'Pallet jack', quantity: 4, unitPrice: '30000.25' }],
+    reason: 'Quote expired; ask the vendor for a new one',
+  },
+  {
+    end: 'WITHDRAWN',
+    vendor: 'Bright Office Goods',
+    lines: [{ description: 'Conference table', quantity: 5, unitPrice: '24000' }],
+    reason: 'Quantities need revising before approval',
+  },
+];
+
 /**
  * Raises three drafts for each demo Buyer who has none, through the order service as that
  * Buyer (so each has its PO number and PO_CREATED), then deactivates the vendor of the
- * third. Returns how many it raised; a Buyer with orders is left as they are.
+ * third. A demo Buyer who has never submitted then gets DEMO_APPROVAL_ORDERS, submitted
+ * and decided through the approval service (the Demo Approver deciding). Returns how many
+ * orders it raised; what a Buyer already has is left as it is.
  */
 export async function seedDemoOrders(options: SeedOptions): Promise<number> {
   if (options.appEnv === 'production') {
@@ -189,48 +240,65 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
   });
   const vendorIds = await asSystem(options, 'orders', async (tx) => {
     const ids = new Map<string, string>();
-    for (const { vendor } of DEMO_DRAFTS) {
+    for (const { vendor } of [...DEMO_DRAFTS, ...DEMO_APPROVAL_ORDERS]) {
       const found = await findVendorByNameKey(tx, vendor);
       if (!found) throw new Error(`demo vendor ${vendor} is missing: seed the vendors first`);
       ids.set(vendor, found.id);
     }
     return ids;
   });
-  const orders = createOrdersService({
+  const transactions = createTransactionRunner({
     prisma: options.prisma,
-    transactions: createTransactionRunner({
-      prisma: options.prisma,
-      timeoutMs: ONE_SHOT.transactionTimeoutMs,
-      maxWaitMs: ONE_SHOT.transactionMaxWaitMs,
-    }),
+    timeoutMs: ONE_SHOT.transactionTimeoutMs,
+    maxWaitMs: ONE_SHOT.transactionMaxWaitMs,
   });
+  const orders = createOrdersService({ prisma: options.prisma, transactions });
+  const approvals = createApprovalsService({ prisma: options.prisma, transactions });
+  const ctx = () => ({
+    requestId: uuidv7(),
+    logger: options.logger,
+    ip: '127.0.0.1',
+    userAgent: 'seed-demo',
+  });
+  const approver = await demoSession(
+    options,
+    DEMO_USERS.find((u) => u.email === DEMO_APPROVER),
+  );
   let raised = 0;
   for (const demo of DEMO_USERS.filter((u) => u.roles.includes(ROLE.BUYER))) {
-    const user = await asSystem(options, 'orders', (tx) => findUserByEmail(tx, demo.email));
-    if (!user) throw new Error(`demo user ${demo.email} is missing: seed the users first`);
-    const buyer = {
-      userId: user.id,
-      sessionId: uuidv7(),
-      name: demo.name,
-      email: demo.email,
-      roles: demo.roles,
+    const buyer = await demoSession(options, demo);
+    const raise = async (draft: (typeof DEMO_DRAFTS)[number]) => {
+      const vendorId = vendorIds.get(draft.vendor) ?? '';
+      const body = createOrderBody.parse({ vendorId, lines: draft.lines });
+      raised += 1;
+      const { order } = await orders.createOrder(buyer, { body, idempotencyKey: uuidv7() }, ctx());
+      return order;
     };
     const { total } = await listOrders(
       options.prisma,
-      { kind: 'own', userId: user.id },
+      { kind: 'own', userId: buyer.userId },
       {},
       { offset: 0, limit: 1 },
     );
-    if (total > 0) continue;
-    for (const draft of DEMO_DRAFTS) {
-      const vendorId = vendorIds.get(draft.vendor) ?? '';
-      const body = createOrderBody.parse({ vendorId, lines: draft.lines });
-      await orders.createOrder(
-        buyer,
-        { body, idempotencyKey: uuidv7() },
-        { requestId: uuidv7(), logger: options.logger, ip: '127.0.0.1', userAgent: 'seed-demo' },
-      );
-      raised += 1;
+    if (total === 0) {
+      for (const draft of DEMO_DRAFTS) await raise(draft);
+    }
+    if (await asSystem(options, 'orders', (tx) => hasSubmitted(tx, buyer.userId))) continue;
+    for (const demoOrder of DEMO_APPROVAL_ORDERS) {
+      const draft = await raise(demoOrder);
+      const submitted = await approvals.submitOrder(buyer, draft, ctx());
+      // The operator may have raised the tier: an order the submit approved (at or below
+      // it) has nothing left to decide.
+      if (submitted.status === 'APPROVED') continue;
+      const decided = { id: submitted.id, version: submitted.version };
+      const reason = demoOrder.reason ?? '';
+      if (demoOrder.end === 'APPROVED') await approvals.approveOrder(approver, decided, ctx());
+      if (demoOrder.end === 'REJECTED') {
+        await approvals.rejectOrder(approver, { ...decided, reason }, ctx());
+      }
+      if (demoOrder.end === 'WITHDRAWN') {
+        await approvals.withdrawOrder(buyer, { ...decided, reason }, ctx());
+      }
     }
   }
   await asSystem(options, 'orders', async (tx) => {
@@ -240,4 +308,21 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
     }
   });
   return raised;
+}
+
+/** A demo user as the services take the caller; the user must have been seeded. */
+async function demoSession(
+  options: SeedOptions,
+  demo: (typeof DEMO_USERS)[number] | undefined,
+): Promise<AuthenticatedUser> {
+  if (!demo) throw new Error('unknown demo user');
+  const user = await asSystem(options, 'orders', (tx) => findUserByEmail(tx, demo.email));
+  if (!user) throw new Error(`demo user ${demo.email} is missing: seed the users first`);
+  return {
+    userId: user.id,
+    sessionId: uuidv7(),
+    name: demo.name,
+    email: demo.email,
+    roles: [...demo.roles],
+  };
 }

@@ -527,6 +527,12 @@ function OrderForm({ heading, submitLabel, start, cancelTo, send, reload }: Orde
         {failure && (
           <div role="alert" className={styles.alert}>
             <p>{failure}</p>
+            {/* A pending order: its owner withdraws it to make changes (ADR-0001). */}
+            {form.failure?.problem.code === 'ORDER_PENDING_APPROVAL' && (
+              <Link to={cancelTo} state={{ withdraw: true }}>
+                Withdraw
+              </Link>
+            )}
           </div>
         )}
         <div className={styles.actions}>

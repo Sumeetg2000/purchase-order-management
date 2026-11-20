@@ -46,6 +46,89 @@ export async function ordersHarness() {
     return h.send('delete', `/orders/${id}`, as, body, headers);
   }
 
+  /** POST /orders/:id/submit; `version` null sends no If-Match, `body` undefined none. */
+  function submitOrder(id: string, version: number | null, as: CookieJar = h.jar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/submit`, as, body, headers);
+  }
+
+  /** POST /orders/:id/approve; `version` null sends no If-Match. */
+  function approveOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/approve`, as, body, headers);
+  }
+
+  /** POST /orders/:id/reject with a body (usually { reason }); `version` null sends none. */
+  function rejectOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/reject`, as, body, headers);
+  }
+
+  /** POST /orders/:id/withdraw with a body (usually { reason }); `version` null sends none. */
+  function withdrawOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/withdraw`, as, body, headers);
+  }
+
+  /** GET /approvals with the given query string values. */
+  function listQueue(as: CookieJar, query: Record<string, string | number> = {}) {
+    const qs = new URLSearchParams(
+      Object.entries(query).map(([k, v]) => [k, String(v)] as [string, string]),
+    ).toString();
+    return h.get(`/approvals${qs ? `?${qs}` : ''}`, as);
+  }
+
+  /** A logged-in Approver, and their id. */
+  async function approver(roles = '{APPROVER}', name = 'Priya Approver') {
+    const user = await h.seedUser({ roles, name });
+    return { ...user, jar: await h.loggedIn(user) };
+  }
+
+  /**
+   * Sets a user's status or roles below the guards, as an admin change would, without
+   * ending their sessions: roles and status are read on every request (ADR-0017).
+   */
+  async function setUser(
+    id: string,
+    change: { status?: 'ACTIVE' | 'DEACTIVATED'; roles?: string },
+  ) {
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    if (change.status !== undefined) {
+      await h.query(
+        `UPDATE users SET status = $2,
+                deactivated_at = CASE WHEN $2 = 'DEACTIVATED' THEN now() END WHERE id = $1`,
+        [id, change.status],
+      );
+    }
+    if (change.roles !== undefined) {
+      await h.query(`UPDATE users SET roles = $2::text[] WHERE id = $1`, [id, change.roles]);
+    }
+    await h.query('COMMIT');
+  }
+
+  /** A draft of one line at `unitPrice` (quantity 1), created through the API. */
+  async function draftAt(unitPrice: string, as: CookieJar = h.jar) {
+    const res = await createOrder(orderBody([lineBody({ quantity: 1, unitPrice })]), { as });
+    return res.body as { id: string; version: number; lines: { id: string }[] };
+  }
+
+  /**
+   * Adds policy version `version` with these tiers, below the guards (as the superuser,
+   * triggers off): a fixture, never how production changes its policy.
+   */
+  async function addPolicy(version: number, thresholds: string[]) {
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query(`INSERT INTO approval_policies (version) VALUES ($1)`, [version]);
+    await h.query(
+      `INSERT INTO approval_policy_tiers (policy_version, tier, threshold)
+       SELECT $1, t.tier, t.threshold FROM unnest($2::numeric[]) WITH ORDINALITY AS t(threshold, tier)`,
+      [version, thresholds],
+    );
+    await h.query('COMMIT');
+  }
+
   function getOrder(id: string, as: CookieJar = h.jar) {
     return h.get(`/orders/${id}`, as);
   }
@@ -84,6 +167,15 @@ export async function ordersHarness() {
     editOrder,
     deleteOrder,
     getOrder,
+    submitOrder,
+    approveOrder,
+    rejectOrder,
+    withdrawOrder,
+    listQueue,
+    approver,
+    setUser,
+    draftAt,
+    addPolicy,
     count,
     orderAudit,
   };

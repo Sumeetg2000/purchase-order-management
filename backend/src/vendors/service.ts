@@ -115,6 +115,19 @@ export async function requireActiveVendor(
 }
 
 /**
+ * Locks the vendor FOR SHARE in the caller's transaction and returns its status, or null:
+ * for a command that must lock before it checks (approve, research R6), so the check can
+ * come in its precedence. requireActiveVendor locks and checks at once.
+ */
+export async function lockVendorStatus(
+  tx: AuditedTransaction,
+  vendorId: string,
+): Promise<VendorStatus | null> {
+  const row = await selectVendor(tx, vendorId, 'share');
+  return row ? statusOf(row) : null;
+}
+
+/**
  * Inserts the vendor and audits it, or returns null when its name key is taken (research
  * R3). Shared by the API and the demo seed, so both record a creation the same way.
  */

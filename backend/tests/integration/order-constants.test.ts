@@ -1,5 +1,10 @@
 import {
+  APPROVAL_POLICY_SEED_TIERS,
+  APPROVAL_ROUND_OUTCOMES,
+  APPROVAL_STEP_STATES,
   createOrderBody,
+  DECISION_REASON_MAX,
+  ORDER_TRANSITIONS,
   IDEMPOTENCY_KEY_TTL_HOURS,
   LINE_DESCRIPTION_MAX,
   LINE_QUANTITY_MAX,
@@ -12,6 +17,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
+import { APPROVAL_POLICY_LOCK } from '../../src/db/locks.js';
 import { IDEMPOTENT_OPERATIONS } from '../../src/idempotency/repository.js';
 import { inTransaction, orderFixture, sqlstate, type OrderFixture } from '../support/orders-sql.js';
 
@@ -145,5 +151,50 @@ describe('[FR-PO-01] order constants equal their SQL copies (0013)', () => {
       }
     }
     expect(disagreements).toEqual([]);
+  });
+});
+
+describe('[FR-SM-01] approval constants equal their SQL copies (0014)', () => {
+  it('[FR-SM-01] outcomes, step states, the reason limit and the transitions match the migration', async () => {
+    const { superuser: q, app } = await orderFixture();
+    const quoted = (list: readonly string[]) => list.map((v) => `'${v}'::text`).join(', ');
+    expect(await constraintDef(q, 'approval_rounds_outcome_valid')).toBe(
+      `CHECK ((outcome = ANY (ARRAY[${quoted(APPROVAL_ROUND_OUTCOMES)}])))`,
+    );
+    expect(await constraintDef(q, 'approval_steps_state_valid')).toBe(
+      `CHECK ((state = ANY (ARRAY[${quoted(APPROVAL_STEP_STATES)}])))`,
+    );
+    // PostgreSQL stores BETWEEN as two comparisons.
+    for (const [name, column] of [
+      ['approval_rounds_withdraw_reason_valid', 'withdraw_reason'],
+      ['approval_steps_reason_valid', 'reason'],
+    ] as const) {
+      expect(await constraintDef(q, name), name).toContain(
+        `(char_length(${column}) <= ${String(DECISION_REASON_MAX)})`,
+      );
+    }
+    const { rows } = await app.query<{ from_status: string; to_status: string }>(
+      `SELECT from_status, to_status FROM order_status_transitions ORDER BY 1, 2`,
+    );
+    expect(rows.map((r) => [r.from_status, r.to_status])).toEqual(
+      [...ORDER_TRANSITIONS].map((t) => [...t]).sort((a, b) => a.join().localeCompare(b.join())),
+    );
+  });
+
+  it('[FR-APR-05] the seeded policy tiers equal APPROVAL_POLICY_SEED_TIERS', async () => {
+    const { app } = await orderFixture();
+    const { rows } = await app.query<{ threshold: string }>(
+      `SELECT threshold::text AS threshold FROM approval_policy_tiers
+        WHERE policy_version = 1 ORDER BY tier`,
+    );
+    expect(rows.map((r) => r.threshold)).toEqual([...APPROVAL_POLICY_SEED_TIERS]);
+  });
+
+  it('[FR-APR-05] set_approval_policy takes APPROVAL_POLICY_LOCK, the key submit shares', async () => {
+    const { superuser: q } = await orderFixture();
+    const { rows } = await q.query<{ def: string }>(
+      `SELECT pg_get_functiondef('set_approval_policy(numeric[])'::regprocedure) AS def`,
+    );
+    expect(rows[0]?.def).toContain(`pg_advisory_xact_lock(${String(APPROVAL_POLICY_LOCK)})`);
   });
 });

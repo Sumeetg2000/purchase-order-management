@@ -14,6 +14,11 @@ const EXPECTED_RELATION_GRANTS = [
   'access_requests po_app INSERT',
   'access_requests po_app SELECT',
   'access_requests po_app UPDATE',
+  // Approvals (0014): policies read only; rounds and steps written per column, below.
+  'approval_policies po_app SELECT',
+  'approval_policy_tiers po_app SELECT',
+  'approval_rounds po_app SELECT',
+  'approval_steps po_app SELECT',
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
   'audit_entries po_maintenance SELECT',
@@ -185,8 +190,8 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'sessions.revoke_reason po_app UPDATE',
       'sessions.revoked_at po_app UPDATE',
       ...[...VENDOR_EDITABLE_COLUMNS, 'id'].map((col) => `vendors.${col} po_app INSERT`),
-      // Orders (0013): never a derived column (total, open_line_count, line_total), status
-      // (slice 4), received_quantity (slice 6), the owner or the timestamps.
+      // Orders (0013): never a derived column (total, open_line_count, line_total),
+      // received_quantity (slice 6), the owner or the timestamps.
       'idempotency_keys.response po_app UPDATE',
       'idempotency_keys.status po_app UPDATE',
       ...['description', 'id', 'order_id', 'position', 'quantity', 'unit_price'].map(
@@ -197,7 +202,29 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       ),
       'po_number_counters.last_value po_app UPDATE',
       ...['id', 'owner_id', 'vendor_id'].map((col) => `purchase_orders.${col} po_app INSERT`),
-      ...['po_number', 'vendor_id', 'version'].map((col) => `purchase_orders.${col} po_app UPDATE`),
+      // Slice 4 (0014): status and the submission columns, written with a transition only.
+      ...[
+        'approved_at',
+        'current_round',
+        'po_number',
+        'status',
+        'submitted_at',
+        'vendor_id',
+        'version',
+      ].map((col) => `purchase_orders.${col} po_app UPDATE`),
+      // Approvals (0014): never a round's outcome at insert, nor a step's state or decision.
+      ...['order_id', 'policy_version', 'round', 'submitted_by', 'total', 'vendor_snapshot'].map(
+        (col) => `approval_rounds.${col} po_app INSERT`,
+      ),
+      ...['closed_at', 'outcome', 'withdraw_reason'].map(
+        (col) => `approval_rounds.${col} po_app UPDATE`,
+      ),
+      ...['order_id', 'round', 'step', 'threshold', 'tier'].map(
+        (col) => `approval_steps.${col} po_app INSERT`,
+      ),
+      ...['decided_at', 'decided_by', 'decided_version', 'reason', 'state', 'voided_at'].map(
+        (col) => `approval_steps.${col} po_app UPDATE`,
+      ),
       ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
         (col) => `vendors.${col} po_app UPDATE`,
       ),
@@ -205,7 +232,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
 
-  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except vendor_name_key and po_financial_year to po_app', async () => {
+  it('[NFR-AUD-02] functions grant EXECUTE to nobody but their owner (not PUBLIC), except four to po_app', async () => {
     const { admin } = await freshDb();
     const grants = await rows<{ grant: string }>(
       admin,
@@ -215,9 +242,13 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         WHERE n.nspname = 'public' AND a.grantee <> p.proowner ORDER BY 1`,
     );
     // The list's prefix filter runs vendor_name_key($q) as po_app (research R2, slice 2);
-    // the PO number allocation runs po_financial_year(now()) (slice 3 research R2).
+    // the PO number allocation runs po_financial_year(now()) (slice 3 research R2); the
+    // reconciliation runs approval_inconsistency, and the policy CLI set_approval_policy,
+    // which refuses any actor but OPERATOR (slice 4 research R1, R2).
     expect(grants).toEqual([
+      { grant: 'approval_inconsistency po_app' },
       { grant: 'po_financial_year po_app' },
+      { grant: 'set_approval_policy po_app' },
       { grant: 'vendor_name_key po_app' },
     ]);
   });
@@ -252,7 +283,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     expect(defaults).toEqual([]);
   });
 
-  it('[NFR-AUD-02] functions are SECURITY INVOKER with a fixed search_path, except the order recompute and its triggers', async () => {
+  it('[NFR-AUD-02] functions are SECURITY INVOKER with a fixed search_path, except the order recompute, the policy write and their triggers', async () => {
     const { admin } = await freshDb();
     const functions = await rows<{ proname: string; prosecdef: boolean; config: string[] | null }>(
       admin,
@@ -278,6 +309,10 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'order_lines_after_delete',
       'purchase_orders_has_lines',
       'order_lines_order_has_lines',
+      // Slice 4: the policy's only write path, and the commit-time approval checks.
+      'set_approval_policy',
+      'purchase_orders_approval_consistent',
+      'approval_rows_consistent',
     ]);
     for (const fn of functions) {
       expect(fn.prosecdef, fn.proname).toBe(definers.has(fn.proname));
@@ -301,6 +336,18 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
     );
     expect(triggers.map((t) => t.trigger)).toEqual([
       'access_requests access_requests_set_updated_at O',
+      'approval_policies approval_policies_immutable O',
+      'approval_policies approval_policies_no_truncate O',
+      'approval_policies require_actor_context O',
+      'approval_policy_tiers approval_policy_tiers_immutable O',
+      'approval_policy_tiers approval_policy_tiers_no_truncate O',
+      'approval_policy_tiers require_actor_context O',
+      'approval_rounds approval_rounds_consistent O',
+      'approval_rounds approval_rounds_guard O',
+      'approval_rounds require_actor_context O',
+      'approval_steps approval_steps_consistent O',
+      'approval_steps approval_steps_guard O',
+      'approval_steps require_actor_context O',
       'audit_entries audit_fill_actor O',
       'audit_entries audit_immutable O',
       'audit_entries audit_no_truncate O',
@@ -311,6 +358,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'order_lines order_lines_recompute_ins O',
       'order_lines order_lines_recompute_upd O',
       'order_lines require_actor_context O',
+      'purchase_orders purchase_orders_approval_consistent O',
       'purchase_orders purchase_orders_delete_draft_only O',
       'purchase_orders purchase_orders_derived_guard O',
       'purchase_orders purchase_orders_has_lines O',
@@ -318,6 +366,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'purchase_orders purchase_orders_po_number_assigned O',
       'purchase_orders purchase_orders_set_updated_at O',
       'purchase_orders purchase_orders_status_transition O',
+      'purchase_orders purchase_orders_submission_lock O',
       'purchase_orders require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',

@@ -7,7 +7,10 @@
   codes per status, ADR-0017) · amended 2026-11-03 (POC scope, owner decision: no phone
   field, so no phone purge and no `USER_PHONE_PURGED`; the admin lists' committed query
   plans move to slice 7) · amended 2026-11-06 (owner decision: vendor contact details are
-  business data, kept in full in vendor audit entries)
+  business data, kept in full in vendor audit entries) · amended 2026-11-17 (an owner
+  who can't act blocks approval of their pending orders, **owner decision**; slice 4) ·
+  amended 2026-11-17 (approval payloads carry the round; `PO_SUBMITTED` the vendor
+  snapshot; slice 4 plan)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -71,6 +74,11 @@ a separate power and does not touch any order.
     create, edit, submit, withdraw, delete or receive (`403`).
     - Their open orders follow the "reassignment not adopted" process (ADR-0004): an
       Approver rejects pending ones and cancels approved ones, and a new order is raised.
+    - The same applies when the user is deactivated. While the owner is deactivated or
+      lacks BUYER, approving their pending orders is refused (`409 ORDER_OWNER_INACTIVE`,
+      ADR-0001), and the approval queue, order detail and Approve dialog mark such orders
+      "Owner can no longer act on this order", offering Reject instead (amended
+      2026-11-17). Restoring the owner's access makes them approvable again.
     - Their drafts remain and are harmless.
     - The admin confirm dialog shows the user's open-order counts before the change
       (from the orders slice; deferred until orders exist, ADR-0019, 2026-11-04).
@@ -196,11 +204,11 @@ A database `CHECK` ties the actor fields to `actorType`:
 |---|---|
 | `PO_CREATED` | vendor, lines, total |
 | `PO_EDITED` | header/vendor before → after; lines added, removed, and changed with field-level before/after |
-| `PO_SUBMITTED` | total, tiers in chain, policy version, resulting status |
-| `PO_AUTO_APPROVED` | actorType `SYSTEM`, threshold, policy version |
-| `APPROVAL_STEP_APPROVED` | tier, step, version approved |
-| `APPROVAL_STEP_REJECTED` | tier, step, reason |
-| `PO_WITHDRAWN` | reason, voided steps |
+| `PO_SUBMITTED` | round, total, tiers in chain, policy version, resulting status, vendor snapshot (amended 2026-11-17) |
+| `PO_AUTO_APPROVED` | actorType `SYSTEM`, round, threshold, policy version |
+| `APPROVAL_STEP_APPROVED` | round, tier, step, version approved |
+| `APPROVAL_STEP_REJECTED` | round, tier, step, reason |
+| `PO_WITHDRAWN` | round, reason, voided steps (each with any earlier decision) |
 | `PO_DRAFT_DELETED` | full contents (vendor, lines, total), reason. *Amended 2026-11-16 (owner decision):* the PO number is the entry's `poNumber` column, as for `PO_CREATED`, not repeated in `details` |
 | `PO_CANCELLED` | reason, per line ordered and received |
 | `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter` |

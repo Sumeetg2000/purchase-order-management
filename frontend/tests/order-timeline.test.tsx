@@ -47,4 +47,27 @@ describe('[NFR-AUD-03] the order timeline', () => {
     expect(seen.some((r) => new URL(r.url).pathname.endsWith('/timeline'))).toBe(true);
     expect(await axeViolations(document.body)).toEqual([]);
   });
+
+  it('[NFR-AUD-03] names the slice 4 events, and an event this app does not know generically', async () => {
+    fakeApi({
+      'GET /me': () => json(200, { ...ME, roles: ['BUYER'] }),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, order(), { ETag: '"1"' }),
+      [`GET /orders/${ORDER_ID}/timeline`]: () =>
+        json(
+          200,
+          page([
+            entry('PO_CANCELLED_LATER', {}, '3'),
+            entry('PO_AUTO_APPROVED', {}, '2'),
+            entry('PO_SUBMITTED', {}, '1'),
+          ]),
+        ),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('link', { name: 'Timeline' }));
+    const list = await screen.findByRole('list', { name: 'Order timeline' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('Other change');
+    expect(items[1]).toHaveTextContent('Auto-approved');
+    expect(items[2]).toHaveTextContent('Submitted');
+  });
 });

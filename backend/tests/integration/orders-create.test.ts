@@ -57,6 +57,12 @@ describe('[FR-PO-01] raise a draft order', () => {
       version: 1,
       createdAt: expect.any(String) as unknown,
       updatedAt: expect.any(String) as unknown,
+      // Slice 4: a draft has no submission, no snapshot and no round; its owner can act.
+      submittedAt: null,
+      approvedAt: null,
+      ownerCanAct: true,
+      vendorSnapshot: null,
+      approval: null,
     });
 
     const read = await h.getOrder(order.id);

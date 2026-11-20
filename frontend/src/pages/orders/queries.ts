@@ -55,6 +55,32 @@ export function editOrder(id: string, version: number, body: EditOrderBody) {
   });
 }
 
+/** Takes the owner's pending order back to draft, with a reason and its version. */
+export function withdrawOrder(id: string, version: number, reason: string) {
+  return api.POST('/orders/{id}/withdraw', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+    body: { reason },
+  });
+}
+
+/** Submits a draft with the version it shows (slice 4); the server routes it. */
+export function submitOrder(id: string, version: number) {
+  return api.POST('/orders/{id}/submit', {
+    params: { path: { id }, header: { 'If-Match': etagFor(version) } },
+  });
+}
+
+export type ApprovalPolicy =
+  paths['/approval-policy']['get']['responses'][200]['content']['application/json'];
+
+/** The current approval policy, for the submit dialog's expected outcome (ADR-0002). */
+export function useApprovalPolicy() {
+  return useQuery({
+    queryKey: ['approval-policy'] as const,
+    queryFn: async () => dataOrThrow(await api.GET('/approval-policy')),
+  });
+}
+
 /** Active vendors whose name starts with `q`, for the order's vendor picker. */
 export function useActiveVendors(q: string | undefined) {
   const query = definedParams({ status: 'ACTIVE' as const, q });

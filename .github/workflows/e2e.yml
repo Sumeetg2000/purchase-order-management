@@ -58,10 +58,22 @@ jobs:
       - name: Smoke test
         run: scripts/smoke.sh
       - uses: ./.github/actions/setup
+      # Ubuntu's mirrors sometimes answer 503 while --with-deps installs the system
+      # packages: apt retries each download (Acquire::Retries; playwright runs apt-get
+      # itself, so the option goes in apt's config), and the whole install is tried up to
+      # 3 times, 30 s apart.
       - name: Install the browsers
         run: |
+          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
           IFS=, read -ra engines <<<"$E2E_BROWSERS"
-          npx playwright install --with-deps "${engines[@]}"
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps "${engines[@]}" && exit 0
+            if [[ $attempt -lt 3 ]]; then
+              echo "::warning::browser install attempt $attempt failed; retrying in 30 s"
+              sleep 30
+            fi
+          done
+          exit 1
       - name: End-to-end tests
         run: npm run e2e
       - name: Upload test reports

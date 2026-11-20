@@ -1,6 +1,6 @@
-import { toMoney, type Order } from '@po/contracts';
+import { toMoney, vendorOrderSnapshot, type ApprovalRound, type Order } from '@po/contracts';
 import type { AuditOrderLine } from '../audit/events.js';
-import type { OrderRow } from './repository.js';
+import type { ApprovalRoundRow, OrderRow } from './repository.js';
 
 // Rows → the API's order (contracts/api.md). Amounts stay strings: toMoney checks and
 // normalises the database's text, never a float.
@@ -26,6 +26,39 @@ export function toOrder(header: OrderRow): Order {
     version: header.version,
     createdAt: header.createdAt.toISOString(),
     updatedAt: header.updatedAt.toISOString(),
+    submittedAt: header.submittedAt?.toISOString() ?? null,
+    approvedAt: header.approvedAt?.toISOString() ?? null,
+    ownerCanAct: header.ownerCanAct,
+    // A non-draft order shows its vendor as submitted; a draft (a withdrawn one too) the
+    // live vendor above (ADR-0005).
+    vendorSnapshot:
+      header.status === 'DRAFT' || header.approval === null
+        ? null
+        : vendorOrderSnapshot.parse(header.approval.vendorSnapshot),
+    approval: header.approval === null ? null : toApprovalRound(header.approval),
+  };
+}
+
+/** JSON timestamps (PostgreSQL text) → ISO strings, as every other API time. */
+const iso = (at: string): string => new Date(at).toISOString();
+
+export function toApprovalRound(row: ApprovalRoundRow): ApprovalRound {
+  return {
+    round: row.round,
+    policyVersion: row.policyVersion,
+    outcome: row.outcome,
+    submittedAt: iso(row.submittedAt),
+    closedAt: row.closedAt === null ? null : iso(row.closedAt),
+    withdrawReason: row.withdrawReason,
+    steps: row.steps.map((step) => ({
+      step: step.step,
+      tier: step.tier,
+      threshold: toMoney(step.threshold),
+      state: step.state,
+      decidedBy: step.decidedBy,
+      decidedAt: step.decidedAt === null ? null : iso(step.decidedAt),
+      reason: step.reason,
+    })),
   };
 }
 

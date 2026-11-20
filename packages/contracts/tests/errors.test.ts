@@ -9,6 +9,12 @@ import {
   UnregisteredErrorCodeError,
   type ErrorCode,
   type ErrorDefinition,
+  NOT_ORDER_OWNER_DETAIL,
+  ORDER_LOCKED_MESSAGES,
+  ORDER_OWNER_INACTIVE_DETAIL,
+  ORDER_PENDING_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAIL,
+  carriesOrderState,
 } from '../src/index.js';
 
 describe('[NFR-API-02] error code registry', () => {
@@ -17,7 +23,7 @@ describe('[NFR-API-02] error code registry', () => {
     for (const code of ERROR_CODES) expect(code).toMatch(/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/);
   });
 
-  it('[NFR-API-02] holds exactly the slice 0 to slice 3 codes with their statuses', () => {
+  it('[NFR-API-02] holds exactly the slice 0 to slice 4 codes with their statuses', () => {
     const statuses = Object.fromEntries(ERROR_CODES.map((c) => [c, ERROR_REGISTRY[c].status]));
     expect(statuses).toEqual({
       VALIDATION_FAILED: 400,
@@ -60,7 +66,32 @@ describe('[NFR-API-02] error code registry', () => {
       VENDOR_INACTIVE: 409,
       // Slice 3 (specs/004-draft-orders/contracts/errors.md)
       IDEMPOTENCY_KEY_REUSED: 409,
+      // Slice 4 (specs/005-submit-approve/contracts/errors.md)
+      NOT_ORDER_OWNER: 403,
+      SELF_APPROVAL: 403,
+      ORDER_LOCKED: 409,
+      ORDER_PENDING_APPROVAL: 409,
+      ORDER_OWNER_INACTIVE: 409,
     });
+  });
+
+  it('[FR-SOD-01] has no DUPLICATE_APPROVER: the rule was removed (ADR-0002)', () => {
+    expect(ERROR_CODES).not.toContain('DUPLICATE_APPROVER');
+  });
+
+  it('[FR-LCK-01] the slice 4 problem details are the owner-approved sentences', () => {
+    expect(ORDER_PENDING_APPROVAL_DETAIL).toBe(
+      'This order is waiting for approval. Withdraw it to make changes.',
+    );
+    expect(ORDER_OWNER_INACTIVE_DETAIL).toBe(
+      'The buyer who raised this order can no longer act on it. Reject it, or approve once their access is restored.',
+    );
+    expect(ORDER_LOCKED_MESSAGES).toEqual({
+      APPROVED: 'This order is approved and locked.',
+      REJECTED: 'This order was rejected and is closed. Raise a new order instead.',
+    });
+    expect(NOT_ORDER_OWNER_DETAIL).toBe('Only the buyer who raised this order can do that.');
+    expect(SELF_APPROVAL_DETAIL).toBe("You can't approve or reject an order you raised.");
   });
 
   it('[NFR-API-02] never uses status 422', () => {
@@ -147,6 +178,19 @@ describe('[NFR-API-02] AppError', () => {
     expect(() => new AppError('VERSION_CONFLICT', { existingVendor })).toThrow(TypeError);
   });
 
+  it('[FR-SM-01] carries orderState on the order state codes only', () => {
+    const orderState = { status: 'APPROVED', action: 'EDIT' } as const;
+    expect(new AppError('ORDER_LOCKED', { orderState }).orderState).toEqual(orderState);
+    expect(new AppError('ORDER_PENDING_APPROVAL', { orderState }).orderState).toEqual(orderState);
+    expect(new AppError('INVALID_STATE_TRANSITION', { orderState }).orderState).toEqual(orderState);
+    expect(() => new AppError('VERSION_CONFLICT', { orderState })).toThrow(TypeError);
+    for (const code of ERROR_CODES) {
+      expect(carriesOrderState(code), code).toBe(
+        ['ORDER_LOCKED', 'ORDER_PENDING_APPROVAL', 'INVALID_STATE_TRANSITION'].includes(code),
+      );
+    }
+  });
+
   it('[NFR-API-02] refuses an unregistered code at compile time and at run time', () => {
     // @ts-expect-error: not a registered code
     expect(() => new AppError('NOT_A_CODE')).toThrow(UnregisteredErrorCodeError);
@@ -173,6 +217,23 @@ describe('[NFR-API-02] problem schema', () => {
         details: [{ path: 'body', code: 'MALFORMED_JSON' }],
       }).success,
     ).toBe(true);
+  });
+
+  it('[FR-SM-01] accepts orderState on the order state codes, and nowhere else', () => {
+    const locked = { ...valid, code: 'ORDER_LOCKED', status: 409, title: 'Order locked' };
+    expect(problemSchema.safeParse({ ...locked, orderState: { status: 'REJECTED' } }).success).toBe(
+      true,
+    );
+    expect(
+      problemSchema.safeParse({ ...locked, orderState: { status: 'REJECTED', action: 'EDIT' } })
+        .success,
+    ).toBe(true);
+    expect(problemSchema.safeParse({ ...locked, orderState: { status: 'LOST' } }).success).toBe(
+      false,
+    );
+    expect(problemSchema.safeParse({ ...valid, orderState: { status: 'DRAFT' } }).success).toBe(
+      false,
+    );
   });
 
   it('[NFR-FE-02] accepts a public reason on SESSION_REVOKED, and no reason anywhere else', () => {

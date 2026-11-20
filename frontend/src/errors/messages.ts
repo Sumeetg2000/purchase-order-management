@@ -2,13 +2,23 @@ import {
   isErrorCode,
   isFieldCode,
   oneOf,
-  ORDER_ADMIN_READ_ONLY_MESSAGE,
+  NOT_ORDER_OWNER_DETAIL,
+  ORDER_DECISION_FORBIDDEN_DETAIL,
+  ORDER_LOCKED_MESSAGES,
+  ORDER_OWNER_INACTIVE_DETAIL,
+  ORDER_PENDING_APPROVAL_DETAIL,
+  ORDER_WRITE_FORBIDDEN_DETAIL,
+  SELF_APPROVAL_DETAIL,
+  type LockedOrderStatus,
+  type OrderAction,
+  type OrderStatus,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
   type ErrorCode,
   type FieldCode,
   type PublicRevokeReason,
+  type UserRole,
 } from '@po/contracts';
 
 // What the user is told for each registry code (contracts/ui-components.md). Keyed by the
@@ -132,6 +142,13 @@ export const errorMessages = {
     message: 'This request was already used for a different order.',
     action: 'Start a new order.',
   },
+  // Slice 4 (specs/005-submit-approve/contracts/errors.md): the API's details, word for
+  // word. ORDER_LOCKED's words follow the order's status (messageForProblem).
+  NOT_ORDER_OWNER: { message: NOT_ORDER_OWNER_DETAIL },
+  SELF_APPROVAL: { message: SELF_APPROVAL_DETAIL },
+  ORDER_LOCKED: { message: "This order can't be changed any more." },
+  ORDER_PENDING_APPROVAL: { message: ORDER_PENDING_APPROVAL_DETAIL },
+  ORDER_OWNER_INACTIVE: { message: ORDER_OWNER_INACTIVE_DETAIL },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
 
 /** The words for each public revoke reason, in "You were logged out because …". */
@@ -163,6 +180,8 @@ export interface ProblemLike {
   reason?: string | undefined;
   /** The vendor a name clashed with, on DUPLICATE_VENDOR_NAME only. */
   existingVendor?: { id: string; name: string } | undefined;
+  /** The order's status and the refused action, on the order state codes. */
+  orderState?: { status: OrderStatus; action?: OrderAction | undefined } | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -172,6 +191,11 @@ export function messageFor(code: string): ErrorMessage {
 
 function isPublicRevokeReason(value: unknown): value is PublicRevokeReason {
   return oneOf(PUBLIC_REVOKE_REASONS, value);
+}
+
+/** A status ORDER_LOCKED has its own sentence for (approved, rejected). */
+function isLockedStatus(status: OrderStatus): status is LockedOrderStatus {
+  return Object.hasOwn(ORDER_LOCKED_MESSAGES, status);
 }
 
 /**
@@ -184,25 +208,40 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
       message: `You were logged out because ${revokeReasonText[problem.reason]}. Please log in again.`,
     };
   }
+  if (problem.code === 'ORDER_LOCKED') {
+    const status = problem.orderState?.status;
+    if (status !== undefined && isLockedStatus(status)) {
+      return { message: ORDER_LOCKED_MESSAGES[status] };
+    }
+  }
   return messageFor(problem.code);
 }
 
 /**
- * The message for a failed order write (create, edit, delete): an Admin's FORBIDDEN says
- * why, in the same words the API puts in the problem's detail (ADR-0004, 2026-11-12). The
- * screen branches on the code and the signed-in roles, never on the detail text.
+ * The message for a failed order action: a route-level FORBIDDEN says why, in the same
+ * words the API puts in the problem's detail, by the signed-in role and the kind of action
+ * (ADR-0004, 2026-11-12 and 2026-11-17). The screen branches on the code and the roles,
+ * never on the detail text.
  */
-export function messageForOrderWrite(
+export function messageForOrderAction(
   problem: ProblemLike,
-  { isAdmin }: { isAdmin: boolean },
+  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' },
 ): ErrorMessage {
-  if (problem.code === 'FORBIDDEN' && isAdmin) return { message: ORDER_ADMIN_READ_ONLY_MESSAGE };
+  if (problem.code === 'FORBIDDEN') {
+    const details: Partial<Record<UserRole, string>> =
+      action === 'write' ? ORDER_WRITE_FORBIDDEN_DETAIL : ORDER_DECISION_FORBIDDEN_DETAIL;
+    const message = roles.map((role) => details[role]).find((d) => d !== undefined);
+    if (message !== undefined) return { message };
+  }
   return messageForProblem(problem);
 }
 
 export function isRetryable(code: string): boolean {
   return oneOf(RETRYABLE_CODES, code);
 }
+
+/** A required reason left blank, or refused by the server as missing or too short. */
+export const REASON_REQUIRED_MESSAGE = 'Enter a reason.';
 
 /** What a field error says, by field code (ADR-0007), next to the field. */
 export const fieldMessages = {

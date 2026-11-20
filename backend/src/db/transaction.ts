@@ -146,6 +146,66 @@ export async function actAs(
   await setActorContext(tx, actor, requestId);
 }
 
+/** The actor settings asSystem saves and restores; actor_txid and request_id stay. */
+interface SavedActor {
+  actorType: string;
+  userId: string;
+  name: string;
+  email: string;
+  actingRole: string;
+  osUser: string;
+  osHost: string;
+}
+
+async function setActorSettings(tx: TransactionClient, actor: SavedActor): Promise<void> {
+  await tx.$executeRaw`
+    SELECT set_config('app.actor_type', ${actor.actorType}, true),
+           set_config('app.actor_user_id', ${actor.userId}, true),
+           set_config('app.actor_name', ${actor.name}, true),
+           set_config('app.actor_email', ${actor.email}, true),
+           set_config('app.acting_role', ${actor.actingRole}, true),
+           set_config('app.os_user', ${actor.osUser}, true),
+           set_config('app.os_host', ${actor.osHost}, true)`;
+}
+
+/**
+ * Runs `fn` as SYSTEM inside the caller's transaction, then restores the caller: for a
+ * decision the system makes as part of a user's command, such as the auto-approval of an
+ * order submitted at or below the threshold (slice 4 research R5). Same transaction and
+ * request id, so both entries commit or roll back together.
+ */
+export async function asSystem<T>(tx: AuditedTransaction, fn: () => Promise<T>): Promise<T> {
+  const [saved] = await tx.$queryRaw<SavedActor[]>`
+    SELECT current_setting('app.actor_type', true) AS "actorType",
+           current_setting('app.actor_user_id', true) AS "userId",
+           current_setting('app.actor_name', true) AS "name",
+           current_setting('app.actor_email', true) AS "email",
+           current_setting('app.acting_role', true) AS "actingRole",
+           current_setting('app.os_user', true) AS "osUser",
+           current_setting('app.os_host', true) AS "osHost"`;
+  if (!saved) throw new Error('asSystem: no actor context to restore');
+  await setActorSettings(tx, {
+    actorType: 'SYSTEM',
+    userId: '',
+    name: '',
+    email: '',
+    actingRole: '',
+    osUser: '',
+    osHost: '',
+  });
+  let result: T;
+  try {
+    result = await fn();
+  } catch (error) {
+    // Restore for a caller that catches and goes on; if the database aborted the
+    // transaction, restoring fails too, and the original error is the one that matters.
+    await setActorSettings(tx, saved).catch(() => undefined);
+    throw error;
+  }
+  await setActorSettings(tx, saved);
+  return result;
+}
+
 /** Who acts and for which request; the runner adds the database and its limits. */
 interface TransactionContext {
   actor: ActorContext;

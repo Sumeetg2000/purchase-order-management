@@ -74,6 +74,11 @@ const EXPECTED: BodyInventory = {
   createOrder: { vendorId: 'required', lines: 'required' },
   editOrder: { vendorId: 'required', lines: 'required' },
   deleteOrder: { reason: 'optional' },
+  // Slice 4: submit takes no input besides If-Match.
+  submitOrder: 'no body',
+  approveOrder: 'no body',
+  rejectOrder: { reason: 'required' },
+  withdrawOrder: { reason: 'required' },
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {

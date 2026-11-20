@@ -2,7 +2,8 @@
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset) ·
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
-  ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis)
+  ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
+  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -12,8 +13,17 @@
   - **Production**: 100k orders, about 1M lines (1% of orders with 200–500 lines), about
     1.5M receipts, 2,000 vendors (top 20 ≈ 30%), 300 buyers (top 10 ≈ 25%), and **one
     Approver**, matching the business (ADR-0002). This is also the worst case for the
-    approver queue: every pending order is in one queue. Approval policy: the single-tier
+    approval queue: every pending order is in one queue. Approval policy: the single-tier
     seed.
+  - **Order status mix** (amended 2026-11-17, slice 4): 5,000 `DRAFT`, 3,000
+    `PENDING_APPROVAL`, 2,000 `REJECTED`, 90,000 `APPROVED` (later slices split the
+    approved orders into cancelled and receipt states), with matching approval rounds and
+    steps. For the queue's own-order exclusion, the plan fixture also gives one of the top
+    10 Buyers `{BUYER, APPROVER}`.
+  - **Order lists at this mix** (amended 2026-11-18, owner decision): the non-draft
+    scopes walk partial indexes on `status <> 'DRAFT'`, and status with vendor has its own
+    indexes (slice 4 research R7). Every list and count plan stops at its page; no
+    combined-filter exception is needed.
   - **Audit entries**: about **2M**, matching the production dataset above (about 100k
     orders × their lifecycle events, plus about 1.5M receipt events and the vendor and user
     events); for vendor history, about 10,000 vendor entries across the 2,000 vendors.
@@ -22,7 +32,7 @@
   - **Users** (for the admin user list plan only): 10,000 generated users across every
     status and role set (ADR-0016), built in slice 7 (ADR-0021).
 - p95 targets: outstanding report 200 ms; vendor summary 300 ms; "my orders" for the
-  **busiest** buyer 150 ms; approver queue 150 ms; create, replace or submit a 500-line
+  **busiest** buyer 150 ms; approval queue 150 ms; create, replace or submit a 500-line
   order 500 ms each; a single receipt or approval 150 ms; 50 concurrent virtual users for
   10 min with zero pool-exhaustion or timeout errors, < 0.1% errors, and zero reconciliation
   rows.

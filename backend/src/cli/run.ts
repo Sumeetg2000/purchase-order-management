@@ -25,11 +25,22 @@ import {
   parseAdminReactivateArgs,
   USAGE_LINE as REACTIVATE_USAGE,
 } from './commands/admin-reactivate.js';
+import {
+  parsePolicySetArgs,
+  policySet,
+  USAGE_LINE as POLICY_SET_USAGE,
+} from './commands/policy-set.js';
+import {
+  parsePolicyShowArgs,
+  policyShow,
+  USAGE_LINE as POLICY_SHOW_USAGE,
+} from './commands/policy-show.js';
 import { CliError, EXIT } from './errors.js';
 
 // The operator CLI (contracts/cli.md, research R13). Server only: no HTTP route reaches
-// this module (route-table test). Each command runs in one transaction under ADMIN_LOCK
-// with an OPERATOR actor naming the OS user and host.
+// this module (route-table test). Each command runs in one transaction with an OPERATOR
+// actor naming the OS user and host, under its advisory lock: ADMIN_LOCK for admin:*,
+// APPROVAL_POLICY_LOCK for policy:set.
 
 const USAGE = `Usage: npm run admin -- <command> [flags]
 
@@ -42,6 +53,11 @@ Commands:
       administrator is never deactivated.
   ${REACTIVATE_USAGE}
       Reactivate a deactivated administrator.
+  ${POLICY_SET_USAGE}
+      Create a new approval policy version: orders submitted from now on need one
+      approval above <amount> (at most 4 decimal places). Submitted orders keep theirs.
+  ${POLICY_SHOW_USAGE}
+      Show the current approval policy: version, tiers and when it took effect.
 
 Options:
   --help    Show this message
@@ -78,6 +94,14 @@ function parseCommand(argv: readonly string[]): CommandWork {
   if (command === 'admin:reactivate') {
     const args = parseAdminReactivateArgs(rest);
     return (tx, { now }) => adminReactivate(tx, args, now);
+  }
+  if (command === 'policy:set') {
+    const args = parsePolicySetArgs(rest);
+    return (tx) => policySet(tx, args);
+  }
+  if (command === 'policy:show') {
+    parsePolicyShowArgs(rest);
+    return (tx) => policyShow(tx);
   }
   // The typed value is not echoed: with arguments out of order it can be an email or name.
   throw new CliError(
@@ -161,7 +185,7 @@ function toCliError(error: unknown): CliError {
     return new CliError(
       'UNAVAILABLE',
       EXIT.UNAVAILABLE,
-      'the database is unreachable or the admin lock timed out; nothing was changed',
+      'the database is unreachable or a lock wait timed out; nothing was changed',
     );
   }
   return new CliError(

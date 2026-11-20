@@ -1,4 +1,5 @@
 import { oneOf } from './one-of.js';
+import type { OrderAction, OrderStatus } from './orders.js';
 
 // The single error code registry (ADR-0007). The API, the OpenAPI generator and the web
 // app's message map all read it. Each slice adds the codes it uses, never earlier.
@@ -12,6 +13,14 @@ export interface ErrorDefinition {
   revokeReason?: true;
   /** The member naming the existing resource a request clashed with (ADR-0007). */
   clash?: ClashMember;
+  /** Whether the problem may carry `orderState`: the order's status, and the action refused. */
+  orderState?: true;
+}
+
+/** An order state refusal's typed member (ADR-0007, amended 2026-11-17). */
+export interface OrderState {
+  status: OrderStatus;
+  action?: OrderAction;
 }
 
 /** One typed member per clash kind (ADR-0007, amended 2026-11-06). */
@@ -87,6 +96,8 @@ export const ERROR_REGISTRY = {
     status: 409,
     title: 'Invalid state transition',
     fieldDetails: false,
+    // Orders name their status and the refused action; vendors carry none.
+    orderState: true,
   },
   // First route: order create, slice 3.
   VENDOR_INACTIVE: { status: 409, title: 'Vendor deactivated', fieldDetails: false },
@@ -97,6 +108,23 @@ export const ERROR_REGISTRY = {
     title: 'Idempotency key already used',
     fieldDetails: false,
   },
+
+  // Slice 4: submission and decisions (specs/005-submit-approve/contracts/errors.md). The
+  // problem details are constants in approvals.ts.
+  NOT_ORDER_OWNER: { status: 403, title: 'Not the order owner', fieldDetails: false },
+  SELF_APPROVAL: { status: 403, title: 'Own order', fieldDetails: false },
+  ORDER_LOCKED: { status: 409, title: 'Order locked', fieldDetails: false, orderState: true },
+  ORDER_PENDING_APPROVAL: {
+    status: 409,
+    title: 'Order waiting for approval',
+    fieldDetails: false,
+    orderState: true,
+  },
+  ORDER_OWNER_INACTIVE: {
+    status: 409,
+    title: 'Order owner can no longer act',
+    fieldDetails: false,
+  },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;
@@ -105,6 +133,12 @@ export const ERROR_CODES = Object.keys(ERROR_REGISTRY) as readonly ErrorCode[];
 
 export function isErrorCode(value: unknown): value is ErrorCode {
   return typeof value === 'string' && Object.hasOwn(ERROR_REGISTRY, value);
+}
+
+/** Whether a code's problem may name the order's status and the refused action. */
+export function carriesOrderState(code: ErrorCode): boolean {
+  const entry: ErrorDefinition = ERROR_REGISTRY[code];
+  return entry.orderState === true;
 }
 
 export function isFieldCode(value: unknown): value is FieldCode {

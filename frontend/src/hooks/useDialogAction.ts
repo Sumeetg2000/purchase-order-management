@@ -36,15 +36,52 @@ export function useDialogAction({ refresh, isStale }: DialogActionOptions = {}) 
   return { error, clearError, run };
 }
 
-/** A dialog's Reload, offered when the failure means its data is out of date. */
+/**
+ * A dialog's Reload, offered when the failure means its data is out of date: it rereads
+ * the data, then closes the dialog when `onClose` is given.
+ */
 export function reloadAction(
   error: ApiFailure | undefined,
   isStale: (code: string) => boolean,
   onReload: () => void,
+  { label = 'Reload', onClose }: { label?: string; onClose?: () => void } = {},
 ): readonly { label: string; onPress: () => void }[] {
-  return error && isStale(error.problem.code) ? [{ label: 'Reload', onPress: onReload }] : [];
+  return error && isStale(error.problem.code)
+    ? [
+        {
+          label,
+          onPress: () => {
+            onReload();
+            onClose?.();
+          },
+        },
+      ]
+    : [];
 }
 
 /** Only a version conflict: the dialog's data changed under the user. */
 export const isVersionConflict = (code: string): boolean =>
   code === ('VERSION_CONFLICT' satisfies ErrorCode);
+
+/**
+ * Failures meaning the order behind a dialog has changed: its version moved, another action
+ * moved its state first (an approve, reject or withdraw), or it is no longer readable (a
+ * withdrawn order, for an Approver).
+ */
+const ORDER_STALE_CODES = [
+  'VERSION_CONFLICT',
+  'INVALID_STATE_TRANSITION',
+  'NOT_FOUND',
+] as const satisfies readonly ErrorCode[];
+
+export const isOrderStale = (code: string): boolean =>
+  (ORDER_STALE_CODES as readonly string[]).includes(code);
+
+/** An order dialog's "Reload order": rereads the order and closes the dialog. */
+export function reloadOrderAction(
+  error: ApiFailure | undefined,
+  onReload: () => void,
+  onClose: () => void,
+): readonly { label: string; onPress: () => void }[] {
+  return reloadAction(error, isOrderStale, onReload, { label: 'Reload order', onClose });
+}

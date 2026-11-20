@@ -10,6 +10,7 @@ import {
   toMoney,
   UNIT_PRICE_INPUT_PATTERN,
   type Money,
+  moneyAbove,
 } from '../src/index.js';
 
 // The money module (research R1) against an independent oracle: integers scaled by 10⁴ in
@@ -153,5 +154,14 @@ describe('[FR-PO-07] money: examples and limits', () => {
     expect(money.safeParse('-1.0000').success).toBe(false);
     const branded: Money = toMoney('1');
     expect(branded).toBe('1.0000');
+  });
+
+  it('[FR-APR-01] moneyAbove compares exactly: equal is not above, one ten-thousandth is', () => {
+    const at = toMoney('100000');
+    expect(moneyAbove(at, toMoney('100000.0000'))).toBe(false);
+    expect(moneyAbove(toMoney('100000.0001'), at)).toBe(true);
+    expect(moneyAbove(toMoney('99999.9999'), at)).toBe(false);
+    // Text order would say '9' > '1'; the amounts say otherwise.
+    expect(moneyAbove(toMoney('9'), toMoney('10'))).toBe(false);
   });
 });

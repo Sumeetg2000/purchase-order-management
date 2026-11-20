@@ -164,6 +164,18 @@ const TRIGGER_ERRORS: Readonly<Record<string, string>> = {
   PO010: 'ORDER_DELETE_REFUSED',
   // An order committed without a PO number.
   PO011: 'PO_NUMBER_UNASSIGNED',
+  // An approval step inserted, moved, changed after its round closed, or deleted (slice 4).
+  PO012: 'APPROVAL_STEP_REFUSED',
+  // An approval round inserted, changed or deleted out of turn; AUTO_APPROVED outside SYSTEM.
+  PO013: 'APPROVAL_ROUND_REFUSED',
+  // At commit: an order's status, round, chain or dates disagree.
+  PO014: 'ORDER_APPROVAL_INCONSISTENT',
+  // The vendor or a submission column changed outside a status transition.
+  PO015: 'ORDER_SUBMISSION_FIELD_LOCKED',
+  // A step decided by the order's owner, or by someone other than the acting user.
+  PO016: 'SELF_DECISION_REFUSED',
+  // A policy row changed, or set_approval_policy outside OPERATOR or with invalid tiers.
+  PO017: 'APPROVAL_POLICY_IMMUTABLE',
 };
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 

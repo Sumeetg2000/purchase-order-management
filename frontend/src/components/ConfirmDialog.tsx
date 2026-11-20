@@ -2,6 +2,7 @@ import { useId, useRef, useState, type ReactNode } from 'react';
 import {
   Button,
   Dialog,
+  FieldError,
   Heading,
   Label,
   Modal,
@@ -33,7 +34,18 @@ export interface ConfirmDialogProps {
    * When set, a reason field: required unless `optional`, and confirm stays disabled until
    * it is valid. An optional reason left blank is passed as "".
    */
-  reason?: { label: string; minLength: number; maxLength: number; optional?: boolean };
+  reason?: {
+    label: string;
+    minLength: number;
+    maxLength: number;
+    optional?: boolean;
+    /**
+     * With it, confirm stays pressable: a blank required reason marks the field invalid
+     * and says this at the field, as does the server refusing `path` as REQUIRED or
+     * TOO_SHORT. Without it, confirm stays disabled until the reason is valid.
+     */
+    required?: { message: string; path: string };
+  };
   /** Keeps confirm disabled, e.g. until the dialog's own choice is made or its data loads. */
   confirmDisabled?: boolean;
   /** Called once per press, with the trimmed reason when one is required. */
@@ -79,18 +91,43 @@ export function ConfirmDialog({
   // click from calling onConfirm again.
   const pendingRef = useRef(false);
 
+  // A blank required reason the user tried to confirm, and a server refusal of the reason
+  // not yet answered by an edit (reason.required only).
+  const [blankTried, setBlankTried] = useState(false);
+  const [editedSinceError, setEditedSinceError] = useState(false);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+
   const shownError = error ?? failure;
   const trimmed = reasonText.trim();
   const reasonValid =
     !reason ||
     (reason.optional === true && trimmed.length === 0) ||
     (trimmed.length >= reason.minLength && trimmed.length <= reason.maxLength);
+  const required = reason?.required;
+  const serverRefusedReason =
+    required !== undefined &&
+    shownError?.problem.code === 'VALIDATION_FAILED' &&
+    (shownError.problem.details ?? []).length > 0 &&
+    (shownError.problem.details ?? []).every(
+      (d) => d.path === required.path && (d.code === 'REQUIRED' || d.code === 'TOO_SHORT'),
+    );
+  const reasonInvalid =
+    required !== undefined &&
+    ((blankTried && !reasonValid) || (serverRefusedReason && !editedSinceError));
 
   const confirm = async () => {
-    if (pendingRef.current || !reasonValid || confirmDisabled) return;
+    if (pendingRef.current || confirmDisabled) return;
+    if (!reasonValid) {
+      if (required) {
+        setBlankTried(true);
+        reasonRef.current?.focus();
+      }
+      return;
+    }
     pendingRef.current = true;
     setPending(true);
     setFailure(undefined);
+    setEditedSinceError(false);
     try {
       await onConfirm(reason ? trimmed : undefined);
     } catch (error) {
@@ -122,16 +159,23 @@ export function ConfirmDialog({
             <TextField
               className={styles.reason}
               value={reasonText}
-              onChange={setReasonText}
+              onChange={(text) => {
+                setReasonText(text);
+                setEditedSinceError(true);
+              }}
               maxLength={reason.maxLength}
               isDisabled={pending}
               isRequired={reason.optional !== true}
+              isInvalid={reasonInvalid}
             >
               <Label>{reason.label}</Label>
-              <TextArea rows={3} />
+              <TextArea ref={reasonRef} rows={3} />
+              {required && <FieldError>{required.message}</FieldError>}
             </TextField>
           )}
-          {shownError && <ErrorState {...shownError} labels={errorLabels} />}
+          {shownError && !serverRefusedReason && (
+            <ErrorState {...shownError} labels={errorLabels} />
+          )}
           <div className={styles.actions}>
             {errorActions.map((action) => (
               <Button
@@ -157,7 +201,7 @@ export function ConfirmDialog({
             <Button
               className={tone === 'danger' ? controls.danger : controls.primary}
               onPress={() => void confirm()}
-              isDisabled={pending || !reasonValid || confirmDisabled}
+              isDisabled={pending || (!reasonValid && !required) || confirmDisabled}
             >
               {pending ? `${confirmLabel}…` : confirmLabel}
             </Button>

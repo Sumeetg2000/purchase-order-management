@@ -21,6 +21,10 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** The actions on an order a state refusal names (`orderState.action`); slice 5 adds CANCEL. */
+export const ORDER_ACTIONS = ['EDIT', 'DELETE', 'SUBMIT', 'WITHDRAW', 'APPROVE', 'REJECT'] as const;
+export type OrderAction = (typeof ORDER_ACTIONS)[number];
+
 /** `PO-{FY}-{seq}`: the financial year and a sequence of at least 6 digits. */
 export const PO_NUMBER_PATTERN = /^PO-\d{4}-\d{2}-\d{6,}$/;
 /** The longest PO-number prefix the order list searches by. */
@@ -39,6 +43,20 @@ export const IDEMPOTENCY_KEY_TTL_HOURS = 24;
 
 /** The detail of an Admin's 403 on an order write (ADR-0004, 2026-11-12). */
 export const ORDER_ADMIN_READ_ONLY_MESSAGE = 'Admins can view orders but not change them.';
+/** The detail of a pure Approver's 403 on an order write (ADR-0004, 2026-11-17). */
+export const ORDER_APPROVER_READ_ONLY_MESSAGE = 'Approvers can review orders but not change them.';
+/** The detail of a pure Buyer's 403 on approve or reject (ADR-0004, 2026-11-17). */
+export const ORDER_DECISION_APPROVER_ONLY_MESSAGE = 'Only Approvers can approve or reject orders.';
+/** An order write's route-level FORBIDDEN detail, by the caller's role. */
+export const ORDER_WRITE_FORBIDDEN_DETAIL = {
+  ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+  APPROVER: ORDER_APPROVER_READ_ONLY_MESSAGE,
+} as const;
+/** Approve's and reject's route-level FORBIDDEN detail, by the caller's role. */
+export const ORDER_DECISION_FORBIDDEN_DETAIL = {
+  ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+  BUYER: ORDER_DECISION_APPROVER_ONLY_MESSAGE,
+} as const;
 
 /** Derived or system-assigned: refused in any order body with READ_ONLY_FIELD (ADR-0003). */
 export const ORDER_READ_ONLY_FIELDS = [
@@ -56,8 +74,24 @@ export const ORDER_READ_ONLY_FIELDS = [
   'createdAt',
   'updatedAt',
   'lineCount',
+  // Slice 4 (contracts/api.md).
+  'submittedAt',
+  'approvedAt',
+  'ownerCanAct',
+  'vendorSnapshot',
+  'approval',
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */
-export const ORDER_AUDIT_ACTIONS = ['PO_CREATED', 'PO_EDITED', 'PO_DRAFT_DELETED'] as const;
+export const ORDER_AUDIT_ACTIONS = [
+  'PO_CREATED',
+  'PO_EDITED',
+  'PO_DRAFT_DELETED',
+  // Slice 4 (data-model.md).
+  'PO_SUBMITTED',
+  'PO_AUTO_APPROVED',
+  'APPROVAL_STEP_APPROVED',
+  'APPROVAL_STEP_REJECTED',
+  'PO_WITHDRAWN',
+] as const;
 export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];

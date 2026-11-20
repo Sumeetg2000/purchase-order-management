@@ -26,7 +26,11 @@ import { idParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
-import { ORDER_ADMIN_READ_ONLY_MESSAGE, ORDER_BODY_LIMIT_BYTES } from './orders.js';
+import {
+  ORDER_BODY_LIMIT_BYTES,
+  ORDER_DECISION_FORBIDDEN_DETAIL,
+  ORDER_WRITE_FORBIDDEN_DETAIL,
+} from './orders.js';
 import {
   createOrderBody,
   deleteOrderBody,
@@ -36,6 +40,12 @@ import {
   orderListQuery,
   orderTimelineItem,
 } from './schemas/orders.js';
+import {
+  approvalPolicy,
+  approvalQueueItem,
+  approvalQueueQuery,
+  decisionReasonBody,
+} from './schemas/approvals.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
 
@@ -86,10 +96,11 @@ export interface OperationContract {
   /** A versioned update: the request must send `If-Match` with the ETag (ADR-0016). */
   ifMatch?: 'required';
   /**
-   * The `detail` of an Admin's route-level FORBIDDEN, saying why (ADR-0004, 2026-11-12):
-   * order writes tell an Admin they can view orders but not change them.
+   * The `detail` of a route-level FORBIDDEN, by the refused caller's role, saying why
+   * (ADR-0004, 2026-11-12 and 2026-11-17): an Admin can view orders but not change them; a
+   * pure Approver can review them but not change them; only Approvers decide.
    */
-  adminForbiddenDetail?: string;
+  forbiddenDetail?: Partial<Record<UserRole, string>>;
   /** A create that must send `Idempotency-Key`, a UUID, so a retry can't duplicate it. */
   idempotencyKey?: 'required';
   /**
@@ -541,7 +552,7 @@ export const OPERATIONS = {
       'Raise a draft order against an active vendor; the PO number, line totals and total are derived.',
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     idempotencyKey: 'required',
     bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
     etag: true,
@@ -559,13 +570,20 @@ export const OPERATIONS = {
       "Replace a draft's vendor and lines: lines with an id are updated, without one added, left out removed.",
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     ifMatch: 'required',
     bodyLimitBytes: ORDER_BODY_LIMIT_BYTES,
     etag: true,
     request: { params: idParams, body: editOrderBody },
     responses: { 200: order },
-    errors: ['NOT_FOUND', 'VERSION_CONFLICT', 'VENDOR_INACTIVE'],
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'ORDER_PENDING_APPROVAL',
+      'ORDER_LOCKED',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+    ],
   },
 
   // Slice 3, US4: delete a draft, with an optional reason (no body is no reason).
@@ -577,10 +595,124 @@ export const OPERATIONS = {
       'Delete a draft with its current version and an optional reason; its audit record stays.',
     access: 'role',
     roles: [ROLE.BUYER],
-    adminForbiddenDetail: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
     ifMatch: 'required',
     request: { params: idParams, body: deleteOrderBody },
     responses: { 204: z.void() },
-    errors: ['NOT_FOUND', 'VERSION_CONFLICT'],
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'ORDER_PENDING_APPROVAL',
+      'ORDER_LOCKED',
+      'VERSION_CONFLICT',
+    ],
+  },
+
+  // Slice 4, US1: submit a draft; the total routes it (specs/005-submit-approve).
+  submitOrder: {
+    method: 'post',
+    path: '/orders/:id/submit',
+    operationId: 'submitOrder',
+    summary:
+      'Submit a draft with its current version: at or below the lowest tier it is approved by the system, above it waits for approval.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: [
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+    ],
+  },
+  getApprovalPolicy: {
+    method: 'get',
+    path: '/approval-policy',
+    operationId: 'getApprovalPolicy',
+    summary: "The current approval policy's version and tiers; changed only by the operator CLI.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    responses: { 200: approvalPolicy },
+    errors: [],
+  },
+
+  // Slice 4, US3: approve the current step; the approval queue (specs/005-submit-approve).
+  approveOrder: {
+    method: 'post',
+    path: '/orders/:id/approve',
+    operationId: 'approveOrder',
+    summary:
+      "Approve the current step of a pending order you don't own, with its current version; the last step approves the order.",
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    forbiddenDetail: ORDER_DECISION_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams },
+    responses: { 200: order },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'SELF_APPROVAL',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+      'VENDOR_INACTIVE',
+      'ORDER_OWNER_INACTIVE',
+    ],
+  },
+  listApprovalQueue: {
+    method: 'get',
+    path: '/approvals',
+    operationId: 'listApprovalQueue',
+    summary:
+      'Pending orders the caller may approve (never their own), oldest submission first; its total is the pending-approvals count.',
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    request: { query: approvalQueueQuery },
+    responses: { 200: pageOf(approvalQueueItem).meta({ id: 'PageOfApprovalQueueItem' }) },
+    errors: [],
+  },
+
+  // Slice 4, US4 and US5: reject the current step; withdraw a pending order.
+  rejectOrder: {
+    method: 'post',
+    path: '/orders/:id/reject',
+    operationId: 'rejectOrder',
+    summary:
+      "Reject a pending order you don't own, with a reason and its current version; rejection is final.",
+    access: 'role',
+    roles: [ROLE.APPROVER],
+    forbiddenDetail: ORDER_DECISION_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: decisionReasonBody },
+    responses: { 200: order },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'SELF_APPROVAL',
+      'INVALID_STATE_TRANSITION',
+      'VERSION_CONFLICT',
+    ],
+  },
+  withdrawOrder: {
+    method: 'post',
+    path: '/orders/:id/withdraw',
+    operationId: 'withdrawOrder',
+    summary:
+      'Take your pending order back to draft, with a reason and its current version; approval starts again when you resubmit.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    forbiddenDetail: ORDER_WRITE_FORBIDDEN_DETAIL,
+    ifMatch: 'required',
+    etag: true,
+    request: { params: idParams, body: decisionReasonBody },
+    responses: { 200: order },
+    errors: ['NOT_FOUND', 'NOT_ORDER_OWNER', 'INVALID_STATE_TRANSITION', 'VERSION_CONFLICT'],
   },
 } as const satisfies Record<string, OperationContract>;

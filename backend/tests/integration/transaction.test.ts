@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { ConcurrencyRetryExhaustedError, DatabaseUnavailableError } from '../../src/db/errors.js';
 import {
+  asSystem,
   withDatabase,
   withTransaction,
   type ActorContext,
@@ -87,6 +88,76 @@ describe('[NFR-AUD-02] actor context', () => {
                current_setting('app.os_user') AS os`,
     );
     expect(rows[0]).toEqual({ id: user.userId, role: 'ADMIN', os: '' });
+  });
+});
+
+describe('[FR-APR-01] asSystem: a SYSTEM step inside a user transaction', () => {
+  const user: ActorContext = {
+    type: 'USER',
+    userId: '018f6f7e-0000-7000-8000-000000000001',
+    name: 'Asha',
+    email: 'asha@example.local',
+    actingRole: 'BUYER',
+  };
+  const entry = (tx: Parameters<Parameters<typeof withTransaction>[1]>[0], action: string) =>
+    tx.$executeRaw`INSERT INTO audit_entries (action, entity_type, entity_id)
+                   VALUES (${action}, 'probe', 'probe')`;
+
+  it('writes a SYSTEM entry with no user fields between two USER entries, one transaction', async () => {
+    const { prisma, options } = await setup();
+    await withTransaction({ ...options, actor: user }, async (tx) => {
+      await entry(tx, 'BEFORE');
+      const result = await asSystem(tx, async () => {
+        await entry(tx, 'DURING');
+        return 'done';
+      });
+      expect(result).toBe('done');
+      await entry(tx, 'AFTER');
+    });
+    const rows = await prisma.$queryRaw<
+      {
+        action: string;
+        actor_type: string;
+        actor_user_id: string | null;
+        acting_role: string | null;
+        request_id: string;
+      }[]
+    >`SELECT action, actor_type, actor_user_id::text, acting_role, request_id
+        FROM audit_entries WHERE entity_type = 'probe' ORDER BY id`;
+    expect(rows).toEqual([
+      {
+        action: 'BEFORE',
+        actor_type: 'USER',
+        actor_user_id: user.userId,
+        acting_role: 'BUYER',
+        request_id: 'req-test-0001',
+      },
+      {
+        action: 'DURING',
+        actor_type: 'SYSTEM',
+        actor_user_id: null,
+        acting_role: null,
+        request_id: 'req-test-0001',
+      },
+      {
+        action: 'AFTER',
+        actor_type: 'USER',
+        actor_user_id: user.userId,
+        acting_role: 'BUYER',
+        request_id: 'req-test-0001',
+      },
+    ]);
+  });
+
+  it('restores the caller when the SYSTEM step throws', async () => {
+    const { options } = await setup();
+    const after = await withTransaction({ ...options, actor: user }, async (tx) => {
+      await expect(asSystem(tx, () => Promise.reject(new Error('boom')))).rejects.toThrow('boom');
+      return tx.$queryRaw<{ type: string; id: string }[]>`
+        SELECT current_setting('app.actor_type') AS type,
+               current_setting('app.actor_user_id') AS id`;
+    });
+    expect(after[0]).toEqual({ type: 'USER', id: user.userId });
   });
 });
 
