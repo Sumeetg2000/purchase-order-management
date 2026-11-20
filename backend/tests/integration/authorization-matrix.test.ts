@@ -63,6 +63,7 @@ const PINNED_ACCESS: Record<string, Access> = {
   approveOrder: 'role',
   listApprovalQueue: 'role',
   rejectOrder: 'role',
+  cancelOrder: 'role',
   withdrawOrder: 'role',
 };
 
@@ -86,6 +87,7 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   approveOrder: ['APPROVER'],
   listApprovalQueue: ['APPROVER'],
   rejectOrder: ['APPROVER'],
+  cancelOrder: ['APPROVER'],
   withdrawOrder: ['BUYER'],
 };
 
@@ -218,10 +220,10 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 43 operations (2 health checks, 22 of slice 1, 7 vendor ones,
-    // 6 order ones, 6 of slice 4) × 6 callers.
+    // Zero cells untested: 44 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 6 order ones, 6 of slice 4, cancel of slice 5) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(43);
+    expect(operations).toHaveLength(44);
   });
 });
 

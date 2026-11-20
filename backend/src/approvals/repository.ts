@@ -1,5 +1,6 @@
 import type { ApprovalStepState, UserRole, UserStatus, VendorOrderSnapshot } from '@po/contracts';
 import { Prisma } from '../generated/prisma/client.js';
+import type { AuditCancelledLine } from '../audit/events.js';
 import type { PageArgs } from '../lib/pagination.js';
 import { pageNumber } from '../orders/repository.js';
 import type { AppPrismaClient } from '../db/client.js';
@@ -370,6 +371,32 @@ export async function rejectRoundAndOrder(
   await tx.$executeRaw`
     UPDATE purchase_orders SET status = 'REJECTED', version = version + 1
      WHERE id = ${orderId}::uuid`;
+}
+
+/**
+ * T10: the order is cancelled by the acting Approver with their reason; the database sets
+ * cancelled_at and checks the rest (D9-D11).
+ */
+export async function cancelApprovedOrder(
+  tx: AuditedTransaction,
+  target: { orderId: string; approverId: string; reason: string },
+): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE purchase_orders
+       SET status = 'CANCELLED', cancelled_by = ${target.approverId}::uuid,
+           cancel_reason = ${target.reason}, version = version + 1
+     WHERE id = ${target.orderId}::uuid`;
+}
+
+/** Each line's ordered and received quantity, in position order, for PO_CANCELLED. Read
+ * under the order's lock: every line change locks its order first (ADR-0006). */
+export async function selectLineQuantities(
+  tx: AuditedTransaction,
+  orderId: string,
+): Promise<AuditCancelledLine[]> {
+  return tx.$queryRaw<AuditCancelledLine[]>`
+    SELECT id::text AS "lineId", position, quantity, received_quantity AS "receivedQuantity"
+      FROM order_lines WHERE order_id = ${orderId}::uuid ORDER BY position`;
 }
 
 /** T9: the round closes WITHDRAWN with the owner's reason, and the order is a draft again. */

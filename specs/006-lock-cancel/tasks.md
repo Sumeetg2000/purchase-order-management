@@ -167,7 +167,7 @@ reconciliation zero rows.
 **Goal**: an Approver cancels an approved order they don't own, with a reason.
 **Independent test**: spec US1's independent test.
 
-- [ ] T018 [US1] Cancel service tests, seen failing: approved (step) and auto-approved
+- [X] T018 [US1] Cancel service tests, seen failing: approved (step) and auto-approved
   orders cancelled with a reason and version → `CANCELLED`, version +1, `cancellation`
   set; one `PO_CANCELLED` (actor `USER`, acting `APPROVER`, round, reason, each line's
   quantity and 0 received, position order); vendor inactive → succeeds; owner deactivated
@@ -177,13 +177,13 @@ reconciliation zero rows.
   `VERSION_CONFLICT`; nothing changes on any refusal —
   `backend/tests/integration/approvals-cancel.test.ts` (new) — FR-001–FR-005, FR-016,
   FR-LCK-02, FR-VEN-02, FR-ACT-01, NFR-CON-03.
-- [ ] T019 [US1] Cancel repository and service: lock order `FOR UPDATE` → the acting
+- [X] T019 [US1] Cancel repository and service: lock order `FOR UPDATE` → the acting
   Approver's `users` row `FOR SHARE` (`lockUsers`); checks: Approver re-check → 404 →
   `SELF_APPROVAL` (cancel detail) → `INVALID_STATE_TRANSITION` (`CANCEL`) →
   `VERSION_CONFLICT`; one `UPDATE` (status, version +1, `cancelled_by`, `cancel_reason`);
   lines read under the order lock for the audit; audit in the transaction —
   `backend/src/approvals/service.ts`, `repository.ts` — R3, R7, ADR-0006 2026-11-20.
-- [ ] T020 [US1] Route and operation: `cancelOrder` (`POST /orders/:id/cancel`, role
+- [X] T020 [US1] Route and operation: `cancelOrder` (`POST /orders/:id/cancel`, role
   APPROVER, `ORDER_CANCEL_FORBIDDEN_DETAIL`, `If-Match` required, `decisionReasonBody`,
   `200` order with `ETag`); OpenAPI regenerated (additive); route table, CSRF, body
   inventory, matrix pins — `packages/contracts/src/operations.ts`,
