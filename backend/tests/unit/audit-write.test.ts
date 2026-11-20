@@ -171,6 +171,24 @@ describe('[NFR-AUD-01] typed approval audit events (slice 4)', () => {
   });
 });
 
+type Cancelled = OrderEvent<
+  'PO_CANCELLED',
+  {
+    round: number;
+    reason: string;
+    lines: { lineId: string; position: number; quantity: number; receivedQuantity: number }[];
+  }
+>;
+type CancelledWithoutLines = OrderEvent<'PO_CANCELLED', { round: number; reason: string }>;
+
+describe('[FR-LCK-02] the typed cancel audit event (slice 5)', () => {
+  it('[FR-LCK-02] PO_CANCELLED records the round, the reason and each line ordered and received', () => {
+    expectTypeOf<Cancelled>().toExtend<Event>();
+    // @ts-expect-error: a cancel records every line's ordered and received quantity
+    expectTypeOf<CancelledWithoutLines>().toExtend<Event>();
+  });
+});
+
 describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] accepts the slice 0 ADMIN_CREATED event in both of its forms', () => {
     expectTypeOf<Bootstrap>().toExtend<Event>();
