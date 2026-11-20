@@ -272,7 +272,7 @@ reconciliation zero rows.
   by the Demo Approver; idempotent on reseed; reconciliation zero rows —
   `backend/src/migrate/seed-demo.ts`, `backend/tests/integration/seed-demo.test.ts` —
   spec Assumptions.
-- [ ] T033 E2E: Approver cancels an approved order (dialog, reason, success, Cancellation
+- [X] T033 E2E: Approver cancels an approved order (dialog, reason, success, Cancellation
   section); the owner sees it cancelled and the editor refuses with the cancelled
   message; Buyer+Approver gets no Cancel on their own order; axe on the dialog and page —
   `frontend/e2e/cancel.spec.ts` (new) — NFR-FE-07, NFR-FE-09, SC-004, SC-005. Run
