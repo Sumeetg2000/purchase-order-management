@@ -2,8 +2,10 @@ import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import {
   INSUFFICIENT_PRIVILEGE,
+  CHECK_VIOLATION,
   createDraft,
   orderFixture,
+  plantCancelled,
   plantSubmitted,
   reconciliationRows,
   sqlstate,
@@ -135,6 +137,62 @@ async function attacks(
     ],
     rejected.orderId,
   );
+  // An approved order cancelled by its owner, without its record, or changing its approval
+  // with the cancel (slice 5, D10 and D11).
+  const approved = await bigDraft(f);
+  const { approverId } = await plantSubmitted(f, approved.orderId, 'APPROVED');
+  await run(
+    'cancel as the owner',
+    'USER',
+    f.buyerId,
+    [
+      `UPDATE purchase_orders SET status = 'CANCELLED', cancelled_by = owner_id,
+            cancel_reason = 'Mine', version = version + 1 WHERE id = $1`,
+    ],
+    approved.orderId,
+  );
+  await run(
+    'cancel without a record',
+    'USER',
+    approverId,
+    [`UPDATE purchase_orders SET status = 'CANCELLED', version = version + 1 WHERE id = $1`],
+    approved.orderId,
+  );
+  await run(
+    'move the approval with the cancel',
+    'USER',
+    approverId,
+    [
+      `UPDATE purchase_orders SET status = 'CANCELLED', cancelled_by = '${approverId}',
+            cancel_reason = 'Late', version = version + 1, approved_at = now() - interval '1 day'
+        WHERE id = $1`,
+    ],
+    approved.orderId,
+  );
+  // A cancelled order reopened, or its record rewritten (D9).
+  const cancelled = await bigDraft(f);
+  await plantCancelled(f, cancelled.orderId);
+  await run(
+    'reopen a cancelled order',
+    'USER',
+    f.buyerId,
+    [`UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`],
+    cancelled.orderId,
+  );
+  await run(
+    'rewrite the cancel reason',
+    'USER',
+    f.buyerId,
+    [`UPDATE purchase_orders SET cancel_reason = 'Something else' WHERE id = $1`],
+    cancelled.orderId,
+  );
+  await run(
+    'move the cancel time',
+    'USER',
+    f.buyerId,
+    [`UPDATE purchase_orders SET cancelled_at = now() - interval '1 day' WHERE id = $1`],
+    cancelled.orderId,
+  );
   return results;
 }
 
@@ -148,8 +206,15 @@ describe('[FR-LCK-01] approval attacks as the application role and the owner rol
       'rewrite the round total': INSUFFICIENT_PRIVILEGE,
       'move the submission time': 'PO015',
       'delete the steps': INSUFFICIENT_PRIVILEGE,
-      'reopen a rejected order': 'PO009',
+      // D9 fires before the transition check (PO009) since slice 5: still refused.
+      'reopen a rejected order': 'PO018',
       'void the rejection': 'PO012',
+      'cancel as the owner': 'PO016',
+      'cancel without a record': CHECK_VIOLATION,
+      'move the approval with the cancel': 'PO019',
+      'reopen a cancelled order': 'PO018',
+      'rewrite the cancel reason': 'PO018',
+      'move the cancel time': INSUFFICIENT_PRIVILEGE,
     });
     expect(await reconciliationRows(f.app)).toEqual([]);
   });
@@ -163,8 +228,15 @@ describe('[FR-LCK-01] approval attacks as the application role and the owner rol
       'rewrite the round total': 'PO013',
       'move the submission time': 'PO015',
       'delete the steps': 'PO012',
-      'reopen a rejected order': 'PO009',
+      // D9 fires before the transition check (PO009) since slice 5: still refused.
+      'reopen a rejected order': 'PO018',
       'void the rejection': 'PO012',
+      'cancel as the owner': 'PO016',
+      'cancel without a record': CHECK_VIOLATION,
+      'move the approval with the cancel': 'PO019',
+      'reopen a cancelled order': 'PO018',
+      'rewrite the cancel reason': 'PO018',
+      'move the cancel time': 'PO018',
     });
     expect(await reconciliationRows(f.app)).toEqual([]);
   });
