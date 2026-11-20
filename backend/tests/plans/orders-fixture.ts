@@ -46,10 +46,12 @@ const APPROVER_ID = `md5('plan-approver')::uuid`;
 const DUAL_BUYER = 2;
 /** The seeded policy's one tier (APPROVAL_POLICY_SEED_TIERS), in SQL. */
 const SEED_TIER = APPROVAL_POLICY_SEED_TIERS[0];
-/** Order n's status: 5 % drafts, 3 % pending, 2 % rejected, the rest approved (STATUS_MIX). */
+/** Order n's status: 5 % drafts, 3 % pending, 2 % rejected, 1 % cancelled, the rest
+ * approved (STATUS_MIX). */
 const STATUS_OF = (n: string) =>
   `CASE WHEN ${n} % 100 < 5 THEN 'DRAFT' WHEN ${n} % 100 < 8 THEN 'PENDING_APPROVAL'
-        WHEN ${n} % 100 < 10 THEN 'REJECTED' ELSE 'APPROVED' END`;
+        WHEN ${n} % 100 < 10 THEN 'REJECTED' WHEN ${n} % 100 = 10 THEN 'CANCELLED'
+        ELSE 'APPROVED' END`;
 const vendorId = (n: string) => `md5('plan-order-vendor-' || ${n})::uuid`;
 const orderId = (n: string) => `md5('plan-order-' || ${n})::uuid`;
 /** Lines of order n: 200 to 500 for every 100th order, 1 to 15 for the rest. */
@@ -125,8 +127,13 @@ export async function seedOrderPlanData(superuser: pg.Client, app: pg.Client): P
   await superuser.query(
     `UPDATE purchase_orders o
         SET status = st.status, current_round = 1, submitted_at = o.created_at + interval '1 hour',
-            approved_at = CASE WHEN st.status = 'APPROVED'
-                               THEN o.created_at + interval '2 hours' END
+            approved_at = CASE WHEN st.status IN ('APPROVED', 'CANCELLED')
+                               THEN o.created_at + interval '2 hours' END,
+            -- A cancelled order: approved, then cancelled by the Approver an hour later.
+            cancelled_by = CASE WHEN st.status = 'CANCELLED' THEN ${APPROVER_ID} END,
+            cancelled_at = CASE WHEN st.status = 'CANCELLED'
+                                THEN o.created_at + interval '3 hours' END,
+            cancel_reason = CASE WHEN st.status = 'CANCELLED' THEN 'Supplier closed' END
        FROM (SELECT ${orderId('n')} AS id, ${STATUS_OF('n')} AS status
                FROM generate_series(1, ${String(ORDER_COUNT)}) AS n) st
       WHERE o.id = st.id AND st.status <> 'DRAFT'`,

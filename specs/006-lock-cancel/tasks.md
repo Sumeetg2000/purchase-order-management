@@ -242,7 +242,7 @@ reconciliation zero rows.
   returns only readable cancelled orders per scope; never in the queue or its count —
   `backend/tests/integration/authorization-matrix.test.ts`, `orders-list.test.ts`,
   `approvals-queue.test.ts` — FR-013, FR-014, FR-OWN-01.
-- [ ] T028 [P] [US4] Plan fixture: 1,000 of the 90,000 approved orders `CANCELLED` with
+- [X] T028 [P] [US4] Plan fixture: 1,000 of the 90,000 approved orders `CANCELLED` with
   their record (ADR-0012 2026-11-20); plan cases `status=CANCELLED` and
   `status=CANCELLED + vendor` for all four scopes (pages and counts by the slice 4 rule);
   plans committed; **no new index unless a case fails** — if one does, stop and show the
