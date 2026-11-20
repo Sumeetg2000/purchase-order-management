@@ -2,6 +2,7 @@ import {
   OPERATIONS,
   ORDER_ADMIN_READ_ONLY_MESSAGE,
   ORDER_APPROVER_READ_ONLY_MESSAGE,
+  ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
   ORDER_DECISION_APPROVER_ONLY_MESSAGE,
   PAGE_SIZE_MAX,
   type Access,
@@ -357,7 +358,7 @@ describe('[FR-OWN-01] the draft order rows (ADR-0004)', () => {
 // If-Match, so a cell the caller may use stops at 409 and nothing changes; a refused cell
 // shows its exact code, and its role detail where ADR-0004 gives one.
 
-const ORDER_STATES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const;
+const ORDER_STATES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED'] as const;
 type OrderState = (typeof ORDER_STATES)[number];
 
 const ORDER_CALLERS = [
@@ -423,6 +424,20 @@ function decision(caller: OrderCaller, state: OrderState): Cell {
   return OK;
 }
 
+/** Cancel: the row "Cancel approved order" (amended 2026-11-20): a pure Buyer is refused at
+ * route level, owner or not; an Approver's own order is SELF_APPROVAL. */
+function cancel(caller: OrderCaller, state: OrderState): Cell {
+  const refused = gate(caller);
+  if (refused) return refused;
+  if (caller === 'Admin') return forbidden(ORDER_ADMIN_READ_ONLY_MESSAGE);
+  if (caller === 'owner Buyer' || caller === 'other Buyer') {
+    return forbidden(ORDER_CANCEL_APPROVER_ONLY_MESSAGE);
+  }
+  if (!canRead(caller, state)) return { code: 'NOT_FOUND' };
+  if (owns(caller)) return { code: 'SELF_APPROVAL' };
+  return OK;
+}
+
 function read(caller: OrderCaller, state: OrderState): Cell {
   return gate(caller) ?? (canRead(caller, state) ? OK : { code: 'NOT_FOUND' });
 }
@@ -461,11 +476,15 @@ describe('[FR-OWN-01] the order rows: every state × every caller × every actio
       const rejected = (await h.draftAt('200000', jar)).id;
       await h.submitOrder(rejected, 1, jar);
       await h.rejectOrder(rejected, 2, priya.jar, { reason: 'Vendor quote expired' });
+      const cancelled = (await h.draftAt('10', jar)).id;
+      await h.submitOrder(cancelled, 1, jar);
+      await h.cancelOrder(cancelled, 2, priya.jar, { reason: 'Supplier closed' });
       return {
         DRAFT: draft,
         PENDING_APPROVAL: pending,
         APPROVED: approved,
         REJECTED: rejected,
+        CANCELLED: cancelled,
       };
     }
     const buyerOrders = await ordersOf(h.jar);
@@ -524,6 +543,10 @@ describe('[FR-OWN-01] the order rows: every state × every caller × every actio
       reject: {
         rule: decision,
         call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/reject`, reason),
+      },
+      cancel: {
+        rule: cancel,
+        call: (c: OrderCaller, id: string) => send(c, 'post', `/orders/${id}/cancel`, reason),
       },
     } as const;
 
@@ -595,8 +618,8 @@ describe('[FR-OWN-01] the order rows: every state × every caller × every actio
       }
     }
 
-    // 8 callers × 4 states × (8 actions + list + queue + count + policy).
-    expect(cells).toHaveLength(8 * 4 * 12);
+    // 8 callers × 5 states × (9 actions + list + queue + count + policy).
+    expect(cells).toHaveLength(8 * 5 * 13);
     // Nothing changed: every order kept its status and version.
     expect(
       await h.query(`SELECT id::text, status, version FROM purchase_orders ORDER BY id`),

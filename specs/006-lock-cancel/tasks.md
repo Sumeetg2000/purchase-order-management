@@ -216,7 +216,7 @@ reconciliation zero rows.
 
 ## Phase 5: User Story 2 — Only the right people cancel, only approved orders (P1)
 
-- [ ] T024 [US2] Matrix cancel row, tests first where new: owner Buyer and other Buyer →
+- [X] T024 [US2] Matrix cancel row, tests first where new: owner Buyer and other Buyer →
   `403 FORBIDDEN` "Only Approvers can cancel orders." before validation (a bad body still
   403); owner Buyer+Approver → `403 SELF_APPROVAL` "You can't cancel an order you
   raised."; other Buyer+Approver and Approver → `404` on a draft, `409` on pending,
@@ -224,7 +224,7 @@ reconciliation zero rows.
   `403 NO_ROLE_ASSIGNED`; anonymous `401`; × 5 states; every refusal leaves the order and
   the audit unchanged — `backend/tests/integration/authorization-matrix.test.ts`,
   `approvals-sod.test.ts` — FR-006, FR-007, FR-SOD-01, FR-OWN-01, SC-001.
-- [ ] T025 [US2] Approver lost the right between read and confirm: deactivated →
+- [X] T025 [US2] Approver lost the right between read and confirm: deactivated →
   `401 ACCOUNT_DEACTIVATED`; APPROVER removed → `403 FORBIDDEN`; nothing changes —
   `backend/tests/integration/approvals-cancel.test.ts` — FR-008.
 

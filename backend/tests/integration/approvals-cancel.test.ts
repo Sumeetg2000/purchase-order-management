@@ -1,4 +1,9 @@
-import { DECISION_REASON_MAX, type Order } from '@po/contracts';
+import {
+  DECISION_REASON_MAX,
+  ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+  SELF_APPROVAL_DETAILS,
+  type Order,
+} from '@po/contracts';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ordersHarness, type OrdersHarness } from '../support/orders.js';
@@ -162,5 +167,56 @@ describe('[FR-SM-01] cancel starts only from APPROVED (T10)', () => {
     const priya = await h.approver();
     const draft = await h.draftAt('10');
     expect((await h.cancelOrder(draft.id, 1, priya.jar, reason)).status).toBe(404);
+  });
+});
+
+describe('[FR-SOD-01] who may cancel', () => {
+  it("[FR-SOD-01] the owner holding APPROVER: 403 SELF_APPROVAL in cancel's words, nothing changes", async () => {
+    const h = await ordersHarness();
+    await h.setUser(h.buyer.id, { roles: '{BUYER,APPROVER}' });
+    const draft = await h.draftAt('10');
+    await h.submitOrder(draft.id, 1);
+    const res = await h.cancelOrder(draft.id, 2, h.jar, reason);
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({
+      code: 'SELF_APPROVAL',
+      detail: "You can't cancel an order you raised.",
+    });
+    expect(SELF_APPROVAL_DETAILS.CANCEL).toBe("You can't cancel an order you raised.");
+    expect(await cancels(h)).toEqual([]);
+  });
+
+  it('[FR-OWN-01] a pure Buyer, owner or not, is refused before validation and before any lookup', async () => {
+    const h = await ordersHarness();
+    const draft = await h.draftAt('10');
+    await h.submitOrder(draft.id, 1);
+    const other = await h.loggedIn(await h.seedUser({ roles: '{BUYER}' }));
+    for (const [who, jar, id] of [
+      ['owner', h.jar, draft.id],
+      ['other Buyer', other, draft.id],
+      ['no such order', other, randomUUID()],
+    ] as const) {
+      const res = await h.cancelOrder(id, null, jar, { bogus: 1 });
+      expect(res.status, who).toBe(403);
+      expect(res.body, who).toMatchObject({
+        code: 'FORBIDDEN',
+        detail: ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+      });
+    }
+  });
+
+  it('[FR-OWN-01] an Approver deactivated or without APPROVER since reading the order is refused', async () => {
+    for (const [change, code, status] of [
+      [{ status: 'DEACTIVATED' }, 'ACCOUNT_DEACTIVATED', 401],
+      [{ roles: '{BUYER}' }, 'FORBIDDEN', 403],
+    ] as const) {
+      const { h, id, priya, version } = await stepApproved();
+      await h.setUser(priya.id, change);
+      const res = await h.cancelOrder(id, version, priya.jar, reason);
+      expect(res.status, code).toBe(status);
+      expect(res.body, code).toMatchObject({ code });
+      expect(((await h.getOrder(id)).body as Order).status).toBe('APPROVED');
+      expect(await cancels(h)).toEqual([]);
+    }
   });
 });
