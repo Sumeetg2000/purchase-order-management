@@ -277,7 +277,7 @@ reconciliation zero rows.
   message; Buyer+Approver gets no Cancel on their own order; axe on the dialog and page —
   `frontend/e2e/cancel.spec.ts` (new) — NFR-FE-07, NFR-FE-09, SC-004, SC-005. Run
   `npm run e2e:local`.
-- [ ] T034 Traceability: FR-LCK-01 (both rows) and FR-SOD-01 → Done; FR-LCK-02 → Tested
+- [X] T034 Traceability: FR-LCK-01 (both rows) and FR-SOD-01 → Done; FR-LCK-02 → Tested
   (the fully-received refusal arrives in slice 6), FR-OWN-01 → Tested (the dual-role
   receipt cell, slice 6), FR-SM-01 → Tested (receipt-driven checks, slice 6), each note
   naming slice 6;
