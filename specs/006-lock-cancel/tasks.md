@@ -142,7 +142,7 @@ reconciliation zero rows.
   `search_path`, `REVOKE … FROM PUBLIC`; `approval_inconsistency` replaced with the
   `CANCELLED` branch and no "not reachable" fallback; T011, T012 green —
   `backend/prisma/migrations/0015_cancel/migration.sql` — R2, data-model.md.
-- [ ] T014 [P] [US3] Trigger efficiency: the guard fires once per row and adds no query
+- [X] T014 [P] [US3] Trigger efficiency: the guard fires once per row and adds no query
   to an order edit; the existing trigger-count test extended —
   `backend/tests/integrity/trigger-count.test.ts` — Principle VII.
 - [ ] T015 [US3] Lock codes, tests first: owner's edit and delete of a cancelled order →
