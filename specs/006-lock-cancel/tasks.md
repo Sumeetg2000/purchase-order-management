@@ -145,7 +145,7 @@ reconciliation zero rows.
 - [X] T014 [P] [US3] Trigger efficiency: the guard fires once per row and adds no query
   to an order edit; the existing trigger-count test extended —
   `backend/tests/integrity/trigger-count.test.ts` — Principle VII.
-- [ ] T015 [US3] Lock codes, tests first: owner's edit and delete of a cancelled order →
+- [X] T015 [US3] Lock codes, tests first: owner's edit and delete of a cancelled order →
   `409 ORDER_LOCKED` "This order was cancelled and is closed." with `orderState.status`;
   submit, withdraw, approve, reject of a cancelled order → `409 INVALID_STATE_TRANSITION`
   with status and action (after role, visibility, ownership) —
