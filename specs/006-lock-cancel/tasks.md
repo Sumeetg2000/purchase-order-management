@@ -60,7 +60,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Schema: migration `0015_cancel`, part 1 (columns, checks, transition, index)
 
-- [ ] T003 Migration tests, seen failing: as [data-model.md](data-model.md), each rule by
+- [X] T003 Migration tests, seen failing: as [data-model.md](data-model.md), each rule by
   name:
   - `purchase_orders` gains `cancelled_by uuid` (FK `users (id)`), `cancelled_at
     timestamptz`, `cancel_reason text`; "`purchase_orders_cancel_matches_status`: all three
@@ -72,7 +72,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
     cancelled_by IS NOT NULL`"
   — `backend/tests/integration/migrations.test.ts`, `approval-schema.test.ts` —
   data-model.md, R1, R8, FR-SM-01.
-- [ ] T004 Migration `0015_cancel` part 1: columns, checks, grants, transition row,
+- [X] T004 Migration `0015_cancel` part 1: columns, checks, grants, transition row,
   index; Prisma model (cancel columns read-only to the client) —
   `backend/prisma/migrations/0015_cancel/migration.sql`, `backend/prisma/schema.prisma` —
   R1, R8.
