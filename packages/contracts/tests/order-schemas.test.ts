@@ -232,6 +232,8 @@ describe('[FR-PO-01] order list query and responses', () => {
       ownerCanAct: true,
       vendorSnapshot: null,
       approval: null,
+      // Slice 5's.
+      cancellation: null,
     };
     expect(order.safeParse(base).success).toBe(true);
     expect(order.safeParse({ ...base, total: 0.3 }).success).toBe(false);
@@ -248,6 +250,7 @@ describe('[FR-PO-01] order list query and responses', () => {
             'ownerCanAct',
             'vendorSnapshot',
             'approval',
+            'cancellation',
           ].includes(key),
       ),
     );

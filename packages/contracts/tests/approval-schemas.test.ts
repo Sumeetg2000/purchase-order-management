@@ -73,6 +73,7 @@ const draftOrder = {
   ownerCanAct: true,
   vendorSnapshot: null,
   approval: null,
+  cancellation: null,
 };
 
 describe('[NFR-VAL-01] slice 4 request schemas', () => {
@@ -210,5 +211,54 @@ describe('[FR-APR-01] slice 4 response schemas', () => {
     };
     expect(approvalQueueItem.safeParse(item).success).toBe(true);
     expect(approvalQueueItem.safeParse({ ...item, ownerCanAct: 'yes' }).success).toBe(false);
+  });
+});
+
+describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
+  const cancellation = {
+    cancelledBy: { id: ID, name: 'Priya Approver' },
+    cancelledAt: AT,
+    reason: 'Not needed\nany more',
+  };
+
+  it('[FR-LCK-02] an order carries its cancellation: null until cancelled, then who, when and why', () => {
+    expect(order.safeParse({ ...draftOrder, status: 'CANCELLED', cancellation }).success).toBe(
+      true,
+    );
+    const { cancellation: _omitted, ...withoutField } = draftOrder;
+    expect(order.safeParse(withoutField).success).toBe(false);
+    expect(
+      order.safeParse({ ...draftOrder, cancellation: { ...cancellation, by: 'x' } }).success,
+    ).toBe(false);
+    expect(
+      order.safeParse({
+        ...draftOrder,
+        cancellation: { ...cancellation, cancelledBy: { id: ID } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('[FR-LCK-02] list items carry the status only, not the cancellation', () => {
+    const {
+      lines: _l,
+      version: _v,
+      updatedAt: _u,
+      submittedAt: _s,
+      approvedAt: _a,
+      ownerCanAct: _o,
+      vendorSnapshot: _vs,
+      approval: _ap,
+      cancellation: _c,
+      ...item
+    } = draftOrder;
+    const listed = { ...item, status: 'CANCELLED', vendor: { id: ID, name: 'Acme Supplies' } };
+    expect(orderListItem.safeParse(listed).success).toBe(true);
+    expect(orderListItem.safeParse({ ...listed, cancellation }).success).toBe(false);
+  });
+
+  it('[NFR-VAL-01] the cancel record is read-only in any order body, by every name', () => {
+    for (const key of ['cancellation', 'cancelledBy', 'cancelledAt', 'cancelReason']) {
+      expect(ORDER_READ_ONLY_FIELDS, key).toContain(key);
+    }
   });
 });
