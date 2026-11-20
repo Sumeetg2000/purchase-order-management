@@ -9,10 +9,13 @@ import {
   inTransaction,
   orderFixture,
   plant,
+  plantCancelled,
+  plantSubmitted,
   readOrder,
   sqlstate,
   type OrderFixture,
 } from '../support/orders-sql.js';
+import { plantsViolations } from '../support/setup.js';
 
 // Migration 0014, part 2 (specs/005-submit-approve/research.md R2, D1–D8): what the
 // database itself refuses about submissions, rounds, steps and the policy, whatever the
@@ -24,6 +27,9 @@ const INCONSISTENT = 'PO014';
 const SUBMISSION_LOCKED = 'PO015';
 const SELF_DECISION = 'PO016';
 const POLICY_IMMUTABLE = 'PO017';
+const ORDER_CLOSED = 'PO018';
+const CANCEL_REFUSED = 'PO019';
+const ORDER_DELETE_REFUSED = 'PO010';
 
 type Actor =
   | { type: 'SYSTEM' }
@@ -722,5 +728,245 @@ describe('[FR-SM-01] a bare status change has no submission', () => {
         ),
       ),
     ).toBe(CHECK_VIOLATION);
+  });
+});
+
+// Migration 0015, part 2 (specs/006-lock-cancel/research.md R2, D9–D11): a rejected or
+// cancelled order never changes; the cancel record is written only by the cancel, which
+// changes nothing else, by the acting user and never the owner.
+
+/** The cancel's statement as po_app, inside the caller's transaction. */
+async function cancelOrder(
+  q: pg.Client,
+  orderId: string,
+  by: string | null,
+  extra = '',
+): Promise<void> {
+  await q.query(
+    `UPDATE purchase_orders
+        SET status = 'CANCELLED', cancelled_by = $2, cancel_reason = 'Not needed',
+            version = version + 1${extra}
+      WHERE id = $1`,
+    [orderId, by],
+  );
+}
+
+/** An approved order, planted: routed by the Approver when its total exceeds the tier. */
+async function approved(f: Fixture, quantity = 2): Promise<string> {
+  const { orderId } = await draftOf(f, quantity);
+  await plantSubmitted(f, orderId, 'APPROVED', { approverId: f.approverId });
+  return orderId;
+}
+
+describe('[FR-LCK-02] the cancel transition in the database', () => {
+  it('[FR-LCK-02] an Approver cancels an approved order: the record is kept, cancelled_at the database clock', async () => {
+    const f = await fixture();
+    const orderId = await approved(f);
+    const before = await readOrder(f.app, orderId);
+    await as(f.app, f.approver, (q) => cancelOrder(q, orderId, f.approverId));
+    expect(await readOrder(f.app, orderId)).toMatchObject({
+      status: 'CANCELLED',
+      version: (before?.version ?? 0) + 1,
+    });
+    const { rows } = await f.app.query<{ by: string; reason: string; fresh: boolean }>(
+      `SELECT cancelled_by AS by, cancel_reason AS reason,
+              cancelled_at BETWEEN now() - interval '1 minute' AND now() AS fresh
+         FROM purchase_orders WHERE id = $1`,
+      [orderId],
+    );
+    expect(rows[0]).toEqual({ by: f.approverId, reason: 'Not needed', fresh: true });
+  });
+
+  it('[FR-LCK-02] an auto-approved order is cancelled the same way', async () => {
+    const f = await fixture();
+    const { orderId } = await createDraft(f, [{ quantity: 1, unitPrice: '10' }]);
+    await plantSubmitted(f, orderId, 'APPROVED', { approverId: f.approverId });
+    await as(f.app, f.approver, (q) => cancelOrder(q, orderId, f.approverId));
+    expect(await readOrder(f.app, orderId)).toMatchObject({ status: 'CANCELLED' });
+  });
+
+  it('[FR-SOD-01] the cancel is by the acting user, never the owner nor SYSTEM', async () => {
+    const f = await fixture();
+    const orderId = await approved(f);
+    const otherApprover = randomUUID();
+    await inTransaction(f.app, (q) =>
+      q.query(
+        `INSERT INTO users (id, name, email, roles, status)
+         VALUES ($1, 'Other Approver', $2, '{APPROVER}', 'ACTIVE')`,
+        [otherApprover, `approver-${otherApprover}@example.test`],
+      ),
+    );
+    const attempt = (actor: Actor, by: string) =>
+      sqlstate(() => as(f.app, actor, (q) => cancelOrder(q, orderId, by)));
+    expect(await attempt(f.owner_, f.buyerId)).toBe(SELF_DECISION);
+    expect(await attempt(f.approver, f.buyerId)).toBe(SELF_DECISION);
+    expect(await attempt(f.approver, otherApprover)).toBe(SELF_DECISION);
+    expect(await attempt({ type: 'SYSTEM' }, f.approverId)).toBe(SELF_DECISION);
+    expect(await readOrder(f.app, orderId)).toMatchObject({ status: 'APPROVED' });
+  });
+
+  it('[FR-LCK-02] the record is written only by the cancel, which changes nothing else', async () => {
+    const f = await fixture();
+    const orderId = await approved(f);
+    const other = await createDraft(f, [{ quantity: 1, unitPrice: '1' }]);
+    const attempt = (sql: string, params: unknown[] = []) =>
+      sqlstate(() => as(f.app, f.approver, (q) => q.query(sql, [orderId, ...params])));
+    // The record without the status.
+    expect(
+      await attempt(`UPDATE purchase_orders SET cancel_reason = 'Not needed' WHERE id = $1`),
+    ).toBe(CANCEL_REFUSED);
+    expect(
+      await attempt(`UPDATE purchase_orders SET cancelled_by = $2 WHERE id = $1`, [f.approverId]),
+    ).toBe(CANCEL_REFUSED);
+    // The cancel changing anything but the status, the version (+1) and the record.
+    const cancelWith = (extra: string, params: unknown[] = []) =>
+      sqlstate(() =>
+        as(f.app, f.approver, (q) =>
+          q.query(
+            `UPDATE purchase_orders
+                SET status = 'CANCELLED', cancelled_by = $2, cancel_reason = 'Not needed'${extra}
+              WHERE id = $1`,
+            [orderId, f.approverId, ...params],
+          ),
+        ),
+      );
+    expect(await cancelWith(``)).toBe(CANCEL_REFUSED);
+    expect(await cancelWith(`, version = version + 2`)).toBe(CANCEL_REFUSED);
+    expect(
+      await cancelWith(`, version = version + 1, submitted_at = now() - interval '1 day'`),
+    ).toBe(CANCEL_REFUSED);
+    expect(
+      await cancelWith(`, version = version + 1, approved_at = now() - interval '1 day'`),
+    ).toBe(CANCEL_REFUSED);
+    expect(await cancelWith(`, version = version + 1, po_number = NULL`)).toBe(CANCEL_REFUSED);
+    // Without its record the status is refused by the CHECK (cancelled_at is the guard's).
+    expect(
+      await sqlstate(() =>
+        as(f.app, f.approver, (q) =>
+          q.query(
+            `UPDATE purchase_orders SET status = 'CANCELLED', version = version + 1 WHERE id = $1`,
+            [orderId],
+          ),
+        ),
+      ),
+    ).toBe(CHECK_VIOLATION);
+    expect(await readOrder(f.app, orderId)).toMatchObject({ status: 'APPROVED' });
+    // A draft can't be cancelled: no transition.
+    expect(
+      await sqlstate(() =>
+        as(f.app, f.approver, (q) => cancelOrder(q, other.orderId, f.approverId)),
+      ),
+    ).toBe(ORDER_STATUS_TRANSITION_REFUSED);
+  });
+});
+
+describe('[FR-LCK-01] a rejected or cancelled order never changes', () => {
+  it('[FR-LCK-01] every column of a cancelled order is refused, its record and version included', async () => {
+    const f = await fixture();
+    const orderId = await approved(f);
+    await as(f.app, f.approver, (q) => cancelOrder(q, orderId, f.approverId));
+    const attempt = (sql: string, actor: Actor = f.approver) =>
+      sqlstate(() => as(f.app, actor, (q) => q.query(sql, [orderId])));
+    expect(await attempt(`UPDATE purchase_orders SET version = version + 1 WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+    expect(
+      await attempt(`UPDATE purchase_orders SET cancel_reason = 'Changed' WHERE id = $1`),
+    ).toBe(ORDER_CLOSED);
+    expect(await attempt(`UPDATE purchase_orders SET cancelled_by = owner_id WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+    expect(await attempt(`UPDATE purchase_orders SET status = 'APPROVED' WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+    expect(
+      await attempt(`UPDATE purchase_orders SET vendor_id = vendor_id WHERE id = $1`, f.owner_),
+    ).toBe(ORDER_CLOSED);
+    // Its lines, round and steps, and deleting it, stay refused by the slice 3–4 rules.
+    expect(
+      await attempt(`UPDATE order_lines SET quantity = quantity + 1 WHERE order_id = $1`, f.owner_),
+    ).toBe(ORDER_LINES_LOCKED);
+    expect(await attempt(`UPDATE approval_rounds SET closed_at = now() WHERE order_id = $1`)).toBe(
+      ROUND_REFUSED,
+    );
+    expect(
+      await attempt(
+        `UPDATE approval_steps SET state = 'VOIDED', voided_at = now() WHERE order_id = $1`,
+      ),
+    ).toBe(STEP_REFUSED);
+    expect(await attempt(`DELETE FROM purchase_orders WHERE id = $1`, f.owner_)).toBe(
+      ORDER_DELETE_REFUSED,
+    );
+  });
+
+  it('[FR-LCK-01] a rejected order is final in the database too: status and version included', async () => {
+    const f = await fixture();
+    const { orderId } = await draftOf(f, 2);
+    await plantSubmitted(f, orderId, 'REJECTED', { approverId: f.approverId });
+    const attempt = (sql: string) =>
+      sqlstate(() => as(f.app, f.approver, (q) => q.query(sql, [orderId])));
+    expect(await attempt(`UPDATE purchase_orders SET version = version + 1 WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+    expect(
+      await attempt(`UPDATE purchase_orders SET status = 'PENDING_APPROVAL' WHERE id = $1`),
+    ).toBe(ORDER_CLOSED);
+    expect(await attempt(`UPDATE purchase_orders SET updated_at = now() WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+  });
+
+  it('[FR-LCK-01] the owner role, past every grant, is refused the same way', async () => {
+    const f = await fixture();
+    const { orderId } = await draftOf(f, 2);
+    await plantCancelled(f, orderId, { approverId: f.approverId });
+    const asOwnerRole = (sql: string) =>
+      sqlstate(() => as(f.owner, f.approver, (q) => q.query(sql, [orderId])));
+    expect(await asOwnerRole(`UPDATE purchase_orders SET cancelled_at = now() WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+    expect(await asOwnerRole(`UPDATE purchase_orders SET version = 1 WHERE id = $1`)).toBe(
+      ORDER_CLOSED,
+    );
+  });
+});
+
+describe('[FR-SM-01] the commit-time check covers cancelled orders', () => {
+  it('[FR-SM-01] a cancelled order is consistent when its round closed approved, and not otherwise', async () => {
+    const f = await fixture();
+    const inconsistency = async (orderId: string) => {
+      const { rows } = await f.app.query<{ problem: string | null }>(
+        `SELECT approval_inconsistency($1) AS problem`,
+        [orderId],
+      );
+      return rows[0]?.problem ?? null;
+    };
+    const stepApproved = await draftOf(f, 2);
+    await plantCancelled(f, stepApproved.orderId, { approverId: f.approverId });
+    expect(await inconsistency(stepApproved.orderId)).toBeNull();
+    const auto = await createDraft(f, [{ quantity: 1, unitPrice: '10' }]);
+    await plantCancelled(f, auto.orderId, { approverId: f.approverId });
+    expect(await inconsistency(auto.orderId)).toBeNull();
+
+    // Planted below the guards on purpose: a cancelled order whose round was rejected, and
+    // one whose approved_at isn't its round's close.
+    plantsViolations(f.db);
+    const rejected = await draftOf(f, 2);
+    await plantSubmitted(f, rejected.orderId, 'REJECTED', { approverId: f.approverId });
+    await plant(
+      f,
+      `UPDATE purchase_orders SET status = 'CANCELLED', approved_at = now(), cancelled_by = $2,
+              cancelled_at = now(), cancel_reason = 'Planted' WHERE id = $1`,
+      [rejected.orderId, f.approverId],
+    );
+    expect(await inconsistency(rejected.orderId)).toMatch(/^cancelled with round REJECTED/);
+    const moved = await draftOf(f, 2);
+    await plantCancelled(f, moved.orderId, { approverId: f.approverId });
+    await plant(
+      f,
+      `UPDATE purchase_orders SET approved_at = approved_at - interval '1 day' WHERE id = $1`,
+      [moved.orderId],
+    );
+    expect(await inconsistency(moved.orderId)).toBe("approved_at is not the round's close");
   });
 });
