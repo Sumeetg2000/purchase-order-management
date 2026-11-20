@@ -70,6 +70,12 @@ export async function ordersHarness() {
     return h.send('post', `/orders/${id}/withdraw`, as, body, headers);
   }
 
+  /** POST /orders/:id/cancel with a body (usually { reason }); `version` null sends none. */
+  function cancelOrder(id: string, version: number | null, as: CookieJar, body?: unknown) {
+    const headers = version === null ? {} : { 'If-Match': `"${String(version)}"` };
+    return h.send('post', `/orders/${id}/cancel`, as, body, headers);
+  }
+
   /** GET /approvals with the given query string values. */
   function listQueue(as: CookieJar, query: Record<string, string | number> = {}) {
     const qs = new URLSearchParams(
@@ -171,6 +177,7 @@ export async function ordersHarness() {
     approveOrder,
     rejectOrder,
     withdrawOrder,
+    cancelOrder,
     listQueue,
     approver,
     setUser,

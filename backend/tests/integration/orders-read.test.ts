@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { createTransactionRunner } from '../../src/db/transaction.js';
 import { createOrdersService } from '../../src/orders/service.js';
+import { plantCancelled } from '../support/orders-sql.js';
 import { lineBody, ordersHarness } from '../support/orders.js';
 
 // An order is read in one statement (one snapshot): its version (the ETag), its lines and
@@ -125,5 +126,29 @@ describe('[FR-VEN-03] submitted orders show the vendor as submitted', () => {
     const list = (await h.get('/orders', h.jar)).body as { items: OrderListItem[] };
     const names = Object.fromEntries(list.items.map((i) => [i.id, i.vendor.name]));
     expect(names).toEqual({ [submitted.id]: 'Acme Supplies', [draft.id]: 'Acme Renamed' });
+  });
+});
+
+describe('[FR-LCK-02] a cancelled order shows who cancelled it, when and why', () => {
+  it("[FR-LCK-02] the cancellation names the canceller by current name; a draft's is null", async () => {
+    const h = await ordersHarness();
+    const priya = await h.approver();
+    const cancelled = await h.draftAt('150000');
+    await plantCancelled(h, cancelled.id, { approverId: priya.id });
+    const draft = await h.draftAt('10');
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query(`UPDATE users SET name = 'Priya Renamed' WHERE id = $1`, [priya.id]);
+    await h.query('COMMIT');
+    const read = (await h.getOrder(cancelled.id)).body as Order;
+    expect(read).toMatchObject({
+      status: 'CANCELLED',
+      cancellation: {
+        cancelledBy: { id: priya.id, name: 'Priya Renamed' },
+        reason: 'Planted cancel',
+      },
+    });
+    expect(Date.parse(read.cancellation?.cancelledAt ?? '')).not.toBeNaN();
+    expect(((await h.getOrder(draft.id)).body as Order).cancellation).toBeNull();
   });
 });
