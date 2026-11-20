@@ -228,7 +228,7 @@ reconciliation zero rows.
   `401 ACCOUNT_DEACTIVATED`; APPROVER removed → `403 FORBIDDEN`; nothing changes —
   `backend/tests/integration/approvals-cancel.test.ts` — FR-008.
 
-- [ ] T026 [US2] `/security-review` of US2 (CLAUDE.md: permission stories; as slice 4's
+- [X] T026 [US2] `/security-review` of US2 (CLAUDE.md: permission stories; as slice 4's
   T049): the cancel route's role check, the under-lock Approver re-check, `SELF_APPROVAL`
   in the service and in the database (D11); fix findings tests first. The slice-end
   review (T036) stays.

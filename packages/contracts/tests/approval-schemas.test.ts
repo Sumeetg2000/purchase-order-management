@@ -214,6 +214,11 @@ describe('[FR-APR-01] slice 4 response schemas', () => {
   });
 });
 
+/** A copy of `value` without `keys`. */
+function without(value: Record<string, unknown>, keys: readonly string[]) {
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+}
+
 describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
   const cancellation = {
     cancelledBy: { id: ID, name: 'Priya Approver' },
@@ -225,7 +230,7 @@ describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
     expect(order.safeParse({ ...draftOrder, status: 'CANCELLED', cancellation }).success).toBe(
       true,
     );
-    const { cancellation: _omitted, ...withoutField } = draftOrder;
+    const withoutField = without(draftOrder, ['cancellation']);
     expect(order.safeParse(withoutField).success).toBe(false);
     expect(
       order.safeParse({ ...draftOrder, cancellation: { ...cancellation, by: 'x' } }).success,
@@ -239,18 +244,17 @@ describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
   });
 
   it('[FR-LCK-02] list items carry the status only, not the cancellation', () => {
-    const {
-      lines: _l,
-      version: _v,
-      updatedAt: _u,
-      submittedAt: _s,
-      approvedAt: _a,
-      ownerCanAct: _o,
-      vendorSnapshot: _vs,
-      approval: _ap,
-      cancellation: _c,
-      ...item
-    } = draftOrder;
+    const item = without(draftOrder, [
+      'lines',
+      'version',
+      'updatedAt',
+      'submittedAt',
+      'approvedAt',
+      'ownerCanAct',
+      'vendorSnapshot',
+      'approval',
+      'cancellation',
+    ]);
     const listed = { ...item, status: 'CANCELLED', vendor: { id: ID, name: 'Acme Supplies' } };
     expect(orderListItem.safeParse(listed).success).toBe(true);
     expect(orderListItem.safeParse({ ...listed, cancellation }).success).toBe(false);
