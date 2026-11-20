@@ -679,7 +679,7 @@ export interface components {
                 /** @enum {string} */
                 status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
                 /** @enum {string} */
-                action?: "EDIT" | "DELETE" | "SUBMIT" | "WITHDRAW" | "APPROVE" | "REJECT";
+                action?: "EDIT" | "DELETE" | "SUBMIT" | "WITHDRAW" | "APPROVE" | "REJECT" | "CANCEL";
             };
         };
         /** @description Every code in the registry (packages/contracts/src/errors.ts). */

@@ -23,13 +23,14 @@ export type ApprovalStepState = (typeof APPROVAL_STEP_STATES)[number];
 /** A reject or withdraw reason, in Unicode code points. */
 export const DECISION_REASON_MAX = 500;
 
-/** The order status changes the database allows (T4, T5, T7, T8, T9 of ADR-0001). */
+/** The order status changes the database allows (T4, T5, T7, T8, T9, T10 of ADR-0001). */
 export const ORDER_TRANSITIONS = [
   ['DRAFT', 'APPROVED'],
   ['DRAFT', 'PENDING_APPROVAL'],
   ['PENDING_APPROVAL', 'APPROVED'],
   ['PENDING_APPROVAL', 'REJECTED'],
   ['PENDING_APPROVAL', 'DRAFT'],
+  ['APPROVED', 'CANCELLED'],
 ] as const satisfies readonly (readonly [OrderStatus, OrderStatus])[];
 
 // Problem details of the slice 4 codes (contracts/errors.md, owner decisions 2026-11-17):

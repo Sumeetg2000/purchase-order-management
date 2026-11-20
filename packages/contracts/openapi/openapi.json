@@ -8323,7 +8323,8 @@
                   "SUBMIT",
                   "WITHDRAW",
                   "APPROVE",
-                  "REJECT"
+                  "REJECT",
+                  "CANCEL"
                 ]
               }
             },

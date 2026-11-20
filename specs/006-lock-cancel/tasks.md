@@ -76,7 +76,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   index; Prisma model (cancel columns read-only to the client) —
   `backend/prisma/migrations/0015_cancel/migration.sql`, `backend/prisma/schema.prisma` —
   R1, R8.
-- [ ] T005 [P] Constants pinned, seen failing first: `ORDER_TRANSITIONS` gains
+- [X] T005 [P] Constants pinned, seen failing first: `ORDER_TRANSITIONS` gains
   `['APPROVED', 'CANCELLED']` (= the SQL rows); `ORDER_ACTIONS` gains `CANCEL`; the
   reason limit pinned to `purchase_orders_cancel_reason_valid` —
   `packages/contracts/src/orders.ts`, `approvals.ts`,
