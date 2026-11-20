@@ -876,6 +876,7 @@ export interface components {
             ownerCanAct: boolean;
             vendorSnapshot: components["schemas"]["VendorOrderSnapshot"] | null;
             approval: components["schemas"]["ApprovalRound"] | null;
+            cancellation: components["schemas"]["OrderCancellation"] | null;
         };
         OrderLine: {
             /** Format: uuid */
@@ -917,6 +918,16 @@ export interface components {
             } | null;
             decidedAt: string | null;
             reason: string | null;
+        };
+        OrderCancellation: {
+            cancelledBy: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            /** Format: date-time */
+            cancelledAt: string;
+            reason: string;
         };
         PageOfOrderTimelineItem: {
             items: components["schemas"]["OrderTimelineItem"][];

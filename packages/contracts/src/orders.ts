@@ -60,6 +60,13 @@ export const ORDER_WRITE_FORBIDDEN_DETAIL = {
   ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
   APPROVER: ORDER_APPROVER_READ_ONLY_MESSAGE,
 } as const;
+/** The detail of a pure Buyer's 403 on cancel (ADR-0004, 2026-11-20). */
+export const ORDER_CANCEL_APPROVER_ONLY_MESSAGE = 'Only Approvers can cancel orders.';
+/** Cancel's route-level FORBIDDEN detail, by the caller's role. */
+export const ORDER_CANCEL_FORBIDDEN_DETAIL = {
+  ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+  BUYER: ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+} as const;
 /** Approve's and reject's route-level FORBIDDEN detail, by the caller's role. */
 export const ORDER_DECISION_FORBIDDEN_DETAIL = {
   ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
@@ -88,6 +95,11 @@ export const ORDER_READ_ONLY_FIELDS = [
   'ownerCanAct',
   'vendorSnapshot',
   'approval',
+  // Slice 5 (contracts/api.md): the cancel record, by its response and column names.
+  'cancellation',
+  'cancelledBy',
+  'cancelledAt',
+  'cancelReason',
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */

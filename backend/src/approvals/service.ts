@@ -4,7 +4,7 @@ import {
   ORDER_DECISION_FORBIDDEN_DETAIL,
   ORDER_OWNER_INACTIVE_DETAIL,
   ROLE,
-  SELF_APPROVAL_DETAIL,
+  SELF_APPROVAL_DETAILS,
   toMoney,
   type ApprovalPolicy,
   type ApprovalQueueItem,
@@ -133,7 +133,7 @@ async function lockForDecision(
   requireStillApprover(users.get(approver.userId));
   if (!locked || !canRead(approver, locked)) throw new AppError('NOT_FOUND');
   if (locked.ownerId === approver.userId) {
-    throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAIL });
+    throw new AppError('SELF_APPROVAL', { detail: SELF_APPROVAL_DETAILS[action] });
   }
   const open = steps.find((step) => step.state === 'OPEN');
   if (locked.status !== 'PENDING_APPROVAL' || locked.currentRound === null || !open) {

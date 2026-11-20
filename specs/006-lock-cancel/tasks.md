@@ -84,12 +84,12 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Contracts
 
-- [ ] T006 [P] Schemas, seen failing first: `order` gains `cancellation` (`{ cancelledBy:
+- [X] T006 [P] Schemas, seen failing first: `order` gains `cancellation` (`{ cancelledBy:
   { id, name }, cancelledAt, reason } | null`); `ORDER_READ_ONLY_FIELDS` gains
   `cancellation`, `cancelledBy`, `cancelledAt`, `cancelReason` —
   `packages/contracts/src/schemas/orders.ts`, `packages/contracts/tests/order-schemas.test.ts`
   — contracts/api.md, R6.
-- [ ] T007 [P] Messages, seen failing first: `ORDER_LOCKED_MESSAGES.CANCELLED` "This order
+- [X] T007 [P] Messages, seen failing first: `ORDER_LOCKED_MESSAGES.CANCELLED` "This order
   was cancelled and is closed."; `ORDER_CANCEL_APPROVER_ONLY_MESSAGE` "Only Approvers can
   cancel orders."; `ORDER_CANCEL_FORBIDDEN_DETAIL` (Admin, Buyer); `SELF_APPROVAL_DETAIL`
   becomes per action (`APPROVE`/`REJECT` keep "You can't approve or reject an order you
@@ -190,7 +190,7 @@ reconciliation zero rows.
   `backend/src/approvals/routes.ts`, `backend/tests/integration/route-table.test.ts`,
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T018 green.
-- [ ] T021 [US1] Order read gains `cancellation` (canceller's current name, time, reason)
+- [X] T021 [US1] Order read gains `cancellation` (canceller's current name, time, reason)
   for everyone who can read it; tests first — `backend/src/orders/repository.ts`,
   `backend/tests/integration/orders-read.test.ts` — FR-003, R6, ADR-0004 2026-11-20.
 - [ ] T022 [P] [US1] Cancel dialog, component tests first: names PO number, buyer,

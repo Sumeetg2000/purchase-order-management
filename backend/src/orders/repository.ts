@@ -44,6 +44,12 @@ export interface OrderRow {
   ownerCanAct: boolean;
   /** The current round, as JSON (timestamps as text); null if never submitted. */
   approval: ApprovalRoundRow | null;
+  /** Who cancelled it (current name), when (text) and why; null unless cancelled. */
+  cancellation: {
+    cancelledBy: { id: string; name: string };
+    cancelledAt: string;
+    reason: string;
+  } | null;
 }
 
 /** An approval round as the order read returns it (slice 4, research R10). */
@@ -232,7 +238,12 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                                  LEFT JOIN users d ON d.id = s.decided_by
                                 WHERE s.order_id = r.order_id AND s.round = r.round))
               FROM approval_rounds r
-             WHERE r.order_id = o.id AND r.round = o.current_round) AS approval
+             WHERE r.order_id = o.id AND r.round = o.current_round) AS approval,
+           (SELECT json_build_object(
+                     'cancelledBy', json_build_object('id', c.id::text, 'name', c.name),
+                     'cancelledAt', o.cancelled_at,
+                     'reason', o.cancel_reason)
+              FROM users c WHERE c.id = o.cancelled_by) AS cancellation
       FROM purchase_orders o
       JOIN users u ON u.id = o.owner_id
       JOIN vendors v ON v.id = o.vendor_id
