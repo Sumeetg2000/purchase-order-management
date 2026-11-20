@@ -3,7 +3,7 @@ import type { Order } from './queries';
 
 type Cancellation = NonNullable<Order['cancellation']>;
 
-/** Who cancelled the order, when and why (spec FR-003), for everyone who can read it. */
+/** Who cancelled the order, when and why, for everyone who can read it. */
 export function CancellationSection({ cancellation }: { cancellation: Cancellation }) {
   return (
     <section aria-label="Cancellation">

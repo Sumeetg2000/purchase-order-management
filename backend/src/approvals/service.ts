@@ -303,7 +303,7 @@ export function createApprovalsService(deps: ApprovalsServiceDependencies): Appr
     cancelOrder: (approver, { id, version, reason }, ctx) =>
       // Locks the order, then the acting Approver's users row (ADR-0006, 2026-11-20). Lines,
       // the closed round and its steps are frozen under the order lock; the vendor and the
-      // owner aren't read: cancel is allowed whatever their status (FR-004, FR-005).
+      // owner aren't read: cancel is allowed whatever their status.
       runAs(deps.transactions, approver, ROLE.APPROVER, ctx, async (tx) => {
         const locked = await lockOrder(tx, id);
         const users = await lockUsers(tx, [approver.userId]);
