@@ -34,6 +34,12 @@ goes to Mailpit at <http://localhost:8025>, and `SEED_DEMO_DATA=true` adds
 `buyer1@example.com`, `buyer2@example.com` and `approver@example.com` (password in
 `backend/src/migrate/seed-demo.ts`). A walkthrough is in the
 [slice 1 quickstart](specs/002-accounts-user-management/quickstart.md).
+
+The demo seed is not incremental: it creates the demo orders once, for a demo Buyer who
+has never submitted, and leaves existing data as it is. When a slice adds demo states
+(slice 5 added a cancelled order), reset the demo data to see them:
+`docker compose down -v`, then `docker compose up`. This deletes every local order and
+account; the stack seeds again from empty.
 Troubleshooting (including snap-packaged Docker) is in the
 [quickstart](specs/001-foundation/quickstart.md).
 
