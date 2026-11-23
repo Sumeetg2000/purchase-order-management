@@ -284,7 +284,7 @@ reconciliation zero rows.
   NFR-CON-01, NFR-CON-03, NFR-FE-08, NFR-FE-09, NFR-PERF-01 parts — each with its passing
   test; `npm run check:traceability` green — `docs/traceability.md`.
 - [X] T035 Quickstart run and results — `specs/006-lock-cancel/quickstart-results.md`.
-- [ ] T036 Slice-end review: `/code-review`, `/security-review` (permissions, the new
+- [X] T036 Slice-end review: `/code-review`, `/security-review` (permissions, the new
   guard, separation of duties), constitution pass; fix findings; full gate, lint,
   typecheck green.
 

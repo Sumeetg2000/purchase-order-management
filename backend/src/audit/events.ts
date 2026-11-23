@@ -42,7 +42,6 @@ export interface AuditPolicy {
   tiers: AuditTier[];
 }
 
-/** A step a withdraw voided, with the approval it had, if any (ADR-0001). */
 /** One line of a cancelled order, as PO_CANCELLED records it (ADR-0016, 2026-11-20). */
 export interface AuditCancelledLine {
   lineId: string;
@@ -51,6 +50,7 @@ export interface AuditCancelledLine {
   receivedQuantity: number;
 }
 
+/** A step a withdraw voided, with the approval it had, if any (ADR-0001). */
 export interface AuditVoidedStep {
   step: number;
   tier: number;
