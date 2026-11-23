@@ -15,8 +15,8 @@ import { testLogger } from '../support/log-capture.js';
 // Demo data for local stacks (FR-037): two Buyers and one Approver, never an admin, never
 // in production, created once.
 
-// Per demo Buyer: three drafts, and one order in each of five approval states.
-const DEMO_ORDER_COUNT = 2 * (3 + 5);
+// Per demo Buyer: three drafts, and one order in each of six approval states.
+const DEMO_ORDER_COUNT = 2 * (3 + 6);
 
 const clients: AppPrismaClient[] = [];
 afterEach(async () => {
@@ -197,7 +197,7 @@ describe('[FR-PO-01] demo orders', () => {
 });
 
 describe('[FR-SM-01] demo orders in each reachable approval state', () => {
-  it('[FR-SM-01] each demo Buyer has one pending, auto-approved, step-approved, rejected and withdrawn order, made through the services', async () => {
+  it('[FR-SM-01] each demo Buyer has one pending, auto-approved, step-approved, rejected, withdrawn and cancelled order, made through the services', async () => {
     const { h, seed, seedVendors, seedOrders } = await setup();
     await seed();
     await seedVendors();
@@ -258,6 +258,13 @@ describe('[FR-SM-01] demo orders in each reachable approval state', () => {
           decider: null,
           reason: expect.any(String) as string,
         },
+        {
+          status: 'CANCELLED',
+          outcome: 'APPROVED',
+          steps: ['APPROVED'],
+          decider: 'approver@example.com',
+          reason: null,
+        },
       ]);
     }
     // The decisions are the Demo Approver's, the auto-approvals the system's.
@@ -265,14 +272,16 @@ describe('[FR-SM-01] demo orders in each reachable approval state', () => {
       await h.query(
         `SELECT action, actor_type, acting_role, count(*)::int AS n FROM audit_entries
           WHERE action IN ('PO_AUTO_APPROVED', 'APPROVAL_STEP_APPROVED', 'APPROVAL_STEP_REJECTED',
-                           'PO_WITHDRAWN', 'PO_SUBMITTED')
+                           'PO_WITHDRAWN', 'PO_SUBMITTED', 'PO_CANCELLED')
           GROUP BY action, actor_type, acting_role ORDER BY action`,
       ),
     ).toEqual([
-      { action: 'APPROVAL_STEP_APPROVED', actor_type: 'USER', acting_role: 'APPROVER', n: 2 },
+      { action: 'APPROVAL_STEP_APPROVED', actor_type: 'USER', acting_role: 'APPROVER', n: 4 },
       { action: 'APPROVAL_STEP_REJECTED', actor_type: 'USER', acting_role: 'APPROVER', n: 2 },
       { action: 'PO_AUTO_APPROVED', actor_type: 'SYSTEM', acting_role: null, n: 2 },
-      { action: 'PO_SUBMITTED', actor_type: 'USER', acting_role: 'BUYER', n: 10 },
+      // Slice 5: the Demo Approver cancels one approved order per demo Buyer.
+      { action: 'PO_CANCELLED', actor_type: 'USER', acting_role: 'APPROVER', n: 2 },
+      { action: 'PO_SUBMITTED', actor_type: 'USER', acting_role: 'BUYER', n: 12 },
       { action: 'PO_WITHDRAWN', actor_type: 'USER', acting_role: 'BUYER', n: 2 },
     ]);
     expect(await reconciliationViolations(h.db)).toEqual([]);
@@ -298,15 +307,56 @@ describe('[FR-APR-05] demo orders under a changed policy', () => {
       await h.query(
         `SELECT o.status, r.outcome, r.policy_version, count(*)::int AS n
            FROM purchase_orders o JOIN approval_rounds r ON r.order_id = o.id
-          GROUP BY o.status, r.outcome, r.policy_version`,
+          GROUP BY o.status, r.outcome, r.policy_version ORDER BY o.status`,
       ),
-    ).toEqual([{ status: 'APPROVED', outcome: 'AUTO_APPROVED', policy_version: 2, n: 10 }]);
+    ).toEqual([
+      { status: 'APPROVED', outcome: 'AUTO_APPROVED', policy_version: 2, n: 10 },
+      // Cancel is no approval decision: the order to be cancelled still is.
+      { status: 'CANCELLED', outcome: 'AUTO_APPROVED', policy_version: 2, n: 2 },
+    ]);
     expect(
       await h.query(
         `SELECT count(*)::int AS n FROM audit_entries
           WHERE action LIKE 'APPROVAL_STEP_%' OR action = 'PO_WITHDRAWN'`,
       ),
     ).toEqual([{ n: 0 }]);
+    expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+});
+
+describe('[FR-APR-05] demo orders under a two-tier policy', () => {
+  it('[FR-APR-05] the approved and the cancelled demo orders are approved step by step; every Buyer is seeded', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    // Two tiers below every routed demo order: each needs two approvals.
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query('INSERT INTO approval_policies (version) VALUES (2)');
+    await h.query(
+      `INSERT INTO approval_policy_tiers (policy_version, tier, threshold)
+       VALUES (2, 1, 50000), (2, 2, 100000)`,
+    );
+    await h.query('COMMIT');
+
+    expect(await seedOrders()).toBe(DEMO_ORDER_COUNT);
+    const rows = await h.query<{ email: string; status: string; steps: string[] }>(
+      `SELECT u.email, o.status,
+              array_agg(s.state ORDER BY s.step) FILTER (WHERE s.step IS NOT NULL) AS steps
+         FROM purchase_orders o
+         JOIN users u ON u.id = o.owner_id
+         JOIN approval_rounds r ON r.order_id = o.id AND r.round = o.current_round
+         LEFT JOIN approval_steps s ON s.order_id = r.order_id AND s.round = r.round
+        WHERE o.status IN ('APPROVED', 'CANCELLED') AND r.outcome = 'APPROVED'
+        GROUP BY u.email, o.id, o.status
+        ORDER BY u.email, o.status`,
+    );
+    expect(rows).toEqual(
+      ['buyer1@example.com', 'buyer2@example.com'].flatMap((email) => [
+        { email, status: 'APPROVED', steps: ['APPROVED', 'APPROVED'] },
+        { email, status: 'CANCELLED', steps: ['APPROVED', 'APPROVED'] },
+      ]),
+    );
     expect(await reconciliationViolations(h.db)).toEqual([]);
   });
 });

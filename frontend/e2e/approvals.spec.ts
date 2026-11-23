@@ -23,6 +23,8 @@ const run = String(Date.now());
 // ORDER_LOCKED_MESSAGES.REJECTED, as the user reads it. The e2e job runs against the built
 // stack without building the contracts package, so the text is written out here.
 const REJECTED_MESSAGE = 'This order was rejected and is closed. Raise a new order instead.';
+// ORDER_LOCKED_MESSAGES.CANCELLED, written out for the same reason (slice 5).
+const CANCELLED_MESSAGE = 'This order was cancelled and is closed.';
 
 async function newPage(browser: Browser, testInfo: TestInfo): Promise<Page> {
   const { baseURL, ignoreHTTPSErrors } = testInfo.project.use;
@@ -231,5 +233,67 @@ test.describe('[FR-APR-01] submission and approval end to end', () => {
     await expect(approver.getByRole('link', { name: poNumber, exact: true })).toBeVisible();
     await approver.goto(path);
     await expect(approver.getByRole('button', { name: 'Approve', exact: true })).toBeVisible();
+  });
+});
+
+// Slice 5 (specs/006-lock-cancel, ui.md): an Approver cancels an approved order they don't
+// own, with a reason; the owner sees who, when and why, and an editor opened before the
+// cancel is refused with the cancelled message. A Buyer+Approver is never offered Cancel
+// order on their own order. Same accounts as above (ADR-0017's per-IP limit).
+test.describe('[FR-LCK-02] cancelling an approved order end to end', () => {
+  test('[FR-LCK-02] an Approver cancels it with a reason; the owner reads why; a stale editor is refused', async () => {
+    const { path, poNumber } = await createDraft(buyer, '50000');
+    const stale = await buyer.context().newPage();
+    await stale.goto(`${path}/edit`);
+    await expect(cell(stale, 'Description', 1)).toHaveValue('Pallet racking');
+    await submit(buyer, poNumber, 'Will be auto-approved');
+    await expect(buyer.getByText('Submitted and approved automatically.')).toBeVisible();
+
+    await approver.goto(path);
+    const dialog = await checkDialog(
+      approver,
+      approver.getByRole('button', { name: 'Cancel order', exact: true }),
+      `Cancel ${poNumber}?`,
+      'Keep order',
+    );
+    for (const fact of [
+      buyerName,
+      'Acme Supplies',
+      '₹50,000.00',
+      'Nothing has been received against this order.',
+      'Cancelling is final. No further goods can be received against this order.',
+    ]) {
+      await expect(dialog.getByText(fact, { exact: false })).toBeVisible();
+    }
+    await dialog.getByRole('button', { name: 'Cancel order', exact: true }).click();
+    await expect(dialog.getByText('Enter a reason.')).toBeVisible();
+    await dialog.getByLabel('Reason').fill('Supplier closed; reorder elsewhere');
+    await dialog.getByRole('button', { name: 'Cancel order', exact: true }).click();
+    await expect(approver.getByText('Cancelled.', { exact: true })).toBeVisible();
+    await expect(approver.getByRole('button', { name: 'Cancel order', exact: true })).toHaveCount(
+      0,
+    );
+    expect(await axe(approver), 'cancelled order, Approver').toEqual([]);
+
+    await buyer.reload();
+    const record = buyer.getByRole('region', { name: 'Cancellation' });
+    await expect(record).toContainText(`Cancelled by Approval Approver ${run}`);
+    await expect(record).toContainText('Supplier closed; reorder elsewhere');
+    expect(await axe(buyer), 'cancelled order, owner').toEqual([]);
+
+    await cell(stale, 'Description', 1).fill('Pallet racking, galvanised');
+    await stale.getByRole('button', { name: 'Save changes' }).click();
+    await expect(stale.getByText(CANCELLED_MESSAGE)).toBeVisible();
+    await stale.close();
+  });
+
+  test('[FR-SOD-01] a Buyer+Approver is not offered Cancel order on their own approved order', async () => {
+    const { path, poNumber } = await createDraft(dual, '50000');
+    await submit(dual, poNumber, 'Will be auto-approved');
+    await expect(dual.getByText('Submitted and approved automatically.')).toBeVisible();
+    await expect(dual.getByRole('button', { name: 'Cancel order', exact: true })).toHaveCount(0);
+    // Another Approver is.
+    await approver.goto(path);
+    await expect(approver.getByRole('button', { name: 'Cancel order', exact: true })).toBeVisible();
   });
 });

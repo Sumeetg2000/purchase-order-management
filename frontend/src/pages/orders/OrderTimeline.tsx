@@ -28,6 +28,7 @@ const ACTION_LABELS = {
   APPROVAL_STEP_APPROVED: 'Approved',
   APPROVAL_STEP_REJECTED: 'Rejected',
   PO_WITHDRAWN: 'Withdrawn',
+  PO_CANCELLED: 'Cancelled',
 } as const satisfies Record<OrderAuditAction, string>;
 
 /** An event a newer server records that this app doesn't name yet (x-extensible-enum). */

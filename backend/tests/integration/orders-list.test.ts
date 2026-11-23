@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { CookieJar } from '../support/accounts.js';
 import { lineBody, ordersHarness, type OrdersHarness } from '../support/orders.js';
-import { plantSubmitted } from '../support/orders-sql.js';
+import { plantCancelled, plantSubmitted } from '../support/orders-sql.js';
 
 // Order lists (spec US5; FR-015, FR-016, FR-024; research R7, R11): scoped in the database
 // to what the caller may read, filtered there, paginated newest first (by PO number,
@@ -125,6 +125,33 @@ describe('[FR-PO-01] order list filters', () => {
     expect((await list(h, { status: 'APPROVED' })).body.total).toBe(0);
     expect(ids((await list(h, { vendorId: beta })).body)).toEqual([a[1]?.id]);
     expect(ids((await list(h, { vendorId: beta, status: 'DRAFT' })).body)).toEqual([a[1]?.id]);
+  });
+
+  it('[FR-OWN-01] filtered to Cancelled, each caller sees the cancelled orders they can read', async () => {
+    const { h, otherJar, a, b } = await setup();
+    await plantCancelled(h, a[0]?.id ?? '');
+    await plantCancelled(h, b[0]?.id ?? '');
+    await plantSubmitted(h, b[1]?.id ?? '', 'APPROVED');
+    const cancelled = { status: 'CANCELLED' };
+    const admin = await h.loggedIn(await h.seedUser({ roles: '{ADMIN}' }));
+    const approver = await h.loggedIn(await h.seedUser({ roles: '{APPROVER}' }));
+    const dual = await h.loggedIn(await h.seedUser({ roles: '{BUYER,APPROVER}' }));
+    const both = new Set([a[0]?.id, b[0]?.id]);
+    expect(ids((await list(h, cancelled)).body)).toEqual([a[0]?.id]);
+    expect(ids((await list(h, cancelled, otherJar)).body)).toEqual([b[0]?.id]);
+    for (const [who, jar] of [
+      ['Admin', admin],
+      ['Approver', approver],
+      ['Buyer+Approver', dual],
+    ] as const) {
+      const page = (await list(h, cancelled, jar)).body;
+      expect(new Set(ids(page)), who).toEqual(both);
+      expect(page.total, who).toBe(2);
+      expect(
+        page.items.every((i) => i.status === 'CANCELLED'),
+        who,
+      ).toBe(true);
+    }
   });
 
   it('[FR-PO-01] by PO-number prefix, case-insensitive, sorted by PO number newest first', async () => {

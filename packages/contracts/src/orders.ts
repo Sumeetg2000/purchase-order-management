@@ -21,8 +21,16 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** The actions on an order a state refusal names (`orderState.action`); slice 5 adds CANCEL. */
-export const ORDER_ACTIONS = ['EDIT', 'DELETE', 'SUBMIT', 'WITHDRAW', 'APPROVE', 'REJECT'] as const;
+/** The actions on an order a state refusal names (`orderState.action`). */
+export const ORDER_ACTIONS = [
+  'EDIT',
+  'DELETE',
+  'SUBMIT',
+  'WITHDRAW',
+  'APPROVE',
+  'REJECT',
+  'CANCEL',
+] as const;
 export type OrderAction = (typeof ORDER_ACTIONS)[number];
 
 /** `PO-{FY}-{seq}`: the financial year and a sequence of at least 6 digits. */
@@ -52,6 +60,13 @@ export const ORDER_WRITE_FORBIDDEN_DETAIL = {
   ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
   APPROVER: ORDER_APPROVER_READ_ONLY_MESSAGE,
 } as const;
+/** The detail of a pure Buyer's 403 on cancel (ADR-0004, 2026-11-20). */
+export const ORDER_CANCEL_APPROVER_ONLY_MESSAGE = 'Only Approvers can cancel orders.';
+/** Cancel's route-level FORBIDDEN detail, by the caller's role. */
+export const ORDER_CANCEL_FORBIDDEN_DETAIL = {
+  ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+  BUYER: ORDER_CANCEL_APPROVER_ONLY_MESSAGE,
+} as const;
 /** Approve's and reject's route-level FORBIDDEN detail, by the caller's role. */
 export const ORDER_DECISION_FORBIDDEN_DETAIL = {
   ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
@@ -80,6 +95,11 @@ export const ORDER_READ_ONLY_FIELDS = [
   'ownerCanAct',
   'vendorSnapshot',
   'approval',
+  // Slice 5 (contracts/api.md): the cancel record, by its response and column names.
+  'cancellation',
+  'cancelledBy',
+  'cancelledAt',
+  'cancelReason',
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */
@@ -93,5 +113,7 @@ export const ORDER_AUDIT_ACTIONS = [
   'APPROVAL_STEP_APPROVED',
   'APPROVAL_STEP_REJECTED',
   'PO_WITHDRAWN',
+  // Slice 5.
+  'PO_CANCELLED',
 ] as const;
 export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];

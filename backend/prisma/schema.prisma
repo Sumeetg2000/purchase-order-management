@@ -31,7 +31,8 @@ model User {
   sessions              Session[]
   accessRequests        AccessRequest[]  @relation("AccessRequestUser")
   decidedAccessRequests AccessRequest[]  @relation("AccessRequestDecider")
-  orders                PurchaseOrder[]
+  orders                PurchaseOrder[]  @relation("OrderOwner")
+  cancelledOrders       PurchaseOrder[]  @relation("OrderCanceller")
   submittedRounds       ApprovalRound[]  @relation("RoundSubmitter")
   decidedSteps          ApprovalStep[]   @relation("StepDecider")
   idempotencyKeys       IdempotencyKey[]
@@ -197,7 +198,13 @@ model PurchaseOrder {
   currentRound  Int?            @map("current_round") @db.SmallInt
   submittedAt   DateTime?       @map("submitted_at") @db.Timestamptz(6)
   approvedAt    DateTime?       @map("approved_at") @db.Timestamptz(6)
-  owner         User            @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // The cancel record (migration 0015_cancel): set only by the cancel; cancelledAt by the
+  // database clock.
+  cancelledBy   String?         @map("cancelled_by") @db.Uuid
+  cancelledAt   DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason  String?         @map("cancel_reason")
+  owner         User            @relation("OrderOwner", fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  canceller     User?           @relation("OrderCanceller", fields: [cancelledBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vendor        Vendor          @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines         OrderLine[]
   rounds        ApprovalRound[] @relation("OrderRounds")

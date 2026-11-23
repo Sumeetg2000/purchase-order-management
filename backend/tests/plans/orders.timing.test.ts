@@ -19,16 +19,16 @@ import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.j
 
 // The order and approval services' timings on the plan fixture (FR-022, SC-005, SC-006,
 // ADR-0012): raising, replacing and submitting a 500-line order within 500 ms; the busiest
-// Buyer's first page, one approval and the approval queue's first page within 150 ms; at
-// the 95th percentile, through the services as the API calls them. Results are printed for
-// research R7.
+// Buyer's first page, one approval, one cancel and the approval queue's first page within
+// 150 ms; at the 95th percentile, through the services as the API calls them. Results are
+// printed for research R7 (slice 4) and R8 (slice 5).
 
 const WRITE_P95_MS = 500;
 const LIST_P95_MS = 150;
 const DECISION_P95_MS = 150;
 const WARM_UP_RUNS = 3;
-const WRITE_RUNS = 20;
-const LIST_RUNS = 50;
+/** Timed runs per measurement, after the warm-up: writes, decisions and pages alike. */
+const TIMED_RUNS = 50;
 
 function p95(samples: readonly number[]): number {
   const sorted = [...samples].sort((a, b) => a - b);
@@ -134,7 +134,7 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     const creates: number[] = [];
     const replaces: number[] = [];
     const ignored: number[] = [];
-    for (let run = 0; run < WARM_UP_RUNS + WRITE_RUNS; run += 1) {
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
       const counted = run < WARM_UP_RUNS ? ignored : null;
       const body = createOrderBody.parse({ vendorId, lines: fullLines(`c${String(run)}`) });
       const { order } = await timed(counted ?? creates, () =>
@@ -157,7 +157,7 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     const query = orderListQuery.parse({});
     const samples: number[] = [];
     const ignored: number[] = [];
-    for (let run = 0; run < WARM_UP_RUNS + LIST_RUNS; run += 1) {
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
       const page = await timed(run < WARM_UP_RUNS ? ignored : samples, () =>
         orders.listOrders(buyer, query),
       );
@@ -167,11 +167,12 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     expect(results.busiestBuyerPageP95).toBeLessThanOrEqual(LIST_P95_MS);
   });
 
-  it('[NFR-PERF-01] submitting a 500-line order within 500 ms and approving it within 150 ms, p95', async () => {
+  it('[NFR-PERF-01] submitting a 500-line order within 500 ms, approving and cancelling it within 150 ms each, p95', async () => {
     const submits: number[] = [];
     const approves: number[] = [];
+    const cancels: number[] = [];
     const ignored: number[] = [];
-    for (let run = 0; run < WARM_UP_RUNS + WRITE_RUNS; run += 1) {
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
       const counted = run < WARM_UP_RUNS ? ignored : null;
       // Above the seeded tier, so the submit routes one step and the approve closes it.
       const body = createOrderBody.parse({
@@ -191,18 +192,30 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
         approvals.approveOrder(approver, { id: pending.id, version: pending.version }, ctx()),
       );
       expect(approved.status).toBe('APPROVED');
+      // Slice 5: the cancel locks the order and the Approver's row, reads 500 lines for
+      // PO_CANCELLED, and is held to the decision target (ADR-0012).
+      const cancelled = await timed(counted ?? cancels, () =>
+        approvals.cancelOrder(
+          approver,
+          { id: approved.id, version: approved.version, reason: 'Timing run' },
+          ctx(),
+        ),
+      );
+      expect(cancelled.status).toBe('CANCELLED');
     }
     results.submitP95 = Math.round(p95(submits));
     results.approveP95 = Math.round(p95(approves));
+    results.cancelP95 = Math.round(p95(cancels));
     expect(results.submitP95).toBeLessThanOrEqual(WRITE_P95_MS);
     expect(results.approveP95).toBeLessThanOrEqual(DECISION_P95_MS);
+    expect(results.cancelP95).toBeLessThanOrEqual(DECISION_P95_MS);
   });
 
   it("[NFR-PERF-01] the Approver's queue, first page: p95 within 150 ms", async () => {
     const query = approvalQueueQuery.parse({});
     const samples: number[] = [];
     const ignored: number[] = [];
-    for (let run = 0; run < WARM_UP_RUNS + LIST_RUNS; run += 1) {
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
       const page = await timed(run < WARM_UP_RUNS ? ignored : samples, () =>
         approvals.listApprovalQueue(approver, query),
       );

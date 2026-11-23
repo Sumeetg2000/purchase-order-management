@@ -9,7 +9,7 @@
   the Admin message on order writes) · amended 2026-11-17 (slice 4, **owner decision**:
   the Buyer+Approver order list stays combined; the approval queue holds only orders the
   caller may approve) · amended 2026-11-17 (slice 4 plan, **owner decision**: cells S1–S7,
-  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock)
+  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock) · amended 2026-11-20 (cancel row: a pure Buyer gets route-level `403 FORBIDDEN`; the `SELF_APPROVAL` detail per action; the owner-can't-act marker on approved orders; the canceller's name readable; **owner sign-off**; slice 5)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -84,7 +84,7 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Read non-draft order | ✓ | 404 | ✓ | ✓ | 403 `NO_ROLE_ASSIGNED` |
 | Edit, submit, withdraw, delete | ✓ (state rules apply) | 404; a Buyer+Approver on another buyer's non-draft order: 403 `NOT_ORDER_OWNER` | 403 `FORBIDDEN`, "Approvers can review orders but not change them." (route level) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Approve or reject | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 403 `SELF_APPROVAL` | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 404 on a draft, ✓ on a pending order | ✓ | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
-| Cancel approved order | 403 `SELF_APPROVAL` (if also Approver) | 404 | ✓ | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Cancel approved order | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can cancel orders."; Buyer+Approver: 403 `SELF_APPROVAL` | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can cancel orders."; Buyer+Approver: 404 on a draft, ✓ on an approved order | ✓ | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Record receipt | ✓ | 404 | 403 `NOT_ORDER_OWNER` | 403 | 403 `NO_ROLE_ASSIGNED` |
 | Outstanding report and order lists | own orders | — | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
 | Order audit timeline | own orders | 404 | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
@@ -131,6 +131,11 @@ cell changes a permission, so it needs sign-off (Principle X).
   - **S5 `ownerCanAct`**: a boolean on order reads and queue rows, for everyone who can read
     the order. It says the owner can't act, never whether they were deactivated or lost
     BUYER.
+  - **S5 extended 2026-11-20** (slice 5, owner sign-off): an `APPROVED` order whose owner
+    can't act shows a marker to everyone who can read it: "Its owner can no longer act on
+    it, so receipts can't be recorded." An Approver who may cancel it also sees "To close
+    it, cancel it, and a buyer can raise a new order if the goods are still needed."
+    Lists and the queue don't change.
   - **S6 Deciders' names**: each approval step's decider is shown by name to everyone who
     can read the order, as the audit timeline already does.
   - **S7 Withdrawn orders**: a withdrawn order is a draft, so an Approver (even one who
@@ -145,6 +150,24 @@ cell changes a permission, so it needs sign-off (Principle X).
     ACCOUNT_DEACTIVATED`) or lost APPROVER (`403 FORBIDDEN`), the same codes the
     request-level check gives. So no decision commits after the decider lost the right
     to make it.
+- **Cancel cells amended 2026-11-20** (slice 5 spec, owner decision; `specs/006-lock-cancel`):
+  a pure Buyer, owner or other, is refused at route level (`403 FORBIDDEN`, before
+  validation and before any order lookup, so nothing about the order leaks) with "Only
+  Approvers can cancel orders.", one shared constant as for the other role messages. The
+  earlier "Other Buyer: 404" contradicted the check precedence. `404` still applies to a
+  caller holding APPROVER who can't read the order (another buyer's draft). An Admin gets
+  "Admins can view orders but not change them."
+- **Cells added 2026-11-20** (slice 5 plan, owner sign-off; research R10 of
+  `specs/006-lock-cancel`):
+  - **`SELF_APPROVAL` detail per action**: approve and reject keep "You can't approve or
+    reject an order you raised."; cancel says "You can't cancel an order you raised." The
+    code stays `SELF_APPROVAL`; one shared constant each.
+  - **The canceller's name**: a cancelled order's canceller is shown by name, with the
+    time and reason, to everyone who can read the order, as deciders' names are (S6).
+  - **Cancel's under-lock re-check**: cancel locks the acting Approver's `users` row
+    `FOR SHARE` after the order and refuses if they have meanwhile been deactivated
+    (`401 ACCOUNT_DEACTIVATED`) or lost APPROVER (`403 FORBIDDEN`), as approve and reject
+    do. The owner isn't checked: cancel is how an order whose owner can't act is closed.
 - **Public endpoints** (no session): login, signup, verify-email, resend-verification,
   forgot-password and reset-password. Refresh, logout and logout-all are authenticated by
   the refresh cookie.

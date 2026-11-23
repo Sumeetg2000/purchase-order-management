@@ -8,7 +8,7 @@
   `INVALID_STATE_TRANSITION`, **owner decision**; slice 4) · amended 2026-11-17 (approve
   refused while the owner can't act, `409 ORDER_OWNER_INACTIVE`, **owner decision**;
   slice 4) · amended 2026-11-17 (slice 4 plan: approval rounds and steps, and what the
-  database refuses, research R2–R4)
+  database refuses, research R2–R4) · amended 2026-11-20 (cancel live; the database freezes rejected and cancelled orders and keeps the cancel record; the fully-received check arrives with receipts; **owner sign-off**; slice 5 plan)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -40,7 +40,7 @@ complains of "no numbering discipline".
 | T7 | `PENDING_APPROVAL` → `APPROVED` | Approve the final step, Approver | Same as T6, and this is the last step |
 | T8 | `PENDING_APPROVAL` → `REJECTED` | Reject, Approver | Caller ≠ owner; version matches; reason required. Allowed even if the vendor is inactive |
 | T9 | `PENDING_APPROVAL` → `DRAFT` | Withdraw, owner | Version matches; reason required; every step of the current round marked `VOIDED`, decided steps keep their record |
-| T10 | `APPROVED` → `CANCELLED` | Cancel, Approver | Caller ≠ owner; version matches; reason required; not fully received (`409 ORDER_FULLY_RECEIVED`). Allowed after vendor deactivation |
+| T10 | `APPROVED` → `CANCELLED` | Cancel, Approver | Caller ≠ owner; version matches; reason required; not fully received (`409 ORDER_FULLY_RECEIVED`, enforced from slice 6, when receipts exist). Allowed after vendor deactivation and whatever the owner's status |
 
 - **Owner able to act** (T6, T7; amended 2026-11-17, owner decision): approve is refused
   with `409 ORDER_OWNER_INACTIVE` when the order's owner is deactivated or no longer holds
@@ -66,6 +66,15 @@ complains of "no numbering discipline".
     `AUTO_APPROVED` outcome outside the `SYSTEM` context, and any step or round change once
     its round is closed. The vendor and the submission columns (`current_round`,
     `submitted_at`, `approved_at`) change only with a transition.
+  - *Amended 2026-11-20 (slice 5 plan, research R1–R2, owner sign-off)*: the cancel
+    record is three columns on the order (`cancelled_by`, `cancelled_at`,
+    `cancel_reason`), all set if and only if the status is `CANCELLED` (a `CHECK`), with
+    `cancelled_at` from the database clock. A trigger refuses any update of a `REJECTED`
+    or `CANCELLED` order, whatever the column, `version` included (both are final); lets
+    the cancel columns change only on the `APPROVED → CANCELLED` update, which changes
+    nothing else but `version` (+1) and `updated_at`; and requires that update to be made
+    by the acting user, never the owner. The commit-time check also covers `CANCELLED`:
+    its round stays closed as approved, and `approved_at` stays the round's close.
   - A trigger allows `DELETE` of an order only while it's `DRAFT`. Lines may change only
     while their order is `DRAFT`.
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the

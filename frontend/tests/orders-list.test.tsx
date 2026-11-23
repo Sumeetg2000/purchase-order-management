@@ -190,6 +190,22 @@ describe('[FR-OWN-01] the orders list by role', () => {
     expect(screen.queryByRole('link', { name: 'New order' })).toBeNull();
   });
 
+  it('[NFR-FE-08] the status filter offers Cancelled; a cancelled row says so', async () => {
+    const seen = listApi(
+      { 'GET /orders': () => json(200, page([item({ status: 'CANCELLED' })])) },
+      ['APPROVER'],
+    );
+    const { user, router } = renderApp('/orders');
+    const status = await screen.findByLabelText('Status');
+    expect(within(status).getByRole('option', { name: 'Cancelled' })).toHaveValue('CANCELLED');
+    await user.selectOptions(status, 'CANCELLED');
+    expect(router.state.location.search).toBe('?status=CANCELLED');
+    await waitFor(() => {
+      expect(listCalls(seen).at(-1)).toMatchObject({ status: 'CANCELLED' });
+    });
+    expect(within(await screen.findByRole('table')).getByText('Cancelled')).toBeVisible();
+  });
+
   it('[FR-OWN-01] an Admin lists every order read-only: no New order, no Edit', async () => {
     listApi({ [`GET /orders/${ORDER_ID}`]: () => json(200, order(), { ETag: '"1"' }) }, ['ADMIN']);
     const { user } = renderApp('/orders');

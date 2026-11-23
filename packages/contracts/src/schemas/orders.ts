@@ -77,6 +77,15 @@ export const orderLine = z
   })
   .meta({ id: 'OrderLine' });
 
+/** A cancelled order's record: the canceller by current name, the time and the reason. */
+export const orderCancellation = z
+  .strictObject({
+    cancelledBy: z.strictObject({ id: z.uuid(), name: z.string() }),
+    cancelledAt: z.iso.datetime(),
+    reason: z.string(),
+  })
+  .meta({ id: 'OrderCancellation' });
+
 export const order = z
   .strictObject({
     id: z.uuid(),
@@ -99,6 +108,8 @@ export const order = z
     vendorSnapshot: vendorOrderSnapshot.nullable(),
     /** The current round (a withdrawn draft shows its withdrawn one); null if never submitted. */
     approval: approvalRound.nullable(),
+    /** Who cancelled the order, when and why; null unless it is cancelled (slice 5, R6). */
+    cancellation: orderCancellation.nullable(),
   })
   .meta({ id: 'Order' });
 
@@ -112,6 +123,7 @@ export const orderListItem = order
     ownerCanAct: true,
     vendorSnapshot: true,
     approval: true,
+    cancellation: true,
   })
   .extend({ vendor: z.strictObject({ id: z.uuid(), name: z.string() }) })
   .meta({ id: 'OrderListItem' });

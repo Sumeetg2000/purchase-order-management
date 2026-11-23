@@ -36,6 +36,10 @@ export function toOrder(header: OrderRow): Order {
         ? null
         : vendorOrderSnapshot.parse(header.approval.vendorSnapshot),
     approval: header.approval === null ? null : toApprovalRound(header.approval),
+    cancellation:
+      header.cancellation === null
+        ? null
+        : { ...header.cancellation, cancelledAt: iso(header.cancellation.cancelledAt) },
   };
 }
 

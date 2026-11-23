@@ -63,6 +63,7 @@ describe('[FR-PO-01] raise a draft order', () => {
       ownerCanAct: true,
       vendorSnapshot: null,
       approval: null,
+      cancellation: null,
     });
 
     const read = await h.getOrder(order.id);
