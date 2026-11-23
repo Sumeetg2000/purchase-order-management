@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import { createOrderBody, ROLE, type UserRole, type VendorBody } from '@po/contracts';
+import { createOrderBody, ROLE, type Order, type UserRole, type VendorBody } from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
 import type { AuthenticatedUser } from '../auth/service.js';
 import type { AppEnv } from '../config/rules.js';
@@ -11,9 +11,10 @@ import {
   type AuditedTransaction,
 } from '../db/transaction.js';
 import { hasSubmitted } from '../approvals/repository.js';
-import { createApprovalsService } from '../approvals/service.js';
+import { createApprovalsService, type ApprovalsService } from '../approvals/service.js';
 import { createOrdersService } from '../orders/service.js';
 import { listOrders } from '../orders/repository.js';
+import type { RequestContext } from '../lib/request-context.js';
 import { uuidv7 } from '../lib/uuid.js';
 import { findUserByEmail, insertUserIfAbsent } from '../users/repository.js';
 import { findVendorByNameKey, selectVendor } from '../vendors/repository.js';
@@ -229,6 +230,31 @@ export const DEMO_APPROVAL_ORDERS: readonly {
 ];
 
 /**
+ * Approves a submitted demo order step by step until it is APPROVED. A round has one step
+ * per tier its total exceeds, so it needs at most as many approvals as the current policy
+ * has tiers; an order still pending after that many is a bug, and says so.
+ */
+export async function approveUntilApproved(
+  approvals: ApprovalsService,
+  approver: AuthenticatedUser,
+  submitted: Order,
+  tierCount: number,
+  ctx: () => RequestContext,
+): Promise<Order> {
+  let order = submitted;
+  for (let step = 0; step < tierCount && order.status === 'PENDING_APPROVAL'; step += 1) {
+    order = await approvals.approveOrder(approver, { id: order.id, version: order.version }, ctx());
+  }
+  if (order.status !== 'APPROVED') {
+    throw new Error(
+      `demo order ${order.poNumber} is ${order.status} after ${String(tierCount)} approval(s); ` +
+        `the current policy has ${String(tierCount)} tier(s)`,
+    );
+  }
+  return order;
+}
+
+/**
  * Raises three drafts for each demo Buyer who has none, through the order service as that
  * Buyer (so each has its PO number and PO_CREATED), then deactivates the vendor of the
  * third. A demo Buyer who has never submitted then gets DEMO_APPROVAL_ORDERS, submitted
@@ -272,6 +298,8 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
     options,
     DEMO_USERS.find((u) => u.email === DEMO_APPROVER),
   );
+  // One approval per tier at most (approveUntilApproved).
+  const tierCount = (await approvals.getApprovalPolicy()).tiers.length;
   let raised = 0;
   for (const demo of DEMO_USERS.filter((u) => u.roles.includes(ROLE.BUYER))) {
     const buyer = await demoSession(options, demo);
@@ -309,14 +337,15 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
         continue;
       }
       const decided = { id: submitted.id, version: submitted.version };
-      if (demoOrder.end === 'APPROVED') await approvals.approveOrder(approver, decided, ctx());
-      if (demoOrder.end === 'CANCELLED') {
-        const approved = await approvals.approveOrder(approver, decided, ctx());
-        await approvals.cancelOrder(
-          approver,
-          { id: approved.id, version: approved.version, reason },
-          ctx(),
-        );
+      if (demoOrder.end === 'APPROVED' || demoOrder.end === 'CANCELLED') {
+        const approved = await approveUntilApproved(approvals, approver, submitted, tierCount, ctx);
+        if (demoOrder.end === 'CANCELLED') {
+          await approvals.cancelOrder(
+            approver,
+            { id: approved.id, version: approved.version, reason },
+            ctx(),
+          );
+        }
       }
       if (demoOrder.end === 'REJECTED') {
         await approvals.rejectOrder(approver, { ...decided, reason }, ctx());
