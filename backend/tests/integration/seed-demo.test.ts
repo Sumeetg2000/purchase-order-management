@@ -323,3 +323,40 @@ describe('[FR-APR-05] demo orders under a changed policy', () => {
     expect(await reconciliationViolations(h.db)).toEqual([]);
   });
 });
+
+describe('[FR-APR-05] demo orders under a two-tier policy', () => {
+  it('[FR-APR-05] the approved and the cancelled demo orders are approved step by step; every Buyer is seeded', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    // Two tiers below every routed demo order: each needs two approvals.
+    await h.query('BEGIN');
+    await h.query('SET LOCAL session_replication_role = replica');
+    await h.query('INSERT INTO approval_policies (version) VALUES (2)');
+    await h.query(
+      `INSERT INTO approval_policy_tiers (policy_version, tier, threshold)
+       VALUES (2, 1, 50000), (2, 2, 100000)`,
+    );
+    await h.query('COMMIT');
+
+    expect(await seedOrders()).toBe(DEMO_ORDER_COUNT);
+    const rows = await h.query<{ email: string; status: string; steps: string[] }>(
+      `SELECT u.email, o.status,
+              array_agg(s.state ORDER BY s.step) FILTER (WHERE s.step IS NOT NULL) AS steps
+         FROM purchase_orders o
+         JOIN users u ON u.id = o.owner_id
+         JOIN approval_rounds r ON r.order_id = o.id AND r.round = o.current_round
+         LEFT JOIN approval_steps s ON s.order_id = r.order_id AND s.round = r.round
+        WHERE o.status IN ('APPROVED', 'CANCELLED') AND r.outcome = 'APPROVED'
+        GROUP BY u.email, o.id, o.status
+        ORDER BY u.email, o.status`,
+    );
+    expect(rows).toEqual(
+      ['buyer1@example.com', 'buyer2@example.com'].flatMap((email) => [
+        { email, status: 'APPROVED', steps: ['APPROVED', 'APPROVED'] },
+        { email, status: 'CANCELLED', steps: ['APPROVED', 'APPROVED'] },
+      ]),
+    );
+    expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+});
