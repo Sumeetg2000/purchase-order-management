@@ -65,6 +65,19 @@ order other than by cancelling it; notifications (ADR-0019).
   audit entry and the timeline.
 - The spec's two self-filled gaps were accepted: on a fully received order neither Cancel
   nor the owner-can't-act marker is shown; the demo seed gains receipt states.
+- Q: Should the order lists show each order's receipt progress? → A: Yes, a badge, no
+  new filter. Approved rows show "Partly received" or "Fully received" (nothing when
+  nothing is received); cancelled rows with receipts show "Cancelled · partially
+  received", matching the cancelled page. The open line count alone can't tell nothing
+  from partly received (a 60-of-100 line is still open), so "partly received" is derived
+  per row on the page from whether the order has any receipt (receipts carry their
+  order), with no new stored value; page-1 query plans in each list scope prove it, and
+  if a plan fails the owner sees it before any stored counter is added.
+- Q: What is the speed target for one receipt covering all 500 lines? → A: 95% within
+  500 ms (as a 500-line create, replace or submit); a single-line receipt stays at 150 ms;
+  both measured over 50 timed runs after 3 warm-up; ADR-0012 updated. Plan note (owner):
+  set-based writes (one statement for the receipts, one for their audit entries) and
+  statement-level maintenance of the stored counts, with no per-line round trips.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -295,6 +308,9 @@ update response, and in both dialogs.
   order".
 - Receipt progress is derived: nothing received, partly received, fully received; a
   fully received order is still `APPROVED`, and stays editable by nobody.
+- A cancelled order can't be fully received (cancel is refused on a fully received order,
+  and receipts are refused after a cancel), so a cancelled row's badge is only ever
+  "Cancelled · partially received" or none.
 - An approved order fully received leaves the open count "approved with lines to receive".
 - A receipt never recomputes the order total; a receipt statement recomputes the open line
   count once per statement, not per row.
@@ -376,6 +392,14 @@ update response, and in both dialogs.
   received order.
 - **FR-021** (NFR-FE-08): Every order page MUST show, per line, ordered, received and
   outstanding; the order's receipt progress; and the receipt history.
+- **FR-021a** (NFR-FE-08, NFR-PERF-01): Every order list (the Buyer's own, the Approver's,
+  the Admin's, the Buyer+Approver's combined list) MUST show a receipt-progress badge:
+  on approved rows "Partly received" or "Fully received" (none when nothing is received);
+  on cancelled rows with any receipt "Cancelled · partially received". It MUST be derived
+  per row on the page (fully received from the stored open line count; partly from
+  whether the order has any receipt), with no new stored value and no new filter, and
+  each list scope's page-1 query plan MUST stay within its committed plan test; a failing
+  plan is shown to the owner before any stored counter is considered.
 - **FR-022** (NFR-FE-07): The end-to-end flow MUST cover create → submit → approve →
   partial receipt → a receipt that fully receives a line (with the fully-received wording),
   on Chromium per PR and on all three browsers nightly and on `main`.
@@ -396,7 +420,8 @@ update response, and in both dialogs.
 ### Key Entities
 
 - **Receipt event**: one line's receipt: line, quantity (> 0), receipt date (India
-  calendar date, user-supplied), recorded at (database clock), recorded by, note. Immutable. Belongs to one order line.
+  calendar date, user-supplied), recorded at (database clock), recorded by, note. Carries
+  its order too, so "has this order any receipt" is answered without reading lines. Immutable. Belongs to one order line.
 - **Order line** (extended): received quantity (derived, stored, guarded) and outstanding
   quantity (ordered − received).
 - **Order** (extended): open line count (derived, stored, guarded); receipt progress
@@ -416,8 +441,8 @@ update response, and in both dialogs.
   refused, and reconciliation returns zero rows afterwards.
 - **SC-004**: The cancel-versus-receipt race, repeated 10 times in each start order, ends
   every time in one of the documented outcomes with no deadlock.
-- **SC-005**: 95% of single receipts complete within 150 ms (ADR-0012), and a 500-line
-  receipt within 500 ms.
+- **SC-005**: 95% of single-line receipts complete within 150 ms and 95% of 500-line
+  receipts within 500 ms (ADR-0012), each over 50 timed runs after 3 warm-up runs.
 - **SC-006**: A Buyer records a delivery covering three lines, from opening the order to
   seeing the updated quantities, in under one minute.
 - **SC-007**: The receipt dialog and the order page's receipt section have no accessibility

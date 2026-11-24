@@ -3,7 +3,7 @@
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (one Approver in the dataset) ·
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
   ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
-  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan) · amended 2026-11-20 (1,000 cancelled orders in the status mix, slice 5 plan)
+  amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan) · amended 2026-11-20 (1,000 cancelled orders in the status mix, slice 5 plan) · amended 2026-11-24 (a 500-line receipt p95 500 ms; owner decision; slice 6)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -35,7 +35,8 @@
     status and role set (ADR-0016), built in slice 7 (ADR-0021).
 - p95 targets: outstanding report 200 ms; vendor summary 300 ms; "my orders" for the
   **busiest** buyer 150 ms; approval queue 150 ms; create, replace or submit a 500-line
-  order 500 ms each; a single receipt or approval 150 ms; 50 concurrent virtual users for
+  order 500 ms each; a single receipt or approval 150 ms; a 500-line receipt 500 ms
+  (amended 2026-11-24, owner decision; 50 timed runs after 3 warm-up); 50 concurrent virtual users for
   10 min with zero pool-exhaustion or timeout errors, < 0.1% errors, and zero reconciliation
   rows.
 - Page 100 (offset about 5,000) is measured and recorded with no target.
