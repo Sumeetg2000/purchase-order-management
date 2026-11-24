@@ -36,6 +36,7 @@ model User {
   submittedRounds       ApprovalRound[]  @relation("RoundSubmitter")
   decidedSteps          ApprovalStep[]   @relation("StepDecider")
   idempotencyKeys       IdempotencyKey[]
+  receipts              Receipt[]        @relation("ReceiptRecorder")
 
   @@index([name, id], map: "users_name_id_idx")
   @@index([status, name, id], map: "users_status_name_id_idx")
@@ -232,9 +233,32 @@ model OrderLine {
   lineTotal        Decimal?      @default(dbgenerated("((quantity)::numeric * unit_price)")) @map("line_total") @db.Decimal(22, 4)
   receivedQuantity Int           @default(0) @map("received_quantity")
   order            PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  receipts         Receipt[]
 
   @@unique([orderId, position], map: "order_lines_order_position_key")
+  @@unique([id, orderId], map: "order_lines_id_order_key")
   @@map("order_lines")
+}
+
+// Goods receipts (migration 0016_receipts, research R1): one row per line per receipt
+// command, never changed. po_app inserts the caller columns; the triggers set recordedAt
+// and keep order_lines.received_quantity.
+model Receipt {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String    @map("order_id") @db.Uuid
+  lineId     String    @map("line_id") @db.Uuid
+  quantity   Int
+  receivedAt DateTime  @map("received_at") @db.Date
+  recordedAt DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  recordedBy String    @map("recorded_by") @db.Uuid
+  note       String?
+  line       OrderLine @relation(fields: [lineId, orderId], references: [id, orderId], onDelete: Restrict, onUpdate: NoAction, map: "receipts_line_fkey")
+  recorder   User      @relation("ReceiptRecorder", fields: [recordedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([orderId, recordedAt(sort: Desc), id(sort: Desc)], map: "receipts_order_recorded_idx")
+  @@index([lineId], map: "receipts_line_idx")
+  @@index([recordedBy], map: "receipts_recorded_by_idx")
+  @@map("receipts")
 }
 
 model PoNumberCounter {

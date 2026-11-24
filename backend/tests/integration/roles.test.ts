@@ -43,6 +43,7 @@ const EXPECTED_RELATION_GRANTS = [
   'rate_limit_counters po_app UPDATE',
   'rate_limit_counters po_maintenance DELETE',
   'rate_limit_counters po_maintenance SELECT',
+  'receipts po_app SELECT',
   'refresh_tokens po_app INSERT',
   'refresh_tokens po_app SELECT',
   'refresh_tokens po_maintenance DELETE',
@@ -231,6 +232,10 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       ...[...VENDOR_EDITABLE_COLUMNS, 'deactivated_at', 'status', 'version'].map(
         (col) => `vendors.${col} po_app UPDATE`,
       ),
+      // Receipts (0016): the caller columns only, never the id or the recorded time.
+      ...['line_id', 'note', 'order_id', 'quantity', 'received_at', 'recorded_by'].map(
+        (col) => `receipts.${col} po_app INSERT`,
+      ),
     ].sort();
     expect(columns.map((c) => c.grant)).toEqual(expected);
   });
@@ -372,6 +377,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'purchase_orders purchase_orders_status_transition O',
       'purchase_orders purchase_orders_submission_lock O',
       'purchase_orders require_actor_context O',
+      'receipts require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',
       'vendors require_actor_context O',

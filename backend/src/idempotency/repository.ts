@@ -7,7 +7,7 @@ import type { AuditedTransaction } from '../db/transaction.js';
 // primary key), then sees its stored result.
 
 /** The operations that take an Idempotency-Key; the table's CHECK holds the same list. */
-export const IDEMPOTENT_OPERATIONS = ['createOrder'] as const;
+export const IDEMPOTENT_OPERATIONS = ['createOrder', 'recordReceipt'] as const;
 export type IdempotentOperation = (typeof IDEMPOTENT_OPERATIONS)[number];
 
 export interface IdempotencyKeyRef {
