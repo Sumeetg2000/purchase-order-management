@@ -67,7 +67,7 @@ everything needing the owner's sign-off is listed in R13.
   `updated_at` moves) but **not its `version`**: receipts never conflict with an
   `If-Match` (ADR-0006).
 
-## R4 What the database refuses (rules D12–D16, extending D1–D11)
+## R4 What the database refuses (rules D12–D17, extending D1–D11)
 
 | Rule | Refused | SQLSTATE |
 |---|---|---|
@@ -134,7 +134,7 @@ everything needing the owner's sign-off is listed in R13.
   - one `INSERT INTO audit_entries … SELECT … FROM unnest(…)` for the
     `GOODS_RECEIPT_RECORDED` entries (a new `writeAuditBatch`, beside `writeAudit`);
   - before and after quantities come from the lines read under lock, so no read-back.
-- **Statements per command**: key claim, order lock, user lock, line lock and read,
+- **Statements per command**: key claim, order lock, line lock and read, user lock,
   receipts insert, audit insert, key completion: 7, for 1 line or 500. A query-count
   test pins it.
 - The triggers add one line update and one open-line recompute per command (R2, R3).
