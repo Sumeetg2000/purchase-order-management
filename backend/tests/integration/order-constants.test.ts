@@ -12,6 +12,9 @@ import {
   ORDER_STATUSES,
   PO_NUMBER_PATTERN,
   PO_NUMBER_TIME_ZONE,
+  RECEIPT_NOTE_MAX,
+  RECEIPT_QUANTITY_MAX,
+  RECEIPT_QUANTITY_MIN,
   UNIT_PRICE_MAX,
 } from '@po/contracts';
 import { randomUUID } from 'node:crypto';
@@ -94,10 +97,11 @@ describe('[FR-PO-01] order constants equal their SQL copies (0013)', () => {
     expect(await constraintDef(q, 'purchase_orders_po_number_format')).toBe(
       `CHECK ((po_number ~ '${PO_NUMBER_PATTERN.source}'::text))`,
     );
-    expect(await constraintDef(q, 'idempotency_keys_operation_valid')).toBe(
-      `CHECK ((operation = '${IDEMPOTENT_OPERATIONS.join("', '")}'::text))`,
-    );
-    expect(IDEMPOTENT_OPERATIONS).toEqual(['createOrder']);
+    const operations = [
+      ...(await constraintDef(q, 'idempotency_keys_operation_valid')).matchAll(/'([^']+)'::text/g),
+    ].map(([, value]) => value);
+    expect(operations).toEqual([...IDEMPOTENT_OPERATIONS]);
+    expect(IDEMPOTENT_OPERATIONS).toEqual(['createOrder', 'recordReceipt']);
   });
 
   it('[FR-PO-05] po_financial_year uses PO_NUMBER_TIME_ZONE', async () => {
@@ -197,5 +201,19 @@ describe('[FR-SM-01] approval constants equal their SQL copies (0014)', () => {
       `SELECT pg_get_functiondef('set_approval_policy(numeric[])'::regprocedure) AS def`,
     );
     expect(rows[0]?.def).toContain(`pg_advisory_xact_lock(${String(APPROVAL_POLICY_LOCK)})`);
+  });
+});
+
+describe('[FR-RCV-01] receipt constants equal their SQL copies (0016)', () => {
+  it('[FR-RCV-01] the receipt quantity and note limits', async () => {
+    const { superuser: q } = await orderFixture();
+    expect(RECEIPT_QUANTITY_MIN).toBe(1);
+    expect(RECEIPT_QUANTITY_MAX).toBe(LINE_QUANTITY_MAX);
+    expect(await constraintDef(q, 'receipts_quantity_range')).toBe(
+      `CHECK (((quantity >= ${String(RECEIPT_QUANTITY_MIN)}) AND (quantity <= ${String(RECEIPT_QUANTITY_MAX)})))`,
+    );
+    expect(await constraintDef(q, 'receipts_note_valid')).toContain(
+      `(char_length(note) >= 1) AND (char_length(note) <= ${String(RECEIPT_NOTE_MAX)})`,
+    );
   });
 });
