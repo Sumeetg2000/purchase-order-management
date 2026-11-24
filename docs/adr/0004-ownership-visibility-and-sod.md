@@ -9,7 +9,7 @@
   the Admin message on order writes) · amended 2026-11-17 (slice 4, **owner decision**:
   the Buyer+Approver order list stays combined; the approval queue holds only orders the
   caller may approve) · amended 2026-11-17 (slice 4 plan, **owner decision**: cells S1–S7,
-  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock) · amended 2026-11-20 (cancel row: a pure Buyer gets route-level `403 FORBIDDEN`; the `SELF_APPROVAL` detail per action; the owner-can't-act marker on approved orders; the canceller's name readable; **owner sign-off**; slice 5)
+  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock) · amended 2026-11-20 (cancel row: a pure Buyer gets route-level `403 FORBIDDEN`; the `SELF_APPROVAL` detail per action; the owner-can't-act marker on approved orders; the canceller's name readable; **owner sign-off**; slice 5) · amended 2026-11-24 (receipt row: a pure Approver gets route-level `403 FORBIDDEN`, checked before the order is looked up; **owner decision**; slice 6)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -85,7 +85,7 @@ cell changes a permission, so it needs sign-off (Principle X).
 | Edit, submit, withdraw, delete | ✓ (state rules apply) | 404; a Buyer+Approver on another buyer's non-draft order: 403 `NOT_ORDER_OWNER` | 403 `FORBIDDEN`, "Approvers can review orders but not change them." (route level) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Approve or reject | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 403 `SELF_APPROVAL` | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can approve or reject orders."; Buyer+Approver: 404 on a draft, ✓ on a pending order | ✓ | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Cancel approved order | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can cancel orders."; Buyer+Approver: 403 `SELF_APPROVAL` | pure Buyer: 403 `FORBIDDEN`, "Only Approvers can cancel orders."; Buyer+Approver: 404 on a draft, ✓ on an approved order | ✓ | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
-| Record receipt | ✓ | 404 | 403 `NOT_ORDER_OWNER` | 403 | 403 `NO_ROLE_ASSIGNED` |
+| Record receipt | ✓ | 404; a Buyer+Approver on another buyer's approved order: 403 `NOT_ORDER_OWNER` | 403 `FORBIDDEN`, "Approvers can review orders but not change them." (route level, before the order is looked up, so nothing about the order leaks; amended 2026-11-24) | 403 `FORBIDDEN`, "Admins can view orders but not change them." | 403 `NO_ROLE_ASSIGNED` |
 | Outstanding report and order lists | own orders | — | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
 | Order audit timeline | own orders | 404 | readable orders | all | 403 `NO_ROLE_ASSIGNED` |
 | Timeline of a deleted draft (by order id) | 404 (former owner) | 404 | 404 | ✓ | 403 `NO_ROLE_ASSIGNED` |

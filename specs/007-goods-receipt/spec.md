@@ -38,8 +38,8 @@ The users are:
 
 **Carried over from slice 5** (ADR-0011, ADR-0018, ADR-0019):
 - a fully received order can't be cancelled (`409 ORDER_FULLY_RECEIVED`)
-- the cancel dialog summarises what was received ("partly received"), not only "nothing
-  received"
+- the cancel dialog summarises what was received ("2 of 5 lines complete, 1 partly
+  received"), not only "nothing received"
 - the cancel-versus-receipt race ends in one consistent outcome
 - the Admin's user detail and the change-role and deactivate dialogs show the user's
   open-order counts (draft, pending, approved with open lines)
@@ -47,6 +47,24 @@ The users are:
 Out of scope: the outstanding-orders report and its query plans (slice 7, ADR-0015);
 receipt corrections or reversals (not adopted, ADR-0019); close-short of a partly received
 order other than by cancelling it; notifications (ADR-0019).
+
+## Clarifications
+
+### Session 2026-11-24
+
+- Q: What does a pure Approver get when they record a receipt? → A: `403 FORBIDDEN`
+  "Approvers can review orders but not change them." at route level, before the order is
+  looked up, so nothing about the order leaks; ADR-0004's receipt cell amended. A
+  Buyer+Approver who isn't the owner still gets `403 NOT_ORDER_OWNER` (asked during
+  `/speckit-specify`).
+- Q: Which lines does the received summary count? → A: Both: "2 of 5 lines complete, 1
+  partly received"; ADR-0011 and ADR-0018 aligned to it.
+- Q: What form does the receipt date take? → A: A calendar date in Asia/Kolkata, not after
+  today and not before the order's approval date (both as India dates; tests inject the
+  clock). The database-set recorded-at time is stored beside it, and both appear in the
+  audit entry and the timeline.
+- The spec's two self-filled gaps were accepted: on a fully received order neither Cancel
+  nor the owner-can't-act marker is shown; the demo seed gains receipt states.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -70,14 +88,15 @@ audit entries.
    received, **When** they record 40 received on that line with a date of today,
    **Then** the line shows 40 received and 60 outstanding, the order shows "partly
    received", one receipt event is stored, and one `GOODS_RECEIPT_RECORDED` audit entry
-   records the line, 40, received before 0, after 40 and outstanding after 60.
+   records the line, 40, received before 0, after 40, outstanding after 60, the receipt
+   date and the recorded-at time.
 2. **Given** that line with 40 received, **When** they record 60 more, **Then** the line
    shows 100 received and 0 outstanding, and, if every line is now fully received, the
    order shows "fully received" and stays `APPROVED`.
 3. **Given** a line with some received, **When** anyone who can read the order opens it,
    **Then** they see, per line, ordered, received and outstanding quantities and the
-   receipt history (date, quantity, note, who recorded it, when), newest first and
-   paginated.
+   receipt history (receipt date, quantity, note, who recorded it, recorded-at time),
+   newest first and paginated; the order's timeline shows each receipt with both dates.
 4. **Given** a receipt, **When** the order's `version` is read, **Then** it is unchanged:
    a receipt doesn't bump the order's version and needs no `If-Match`.
 5. **Given** a receipt request retried with the same `Idempotency-Key` and body, **When**
@@ -113,7 +132,8 @@ audit entries.
    it, **Then** `409 RECEIPT_EXCEEDS_OUTSTANDING` naming it.
 4. **Given** a command, **When** a quantity is 0, negative, not an integer or above
    1,000,000; a line id isn't on this order or appears twice; the line list is empty; the
-   date is in the future; the note is over 500 characters; or the body has an unknown
+   date is after today in India time or before the order's approval date (India time);
+   the note is over 500 characters; or the body has an unknown
    field, **Then** `400 VALIDATION_FAILED` with the field's code, and nothing is recorded.
 5. **Given** a receipt, **When** the owner opens the receipt dialog before confirming,
    **Then** it shows per line: receiving N, received so far R, outstanding after M, and for
@@ -138,10 +158,9 @@ owner on an order in every other state; check each code.
 
 1. **Given** an approved order, **When** a receipt is sent by: the owner → recorded;
    another Buyer → `404`; a Buyer+Approver who isn't the owner → `403 NOT_ORDER_OWNER`; a
-   pure Approver → [NEEDS CLARIFICATION: ADR-0004's matrix row gives a pure Approver `403
-   NOT_ORDER_OWNER`, but every other owner-only write gives a pure Approver a route-level
-   `403 FORBIDDEN` "Approvers can review orders but not change them." Which applies to
-   receipts?]; an Admin → `403 FORBIDDEN` "Admins can view orders but not change them.";
+   pure Approver → `403 FORBIDDEN` "Approvers can review orders but not change them.",
+   decided by role before the order is looked up, so the same answer comes for an order
+   that doesn't exist; an Admin → `403 FORBIDDEN` "Admins can view orders but not change them.";
    a no-role user → `403 NO_ROLE_ASSIGNED`; anonymous → `401`.
 2. **Given** an order owned by the Buyer in `DRAFT` (404 to non-owners as usual),
    `PENDING_APPROVAL`, `REJECTED` or `CANCELLED`, **When** the owner sends a receipt,
@@ -203,14 +222,13 @@ refused.
 
 1. **Given** an approved order with some lines partly received, **When** an Approver opens
    the cancel dialog, **Then** it shows each line's ordered and received quantity and a
-   summary [NEEDS CLARIFICATION: ADR-0018 words it "2 of 5 lines partly received", while
-   ADR-0011's cancelled display says "partially received (2 of 5 lines complete)", which
-   counts a different thing. Which count does the summary show: lines with anything
-   received, or lines fully received?].
+   summary counting both kinds of line, for example "2 of 5 lines complete, 1 partly
+   received" (a part that is zero is left out: "1 of 5 lines partly received", "2 of 5
+   lines complete"; with nothing received, "Nothing received").
 2. **Given** that order, **When** it is cancelled, **Then** it becomes `CANCELLED`, its
    receipts are kept, `PO_CANCELLED` records each line's ordered and received quantity at
-   the moment of the cancel, and the cancelled page shows "Cancelled · partially received"
-   with per-line "60 of 100 received".
+   the moment of the cancel, and the cancelled page shows "Cancelled · 2 of 5 lines
+   complete, 1 partly received" with per-line "60 of 100 received".
 3. **Given** a fully received approved order, **When** an Approver cancels it, **Then**
    `409 ORDER_FULLY_RECEIVED`, the order is unchanged, the Cancel action isn't offered on
    its page, and the owner-can't-act marker isn't shown (there is nothing left to receive).
@@ -258,9 +276,10 @@ update response, and in both dialogs.
 
 ### Edge Cases
 
-- The receipt date is the delivery date the Buyer states, not the moment of recording;
-  [NEEDS CLARIFICATION: is it a calendar date (India time, "not in the future" meaning not
-  after today) or a date and time, and may it be earlier than the order's approval?]
+- The receipt date is the delivery date the Buyer states, a calendar date in Asia/Kolkata;
+  the recorded-at time is when the server stored it. A receipt recorded at 00:30 IST may
+  be dated today (IST), even though it is still yesterday in UTC; a date after today (IST)
+  or before the order's approval date (IST) → `400`; the approval date itself is allowed.
 - A receipt request without `Idempotency-Key` → `400 VALIDATION_FAILED`
   (field code `REQUIRED` on the `Idempotency-Key` header, as for order creates).
 - A receipt that names a line of another order (even one the caller owns) → `400`, the line
@@ -291,9 +310,10 @@ update response, and in both dialogs.
 
 - **FR-001** (FR-RCV-01): The owner of an `APPROVED` order MUST be able to record a
   receipt covering one or more of its lines, each with a positive integer quantity, a
-  receipt date, and an optional note of 0–500 characters; each line becomes its own
-  immutable receipt event recording the line, quantity, receipt date, recording time
-  (database clock) and the recording user.
+  receipt date (a calendar date in Asia/Kolkata, not after today and not before the
+  order's approval date, both as India dates), and an optional note of 0–500 characters;
+  each line becomes its own immutable receipt event recording the line, quantity, receipt
+  date, recorded-at time (database clock) and the recording user.
 - **FR-002** (FR-RCV-01): A receipt command MUST be all-or-nothing: if any line would
   exceed its outstanding quantity, it MUST be refused with `409
   RECEIPT_EXCEEDS_OUTSTANDING` naming that line, and nothing MUST be recorded.
@@ -306,7 +326,8 @@ update response, and in both dialogs.
   history, paginated with a stable sort, newest first.
 - **FR-006** (NFR-AUD-01): Each receipt event MUST write one `GOODS_RECEIPT_RECORDED`
   audit entry in the same transaction, with the line, quantity, received before and
-  after, and outstanding after.
+  after, outstanding after, the receipt date and the recorded-at time; the order's
+  timeline shows both dates.
 - **FR-007** (NFR-CON-03): A receipt MUST take an `Idempotency-Key` and no `If-Match`, and
   MUST NOT change the order's version.
 - **FR-008** (FR-RPT-03): The order's open line count MUST stay equal to the number of
@@ -320,7 +341,9 @@ update response, and in both dialogs.
   order; on any other state, `409 ORDER_NOT_RECEIVABLE`, and the database MUST refuse it
   for raw SQL too.
 - **FR-011** (FR-OWN-01, FR-ACT-01): The "Record receipt" row of ADR-0004's matrix MUST
-  hold for every caller kind, including the dual-role cell (`403 NOT_ORDER_OWNER`).
+  hold for every caller kind, as amended 2026-11-24: a pure Approver gets `403 FORBIDDEN`
+  "Approvers can review orders but not change them." by role, before the order is looked
+  up; a Buyer+Approver who isn't the owner gets `403 NOT_ORDER_OWNER`.
 - **FR-012** (FR-ACC-07): A user who lost BUYER MUST be refused (`403`) and a deactivated
   user (`401`), checked under the request's locks like approve and cancel.
 - **FR-013** (FR-VEN-02): A receipt MUST be accepted whatever the vendor's status.
@@ -348,7 +371,8 @@ update response, and in both dialogs.
   offered Record receipt: a form over the lines with outstanding quantities and a
   confirmation dialog as in User Story 2, scenario 5.
 - **FR-020** (NFR-FE-09): The cancel dialog MUST show each line's ordered and received
-  quantity and the received summary; the Cancel action MUST NOT be offered on a fully
+  quantity and the received summary ("2 of 5 lines complete, 1 partly received"), and a
+  cancelled order's page MUST show the same summary; the Cancel action MUST NOT be offered on a fully
   received order.
 - **FR-021** (NFR-FE-08): Every order page MUST show, per line, ordered, received and
   outstanding; the order's receipt progress; and the receipt history.
@@ -371,8 +395,8 @@ update response, and in both dialogs.
 
 ### Key Entities
 
-- **Receipt event**: one line's receipt: line, quantity (> 0), receipt date, recorded at,
-  recorded by, note. Immutable. Belongs to one order line.
+- **Receipt event**: one line's receipt: line, quantity (> 0), receipt date (India
+  calendar date, user-supplied), recorded at (database clock), recorded by, note. Immutable. Belongs to one order line.
 - **Order line** (extended): received quantity (derived, stored, guarded) and outstanding
   quantity (ordered − received).
 - **Order** (extended): open line count (derived, stored, guarded); receipt progress

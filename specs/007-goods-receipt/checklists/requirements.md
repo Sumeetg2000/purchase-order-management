@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,8 +31,7 @@
 
 ## Notes
 
-- Three [NEEDS CLARIFICATION] markers remain (pure Approver's receipt code; the
-  cancel dialog's received summary; the receipt date's form and lower bound), for the
-  owner before `/speckit-clarify`.
+- The three [NEEDS CLARIFICATION] markers were answered by the owner on 2026-11-24
+  (see the spec's Clarifications).
 - Error codes and ADR references are kept, as in earlier slices: they are the
   contract's vocabulary the owner reviews, not implementation choices.

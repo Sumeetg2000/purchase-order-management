@@ -11,7 +11,8 @@
   coordination; no phone on the profile; a generic logged-out message unless the revoke
   reason is public) · amended 2026-11-03 (**owner decision**: only a refresh refused for
   the session ends it; a network failure or server error keeps it; SESSION_REVOKED or
-  SESSION_EXPIRED from any call ends it)
+  SESSION_EXPIRED from any call ends it) · amended 2026-11-24 (the cancel dialog's received
+  summary counts complete and partly received lines; owner decision; slice 6)
 - **Brief:** stack (React frontend), §6
 - **Principles:** XIII, VI, VII, IX
 
@@ -127,7 +128,8 @@ Approver:
   order can't be edited"]
 - **Reject** [required reason; "Rejection is final; the buyer must raise a new order"]
 - **Cancel approved order** [required reason; per-line ordered and received, summarised
-  as, for example, "2 of 5 lines partly received"; "Cancelling is final; no further
+  as, for example, "2 of 5 lines complete, 1 partly received" (amended 2026-11-24, the
+  same wording as ADR-0011's display); "Cancelling is final; no further
   receipts can be recorded"]
 
 Admin:

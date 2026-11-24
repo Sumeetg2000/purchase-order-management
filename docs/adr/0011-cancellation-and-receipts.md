@@ -1,7 +1,9 @@
 # ADR-0011: Goods receipts and cancelling orders that have received goods
 
 - **Status:** Accepted · 2026-10-16 · amended 2026-10-20 (receipt fields and multi-line
-  receipts moved or added here; receipt corrections **not adopted**)
+  receipts moved or added here; receipt corrections **not adopted**) · amended 2026-11-24 (the receipt date is an India
+  calendar date bounded by today and the approval date; one received-summary wording;
+  **owner decision**; slice 6 spec)
 - **Brief:** §3.5, §3.7 · Gap G26, Q10
 - **Principles:** II, IV, VII
 
@@ -11,8 +13,11 @@
 - Each receipt records:
   - the line
   - the quantity (> 0)
-  - `received_at`: supplied by the user, not in the future
-  - `recorded_at`: database clock
+  - `received_at`: supplied by the user, a calendar date in Asia/Kolkata, not after today
+    and not before the order's approval date, both taken as India dates (amended
+    2026-11-24; tests inject the clock)
+  - `recorded_at`: database clock, stored beside it; both appear in the audit entry and
+    the timeline
   - the recording user
   - an optional note
 - Over-receipt tolerance is zero [BRIEF §3.6].
@@ -41,8 +46,10 @@
   `409 ORDER_NOT_RECEIVABLE`. Line outstanding remains `quantity − Σ receipts` (INV-4 is
   unchanged).
 - `PO_CANCELLED` records the reason and the ordered and received quantity per line.
-- Display: an order-level line summary ("Cancelled · partially received (2 of 5 lines
-  complete)") and per-line units ("60 of 100 received").
+- Display: an order-level line summary counting complete and partly received lines
+  ("Cancelled · 2 of 5 lines complete, 1 partly received"; a zero part is left out;
+  amended 2026-11-24, the same wording as the cancel dialog, ADR-0018) and per-line units
+  ("60 of 100 received").
 
 ## Alternatives
 Cancel at any receipt state (allows a misleading "fully received but cancelled" record);
@@ -54,4 +61,5 @@ without a close-short feature).
   cancel-vs-receive race.
 - A multi-line receipt records every line or none: one line over → 409 naming it, and no
   rows are written.
-- `received_at` in the future → 400. Each line gets its own audit entry.
+- `received_at` after today or before the approval date (India dates) → 400; today and
+  the approval date are accepted. Each line gets its own audit entry.
