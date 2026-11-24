@@ -12,6 +12,7 @@ export * from './money.js';
 export * from './one-of.js';
 export * from './operations.js';
 export * from './orders.js';
+export * from './receipts.js';
 export * from './request-id.js';
 export * from './schemas/access-requests.js';
 export * from './schemas/admin-users.js';
