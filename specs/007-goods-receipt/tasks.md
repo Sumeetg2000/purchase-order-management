@@ -50,7 +50,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ## Phase 1: Setup
 
-- [ ] T001 Commit the spec, plan, research, data model, contracts, quickstart, tasks and
+- [X] T001 Commit the spec, plan, research, data model, contracts, quickstart, tasks and
   the ADR updates (0001, 0003, 0004, 0006, 0007, 0012, 0016, owner sign-off 2026-11-24);
   draft PR for `007-goods-receipt` against `main`, body linking them, noting the
   `breaking` label is expected for the two new `FieldCode` values; no dependency change —
@@ -62,7 +62,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Schema: migration `0016_receipts`, part 1 (table, grants, keys, indexes)
 
-- [ ] T002 Migration tests, seen failing: as [data-model.md](data-model.md), each rule by
+- [X] T002 Migration tests, seen failing: as [data-model.md](data-model.md), each rule by
   name:
   - `receipts` with `id uuid` PK default `gen_random_uuid()`, `order_id`, `line_id`,
     "`quantity integer` NOT NULL CHECK `quantity BETWEEN 1 AND 1000000`", `received_at
@@ -79,11 +79,11 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
     `recordReceipt`
   — `backend/tests/integration/migrations.test.ts`, `receipt-schema.test.ts` (new) —
   data-model.md, R1, R10.
-- [ ] T003 Migration `0016_receipts` part 1: table, checks, keys, indexes, grants, actor
+- [X] T003 Migration `0016_receipts` part 1: table, checks, keys, indexes, grants, actor
   trigger, CHECK widened; Prisma model (`Receipt`, read-only `received_quantity` unchanged)
   — `backend/prisma/migrations/0016_receipts/migration.sql`, `backend/prisma/schema.prisma`
   — R1, R10; T002 green.
-- [ ] T004 [P] Constants pinned, seen failing first: `RECEIPT_PROGRESS = ['NOT_RECEIVED',
+- [X] T004 [P] Constants pinned, seen failing first: `RECEIPT_PROGRESS = ['NOT_RECEIVED',
   'PARTIALLY_RECEIVED', 'FULLY_RECEIVED']`; `RECEIPT_QUANTITY_MIN = 1`,
   `RECEIPT_QUANTITY_MAX = LINE_QUANTITY_MAX` (imported); `RECEIPT_NOTE_MAX = 500` (pinned to
   the `receipts` note CHECK); `RECEIPT_TIME_ZONE = 'Asia/Kolkata'`;
@@ -149,7 +149,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 receives as someone else, writes `received_quantity`, or changes a receipt.
 **Independent test**: the attacks below, each refused, then reconciliation zero rows.
 
-- [ ] T010 [P] Trigger tests, seen failing on part 1: as `po_app` with an actor context,
+- [X] T010 [P] Trigger tests, seen failing on part 1: as `po_app` with an actor context,
   inserting receipts: on a draft, pending, rejected, cancelled order → `PO020`;
   `recorded_by` ≠ owner, or ≠ the actor, or actor `SYSTEM` → `PO021`; `received_at` the
   day before approval (IST) → `PO024`, the approval day allowed; `received_at` the
@@ -161,7 +161,7 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   time-zone literals in D14 and D17 pinned to `RECEIPT_TIME_ZONE` —
   `backend/tests/integration/receipt-triggers.test.ts` (new) — D12–D17, FR-004, FR-010,
   FR-RCV-02, FR-SM-01.
-- [ ] T011 [P] Attack suite, seen failing: as `po_app` and as a privileged role (loud
+- [X] T011 [P] Attack suite, seen failing: as `po_app` and as a privileged role (loud
   error, never a silent fix): `UPDATE order_lines SET received_quantity`, an
   `order_lines` insert with non-zero received → `PO005` (or a privilege error first for
   `po_app`); `UPDATE purchase_orders SET open_line_count` → `PO005`; the T010 receipt
@@ -169,11 +169,11 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   reconciliation zero rows, INV-3 included; a planted drift (owner role, flag forged)
   is caught by INV-3 — `backend/tests/integrity/receipt-attacks.test.ts` (new),
   `reconciliation.test.ts` — FR-024, SC-003, FR-PO-03, FR-RCV-02.
-- [ ] T012 [P] Trigger efficiency, seen failing: a 1-line and a 500-line receipt run
+- [X] T012 [P] Trigger efficiency, seen failing: a 1-line and a 500-line receipt run
   `recompute_orders` 0 times and `recompute_open_lines` once
   (`po.open_line_recompute_count`); an order edit's counts unchanged —
   `backend/tests/integrity/trigger-count.test.ts` — R3, FR-009, NFR-PERF-03.
-- [ ] T013 Migration part 2: `receipts_before_insert` (`recorded_at := now()`);
+- [X] T013 Migration part 2: `receipts_before_insert` (`recorded_at := now()`);
   `receipts_after_insert` (statement, `new_receipts`; orders locked in id order, D12,
   D13, D14, D17; lines locked in id order, D15 naming the first line by position; flag
   `po.receipts`; one set-based `UPDATE order_lines`); `receipts_immutable` (D16);
@@ -184,10 +184,10 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   PUBLIC`; INV-3 in `reconciliation.sql`; T010–T012 green —
   `backend/prisma/migrations/0016_receipts/migration.sql`,
   `backend/src/db/reconciliation.sql` — R2–R4, data-model.md.
-- [ ] T014 State machine, database side: receipt refused per non-approved state;
+- [X] T014 State machine, database side: receipt refused per non-approved state;
   T10 refused on a fully received order, allowed with part received — one test each —
   `backend/tests/integration/order-triggers.test.ts` — FR-010, FR-016, FR-SM-01.
-- [ ] T015 [P] Property test: random sequences of receipt statements (single and
+- [X] T015 [P] Property test: random sequences of receipt statements (single and
   multi-line, some over) against random orders; after each, `received_quantity = Σ
   receipts`, `0 ≤ received ≤ quantity`, `open_line_count` = lines with received <
   ordered; reconciliation zero rows —

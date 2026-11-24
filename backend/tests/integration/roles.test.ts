@@ -321,6 +321,9 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'set_approval_policy',
       'purchase_orders_approval_consistent',
       'approval_rows_consistent',
+      // Slice 6: the received quantities and open-line counts, written only by receipts.
+      'receipts_after_insert',
+      'recompute_open_lines',
     ]);
     for (const fn of functions) {
       expect(fn.prosecdef, fn.proname).toBe(definers.has(fn.proname));

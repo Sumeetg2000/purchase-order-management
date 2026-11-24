@@ -36,7 +36,8 @@ everything needing the owner's sign-off is listed in R13.
   2. refuses a receipt not recorded by the order's owner as the actor in context (D13),
      or dated before the order's approval date in India time (D14), or after the
      database's India date + 1 day (D17, a loose backstop);
-  3. locks the affected lines in id order `FOR UPDATE`, and refuses any line whose
+  3. locks the affected lines in id order (`FOR NO KEY UPDATE`: a no-op under the service's
+     `FOR UPDATE`, and no deadlock with a raw insert's foreign-key `KEY SHARE`), and refuses any line whose
      `received_quantity + Σ new quantity > quantity`, naming the first such line by
      position in the message (`PO022`; the service lists every one first); the CHECK stays as a last net;
   4. sets the transaction-local flag `po.receipts` and runs **one** `UPDATE order_lines …

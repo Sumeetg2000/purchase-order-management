@@ -3,7 +3,6 @@
 -- Tests run it as po_app after every test database and attack, and seeds after seeding.
 --
 -- Columns: invariant (the invariant's id), entity_id (the row that breaks it), detail.
--- INV-3 (received quantity = Σ receipts) joins with the receipts table in slice 6.
 WITH line_sums AS (
   SELECT order_id,
          sum(line_total) AS total,
@@ -24,6 +23,14 @@ violations AS (
          format('total %s, lines sum to %s', o.total, coalesce(s.total, 0)::numeric(22, 4))
     FROM purchase_orders o LEFT JOIN line_sums s ON s.order_id = o.id
    WHERE o.total <> coalesce(s.total, 0)
+  UNION ALL
+  -- INV-3: received_quantity = Σ receipts.quantity.
+  SELECT 'INV-3', l.id::text,
+         format('received_quantity %s, receipts sum to %s', l.received_quantity, coalesce(r.received, 0))
+    FROM order_lines l
+    LEFT JOIN (SELECT line_id, sum(quantity) AS received FROM receipts GROUP BY line_id) r
+      ON r.line_id = l.id
+   WHERE l.received_quantity <> coalesce(r.received, 0)
   UNION ALL
   -- INV-4: 0 ≤ received_quantity ≤ quantity.
   SELECT 'INV-4', l.id::text,
