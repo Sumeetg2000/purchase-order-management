@@ -67,7 +67,7 @@ order other than by cancelling it; notifications (ADR-0019).
   nor the owner-can't-act marker is shown; the demo seed gains receipt states.
 - Q: Should the order lists show each order's receipt progress? → A: Yes, a badge, no
   new filter. Approved rows show "Partly received" or "Fully received" (nothing when
-  nothing is received); cancelled rows with receipts show "Cancelled · partially
+  nothing is received); cancelled rows with receipts show "Cancelled · partly
   received", matching the cancelled page. The open line count alone can't tell nothing
   from partly received (a 60-of-100 line is still open), so "partly received" is derived
   per row on the page from whether the order has any receipt (receipts carry their
@@ -310,7 +310,7 @@ update response, and in both dialogs.
   fully received order is still `APPROVED`, and stays editable by nobody.
 - A cancelled order can't be fully received (cancel is refused on a fully received order,
   and receipts are refused after a cancel), so a cancelled row's badge is only ever
-  "Cancelled · partially received" or none.
+  "Cancelled · partly received" or none.
 - An approved order fully received leaves the open count "approved with lines to receive".
 - A receipt never recomputes the order total; a receipt statement recomputes the open line
   count once per statement, not per row.
@@ -395,7 +395,7 @@ update response, and in both dialogs.
 - **FR-021a** (NFR-FE-08, NFR-PERF-01): Every order list (the Buyer's own, the Approver's,
   the Admin's, the Buyer+Approver's combined list) MUST show a receipt-progress badge:
   on approved rows "Partly received" or "Fully received" (none when nothing is received);
-  on cancelled rows with any receipt "Cancelled · partially received". It MUST be derived
+  on cancelled rows with any receipt "Cancelled · partly received". It MUST be derived
   per row on the page (fully received from the stored open line count; partly from
   whether the order has any receipt), with no new stored value and no new filter, and
   each list scope's page-1 query plan MUST stay within its committed plan test; a failing
