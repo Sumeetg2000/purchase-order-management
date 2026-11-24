@@ -22,7 +22,8 @@
   "Line {n}: receiving {N}, received so far {R}, outstanding after {M}"; for each line
   reaching 0: "This marks line {n} as fully received. Receipts can't be changed or
   undone."; safe choice ("Go back") focused; confirm disabled while pending; one
-  `Idempotency-Key` per opening, reused on retry; server errors inside with Reload order.
+  `Idempotency-Key` per opening, reused on retry; server errors inside with Reload order; `RECEIPT_EXCEEDS_OUTSTANDING` lists every
+  offending line, and the form marks each one's quantity input.
 - After success: the order and its receipts reload; a status message "Receipt recorded."
 
 ## Cancel dialog (`CancelDialog.tsx`, changed)

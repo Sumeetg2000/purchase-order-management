@@ -2,7 +2,9 @@
 
 - **Status:** Accepted · 2026-10-16 (store-vs-calculate confirmed by owner) · amended
   2026-10-20 (database-role, request-body and attack-suite details moved here from the
-  constitution) · amended 2026-11-12 (the recompute count is per line statement; slice 3)
+  constitution) · amended 2026-11-12 (the recompute count is per line statement; slice 3) · amended 2026-11-24 (received
+  quantity maintained from receipts, its guard and reconciliation; the open-line
+  recompute split from the total's; slice 6 plan, **owner sign-off** 2026-11-24)
 - **Brief:** §3.3, §3.6, §4, §6 · Gaps G5, G10, Q6
 - **Principles:** I, VII
 
@@ -27,7 +29,15 @@ stored and kept in sync, and how drift is made impossible under a direct bypass.
   `total` or `open_line_count` changes without the recompute function's transaction-local
   flag. It does nothing for status or timestamp updates.
 - The receipt trigger locks the line row before checking `received ≤ ordered`.
-- The reconciliation query recomputes all three (and checks INV-1 to INV-6) and must
+  *Amended 2026-11-24 (slice 6 plan, **owner sign-off** 2026-11-24)*: `received_quantity` is written only by
+  the statement-level `AFTER INSERT` trigger on receipts, in one set-based update per
+  statement under its own transaction-local flag; a row guard on lines raises
+  `DERIVED_VALUE_READ_ONLY` (`PO005`) for any other write, any role. When only received
+  quantity changes, the trigger recomputes `open_line_count` alone (a separate
+  open-line recompute, once per statement), never the total. A receipt leaves `version`
+  alone. The database rules on receipts (D12–D17) are in ADR-0001.
+- The reconciliation query recomputes all three (and checks INV-1 to INV-6; from slice 6,
+  INV-3 compares each line's received quantity with the sum of its receipts) and must
   return zero rows after the full test suite, after every load-test seed and after every
   integrity-attack attempt.
 
@@ -53,7 +63,9 @@ and as a privileged role:
 - `UPDATE … SET total` (app role → permission denied; privileged role →
   `DERIVED_VALUE_READ_ONLY`)
 - changing lines without the order, or deleting the last line
-- over-receiving, or updating or deleting a receipt
+- over-receiving, or updating or deleting a receipt; writing `received_quantity`
+  directly; a receipt on a non-approved order, by someone other than the owner, dated
+  before approval or more than a day ahead
 - deleting a non-draft order
 - changing a locked order's lines or vendor
 - fractional-price drift: `0.1 × 3 lines = 0.3000`; `7 × 0.0125 = 0.0875`; 500 fractional
@@ -73,5 +85,6 @@ and as a privileged role:
 ## Tests
 The integrity attack suite (app role → permission denied; privileged role →
 `DERIVED_VALUE_READ_ONLY`); trigger counts (a 500-line PATCH that only changes lines = 1 recompute, one that also
-adds and removes lines = 3; receipt = 0;
+adds and removes lines = 3; receipt = 0, with one open-line recompute for a 1-line or a
+500-line receipt;
 status update = 0); reconciliation = 0 rows after the suites and seeds.

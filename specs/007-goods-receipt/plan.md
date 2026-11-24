@@ -15,7 +15,7 @@ ordered on any path, however requests interleave:
   **[steer]**
 - the database refuses received > ordered on every insert path, receipts on non-approved
   orders, receipts not by the owner, dates before approval, and any receipt change
-  (D12–D16)
+  (D12–D17)
 - lock order: key → order → lines (id asc) → the caller's user row **[steer]**
 - set-based writes: one insert for the receipts, one for their audit entries **[steer]**
 - slice 5's deferrals: `ORDER_FULLY_RECEIVED` on cancel (service and D10), the received
@@ -41,7 +41,7 @@ unique key on `order_lines`, 4 triggers, 1 function, 1 guard, D10 extended,
 `idempotency_keys` CHECK widened, reconciliation INV-3.
 
 **Testing**: Vitest + Supertest + Testcontainers PostgreSQL 17 (no DB mocks): receipts
-service and route; integrity attacks (D12–D16, the `received_quantity` guard, as `po_app`
+service and route; integrity attacks (D12–D17, the `received_quantity` guard, as `po_app`
 and as a privileged role, ending in reconciliation); concurrency (R11's eight races, 10
 runs each); authorization matrix (receipt row × callers × states; the receipts read);
 state machine (receipt refused per state; T10's fully-received guard); trigger
@@ -90,7 +90,7 @@ dialogs changed or added, 1 section, 1 badge.
 
 **Re-check after Phase 1 design**: PASS, no deviation. ADR updates are written only
 after the owner signs off research R13: ADR-0001 (D10's fully-received branch live; no
-status change on full receipt), ADR-0003 (D12–D16, the guard, the split recompute,
+status change on full receipt), ADR-0003 (D12–D17, the guard, the split recompute,
 INV-3), ADR-0004 (precedence note for receipts), ADR-0006 (receipt lock row), ADR-0007
 (field codes, error details), ADR-0012 (fixture receipt mix), ADR-0016 (payload,
 `openOrders`).

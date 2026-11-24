@@ -9,7 +9,7 @@
   the Admin message on order writes) · amended 2026-11-17 (slice 4, **owner decision**:
   the Buyer+Approver order list stays combined; the approval queue holds only orders the
   caller may approve) · amended 2026-11-17 (slice 4 plan, **owner decision**: cells S1–S7,
-  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock) · amended 2026-11-20 (cancel row: a pure Buyer gets route-level `403 FORBIDDEN`; the `SELF_APPROVAL` detail per action; the owner-can't-act marker on approved orders; the canceller's name readable; **owner sign-off**; slice 5) · amended 2026-11-24 (receipt row: a pure Approver gets route-level `403 FORBIDDEN`, checked before the order is looked up; **owner decision**; slice 6)
+  role-specific `FORBIDDEN` messages, the acting Approver re-checked under lock) · amended 2026-11-20 (cancel row: a pure Buyer gets route-level `403 FORBIDDEN`; the `SELF_APPROVAL` detail per action; the owner-can't-act marker on approved orders; the canceller's name readable; **owner sign-off**; slice 5) · amended 2026-11-24 (receipt row: a pure Approver gets route-level `403 FORBIDDEN`, checked before the order is looked up; **owner decision**; slice 6) · amended 2026-11-24 (receipt check order; slice 6 plan, **owner sign-off** 2026-11-24)
 - **Brief:** §2, §6 · Gaps G3, G18, G22, G24, Q3a, Q3b
 - **Principles:** III, X
 
@@ -71,6 +71,14 @@ let any buyer edit any draft (lesson 3).
   7. `409`: state, version, business rule
 - Authorization is checked in the service layer against the order loaded **under lock** in
   the command's transaction.
+- **Receipts** (amended 2026-11-24, slice 6 plan, **owner sign-off** 2026-11-24): `401` → `403 NO_ROLE_ASSIGNED` →
+  `403 FORBIDDEN` by role → `400` shape (`DATE_IN_FUTURE` included, from the injected
+  clock) → `409 IDEMPOTENCY_KEY_REUSED` or a replay → `404` → `403 NOT_ORDER_OWNER` →
+  the caller re-checked under lock (`401 ACCOUNT_DEACTIVATED`, `403 FORBIDDEN`) →
+  `409 ORDER_NOT_RECEIVABLE` → `400 LINE_NOT_FOUND`, then `400 DATE_BEFORE_APPROVAL` →
+  `409 RECEIPT_EXCEEDS_OUTSTANDING`. The two `400`s after a `409` are an exception to
+  the order above: which lines exist and the approval date are order data, read under
+  the lock, and a draft or pending order has no approval date.
 
 ## Authorization matrix
 Every cell is tested, for each order state, and for unauthenticated callers. Changing a

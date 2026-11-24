@@ -22,7 +22,7 @@ recordReceiptBody = z.strictObject({
   receivedAt: isoDate,                       // 'YYYY-MM-DD'
   note: plainText(0, 500).nullable().optional(),
   lines: z.array(z.strictObject({ lineId: uuid, quantity: int(1, 1_000_000) }))
-          .min(1).max(500),                  // DUPLICATE_LINE_ID refined
+          .min(1).max(500),                  // the same lineId twice: DUPLICATE_LINE_ID
 });
 recordedReceipt = { receivedAt, recordedAt, note, receiptProgress,
   receipts: [{ id, lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter }] };
@@ -63,5 +63,6 @@ ORDER_NOT_RECEIVABLE`, `409 RECEIPT_EXCEEDS_OUTSTANDING`, `503`.
   (`ReceiptProgress`).
 - New required response properties on `Order`, `OrderLine`, `OrderListItem`,
   `AdminUserDetail`; new error responses on `cancelOrder`.
-- No removed or narrowed field, no changed enum: the `breaking` check is expected to pass
-  without the label.
+- New `FieldCode` values (`DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL`) in error responses:
+  the `breaking` check is expected to flag them and need the label, as in slice 5. No
+  field is removed or narrowed.

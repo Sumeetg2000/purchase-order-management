@@ -12,7 +12,7 @@ attack tests are seen failing on part 1. Decisions in [research.md](research.md)
 | `order_id` | `uuid` NOT NULL | with `line_id`: FK `order_lines (id, order_id)`, `ON DELETE RESTRICT` |
 | `line_id` | `uuid` NOT NULL | see above |
 | `quantity` | `integer` NOT NULL | CHECK `quantity BETWEEN 1 AND 1000000` |
-| `received_at` | `date` NOT NULL | the India receipt date; ≥ the order's approval date in India time (D14); "not after today" is the service's (R4) |
+| `received_at` | `date` NOT NULL | the India receipt date; ≥ the order's approval date in India time (D14); ≤ the database's India date + 1 day (D17, a backstop); the exact "not after today" is the service's (R4) |
 | `recorded_at` | `timestamptz` NOT NULL | set to `now()` by the insert trigger, whatever is sent |
 | `recorded_by` | `uuid` NOT NULL | FK `users`; the order's owner and the actor in context (D13) |
 | `note` | `text` NULL | CHECK plain text, 0–500 characters (the reason rule's character set) |
@@ -45,7 +45,7 @@ DESC, id DESC)`, `receipts_line_idx (line_id)`, `receipts_recorded_by_idx
 | Object | Kind | Does |
 |---|---|---|
 | `receipts_before_insert` | row, `BEFORE INSERT` | sets `recorded_at := now()` |
-| `receipts_after_insert` | statement, `AFTER INSERT`, `new_receipts` | D12, D13, D14, D15 (research R2 steps 1–4); one set-based line update |
+| `receipts_after_insert` | statement, `AFTER INSERT`, `new_receipts` | D12, D13, D14, D17, D15 (research R2 steps 1–4); one set-based line update |
 | `receipts_immutable` | statement, `BEFORE UPDATE OR DELETE OR TRUNCATE` | D16 `PO023` |
 | `require_actor_context` | statement | as on every audited table |
 | `recompute_open_lines(uuid[])` | function, `SECURITY DEFINER` | locks the orders in id order, writes `open_line_count` only, counts runs in `po.open_line_recompute_count` |
@@ -53,7 +53,7 @@ DESC, id DESC)`, `receipts_line_idx (line_id)`, `receipts_recorded_by_idx
 
 SQLSTATEs (mapped once in `backend/src/db/errors.ts`): `PO020 ORDER_NOT_RECEIVABLE`,
 `PO021 RECEIPT_NOT_BY_OWNER`, `PO022 RECEIPT_EXCEEDS_ORDERED`, `PO023 RECEIPT_IMMUTABLE`,
-`PO024 RECEIPT_BEFORE_APPROVAL`. As for every class-PO SQLSTATE, each means the service
+`PO024 RECEIPT_BEFORE_APPROVAL`, `PO025 RECEIPT_DATE_TOO_LATE`. As for every class-PO SQLSTATE, each means the service
 let through something it should have refused (it checks the same rules first, under the
 same locks), so each maps to `INTERNAL_ERROR`, logged with its name.
 

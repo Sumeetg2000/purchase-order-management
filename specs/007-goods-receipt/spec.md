@@ -122,7 +122,7 @@ audit entries.
 
 A delivery often covers several lines. The Buyer records it as one receipt command naming
 each line and its quantity. Either every line is recorded or none is: if any line would
-exceed what is outstanding, the whole command is refused, naming that line.
+exceed what is outstanding, the whole command is refused, naming every such line.
 
 **Why this priority**: The brief requires that over-receipt is refused (§3.6), and a
 delivery recorded half-way would leave the record misleading.
@@ -332,7 +332,8 @@ update response, and in both dialogs.
   date, recorded-at time (database clock) and the recording user.
 - **FR-002** (FR-RCV-01): A receipt command MUST be all-or-nothing: if any line would
   exceed its outstanding quantity, it MUST be refused with `409
-  RECEIPT_EXCEEDS_OUTSTANDING` naming that line, and nothing MUST be recorded.
+  RECEIPT_EXCEEDS_OUTSTANDING` naming every such line (position, outstanding, quantity
+  asked), and nothing MUST be recorded.
 - **FR-003** (FR-RCV-02): Each line's received quantity MUST always equal the sum of its
   receipts, and its outstanding quantity MUST equal ordered minus received and never be
   negative, on every path, raw SQL as the application's role included (INV-3, INV-4).

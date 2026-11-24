@@ -34,10 +34,11 @@ everything needing the owner's sign-off is listed in R13.
   1. locks the receipts' orders in id order (`FOR NO KEY UPDATE`; a no-op under the
      service's `FOR UPDATE`) and refuses a non-`APPROVED` order (D12);
   2. refuses a receipt not recorded by the order's owner as the actor in context (D13),
-     or dated before the order's approval date in India time (D14);
+     or dated before the order's approval date in India time (D14), or after the
+     database's India date + 1 day (D17, a loose backstop);
   3. locks the affected lines in id order `FOR UPDATE`, and refuses any line whose
      `received_quantity + Σ new quantity > quantity`, naming the first such line by
-     position (`PO022`); the CHECK stays as a last net;
+     position in the message (`PO022`; the service lists every one first); the CHECK stays as a last net;
   4. sets the transaction-local flag `po.receipts` and runs **one** `UPDATE order_lines …
      FROM (SELECT line_id, sum(quantity) … GROUP BY line_id)`, then clears the flag.
   - A new row-level guard on `order_lines` refuses any change to `received_quantity`
@@ -75,12 +76,16 @@ everything needing the owner's sign-off is listed in R13.
 | **D14** | a `received_at` before the order's approval date (India time) | `PO024 RECEIPT_BEFORE_APPROVAL` |
 | **D15** | received above ordered, on any insert path | `PO022 RECEIPT_EXCEEDS_ORDERED` |
 | **D16** | any `UPDATE`, `DELETE` or `TRUNCATE` of `receipts`, any role | `PO023 RECEIPT_IMMUTABLE` |
+| **D17** | a `received_at` after the database's India date + 1 day (signed off 2026-11-24) | `PO025 RECEIPT_DATE_TOO_LATE` |
 | **D10 extended** | `APPROVED → CANCELLED` while `open_line_count = 0` (fully received) | `PO019 ORDER_CANCEL_REFUSED` |
 | guard | `received_quantity` written outside R2's trigger | `PO005 DERIVED_VALUE_READ_ONLY` |
 
-- **Not in the database**: "not after today". Today depends on a clock the tests inject
-  into the app; a database check on its own clock would contradict an injected date
-  near midnight. The service refuses it (`400 DATE_IN_FUTURE`) from the injected clock.
+- **"Not after today"**: exact in the service only (`400 DATE_IN_FUTURE`, from the
+  injected clock); a database check on its own clock would contradict an injected date
+  near midnight. The database keeps a loose backstop (D17, owner sign-off): `received_at
+  ≤ (now() AT TIME ZONE 'Asia/Kolkata')::date + 1`, so raw SQL can't record a date far in
+  the future, and a test clock one day ahead still passes. The time-zone literal is
+  pinned to `RECEIPT_TIME_ZONE` by a test, as for D14.
 - **Full receipt doesn't change the order's status.** An order stays `APPROVED` when its
   last line is fully received; receipt progress is derived (ADR-0001, unchanged). No
   transition is added, and the state table is untouched; only T10's "not fully
@@ -101,7 +106,9 @@ everything needing the owner's sign-off is listed in R13.
      any lookup (pure Approver: "Approvers can review orders but not change them.";
      Admin: "Admins can view orders but not change them.")
   2. `400` shape: strict body; `Idempotency-Key` (`REQUIRED`/`INVALID_FORMAT`); 1–500
-     lines; `DUPLICATE_LINE_ID`; quantity; note; `receivedAt` a date not after today in
+     lines; the same line twice → `DUPLICATE_LINE_ID` on the later entry's `lineId`;
+     quantity a whole number 1–1,000,000 (`INVALID_FORMAT` for a non-integer,
+     `OUT_OF_RANGE` for 0, negative or above the maximum, as for line quantities); note; `receivedAt` a date not after today in
      India time (`DATE_IN_FUTURE`, injected clock)
   3. key claim: replay → the stored response; another body → `409 IDEMPOTENCY_KEY_REUSED`
   4. lock order: unreadable → `404`; readable, not the owner (a Buyer+Approver on a
@@ -112,8 +119,9 @@ everything needing the owner's sign-off is listed in R13.
   7. a line id not on this order → `400 LINE_NOT_FOUND` (after the lock: which lines
      exist is order data)
   8. `receivedAt` before the approval date in India time → `400 DATE_BEFORE_APPROVAL`
-  9. lock the lines; over-receipt → `409 RECEIPT_EXCEEDS_OUTSTANDING`, naming the first
-     offending line by position, with its outstanding and the quantity asked
+  9. lock the lines; over-receipt → `409 RECEIPT_EXCEEDS_OUTSTANDING`, listing every
+     offending line in position order, each with its outstanding and the quantity asked
+     (owner sign-off 2026-11-24)
   10. write (R6)
 - Steps 7 and 8 are `400`s after a `409`: they need the locked order, so they can't come
   before it; a draft or pending order has no approval date to compare.
@@ -151,8 +159,10 @@ everything needing the owner's sign-off is listed in R13.
 - Idempotency: `recordReceipt` joins `IDEMPOTENT_OPERATIONS` and the table's CHECK; the
   request hash covers the order id and the body, so the same key on another order is
   `IDEMPOTENCY_KEY_REUSED`.
-- Contract change is additive (new operations, new response fields, three registry codes
-  and two field codes going live). No enum a client already reads changes.
+- Contract change: new operations, new response fields, three registry codes going live.
+  The two new field codes are new values of the `FieldCode` enum in error responses, so
+  the `breaking` check is expected to flag them and need the label, as cancel's codes did
+  in slice 5 (owner, 2026-11-24).
 
 ## R8 Receipt progress and the received summary
 
@@ -228,19 +238,20 @@ which exists; a plan test at the busiest Buyer proves it.
   the cancelled order partly received, all through the receipt service (README's reset
   note covers it; no `.env` change).
 
-## R13 Sign-off needed
+## R13 Sign-off (signed off by the owner 2026-11-24, items 3 and 5 changed as above)
 
 1. **ADR-0006 receipt lock row**: key → order → lines (id asc) → caller's `users` row
    `FOR SHARE` (R5), the caller re-checked under lock.
-2. **New database rules D12–D16** and SQLSTATEs `PO020`–`PO024`; **D10 extended** to
+2. **New database rules D12–D17** and SQLSTATEs `PO020`–`PO025`; **D10 extended** to
    refuse cancelling a fully received order (`PO019`); the `received_quantity` guard
    (`PO005`) (R2, R4). Recorded in ADR-0001 and ADR-0003.
-3. **"Not after today" in the service only**, not the database (R4).
+3. **"Not after today"** exact in the service; the database's loose backstop D17
+   (`PO025`, India date + 1 day) (R4).
 4. **Check order** for receipts, with `LINE_NOT_FOUND` and `DATE_BEFORE_APPROVAL` after
    the state `409` (R5); ADR-0004's precedence note.
 5. **Two new field codes**: `DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL` (ADR-0007); the
-   three registry codes go live with their details: `RECEIPT_EXCEEDS_OUTSTANDING` names
-   `lineId`, `position`, `outstanding`, `requested`; `ORDER_NOT_RECEIVABLE` carries
+   three registry codes go live with their details: `RECEIPT_EXCEEDS_OUTSTANDING` lists
+   every offending line (`lineId`, `position`, `outstanding`, `requested`); `ORDER_NOT_RECEIVABLE` carries
    `orderState.status`; `ORDER_FULLY_RECEIVED` has no extra field.
 6. **Four indexes** (R10).
 7. **Plan fixture receipt mix** (ADR-0012): of the 89,000 approved orders, 45,000 fully
