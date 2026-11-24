@@ -14,8 +14,8 @@ ordered on any path, however requests interleave:
   receipt inserts, guarded, and in reconciliation (INV-3), like `open_line_count`
   **[steer]**
 - the database refuses received > ordered on every insert path, receipts on non-approved
-  orders, receipts not by the owner, dates before approval, and any receipt change
-  (D12–D17)
+  orders, receipts not by the owner, dates before approval, dates more than a day past
+  its India date (backstop), and any receipt change (D12–D17)
 - lock order: key → order → lines (id asc) → the caller's user row **[steer]**
 - set-based writes: one insert for the receipts, one for their audit entries **[steer]**
 - slice 5's deferrals: `ORDER_FULLY_RECEIVED` on cancel (service and D10), the received
@@ -56,7 +56,7 @@ MSW; Playwright + axe.
 
 **Performance Goals**: ADR-0012: single-line receipt p95 ≤ 150 ms, 500-line receipt p95
 ≤ 500 ms, 50 timed runs after 3 warm-up; every page-1 list plan still stops at its page
-with the badge probe; receipt history page 1 and the Admin's counts at the busiest Buyer
+with the badge probe; receipt history page 1 and its count, and the Admin's counts at the busiest Buyer
 planned.
 
 **Constraints**: every receipt rule in the database; `users` locked last; contract

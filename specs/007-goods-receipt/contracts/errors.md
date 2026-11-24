@@ -32,12 +32,16 @@ Reused: `REQUIRED`, `INVALID_FORMAT` (header and date), `OUT_OF_RANGE` (quantity
 
 ## Order of checks (ADR-0004 precedence; research R5)
 
+All locks are taken first (key → order → lines id asc → the caller's `users` row
+`FOR SHARE`); the checks from step 4 on are then evaluated in this order on the locked
+rows. Codes unchanged.
+
 1. `401` → `403 NO_ROLE_ASSIGNED` → `403 FORBIDDEN` by role (pure Approver, Admin, no
    BUYER), before validation and lookup
 2. `400` shape, `DATE_IN_FUTURE` (injected clock)
 3. `409 IDEMPOTENCY_KEY_REUSED` / replay
 4. `404` → `403 NOT_ORDER_OWNER`
-5. under lock, the caller: `401 ACCOUNT_DEACTIVATED`, `403 FORBIDDEN`
+5. the caller's locked row: `401 ACCOUNT_DEACTIVATED`, `403 FORBIDDEN`
 6. `409 ORDER_NOT_RECEIVABLE`
 7. `400 LINE_NOT_FOUND`, then `400 DATE_BEFORE_APPROVAL`
 8. `409 RECEIPT_EXCEEDS_OUTSTANDING` (every offending line)

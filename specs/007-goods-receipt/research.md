@@ -101,6 +101,10 @@ everything needing the owner's sign-off is listed in R13.
   a key, so no cycle can form (as for create, ADR-0006).
 - **Cancel** keeps its row (order → acting Approver), and now reads `open_line_count`
   under the order lock: a receipt and a cancel serialize on the order.
+- **Locks first, then checks**: every lock is taken in the order above before any
+  check that needs one is evaluated; the checks below are then evaluated in the same
+  precedence on the locked rows. The codes and outcomes are unchanged; no path locks
+  the caller's `users` row before the lines.
 - **Check order** (ADR-0004 precedence):
   1. `401`; `403 NO_ROLE_ASSIGNED`; `403 FORBIDDEN` by role, before validation and before
      any lookup (pure Approver: "Approvers can review orders but not change them.";
@@ -111,15 +115,16 @@ everything needing the owner's sign-off is listed in R13.
      `OUT_OF_RANGE` for 0, negative or above the maximum, as for line quantities); note; `receivedAt` a date not after today in
      India time (`DATE_IN_FUTURE`, injected clock)
   3. key claim: replay → the stored response; another body → `409 IDEMPOTENCY_KEY_REUSED`
-  4. lock order: unreadable → `404`; readable, not the owner (a Buyer+Approver on a
-     non-draft) → `403 NOT_ORDER_OWNER`
-  5. lock the caller's row: deactivated → `401 ACCOUNT_DEACTIVATED`; BUYER removed →
+  4. take the locks (order → lines → the caller's row, above); the order unreadable →
+     `404`; readable, not the owner (a Buyer+Approver on a non-draft) →
+     `403 NOT_ORDER_OWNER`
+  5. the caller's locked row: deactivated → `401 ACCOUNT_DEACTIVATED`; BUYER removed →
      `403 FORBIDDEN`
   6. not `APPROVED` → `409 ORDER_NOT_RECEIVABLE` (`orderState.status`)
   7. a line id not on this order → `400 LINE_NOT_FOUND` (after the lock: which lines
      exist is order data)
   8. `receivedAt` before the approval date in India time → `400 DATE_BEFORE_APPROVAL`
-  9. lock the lines; over-receipt → `409 RECEIPT_EXCEEDS_OUTSTANDING`, listing every
+  9. on the locked lines, over-receipt → `409 RECEIPT_EXCEEDS_OUTSTANDING`, listing every
      offending line in position order, each with its outstanding and the quantity asked
      (owner sign-off 2026-11-24)
   10. write (R6)
@@ -133,7 +138,10 @@ everything needing the owner's sign-off is listed in R13.
     the rows;
   - one `INSERT INTO audit_entries … SELECT … FROM unnest(…)` for the
     `GOODS_RECEIPT_RECORDED` entries (a new `writeAuditBatch`, beside `writeAudit`);
-  - before and after quantities come from the lines read under lock, so no read-back.
+  - before and after quantities come from the lines read under lock, so no read-back;
+  - the response's `receiptProgress` is computed, not read back: `FULLY_RECEIVED` if the
+    order's `open_line_count` read under the order lock minus the lines this receipt
+    completes is 0, else `PARTIALLY_RECEIVED` (any receipt makes it at least partial).
 - **Statements per command**: key claim, order lock, line lock and read, user lock,
   receipts insert, audit insert, key completion: 7, for 1 line or 500. A query-count
   test pins it.
@@ -191,7 +199,7 @@ everything needing the owner's sign-off is listed in R13.
 
 | Index | Serves |
 |---|---|
-| `receipts (order_id, recorded_at DESC, id DESC)` | the receipt history page (R7) and the list badge's EXISTS (R9) |
+| `receipts (order_id, recorded_at DESC, id DESC)` | the receipt history page and its `COUNT` (R7), and the list badge's EXISTS (R9); both history plans committed |
 | `receipts (line_id)` | INV-3 in reconciliation, the composite foreign key's checks |
 | `receipts (recorded_by)` | the foreign key to `users` (as `cancelled_by`, slice 5) |
 | `order_lines UNIQUE (id, order_id)` | the target of R1's composite foreign key |
