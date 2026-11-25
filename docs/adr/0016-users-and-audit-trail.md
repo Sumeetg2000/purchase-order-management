@@ -12,7 +12,7 @@
   amended 2026-11-17 (approval payloads carry the round; `PO_SUBMITTED` the vendor
   snapshot; slice 4 plan) · amended 2026-11-20 (`PO_CANCELLED` details named; slice 5 plan) · amended
   2026-11-24 (`GOODS_RECEIPT_RECORDED` carries both receipt dates; owner decision; slice 6) ·
-  amended 2026-11-24 (the receipt payload and the Admin's open-order counts; slice 6 plan, **owner sign-off** 2026-11-24)
+  amended 2026-11-24 (the receipt payload and the Admin's open-order counts; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (`GOODS_RECEIPT_RECORDED` per receipt line, `receivedOn`; ADR-0011)
 - **Brief:** §2, §6 ("every action tied to a real, authenticated user"; "structured trace")
 - **Principles:** III, IV, IX, X
 
@@ -219,7 +219,7 @@ A database `CHECK` ties the actor fields to `actorType`:
 | `PO_WITHDRAWN` | round, reason, voided steps (each with any earlier decision) |
 | `PO_DRAFT_DELETED` | full contents (vendor, lines, total), reason. *Amended 2026-11-16 (owner decision):* the PO number is the entry's `poNumber` column, as for `PO_CREATED`, not repeated in `details` |
 | `PO_CANCELLED` | reason, per line ordered and received. *Amended 2026-11-20 (slice 5 plan)*: actor `USER` acting as `APPROVER`; `details`: `round`, `reason`, `lines` (`lineId`, `position`, `quantity`, `receivedQuantity`) in position order |
-| `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter`. *Amended 2026-11-24 (slice 6 spec)*: also `receivedAt` (the India receipt date) and `recordedAt` (database clock). *Amended 2026-11-24 (slice 6 plan, **owner sign-off** 2026-11-24)*: one entry per receipt row, actor `USER` acting as `BUYER`; `details`: `receiptId`, `lineId`, `position`, `quantity`, `receivedBefore`, `receivedAfter`, `outstandingAfter`, `receivedAt`, `recordedAt`, `note`; written in one statement per command |
+| `GOODS_RECEIPT_RECORDED` | line, quantity, `receivedBefore`, `receivedAfter`, `outstandingAfter`. *Amended 2026-11-24 (slice 6 spec)*: also `receivedAt` (the India receipt date) and `recordedAt` (database clock). *Amended 2026-11-24 (slice 6 plan, **owner sign-off** 2026-11-24)*: one entry per receipt row, actor `USER` acting as `BUYER`; `details`: `receiptId`, `lineId`, `position`, `quantity`, `receivedBefore`, `receivedAfter`, `outstandingAfter`, `receivedAt`, `recordedAt`, `note`; written in one statement per command. *Amended 2026-11-25 (receipt document, ADR-0011)*: one entry per receipt line; `receiptId` is the receipt's id, shared by the entries of one receipt; `receivedAt` renamed `receivedOn` |
 | `VENDOR_CREATED` / `VENDOR_UPDATED` / `VENDOR_DEACTIVATED` / `VENDOR_REACTIVATED` | before → after(full vendor, contact name, email and phone included; see below) |
 | `APPROVAL_POLICY_CHANGED` | actorType `OPERATOR`; policy version and tiers before → after; `osUser`, `host` |
 | `USER_SIGNED_UP` | user id, email domain, initial role set |

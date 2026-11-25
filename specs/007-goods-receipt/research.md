@@ -3,43 +3,63 @@
 Decisions for `specs/007-goods-receipt`. Owner steer (2026-11-24) is marked **[steer]**;
 everything needing the owner's sign-off is listed in R13.
 
-## R1 The receipts table
+## R1 The receipt document: `goods_receipts` and `goods_receipt_lines` (owner, 2026-11-25)
 
-- **Decision**: one table, `receipts`, one row per line per receipt command:
-  `id uuid` (default `gen_random_uuid()`), `order_id uuid`, `line_id uuid`, `quantity
-  integer` (CHECK 1–1,000,000, the line quantity rule), `received_at date` (the India
-  receipt date), `recorded_at timestamptz` (set to `now()` by the insert trigger whatever
-  the caller sends, so every receipt of one command shares it), `recorded_by uuid` (FK
-  `users`), `note text NULL` (CHECK: plain text, 0–500 characters, no control characters
-  but line breaks, as the reason rule).
-  - `(line_id, order_id)` references `order_lines (id, order_id)`, so a receipt's order
-    is always its line's order; `order_lines` gains `UNIQUE (id, order_id)` for it.
-  - `po_app`: `SELECT`, and `INSERT (order_id, line_id, quantity, received_at,
-    recorded_by, note)` only; no `UPDATE`, `DELETE` or `TRUNCATE`.
-  - The `require_actor_context` statement trigger, as on every audited table.
-- **Rationale**: the brief asks for receipt events over time (§4), not a flag. Carrying
-  `order_id` answers "has this order any receipt" (the list badge, R9) and the receipt
-  history (R8) from one index without reading lines; the composite key makes the copy
-  impossible to get wrong.
-- **Alternatives**: `line_id` only (every per-order question joins lines: a 500-line
-  order reads 500 index entries for one EXISTS); a receipt-command table with child rows
-  (the brief's event is per line; a header row adds a table and a join for no rule).
+- **Decision**: a receipt is a document, as a goods received note (GRN) is: one header
+  per delivery and one row per line it covers.
+  - `goods_receipts`: `id uuid` (default `gen_random_uuid()`), `order_id uuid` (FK
+    `purchase_orders`), `received_on date` (the India receipt date; a date, beside the
+    `recorded_at` timestamp), `recorded_at timestamptz` (set to `now()` by the insert
+    trigger whatever the caller sends), `recorded_by uuid` (FK `users`), `note text NULL`
+    (CHECK: trimmed plain text of 1–500 characters, no control characters but line
+    breaks, as the reason rule; absent is `NULL`). `UNIQUE (id, order_id)`, the target
+    of the lines' receipt key.
+  - `goods_receipt_lines`: `receipt_id uuid`, `order_id uuid`, `line_id uuid`, `quantity
+    integer` (CHECK 1–1,000,000, the line quantity rule); primary key `(receipt_id,
+    line_id)`, so a receipt names a line once.
+  - Two composite keys keep every line on the receipt's order: `(receipt_id, order_id)`
+    references `goods_receipts (id, order_id)` and `(line_id, order_id)` references
+    `order_lines (id, order_id)` (`order_lines` gains `UNIQUE (id, order_id)`), both `ON
+    DELETE RESTRICT`.
+  - A receipt has at least one line, and its lines are written with it: the header's
+    statement trigger refuses a receipt with no line (`23514`, constraint
+    `goods_receipts_has_lines`), and the lines' trigger refuses a line added to a receipt
+    recorded in an earlier transaction (`PO023`, D16). The service writes both in **one**
+    statement, a CTE (R6).
+  - `po_app`: `SELECT` on both; `INSERT (order_id, received_on, recorded_by, note)` on
+    `goods_receipts` and `INSERT (receipt_id, order_id, line_id, quantity)` on
+    `goods_receipt_lines`; no `UPDATE`, `DELETE` or `TRUNCATE` on either.
+  - The `require_actor_context` statement trigger on both, as on every audited table.
+- **Rationale**: the date, the note and the recorder belong to the delivery, not to each
+  line, so they are stored once; the history lists deliveries with their lines (R7);
+  the audit entries of one delivery share its id. Carrying `order_id` on both tables
+  answers "has this order any receipt" (the list badge, R9) and the history from one
+  index without reading lines; the composite keys make the copies impossible to get
+  wrong.
+- **Alternatives**: one flat `receipts` table, a row per line per command (the first
+  plan: date, note and recorder repeated per line, and nothing but a shared
+  `recorded_at` grouping one delivery's lines); `line_id` only on the lines (every
+  per-order question joins lines: a 500-line order reads 500 index entries for one
+  EXISTS).
 
 ## R2 Received quantity: stored, maintained by a statement trigger, guarded [steer]
 
 - **Decision**: `order_lines.received_quantity` (it exists since slice 3, with `CHECK
-  (received_quantity BETWEEN 0 AND quantity)`) is maintained by `receipts_after_insert`,
-  an `AFTER INSERT … FOR EACH STATEMENT` trigger with a `new_receipts` transition table,
-  `SECURITY DEFINER` (runs as `po_owner`). Per statement it:
-  1. locks the receipts' orders in id order (`FOR NO KEY UPDATE`; a no-op under the
-     service's `FOR UPDATE`) and refuses a non-`APPROVED` order (D12);
-  2. refuses a receipt not recorded by the order's owner as the actor in context (D13),
-     or dated before the order's approval date in India time (D14), or after the
-     database's India date + 1 day (D17, a loose backstop);
-  3. locks the affected lines in id order (`FOR NO KEY UPDATE`: a no-op under the service's
-     `FOR UPDATE`, and no deadlock with a raw insert's foreign-key `KEY SHARE`), and refuses any line whose
-     `received_quantity + Σ new quantity > quantity`, naming the first such line by
-     position in the message (`PO022`; the service lists every one first); the CHECK stays as a last net;
+  (received_quantity BETWEEN 0 AND quantity)`) is maintained by
+  `goods_receipt_lines_after_insert`, an `AFTER INSERT … FOR EACH STATEMENT` trigger on
+  `goods_receipt_lines` with a `new_lines` transition table, `SECURITY DEFINER` (runs as
+  `po_owner`). The receipt rules all live there, read through each line's receipt (every
+  receipt has a line, R1). Per statement it:
+  1. locks the lines' orders in id order, then the lines in id order (both `FOR NO KEY
+     UPDATE`: no-ops under the service's `FOR UPDATE`, and no deadlock with a raw
+     insert's foreign-key `KEY SHARE`); every lock is taken before any check;
+  2. refuses a line added to a receipt recorded in an earlier transaction (D16), a
+     non-`APPROVED` order (D12), a receipt not recorded by the order's owner as the actor
+     in context (D13), dated before the order's approval date in India time (D14), or
+     after the database's India date + 1 day (D17, a loose backstop);
+  3. refuses any line whose `received_quantity + Σ new quantity > quantity`, summed over
+     every receipt in the statement, naming the first such line by position in the
+     message (`PO022`; the service lists every one first); the CHECK stays as a last net;
   4. sets the transaction-local flag `po.receipts` and runs **one** `UPDATE order_lines …
      FROM (SELECT line_id, sum(quantity) … GROUP BY line_id)`, then clears the flag.
   - A new row-level guard on `order_lines` refuses any change to `received_quantity`
@@ -49,10 +69,10 @@ everything needing the owner's sign-off is listed in R13.
   - The database therefore refuses received > ordered on **every** insert path, raw SQL
     as `po_app` or as `po_owner` included; the service's check exists only to name the
     line in a `409`.
-- **Reconciliation**: INV-3 (`received_quantity = Σ receipts.quantity` per line) joins
+- **Reconciliation**: INV-3 (`received_quantity = Σ goods_receipt_lines.quantity` per line) joins
   the reconciliation query, beside INV-4 and INV-6.
 - **Rationale**: stored like the total and the open line count (ADR-0003), so the order
-  read, the list badge and slice 7's report never sum 1.5M receipts.
+  read, the list badge and slice 7's report never sum 1.5M receipt lines.
 
 ## R3 Open line count: recomputed once per receipt statement, total never
 
@@ -74,16 +94,16 @@ everything needing the owner's sign-off is listed in R13.
 |---|---|---|
 | **D12** | a receipt on an order that isn't `APPROVED` | `PO020 ORDER_NOT_RECEIVABLE` |
 | **D13** | a receipt whose `recorded_by` isn't the order's owner, or isn't the actor in context | `PO021 RECEIPT_NOT_BY_OWNER` |
-| **D14** | a `received_at` before the order's approval date (India time) | `PO024 RECEIPT_BEFORE_APPROVAL` |
+| **D14** | a `received_on` before the order's approval date (India time) | `PO024 RECEIPT_BEFORE_APPROVAL` |
 | **D15** | received above ordered, on any insert path | `PO022 RECEIPT_EXCEEDS_ORDERED` |
-| **D16** | any `UPDATE`, `DELETE` or `TRUNCATE` of `receipts`, any role | `PO023 RECEIPT_IMMUTABLE` |
-| **D17** | a `received_at` after the database's India date + 1 day (signed off 2026-11-24) | `PO025 RECEIPT_DATE_TOO_LATE` |
+| **D16** | any `UPDATE`, `DELETE` or `TRUNCATE` of `goods_receipts` or `goods_receipt_lines`, any role; a line added to a receipt recorded in an earlier transaction | `PO023 RECEIPT_IMMUTABLE` |
+| **D17** | a `received_on` after the database's India date + 1 day (signed off 2026-11-24) | `PO025 RECEIPT_DATE_TOO_LATE` |
 | **D10 extended** | `APPROVED → CANCELLED` while `open_line_count = 0` (fully received) | `PO019 ORDER_CANCEL_REFUSED` |
 | guard | `received_quantity` written outside R2's trigger | `PO005 DERIVED_VALUE_READ_ONLY` |
 
 - **"Not after today"**: exact in the service only (`400 DATE_IN_FUTURE`, from the
   injected clock); a database check on its own clock would contradict an injected date
-  near midnight. The database keeps a loose backstop (D17, owner sign-off): `received_at
+  near midnight. The database keeps a loose backstop (D17, owner sign-off): `received_on
   ≤ (now() AT TIME ZONE 'Asia/Kolkata')::date + 1`, so raw SQL can't record a date far in
   the future, and a test clock one day ahead still passes. The time-zone literal is
   pinned to `RECEIPT_TIME_ZONE` by a test, as for D14.
@@ -113,7 +133,7 @@ everything needing the owner's sign-off is listed in R13.
   2. `400` shape: strict body; `Idempotency-Key` (`REQUIRED`/`INVALID_FORMAT`); 1–500
      lines; the same line twice → `DUPLICATE_LINE_ID` on the later entry's `lineId`;
      quantity a whole number 1–1,000,000 (`INVALID_FORMAT` for a non-integer,
-     `OUT_OF_RANGE` for 0, negative or above the maximum, as for line quantities); note; `receivedAt` a date not after today in
+     `OUT_OF_RANGE` for 0, negative or above the maximum, as for line quantities); note; `receivedOn` a date not after today in
      India time (`DATE_IN_FUTURE`, injected clock)
   3. key claim: replay → the stored response; another body → `409 IDEMPOTENCY_KEY_REUSED`
   4. take the locks (order → lines → the caller's row, above); the order unreadable →
@@ -124,7 +144,7 @@ everything needing the owner's sign-off is listed in R13.
   6. not `APPROVED` → `409 ORDER_NOT_RECEIVABLE` (`orderState.status`)
   7. a line id not on this order → `400 LINE_NOT_FOUND` (after the lock: which lines
      exist is order data)
-  8. `receivedAt` before the approval date in India time → `400 DATE_BEFORE_APPROVAL`
+  8. `receivedOn` before the approval date in India time → `400 DATE_BEFORE_APPROVAL`
   9. on the locked lines, over-receipt → `409 RECEIPT_EXCEEDS_OUTSTANDING`, listing every
      offending line in position order, each with its outstanding and the quantity asked
      (owner sign-off 2026-11-24)
@@ -135,8 +155,9 @@ everything needing the owner's sign-off is listed in R13.
 ## R6 Set-based writes [steer, from clarify]
 
 - **Decision**: per command, whatever its line count:
-  - one `INSERT INTO receipts … SELECT … FROM unnest($lineIds, $quantities)` `RETURNING`
-    the rows;
+  - **one** statement for the receipt: a CTE inserting the `goods_receipts` row and, from
+    its `RETURNING`, the `goods_receipt_lines` rows `SELECT … FROM unnest($lineIds,
+    $quantities)`, returning the receipt's id and `recorded_at`;
   - one `INSERT INTO audit_entries … SELECT … FROM unnest(…)` for the
     `GOODS_RECEIPT_RECORDED` entries (a new `writeAuditBatch`, beside `writeAudit`);
   - before and after quantities come from the lines read under lock, so no read-back;
@@ -144,21 +165,23 @@ everything needing the owner's sign-off is listed in R13.
     order's `open_line_count` read under the order lock minus the lines this receipt
     completes is 0, else `PARTIALLY_RECEIVED` (any receipt makes it at least partial).
 - **Statements per command**: key claim, order lock, line lock and read, user lock,
-  receipts insert, audit insert, key completion: 7, for 1 line or 500. A query-count
+  receipt insert (header and lines, one CTE), audit insert, key completion: 7, for 1 line or 500. A query-count
   test pins it.
 - The triggers add one line update and one open-line recompute per command (R2, R3).
 
 ## R7 API
 
 - `POST /api/orders/:id/receipts`, `Idempotency-Key` required, no `If-Match`; body
-  `{ receivedAt: 'YYYY-MM-DD', note?: string | null, lines: [{ lineId, quantity }] }`
-  (strict). `201` with `{ receivedAt, recordedAt, note, receipts: [{ id, lineId,
-  position, quantity, receivedBefore, receivedAfter, outstandingAfter }],
+  `{ receivedOn: 'YYYY-MM-DD', note?: string | null, lines: [{ lineId, quantity }] }`
+  (strict). `201` with the receipt: `{ id, receivedOn, recordedAt, note, lines: [{
+  lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter }],
   receiptProgress }`. This is the response the key stores.
 - `GET /api/orders/:id/receipts?page&pageSize`: readable by whoever can read the order
-  (`404` otherwise), newest recorded first (`recorded_at DESC, id DESC`, stable), each
-  `{ id, line: { id, position, description }, quantity, receivedAt, recordedAt,
-  recordedBy: { id, name }, note }`.
+  (`404` otherwise): a page of receipts, newest recorded first (`recorded_at DESC, id
+  DESC`, stable), each `{ id, receivedOn, recordedAt, recordedBy: { id, name }, note,
+  lines: [{ line: { id, position, description }, quantity }] }` with all its lines in
+  position order. The page and its `COUNT` cut receipts, never lines; the page's lines
+  come from one more query by receipt id (the lines' primary key).
 - Order read: each line gains `receivedQuantity`, `outstandingQuantity`; the order gains
   `receiptProgress` (`NOT_RECEIVED | PARTIALLY_RECEIVED | FULLY_RECEIVED`, ADR-0001's
   names) and `receivedLines: { complete, partly, total }`. List rows gain
@@ -188,8 +211,8 @@ everything needing the owner's sign-off is listed in R13.
 
 - Each page row (at most 50) adds `open_line_count`, and `receiptProgress` is computed
   per row: `CASE WHEN status NOT IN ('APPROVED','CANCELLED') THEN 'NOT_RECEIVED' WHEN
-  open_line_count = 0 THEN 'FULLY_RECEIVED' WHEN EXISTS (SELECT 1 FROM receipts r WHERE
-  r.order_id = p.id) THEN 'PARTIALLY_RECEIVED' ELSE 'NOT_RECEIVED' END`; at most one
+  open_line_count = 0 THEN 'FULLY_RECEIVED' WHEN EXISTS (SELECT 1 FROM goods_receipts r
+  WHERE r.order_id = p.id) THEN 'PARTIALLY_RECEIVED' ELSE 'NOT_RECEIVED' END`; at most one
   index probe per row, after the page is cut.
 - Proof: every page-1 list plan, for each scope (buyer, buyer+approver, approver, admin)
   and filter already committed, is re-committed with the per-row probe and must still
@@ -200,9 +223,10 @@ everything needing the owner's sign-off is listed in R13.
 
 | Index | Serves |
 |---|---|
-| `receipts (order_id, recorded_at DESC, id DESC)` | the receipt history page and its `COUNT` (R7), and the list badge's EXISTS (R9); both history plans committed |
-| `receipts (line_id)` | INV-3 in reconciliation, the composite foreign key's checks |
-| `receipts (recorded_by)` | the foreign key to `users` (as `cancelled_by`, slice 5) |
+| `goods_receipts (order_id, recorded_at DESC, id DESC)` | the receipt history page and its `COUNT` (R7), and the list badge's EXISTS (R9); both history plans committed |
+| `goods_receipts UNIQUE (id, order_id)` | the target of the lines' receipt key (R1) |
+| `goods_receipts (recorded_by)` | the foreign key to `users` (as `cancelled_by`, slice 5) |
+| `goods_receipt_lines (line_id)` | INV-3 in reconciliation, the line key's checks; the primary key `(receipt_id, line_id)` serves the history's lines |
 | `order_lines UNIQUE (id, order_id)` | the target of R1's composite foreign key |
 
 No index for the Admin's open-order counts: they read `(owner_id, status, created_at)`,
@@ -262,13 +286,13 @@ which exists; a plan test at the busiest Buyer proves it.
    three registry codes go live with their details: `RECEIPT_EXCEEDS_OUTSTANDING` lists
    every offending line (`lineId`, `position`, `outstanding`, `requested`); `ORDER_NOT_RECEIVABLE` carries
    `orderState.status`; `ORDER_FULLY_RECEIVED` has no extra field.
-6. **Four indexes** (R10).
+6. **The indexes** (R10; reworked with the receipt document 2026-11-25).
 7. **Plan fixture receipt mix** (ADR-0012): of the 89,000 approved orders, 45,000 fully
    received, 25,000 partly, 19,000 nothing; of the 1,000 cancelled, 500 partly received
-   and 500 nothing; about 1.5M receipts (1–3 per received line), matching ADR-0012's
-   volume.
-8. **Payloads**: `GOODS_RECEIPT_RECORDED` details `{ receiptId, lineId, position,
-   quantity, receivedBefore, receivedAfter, outstandingAfter, receivedAt, recordedAt,
-   note }`, actor `USER` acting as `BUYER` (ADR-0016); `openOrders` field names (R7).
+   and 500 nothing; 1–3 receipts per received order, about 1.5M receipt lines in all,
+   matching ADR-0012's volume.
+8. **Payloads**: `GOODS_RECEIPT_RECORDED`, one per receipt line, details `{ receiptId,
+   lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter,
+   receivedOn, recordedAt, note }`, `receiptId` the receipt's (shared by its lines), actor `USER` acting as `BUYER` (ADR-0016); `openOrders` field names (R7).
 9. **Admin dialog sentence** for open orders, and the counts shown in the two dialogs
    (loaded on open) rather than on a new user detail page (R12).

@@ -16,8 +16,8 @@ outstanding; you entered {requested}." · "This order has been fully received, s
 
 | Code | Path | Message |
 |---|---|---|
-| `DATE_IN_FUTURE` | `body.receivedAt` | "Enter today's date or an earlier one." |
-| `DATE_BEFORE_APPROVAL` | `body.receivedAt` | "Enter a date on or after the order's approval ({date})." |
+| `DATE_IN_FUTURE` | `body.receivedOn` | "Enter today's date or an earlier one." |
+| `DATE_BEFORE_APPROVAL` | `body.receivedOn` | "Enter a date on or after the order's approval ({date})." |
 
 Both are new values of the `FieldCode` enum in error responses: the `breaking` check is
 expected to need the label (as in slice 5).
@@ -51,5 +51,7 @@ Cancel: unchanged up to the version check, then `409 ORDER_FULLY_RECEIVED`.
 ## Database SQLSTATEs (mapped once in `db/errors.ts`, all `INTERNAL_ERROR`)
 
 `PO020 ORDER_NOT_RECEIVABLE` · `PO021 RECEIPT_NOT_BY_OWNER` · `PO022
-RECEIPT_EXCEEDS_ORDERED` · `PO023 RECEIPT_IMMUTABLE` · `PO024 RECEIPT_BEFORE_APPROVAL` · `PO025 RECEIPT_DATE_TOO_LATE` (D17 backstop) ·
-`PO019` gains the fully-received branch · `PO005` covers `received_quantity`.
+RECEIPT_EXCEEDS_ORDERED` · `PO023 RECEIPT_IMMUTABLE` (also a line added to an earlier transaction's receipt) · `PO024 RECEIPT_BEFORE_APPROVAL` · `PO025 RECEIPT_DATE_TOO_LATE` (D17 backstop) ·
+`PO019` gains the fully-received branch · `PO005` covers `received_quantity` · `23514`
+on `goods_receipts_has_lines` (a receipt with no line; the service always sends lines in
+the same statement).

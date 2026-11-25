@@ -4,7 +4,7 @@
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
   ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
   amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan) · amended 2026-11-20 (1,000 cancelled orders in the status mix, slice 5 plan) · amended 2026-11-24 (a 500-line receipt p95 500 ms; owner decision; slice 6) · amended 2026-11-24 (the
-  receipt mix; slice 6 plan, **owner sign-off** 2026-11-24)
+  receipt mix; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (receipt mix counted in receipt lines; ADR-0011)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -26,7 +26,9 @@
     the 89,000 `APPROVED`, 45,000 fully received, 25,000 partly and 19,000 with nothing;
     of the 1,000 `CANCELLED`, 500 partly received and 500 with nothing; 1–3 receipts per
     received line, about 1.5M receipts in all, each dated on or after its order's
-    approval, with matching `GOODS_RECEIPT_RECORDED` entries.
+    approval, with matching `GOODS_RECEIPT_RECORDED` entries. *Amended 2026-11-25
+    (receipt document, ADR-0011)*: 1–3 receipts per received order, about 1.5M receipt
+    lines in all.
   - **Order lists at this mix** (amended 2026-11-18, owner decision): the non-draft
     scopes walk partial indexes on `status <> 'DRAFT'`, and status with vendor has its own
     indexes (slice 4 research R7). Every list and count plan stops at its page; no

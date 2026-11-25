@@ -340,9 +340,10 @@ update response, and in both dialogs.
 - **FR-004** (FR-RCV-02): Receipts MUST be append-only: no update, delete, reversal or
   negative receipt, by the API or by raw SQL as the application's role.
 - **FR-005** (FR-RCV-03): Anyone who can read an order MUST be able to read its receipt
-  history, paginated with a stable sort, newest first.
-- **FR-006** (NFR-AUD-01): Each receipt event MUST write one `GOODS_RECEIPT_RECORDED`
-  audit entry in the same transaction, with the line, quantity, received before and
+  history: its receipts, each with its lines, paginated with a stable sort, newest
+  first.
+- **FR-006** (NFR-AUD-01): Each receipt line MUST write one `GOODS_RECEIPT_RECORDED`
+  audit entry in the same transaction, with the receipt's id, the line, quantity, received before and
   after, outstanding after, the receipt date and the recorded-at time; the order's
   timeline shows both dates.
 - **FR-007** (NFR-CON-03): A receipt MUST take an `Idempotency-Key` and no `If-Match`, and
@@ -420,9 +421,12 @@ update response, and in both dialogs.
 
 ### Key Entities
 
-- **Receipt event**: one line's receipt: line, quantity (> 0), receipt date (India
-  calendar date, user-supplied), recorded at (database clock), recorded by, note. Carries
-  its order too, so "has this order any receipt" is answered without reading lines. Immutable. Belongs to one order line.
+- **Receipt** (a goods received note): one delivery recorded by one command: its order,
+  receipt date (India calendar date, user-supplied), recorded at (database clock),
+  recorded by, note, and one or more receipt lines. Immutable.
+- **Receipt line**: what one receipt received on one order line: line, quantity (> 0);
+  a receipt names a line once. Every receipt line belongs to the receipt's order.
+  Immutable.
 - **Order line** (extended): received quantity (derived, stored, guarded) and outstanding
   quantity (ordered − received).
 - **Order** (extended): open line count (derived, stored, guarded); receipt progress

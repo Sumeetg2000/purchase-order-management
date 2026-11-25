@@ -9,7 +9,9 @@
 The owner of an approved order records goods received per line, partly and across
 several deliveries, one or many lines per command, all or nothing; received never exceeds
 ordered on any path, however requests interleave:
-- a `receipts` table, one immutable row per line per command, carrying its order
+- a receipt document (owner, 2026-11-25): `goods_receipts` (one immutable row per
+  command: order, date, recorder, note) and `goods_receipt_lines` (one per line it
+  covers), composite keys keeping every line on the receipt's order
 - each line's received quantity stored, maintained by a statement-level trigger on
   receipt inserts, guarded, and in reconciliation (INV-3), like `open_line_count`
   **[steer]**
@@ -17,7 +19,8 @@ ordered on any path, however requests interleave:
   orders, receipts not by the owner, dates before approval, dates more than a day past
   its India date (backstop), and any receipt change (D12–D17)
 - lock order: key → order → lines (id asc) → the caller's user row **[steer]**
-- set-based writes: one insert for the receipts, one for their audit entries **[steer]**
+- set-based writes: one statement for the receipt and its lines (a CTE), one for their
+  audit entries **[steer]**
 - slice 5's deferrals: `ORDER_FULLY_RECEIVED` on cancel (service and D10), the received
   summary in the cancel dialog, the cancel-vs-receipt race, the Admin's open-order counts
 - receipt badges in every order list, derived per page row (no stored counter) **[steer]**
@@ -36,8 +39,9 @@ Decisions in [research.md](research.md) (R1–R13, sign-offs in R13); tables in
 
 **Primary Dependencies**: the slice 0–5 stack; no new dependency.
 
-**Storage**: PostgreSQL 17. Migration `0016_receipts`: table `receipts`, 3 indexes and a
-unique key on `order_lines`, 4 triggers, 1 function, 1 guard, D10 extended,
+**Storage**: PostgreSQL 17. Migration `0016_receipts`: tables `goods_receipts` and
+`goods_receipt_lines`, their keys and indexes, a unique key on `order_lines`, the receipt
+triggers, 1 function, 1 guard, D10 extended,
 `idempotency_keys` CHECK widened, reconciliation INV-3.
 
 **Testing**: Vitest + Supertest + Testcontainers PostgreSQL 17 (no DB mocks): receipts

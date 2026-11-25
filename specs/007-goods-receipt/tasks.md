@@ -62,31 +62,39 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Schema: migration `0016_receipts`, part 1 (table, grants, keys, indexes)
 
-- [X] T002 Migration tests, seen failing: as [data-model.md](data-model.md), each rule by
-  name:
-  - `receipts` with `id uuid` PK default `gen_random_uuid()`, `order_id`, `line_id`,
-    "`quantity integer` NOT NULL CHECK `quantity BETWEEN 1 AND 1000000`", `received_at
-    date` NOT NULL, `recorded_at timestamptz` NOT NULL, `recorded_by uuid` NOT NULL FK
-    `users`, "`note text` NULL CHECK plain text, 0–500 characters (the reason rule's
-    character set)"
-  - FK `(line_id, order_id)` → `order_lines (id, order_id)` `ON DELETE RESTRICT`;
-    "`order_lines_id_order_key UNIQUE (id, order_id)`"
-  - indexes "`receipts_order_recorded_idx (order_id, recorded_at DESC, id DESC)`",
-    "`receipts_line_idx (line_id)`", "`receipts_recorded_by_idx (recorded_by)`"
-  - grants: `po_app` `SELECT` and "`INSERT (order_id, line_id, quantity, received_at,
-    recorded_by, note)`" only; no `UPDATE`, `DELETE`, `TRUNCATE`
-  - `require_actor_context` on `receipts`; the `idempotency_keys` operation CHECK accepts
+- [ ] T002 Migration tests, seen failing (reworked 2026-11-25 for the receipt document,
+  research R1): as [data-model.md](data-model.md), each rule by name:
+  - `goods_receipts` with `id uuid` PK default `gen_random_uuid()`, `order_id` FK
+    `purchase_orders`, "`received_on date` NOT NULL", `recorded_at timestamptz` NOT NULL,
+    `recorded_by uuid` NOT NULL FK `users`, "`note text` NULL CHECK trimmed plain text,
+    1–500 characters (the reason rule's character set); absent is `NULL`";
+    `goods_receipts_id_order_key UNIQUE (id, order_id)`
+  - `goods_receipt_lines` with `receipt_id`, `order_id`, `line_id`, "`quantity integer`
+    NOT NULL CHECK `quantity BETWEEN 1 AND 1000000`", PK `(receipt_id, line_id)` (the same
+    line twice in one receipt → `23505`)
+  - FK `(receipt_id, order_id)` → `goods_receipts (id, order_id)` and FK `(line_id,
+    order_id)` → `order_lines (id, order_id)`, both `ON DELETE RESTRICT`; a receipt line
+    on another order's receipt or line → `23503`; "`order_lines_id_order_key UNIQUE (id,
+    order_id)`"
+  - indexes "`goods_receipts_order_recorded_idx (order_id, recorded_at DESC, id DESC)`",
+    "`goods_receipts_recorded_by_idx (recorded_by)`", "`goods_receipt_lines_line_idx
+    (line_id)`"
+  - grants: `po_app` `SELECT` on both, "`INSERT (order_id, received_on, recorded_by,
+    note)`" on `goods_receipts` and "`INSERT (receipt_id, order_id, line_id, quantity)`"
+    on `goods_receipt_lines` only; no `UPDATE`, `DELETE`, `TRUNCATE`
+  - `require_actor_context` on both tables; the `idempotency_keys` operation CHECK accepts
     `recordReceipt`
   — `backend/tests/integration/migrations.test.ts`, `receipt-schema.test.ts` (new) —
   data-model.md, R1, R10.
-- [X] T003 Migration `0016_receipts` part 1: table, checks, keys, indexes, grants, actor
-  trigger, CHECK widened; Prisma model (`Receipt`, read-only `received_quantity` unchanged)
+- [ ] T003 Migration `0016_receipts` part 1: both tables, checks, keys, indexes, grants,
+  actor triggers, CHECK widened; Prisma models (`GoodsReceipt`, `GoodsReceiptLine`;
+  read-only `received_quantity` unchanged)
   — `backend/prisma/migrations/0016_receipts/migration.sql`, `backend/prisma/schema.prisma`
   — R1, R10; T002 green.
-- [X] T004 [P] Constants pinned, seen failing first: `RECEIPT_PROGRESS = ['NOT_RECEIVED',
+- [ ] T004 [P] Constants pinned, seen failing first: `RECEIPT_PROGRESS = ['NOT_RECEIVED',
   'PARTIALLY_RECEIVED', 'FULLY_RECEIVED']`; `RECEIPT_QUANTITY_MIN = 1`,
   `RECEIPT_QUANTITY_MAX = LINE_QUANTITY_MAX` (imported); `RECEIPT_NOTE_MAX = 500` (pinned to
-  the `receipts` note CHECK); `RECEIPT_TIME_ZONE = 'Asia/Kolkata'`;
+  the `goods_receipts` note CHECK; the quantity limits to the `goods_receipt_lines` CHECK); `RECEIPT_TIME_ZONE = 'Asia/Kolkata'`;
   `IDEMPOTENT_OPERATIONS` gains `recordReceipt` (pinned to the table CHECK) —
   `packages/contracts/src/receipts.ts` (new), `backend/src/idempotency/repository.ts`,
   `backend/tests/integration/order-constants.test.ts`, `idempotency.test.ts` — R7,
@@ -94,12 +102,13 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Contracts
 
-- [ ] T005 [P] Schemas, seen failing first: `recordReceiptBody` (strict; `receivedAt`
+- [ ] T005 [P] Schemas, seen failing first: `recordReceiptBody` (strict; `receivedOn`
   `YYYY-MM-DD`; `note` plain text 0–500, nullable, optional; `lines` 1–500 of strict
   `{ lineId: uuid, quantity }` with quantity "a whole number 1–1,000,000"
   (`INVALID_FORMAT` non-integer, `OUT_OF_RANGE` 0/negative/above); the same `lineId` twice
-  → `DUPLICATE_LINE_ID` at `body.lines.{i}.lineId` of the later entry); `recordedReceipt`;
-  `receiptItem`; `receiptPage`; `orderLine` += `receivedQuantity`, `outstandingQuantity`;
+  → `DUPLICATE_LINE_ID` at `body.lines.{i}.lineId` of the later entry); `recordedReceipt`
+  (the receipt: `id`, `receivedOn`, `recordedAt`, `note`, `receiptProgress`, `lines`);
+  `receiptItem` (a receipt with its lines); `receiptPage`; `orderLine` += `receivedQuantity`, `outstandingQuantity`;
   `order` += `receiptProgress`, `receivedLines { complete, partly, total }`;
   `orderListItem` += `receiptProgress`; `adminUserDetail` += `openOrders { draft, pending,
   approvedWithOpenLines }`; every new response field read-only in request bodies
@@ -119,9 +128,10 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   `RECEIPT_BEFORE_APPROVAL`, `RECEIPT_DATE_TOO_LATE`) → `INTERNAL_ERROR` with their names,
   unit test first — `backend/src/db/errors.ts`, `backend/tests/unit/db-errors.test.ts` —
   R4, data-model.md.
-- [ ] T008 [P] Audit: event `GOODS_RECEIPT_RECORDED` (actor `USER` acting as `BUYER`;
-  details `{ receiptId, lineId, position, quantity, receivedBefore, receivedAfter,
-  outstandingAfter, receivedAt, recordedAt, note }`); `ORDER_AUDIT_ACTIONS` extended;
+- [ ] T008 [P] Audit: event `GOODS_RECEIPT_RECORDED`, one per receipt line (actor `USER`
+  acting as `BUYER`; details `{ receiptId, lineId, position, quantity, receivedBefore,
+  receivedAfter, outstandingAfter, receivedOn, recordedAt, note }`, `receiptId` the
+  receipt's id on every entry of one receipt); `ORDER_AUDIT_ACTIONS` extended;
   `writeAuditBatch(tx, events)` as one `INSERT … SELECT FROM unnest(…)`, unit and
   integration tests first (one statement for 1 or 500 entries; on a multi-line receipt
   every row carries the actor's name and email, the capacity (`acting_role` `BUYER`) and
@@ -149,19 +159,21 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 receives as someone else, writes `received_quantity`, or changes a receipt.
 **Independent test**: the attacks below, each refused, then reconciliation zero rows.
 
-- [X] T010 [P] Trigger tests, seen failing on part 1: as `po_app` with an actor context,
-  inserting receipts: on a draft, pending, rejected, cancelled order → `PO020`;
-  `recorded_by` ≠ owner, or ≠ the actor, or actor `SYSTEM` → `PO021`; `received_at` the
-  day before approval (IST) → `PO024`, the approval day allowed; `received_at` the
-  database's IST date + 2 → `PO025`, + 1 allowed; one line over ordered, two rows on one
-  line summing over, one multi-row statement with one bad line → `PO022` and nothing
-  written; `recorded_at` sent → replaced by `now()`; an allowed insert sets
-  `received_quantity` and `open_line_count`, leaves `version` and `total`;
-  `UPDATE`/`DELETE`/`TRUNCATE` of a receipt → `PO023` (and as `po_owner`); the SQL
-  time-zone literals in D14 and D17 pinned to `RECEIPT_TIME_ZONE` —
-  `backend/tests/integration/receipt-triggers.test.ts` (new) — D12–D17, FR-004, FR-010,
-  FR-RCV-02, FR-SM-01.
-- [X] T011 [P] Attack suite, seen failing: as `po_app` and as a privileged role (loud
+- [ ] T010 [P] Trigger tests, seen failing on part 1 (reworked 2026-11-25): as `po_app`
+  with an actor context, inserting a receipt with its lines in one statement: on a
+  draft, pending, rejected, cancelled order → `PO020`; `recorded_by` ≠ owner, or ≠ the
+  actor, or actor `SYSTEM` → `PO021`; `received_on` the day before approval (IST) →
+  `PO024`, the approval day allowed; `received_on` the database's IST date + 2 → `PO025`,
+  + 1 allowed; one line over ordered, two receipts in one statement on one line summing
+  over, one multi-line receipt with one bad line → `PO022` and nothing written; a
+  receipt with no line → `23514`; a line added to an earlier transaction's receipt →
+  `PO023` (as `po_app` and `po_owner`); `recorded_at` sent → replaced by `now()`; an
+  allowed receipt sets `received_quantity` and `open_line_count`, leaves `version` and
+  `total`; `UPDATE`/`DELETE`/`TRUNCATE` of either table → `PO023` (as `po_owner`;
+  `po_app` has no privilege); the SQL time-zone literals in D14 and D17 pinned to
+  `RECEIPT_TIME_ZONE` — `backend/tests/integration/receipt-triggers.test.ts` (new) —
+  D12–D17, FR-004, FR-010, FR-RCV-02, FR-SM-01.
+- [ ] T011 [P] Attack suite, seen failing: as `po_app` and as a privileged role (loud
   error, never a silent fix): `UPDATE order_lines SET received_quantity`, an
   `order_lines` insert with non-zero received → `PO005` (or a privilege error first for
   `po_app`); `UPDATE purchase_orders SET open_line_count` → `PO005`; the T010 receipt
@@ -173,23 +185,26 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   `recompute_orders` 0 times and `recompute_open_lines` once
   (`po.open_line_recompute_count`); an order edit's counts unchanged —
   `backend/tests/integrity/trigger-count.test.ts` — R3, FR-009, NFR-PERF-03.
-- [X] T013 Migration part 2: `receipts_before_insert` (`recorded_at := now()`);
-  `receipts_after_insert` (statement, `new_receipts`; orders locked in id order, D12,
-  D13, D14, D17; lines locked in id order, D15 naming the first line by position; flag
-  `po.receipts`; one set-based `UPDATE order_lines`); `receipts_immutable` (D16);
+- [ ] T013 Migration part 2 (reworked 2026-11-25): `goods_receipts_before_insert`
+  (`recorded_at := now()`); `goods_receipts_after_insert` (statement, `new_receipts`: a
+  receipt with no line → `23514`); `goods_receipt_lines_after_insert` (statement,
+  `new_lines`; orders then lines locked in id order before any check; D16 for a line on
+  an earlier transaction's receipt, D12, D13, D14, D17 read through each line's receipt,
+  D15 on the sums naming the first line by position; flag `po.receipts`; one set-based
+  `UPDATE order_lines`); `receipts_immutable` (D16) on both tables;
   `order_lines_received_guard` (`PO005`); `recompute_open_lines(uuid[])` and
   `order_lines_after_update` calling it when only `received_quantity` changed;
   `purchase_orders_cancel_guard` D10 branch (`OLD.open_line_count = 0` → `PO019`); all
   `SECURITY DEFINER`/`INVOKER` as data-model.md, pinned `search_path`, `REVOKE … FROM
-  PUBLIC`; INV-3 in `reconciliation.sql`; T010–T012 green —
+  PUBLIC`; INV-3 over `goods_receipt_lines` in `reconciliation.sql`; T010–T012 green —
   `backend/prisma/migrations/0016_receipts/migration.sql`,
   `backend/src/db/reconciliation.sql` — R2–R4, data-model.md.
 - [X] T014 State machine, database side: receipt refused per non-approved state;
   T10 refused on a fully received order, allowed with part received — one test each —
   `backend/tests/integration/order-triggers.test.ts` — FR-010, FR-016, FR-SM-01.
-- [X] T015 [P] Property test: random sequences of receipt statements (single and
-  multi-line, some over) against random orders; after each, `received_quantity = Σ
-  receipts`, `0 ≤ received ≤ quantity`, `open_line_count` = lines with received <
+- [ ] T015 [P] Property test: random sequences of receipts (single and multi-line, a line
+  once per receipt, some over) against random orders; after each, `received_quantity = Σ
+  receipt lines`, `0 ≤ received ≤ quantity`, `open_line_count` = lines with received <
   ordered; reconciliation zero rows —
   `backend/tests/integrity/receipt-invariants.property.test.ts` (new) — INV-3, INV-4,
   INV-6, FR-003, FR-008, FR-RPT-03.
@@ -204,8 +219,8 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
 follow. **Independent test**: spec US1's independent test.
 
 - [ ] T016 [US1] Receipt service tests, seen failing: owner on an approved one-line order
-  of 100 records 40 (date today IST, injected clock) → `201` `recordedReceipt` (receipts
-  with before 0, after 40, outstanding 60; progress `PARTIALLY_RECEIVED`); then 60 →
+  of 100 records 40 (date today IST, injected clock) → `201` `recordedReceipt` (one receipt,
+  its line with before 0, after 40, outstanding 60; progress `PARTIALLY_RECEIVED`); then 60 →
   100/0, `FULLY_RECEIVED`, status still `APPROVED`; `version` unchanged, no `If-Match`
   needed; one `GOODS_RECEIPT_RECORDED` each with both dates; a receipt dated the approval
   day accepted; at 00:30 IST dated today (IST) accepted; tomorrow IST → `400
@@ -222,28 +237,32 @@ follow. **Independent test**: spec US1's independent test.
   `FOR SHARE` (ADR-0006's receipt row), all taken before the checks, which then run in
   research R5's order on the locked rows (R5 "Locks first, then checks"); the response's
   `receiptProgress` computed from `open_line_count` read under the order lock minus the
-  lines this receipt completes, no read-back (R6); one receipts
-  `INSERT … FROM unnest RETURNING`, one `writeAuditBatch`; the key completed with the
+  lines this receipt completes, no read-back (R6); one statement for the receipt and its
+  lines (a CTE: the `goods_receipts` insert, then `goods_receipt_lines … FROM unnest`,
+  `RETURNING` the receipt's id and `recorded_at`), one `writeAuditBatch` (each entry
+  carrying the receipt's id); the key completed with the
   response; clock injected — `backend/src/receipts/service.ts`, `repository.ts` (new) —
   R5, R6, ADR-0006 2026-11-24.
 - [ ] T019 [US1] Routes and operations: `recordReceipt` (`POST /api/orders/{id}/receipts`,
   role BUYER, Approver and Admin `FORBIDDEN` details, `Idempotency-Key` required, CSRF,
-  `201`); `listOrderReceipts` (`GET`, paginated `recorded_at DESC, id DESC`, `404` when
-  the order is unreadable); OpenAPI regenerated; route table, CSRF, body inventory,
+  `201`); `listOrderReceipts` (`GET`, receipts paginated `recorded_at DESC, id DESC`, each with
+  its lines in position order, `404` when the order is unreadable); OpenAPI regenerated; route table, CSRF, body inventory,
   matrix pins — `packages/contracts/src/operations.ts`, `backend/src/receipts/routes.ts`
   (new), `backend/src/api.ts`, `backend/tests/integration/route-table.test.ts`,
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T016, T017 green.
 - [ ] T020 [US1] Order read and history, tests first: lines gain `receivedQuantity`,
   `outstandingQuantity`; order gains `receiptProgress`, `receivedLines`; the receipts page
-  (stable sort, equal `recorded_at` ordered by id, page boundaries) for owner, Approver,
+  (receipts with their lines in position order; stable sort, equal `recorded_at` ordered
+  by id, page boundaries cut receipts, never a receipt's lines) for owner, Approver,
   Admin; other Buyer `404`; the timeline shows both dates —
   `backend/src/orders/repository.ts`, `backend/src/receipts/repository.ts`,
   `backend/tests/integration/orders-read.test.ts`, `receipts-history.test.ts` (new),
   `orders-timeline.test.ts` — FR-005, FR-021, FR-RCV-03, R7, R8.
 - [ ] T021 [P] [US1] Order detail, component tests first: Ordered, Received, Outstanding
   columns on non-draft orders; the progress badge by the status; `ReceiptsSection`
-  (receipt date, line, quantity, note, recorded by, recorded at; newest first; paginated;
+  (per receipt: receipt date, recorded by, recorded at, note, then its lines with
+  position, description, quantity; newest first; paginated;
   "No goods received yet."); "Record receipt" only for the owner of an `APPROVED` order
   not fully received; axe — `frontend/src/pages/orders/OrderDetail.tsx`,
   `ReceiptsSection.tsx` (new), `queries.ts`, `frontend/tests/order-receipts-detail.test.tsx`
@@ -259,7 +278,7 @@ shows quantities, progress and history.
 - [ ] T022 [US2] Tests, seen failing: lines A 10, B 5, C 8 outstanding: A 10, B 6, C 8 →
   `409 RECEIPT_EXCEEDS_OUTSTANDING` with `lines` = [B] (outstanding 5, requested 6), no
   receipt, no audit entry, no line changed; A 11, B 6 → both listed in position order; A
-  10, B 5, C 3 → 3 receipts, 3 entries sharing date and note; a fully received line and
+  10, B 5, C 3 → one receipt with 3 lines, 3 entries sharing its id, date and note; a fully received line and
   any quantity → `409` naming it; quantity 0, −1, 1.5, 1,000,001; a line of another
   order (one the caller owns too) → `LINE_NOT_FOUND`; the same line twice →
   `DUPLICATE_LINE_ID` on the later entry; `lines: []` `TOO_SHORT`; 501 lines `TOO_LONG`;
@@ -267,8 +286,8 @@ shows quantities, progress and history.
   a 500-line receipt accepted — `backend/tests/integration/receipts-multiline.test.ts`
   (new) — FR-002, FR-RCV-01, FR-RCV-02, NFR-VAL-01.
 - [ ] T023 [US2] Query count, seen failing: one command runs 7 statements for 1 line and
-  for 500 (key claim, order lock, line lock and read, user lock, receipts insert, audit
-  insert, key completion) — `backend/tests/integration/receipts-query-count.test.ts` (new)
+  for 500 (key claim, order lock, line lock and read, user lock, receipt insert (header
+  and lines, one CTE), audit insert, key completion) — `backend/tests/integration/receipts-query-count.test.ts` (new)
   — R6, NFR-PERF-03.
 - [ ] T024 [US2] Service: every offending line listed (not only the first); the set-based
   writes pinned by T023; T022, T023 green — `backend/src/receipts/service.ts`,
@@ -360,7 +379,7 @@ shows quantities, progress and history.
   the page is cut), `backend/tests/integration/orders-list.test.ts` — FR-021a, R9.
 - [ ] T035 [P] Plan fixture receipt mix (ADR-0012 2026-11-24): of 89,000 approved, 45,000
   fully, 25,000 partly, 19,000 nothing; of 1,000 cancelled, 500 partly, 500 nothing; 1–3
-  receipts per received line (≈1.5M), inserted set-based through the trigger, with
+  receipts per received order (≈1.5M receipt lines), inserted set-based through the trigger, with
   matching audit entries; reconciliation on the fixture zero rows —
   `backend/tests/plans/orders-fixture.ts` — R13.7, NFR-PERF-01.
 - [ ] T036 Plans: every page-1 list plan (buyer, buyer+approver, approver, admin; each

@@ -8,7 +8,7 @@
   `INVALID_STATE_TRANSITION`, **owner decision**; slice 4) · amended 2026-11-17 (approve
   refused while the owner can't act, `409 ORDER_OWNER_INACTIVE`, **owner decision**;
   slice 4) · amended 2026-11-17 (slice 4 plan: approval rounds and steps, and what the
-  database refuses, research R2–R4) · amended 2026-11-20 (cancel live; the database freezes rejected and cancelled orders and keeps the cancel record; the fully-received check arrives with receipts; **owner sign-off**; slice 5 plan) · amended 2026-11-24 (receipts: what the database refuses; a full receipt leaves the order `APPROVED`, the state table unchanged; slice 6 plan, **owner sign-off** 2026-11-24)
+  database refuses, research R2–R4) · amended 2026-11-20 (cancel live; the database freezes rejected and cancelled orders and keeps the cancel record; the fully-received check arrives with receipts; **owner sign-off**; slice 5 plan) · amended 2026-11-24 (receipts: what the database refuses; a full receipt leaves the order `APPROVED`, the state table unchanged; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (receipt rules read through the receipt document; ADR-0011)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -89,6 +89,11 @@ complains of "no numbering discipline".
     and received above ordered, on any insert path (D15, `PO022`). Any update, delete or
     truncate of a receipt is refused for every role (D16, `PO023`). The cancel trigger (D10)
     also refuses `APPROVED → CANCELLED` once every line is fully received (`PO019`).
+    *Amended 2026-11-25 (receipt document, ADR-0011, **owner decision**)*: a receipt is a
+    `goods_receipts` row with its `goods_receipt_lines`; the rules above run in the
+    statement trigger on the lines, read through each line's receipt (`received_on`,
+    `recorded_by`); D16 covers both tables and also refuses a line added to a receipt
+    recorded in an earlier transaction; a receipt with no line is refused.
   - A trigger allows `DELETE` of an order only while it's `DRAFT`. Lines may change only
     while their order is `DRAFT`.
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the

@@ -4,7 +4,7 @@
   2026-10-20 (database-role, request-body and attack-suite details moved here from the
   constitution) · amended 2026-11-12 (the recompute count is per line statement; slice 3) · amended 2026-11-24 (received
   quantity maintained from receipts, its guard and reconciliation; the open-line
-  recompute split from the total's; slice 6 plan, **owner sign-off** 2026-11-24)
+  recompute split from the total's; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (the received-quantity trigger on receipt lines; ADR-0011)
 - **Brief:** §3.3, §3.6, §4, §6 · Gaps G5, G10, Q6
 - **Principles:** I, VII
 
@@ -35,9 +35,12 @@ stored and kept in sync, and how drift is made impossible under a direct bypass.
   `DERIVED_VALUE_READ_ONLY` (`PO005`) for any other write, any role. When only received
   quantity changes, the trigger recomputes `open_line_count` alone (a separate
   open-line recompute, once per statement), never the total. A receipt leaves `version`
-  alone. The database rules on receipts (D12–D17) are in ADR-0001.
+  alone. The database rules on receipts (D12–D17) are in ADR-0001. *Amended 2026-11-25
+  (receipt document, ADR-0011)*: the trigger is the statement-level `AFTER INSERT` on
+  `goods_receipt_lines`, summing each line's new quantities over every receipt in the
+  statement.
 - The reconciliation query recomputes all three (and checks INV-1 to INV-6; from slice 6,
-  INV-3 compares each line's received quantity with the sum of its receipts) and must
+  INV-3 compares each line's received quantity with the sum of its receipt lines) and must
   return zero rows after the full test suite, after every load-test seed and after every
   integrity-attack attempt.
 

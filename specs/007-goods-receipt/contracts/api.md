@@ -19,16 +19,17 @@ code (constitution gate 2). Decisions: [research.md](../research.md) R7–R9.
 ```ts
 // schemas/receipts.ts
 recordReceiptBody = z.strictObject({
-  receivedAt: isoDate,                       // 'YYYY-MM-DD'
+  receivedOn: isoDate,                       // 'YYYY-MM-DD', the India receipt date
   note: plainText(0, 500).nullable().optional(),
   lines: z.array(z.strictObject({ lineId: uuid, quantity: int(1, 1_000_000) }))
           .min(1).max(500),                  // the same lineId twice: DUPLICATE_LINE_ID
 });
-recordedReceipt = { receivedAt, recordedAt, note, receiptProgress,
-  receipts: [{ id, lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter }] };
-receiptItem = { id, line: { id, position, description }, quantity, receivedAt,
-  recordedAt, recordedBy: { id, name }, note };
-receiptPage = page(receiptItem);             // the shared page envelope
+// The receipt document (research R1): one per command, with a line per order line.
+recordedReceipt = { id, receivedOn, recordedAt, note, receiptProgress,
+  lines: [{ lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter }] };
+receiptItem = { id, receivedOn, recordedAt, recordedBy: { id, name }, note,
+  lines: [{ line: { id, position, description }, quantity }] };   // position order
+receiptPage = page(receiptItem);             // the shared envelope; pages cut receipts
 
 // schemas/orders.ts (additive)
 orderLine        += { receivedQuantity: int, outstandingQuantity: int }   // read-only
@@ -47,7 +48,7 @@ All new response fields are read-only: a request carrying them is refused
 | Operation | Method, path | Access | Headers | Success |
 |---|---|---|---|---|
 | `recordReceipt` | `POST /api/orders/{id}/receipts` | BUYER (route); owner (service) | `Idempotency-Key` required; no `If-Match` | `201` `recordedReceipt` |
-| `listOrderReceipts` | `GET /api/orders/{id}/receipts` | whoever can read the order | — | `200` `receiptPage` |
+| `listOrderReceipts` | `GET /api/orders/{id}/receipts` | whoever can read the order | — | `200` `receiptPage` (receipts newest first, each with its lines) |
 | `getOrder`, `listOrders` | unchanged paths | unchanged | — | new fields |
 | `getAdminUser`, `updateAdminUser` | unchanged paths | unchanged | — | `openOrders` |
 
