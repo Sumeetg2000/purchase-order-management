@@ -8,9 +8,9 @@ import {
   receive,
 } from '../support/receipts-sql.js';
 
-// Random receipt sequences (specs/007-goods-receipt/research.md R2; INV-3, INV-4, INV-6):
-// single- and multi-line statements against random approved orders, some over what is
-// outstanding. After each statement every line's received quantity is the sum of its
+// Random receipt sequences (specs/007-goods-receipt/research.md R1, R2; INV-3, INV-4,
+// INV-6): single- and multi-line receipts (a line once per receipt) against random
+// approved orders, some over what is outstanding. After each statement every line's received quantity is the sum of its
 // receipts and within 0..ordered, the open-line count matches, and the reconciliation
 // returns no rows. A refused statement changes nothing. Fixed seed so a failure replays.
 const SEED = 20261124;
@@ -29,7 +29,7 @@ const statements = (lineCount: number) =>
   );
 
 describe('[FR-RPT-03] receipts keep INV-3, INV-4 and INV-6 for any sequence', () => {
-  it('[FR-RPT-03] random receipt statements, some over, never break the invariants', async () => {
+  it('[FR-RPT-03] random receipts, some over, never break the invariants', async () => {
     const f = await orderFixture();
     await fc.assert(
       fc.asyncProperty(
@@ -46,13 +46,10 @@ describe('[FR-RPT-03] receipts keep INV-3, INV-4 and INV-6 for any sequence', ()
             const asked = quantities.map(() => 0);
             for (const r of statement) asked[r.line] = (asked[r.line] ?? 0) + r.quantity;
             const over = asked.some((q, i) => (expected[i] ?? 0) + q > (quantities[i] ?? 0));
-            const state = await sqlstate(() =>
-              receive(
-                f,
-                orderId,
-                statement.map((r) => ({ lineId: lineIds[r.line] ?? '', quantity: r.quantity })),
-              ),
+            const receipt = asked.flatMap((quantity, i) =>
+              quantity > 0 ? [{ lineId: lineIds[i] ?? '', quantity }] : [],
             );
+            const state = await sqlstate(() => receive(f, orderId, receipt));
             expect(state).toBe(over ? RECEIPT_EXCEEDS_ORDERED : undefined);
             if (!over) asked.forEach((q, i) => (expected[i] = (expected[i] ?? 0) + q));
             const lines = await readLines(f.app, orderId);

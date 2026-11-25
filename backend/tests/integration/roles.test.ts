@@ -22,6 +22,9 @@ const EXPECTED_RELATION_GRANTS = [
   'audit_entries po_app SELECT',
   'audit_entries po_maintenance DELETE',
   'audit_entries po_maintenance SELECT',
+  // Receipts (0016): read, and inserted per column, below; never changed.
+  'goods_receipt_lines po_app SELECT',
+  'goods_receipts po_app SELECT',
   // Orders (0013): writes are per column, below, except DELETE (drafts only, by trigger).
   'idempotency_keys po_app INSERT',
   'idempotency_keys po_app SELECT',
@@ -43,7 +46,6 @@ const EXPECTED_RELATION_GRANTS = [
   'rate_limit_counters po_app UPDATE',
   'rate_limit_counters po_maintenance DELETE',
   'rate_limit_counters po_maintenance SELECT',
-  'receipts po_app SELECT',
   'refresh_tokens po_app INSERT',
   'refresh_tokens po_app SELECT',
   'refresh_tokens po_maintenance DELETE',
@@ -233,8 +235,11 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
         (col) => `vendors.${col} po_app UPDATE`,
       ),
       // Receipts (0016): the caller columns only, never the id or the recorded time.
-      ...['line_id', 'note', 'order_id', 'quantity', 'received_at', 'recorded_by'].map(
-        (col) => `receipts.${col} po_app INSERT`,
+      ...['note', 'order_id', 'received_on', 'recorded_by'].map(
+        (col) => `goods_receipts.${col} po_app INSERT`,
+      ),
+      ...['line_id', 'order_id', 'quantity', 'receipt_id'].map(
+        (col) => `goods_receipt_lines.${col} po_app INSERT`,
       ),
     ].sort();
     expect(columns.map((c) => c.grant)).toEqual(expected);
@@ -322,7 +327,7 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'purchase_orders_approval_consistent',
       'approval_rows_consistent',
       // Slice 6: the received quantities and open-line counts, written only by receipts.
-      'receipts_after_insert',
+      'goods_receipt_lines_after_insert',
       'recompute_open_lines',
     ]);
     for (const fn of functions) {
@@ -364,6 +369,13 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'audit_entries audit_no_truncate O',
       'audit_entries audit_retention_guard O',
       'audit_entries require_actor_context O',
+      'goods_receipt_lines goods_receipt_lines_after_insert O',
+      'goods_receipt_lines receipts_immutable O',
+      'goods_receipt_lines require_actor_context O',
+      'goods_receipts goods_receipts_after_insert O',
+      'goods_receipts goods_receipts_before_insert O',
+      'goods_receipts receipts_immutable O',
+      'goods_receipts require_actor_context O',
       'order_lines order_lines_order_has_lines O',
       'order_lines order_lines_received_guard O',
       'order_lines order_lines_recompute_del O',
@@ -381,10 +393,6 @@ describe('[NFR-AUD-02] roles and privileges snapshot', () => {
       'purchase_orders purchase_orders_status_transition O',
       'purchase_orders purchase_orders_submission_lock O',
       'purchase_orders require_actor_context O',
-      'receipts receipts_after_insert O',
-      'receipts receipts_before_insert O',
-      'receipts receipts_immutable O',
-      'receipts require_actor_context O',
       'users require_actor_context O',
       'users users_set_updated_at O',
       'vendors require_actor_context O',

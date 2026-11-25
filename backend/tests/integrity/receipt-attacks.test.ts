@@ -24,10 +24,11 @@ import {
   asActor,
   buyer,
   databaseDate,
-  insertReceipts,
+  insertReceipt,
   readLines,
   receive,
-  type ReceiptRow,
+  type ReceiptHeader,
+  type ReceiptLine,
   type SqlActor,
 } from '../support/receipts-sql.js';
 import { plantsViolations } from '../support/setup.js';
@@ -60,10 +61,13 @@ function receiptAs(
   f: OrderFixture,
   role: Role,
   orderId: string,
-  rows: readonly ReceiptRow[],
+  lines: readonly ReceiptLine[],
+  header: ReceiptHeader = {},
   actor: SqlActor = buyer(f),
 ) {
-  return sqlstate(() => asActor(client(f, role), actor, (q) => insertReceipts(q, orderId, rows)));
+  return sqlstate(() =>
+    asActor(client(f, role), actor, (q) => insertReceipt(q, orderId, lines, header)),
+  );
 }
 
 async function expectReconciled(f: OrderFixture): Promise<void> {
@@ -135,8 +139,7 @@ describe('[FR-RCV-02] receipt attacks, as po_app and as po_owner', () => {
       expect(
         await receiptAs(f, role, orderId, [
           { lineId: a, quantity: 5 },
-          { lineId: b, quantity: 1 },
-          { lineId: b, quantity: 2 },
+          { lineId: b, quantity: 3 },
         ]),
       ).toBe(RECEIPT_EXCEEDS_ORDERED);
       await receive(f, orderId, [{ lineId: b, quantity: 2 }]);
@@ -161,21 +164,24 @@ describe('[FR-RCV-02] receipt attacks, as po_app and as po_owner', () => {
       await approvedDaysAgo(f, orderId, 2);
       const lineId = lineIds[0] ?? '';
       expect(
-        await receiptAs(f, role, orderId, [{ lineId, quantity: 1, recordedBy: other }], {
-          type: 'USER',
-          userId: other,
-          role: 'BUYER',
-        }),
+        await receiptAs(
+          f,
+          role,
+          orderId,
+          [{ lineId, quantity: 1 }],
+          { recordedBy: other },
+          { type: 'USER', userId: other, role: 'BUYER' },
+        ),
       ).toBe(RECEIPT_NOT_BY_OWNER);
       expect(
-        await receiptAs(f, role, orderId, [
-          { lineId, quantity: 1, receivedAt: await approvalDate(f.app, orderId, -1) },
-        ]),
+        await receiptAs(f, role, orderId, [{ lineId, quantity: 1 }], {
+          receivedOn: await approvalDate(f.app, orderId, -1),
+        }),
       ).toBe(RECEIPT_BEFORE_APPROVAL);
       expect(
-        await receiptAs(f, role, orderId, [
-          { lineId, quantity: 1, receivedAt: await databaseDate(f.app, 30) },
-        ]),
+        await receiptAs(f, role, orderId, [{ lineId, quantity: 1 }], {
+          receivedOn: await databaseDate(f.app, 30),
+        }),
       ).toBe(RECEIPT_DATE_TOO_LATE);
       expect((await readLines(f.app, orderId))[0]?.received_quantity).toBe(0);
       await expectReconciled(f);

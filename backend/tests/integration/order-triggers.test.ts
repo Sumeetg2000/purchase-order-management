@@ -25,7 +25,7 @@ import {
   approvedOrder,
   asActor,
   buyer,
-  insertReceipts,
+  insertReceipt,
   receive,
 } from '../support/receipts-sql.js';
 import { plantCancelled } from '../support/orders-sql.js';
@@ -296,7 +296,7 @@ describe('[FR-SM-01] receipts and the state machine, database side', () => {
       expect(
         await sqlstate(() =>
           asActor(f.app, buyer(f), (q) =>
-            insertReceipts(q, orderId, [{ lineId: lineIds[0] ?? '', quantity: 1 }]),
+            insertReceipt(q, orderId, [{ lineId: lineIds[0] ?? '', quantity: 1 }]),
           ),
         ),
       ).toBe(ORDER_NOT_RECEIVABLE);

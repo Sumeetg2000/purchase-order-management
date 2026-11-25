@@ -209,10 +209,10 @@ describe('[FR-RCV-01] receipt constants equal their SQL copies (0016)', () => {
     const { superuser: q } = await orderFixture();
     expect(RECEIPT_QUANTITY_MIN).toBe(1);
     expect(RECEIPT_QUANTITY_MAX).toBe(LINE_QUANTITY_MAX);
-    expect(await constraintDef(q, 'receipts_quantity_range')).toBe(
+    expect(await constraintDef(q, 'goods_receipt_lines_quantity_range')).toBe(
       `CHECK (((quantity >= ${String(RECEIPT_QUANTITY_MIN)}) AND (quantity <= ${String(RECEIPT_QUANTITY_MAX)})))`,
     );
-    expect(await constraintDef(q, 'receipts_note_valid')).toContain(
+    expect(await constraintDef(q, 'goods_receipts_note_valid')).toContain(
       `(char_length(note) >= 1) AND (char_length(note) <= ${String(RECEIPT_NOTE_MAX)})`,
     );
   });

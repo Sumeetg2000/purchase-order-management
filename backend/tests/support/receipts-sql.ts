@@ -10,8 +10,9 @@ import {
 } from './orders-sql.js';
 
 // Raw-SQL helpers for receipts (migration 0016, specs/007-goods-receipt/data-model.md): the
-// schema, trigger, attack and property tests insert receipts as po_app or po_owner
-// directly, below the service, as the attack suite requires (ADR-0003).
+// schema, trigger, attack and property tests insert receipts (a goods_receipts row and its
+// goods_receipt_lines, in one statement) as po_app or po_owner directly, below the
+// service, as the attack suite requires (ADR-0003).
 
 export const ORDER_CANCEL_REFUSED = 'PO019';
 export const ORDER_NOT_RECEIVABLE = 'PO020';
@@ -21,6 +22,7 @@ export const RECEIPT_IMMUTABLE = 'PO023';
 export const RECEIPT_BEFORE_APPROVAL = 'PO024';
 export const RECEIPT_DATE_TOO_LATE = 'PO025';
 export const FOREIGN_KEY_VIOLATION = '23503';
+export const UNIQUE_VIOLATION = '23505';
 
 export type SqlActor =
   | { type: 'SYSTEM' }
@@ -72,51 +74,63 @@ export function buyer(f: OrderFixture): SqlActor {
   return { type: 'USER', userId: f.buyerId, role: 'BUYER' };
 }
 
-export interface ReceiptRow {
+/** One line of a receipt. */
+export interface ReceiptLine {
   lineId: string;
   quantity: number;
+}
+
+/** A receipt's own fields; each defaults as the service would send it. */
+export interface ReceiptHeader {
   /** `YYYY-MM-DD`; default: the database's India date. */
-  receivedAt?: string;
+  receivedOn?: string;
   /** Default: the order's owner. */
   recordedBy?: string;
   note?: string | null;
 }
 
 /**
- * One receipts INSERT for one order, as the service sends it (one statement, whatever the
- * row count), inside the caller's transaction.
+ * One receipt on one order, header and lines in one statement (a CTE), as the service
+ * sends it whatever the line count, inside the caller's transaction. Returns the
+ * receipt's id (undefined when no line was inserted).
  */
-export async function insertReceipts(
+export async function insertReceipt(
   q: pg.Client,
   orderId: string,
-  rows: readonly ReceiptRow[],
-): Promise<void> {
-  await q.query(
-    `INSERT INTO receipts (order_id, line_id, quantity, received_at, recorded_by, note)
-     SELECT $1, r.line_id, r.quantity,
-            coalesce(r.received_at, (now() AT TIME ZONE 'Asia/Kolkata')::date),
-            coalesce(r.recorded_by, (SELECT owner_id FROM purchase_orders WHERE id = $1)),
-            r.note
-       FROM unnest($2::uuid[], $3::int[], $4::date[], $5::uuid[], $6::text[])
-         AS r(line_id, quantity, received_at, recorded_by, note)`,
+  lines: readonly ReceiptLine[],
+  header: ReceiptHeader = {},
+): Promise<string | undefined> {
+  const { rows } = await q.query<{ receipt_id: string }>(
+    `WITH r AS (
+       INSERT INTO goods_receipts (order_id, received_on, recorded_by, note)
+       VALUES ($1, coalesce($2::date, (now() AT TIME ZONE 'Asia/Kolkata')::date),
+               coalesce($3::uuid, (SELECT owner_id FROM purchase_orders WHERE id = $1)), $4)
+       RETURNING id, order_id
+     )
+     INSERT INTO goods_receipt_lines (receipt_id, order_id, line_id, quantity)
+     SELECT r.id, r.order_id, l.line_id, l.quantity
+       FROM r, unnest($5::uuid[], $6::int[]) AS l(line_id, quantity)
+     RETURNING receipt_id`,
     [
       orderId,
-      rows.map((r) => r.lineId),
-      rows.map((r) => r.quantity),
-      rows.map((r) => r.receivedAt ?? null),
-      rows.map((r) => r.recordedBy ?? null),
-      rows.map((r) => r.note ?? null),
+      header.receivedOn ?? null,
+      header.recordedBy ?? null,
+      header.note ?? null,
+      lines.map((l) => l.lineId),
+      lines.map((l) => l.quantity),
     ],
   );
+  return rows[0]?.receipt_id;
 }
 
-/** Records receipts as the fixture's Buyer in one committed transaction. */
+/** Records one receipt as the fixture's Buyer in one committed transaction. */
 export async function receive(
   f: OrderFixture,
   orderId: string,
-  rows: readonly ReceiptRow[],
-): Promise<void> {
-  await asActor(f.app, buyer(f), (q) => insertReceipts(q, orderId, rows));
+  lines: readonly ReceiptLine[],
+  header: ReceiptHeader = {},
+): Promise<string | undefined> {
+  return asActor(f.app, buyer(f), (q) => insertReceipt(q, orderId, lines, header));
 }
 
 /** A committed draft planted as approved (by a planted Approver), with its line ids. */
@@ -186,12 +200,17 @@ export async function readLines(q: pg.Client, orderId: string): Promise<LineStat
   return rows;
 }
 
-export async function receiptCount(q: pg.Client, orderId: string): Promise<number> {
-  const { rows } = await q.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM receipts WHERE order_id = $1`,
+/** The order's receipts and receipt lines. */
+export async function receiptCount(
+  q: pg.Client,
+  orderId: string,
+): Promise<{ receipts: number; lines: number }> {
+  const { rows } = await q.query<{ receipts: number; lines: number }>(
+    `SELECT (SELECT count(*)::int FROM goods_receipts WHERE order_id = $1) AS receipts,
+            (SELECT count(*)::int FROM goods_receipt_lines WHERE order_id = $1) AS lines`,
     [orderId],
   );
-  return rows[0]?.n ?? 0;
+  return rows[0] ?? { receipts: 0, lines: 0 };
 }
 
 /** A second active Buyer, for receipts recorded by someone other than the owner. */

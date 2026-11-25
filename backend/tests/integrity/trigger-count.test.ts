@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { approvedOrder, buyer, insertReceipts, actAs } from '../support/receipts-sql.js';
+import { approvedOrder, buyer, insertReceipt, actAs } from '../support/receipts-sql.js';
 import {
   createDraft,
   inTransaction,
@@ -148,7 +148,7 @@ describe('[NFR-PERF-03] a receipt recomputes the open-line count once and the to
       const { orderId, lineIds } = await approvedOrder(f, lines(n));
       expect(
         await receiptCounts(f, (q) =>
-          insertReceipts(
+          insertReceipt(
             q,
             orderId,
             lineIds.map((lineId) => ({ lineId, quantity: 1 })),
