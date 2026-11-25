@@ -727,6 +727,7 @@ export const OPERATIONS = {
       'SELF_APPROVAL',
       'INVALID_STATE_TRANSITION',
       'VERSION_CONFLICT',
+      'ORDER_FULLY_RECEIVED',
     ],
   },
   withdrawOrder: {

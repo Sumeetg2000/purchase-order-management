@@ -7935,10 +7935,11 @@
             }
           },
           "409": {
-            "description": "Problem document with code INVALID_STATE_TRANSITION or VERSION_CONFLICT.",
+            "description": "Problem document with code INVALID_STATE_TRANSITION or VERSION_CONFLICT or ORDER_FULLY_RECEIVED.",
             "x-error-codes": [
               "INVALID_STATE_TRANSITION",
-              "VERSION_CONFLICT"
+              "VERSION_CONFLICT",
+              "ORDER_FULLY_RECEIVED"
             ],
             "headers": {
               "X-Request-Id": {

@@ -163,13 +163,15 @@ export interface LockedOrder {
   status: OrderStatus;
   version: number;
   currentRound: number | null;
+  /** Lines not yet fully received (slice 6): 0 means fully received. */
+  openLineCount: number;
 }
 
 /** Locks the order FOR UPDATE (ADR-0006: the order first, then its lines, then the vendor). */
 export async function lockOrder(tx: AuditedTransaction, id: string): Promise<LockedOrder | null> {
   const [row] = await tx.$queryRaw<LockedOrder[]>`
     SELECT id::text, owner_id::text AS "ownerId", vendor_id::text AS "vendorId", status, version,
-           current_round::int AS "currentRound"
+           current_round::int AS "currentRound", open_line_count::int AS "openLineCount"
       FROM purchase_orders WHERE id = ${id}::uuid FOR UPDATE`;
   return row ?? null;
 }

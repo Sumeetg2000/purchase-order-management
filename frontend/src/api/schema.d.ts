@@ -5130,7 +5130,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem document with code INVALID_STATE_TRANSITION or VERSION_CONFLICT. */
+            /** @description Problem document with code INVALID_STATE_TRANSITION or VERSION_CONFLICT or ORDER_FULLY_RECEIVED. */
             409: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];

@@ -351,7 +351,14 @@ shows quantities, progress and history.
 
 ## Phase 7: User Story 4 — Simultaneous receipts never over-receive (P1)
 
-- [ ] T029 [US4] Races, barriers, 10 runs each, business outcomes asserted (research R11
+- [X] T029 [US4] All eight races of research R11 (owner, 2026-11-25: races 4–5 too, so
+  T032 is done here), each ordered on a lock held on the test's own connection and
+  released once `pg_stat_activity` shows the requests waiting (never a sleep), both start
+  orders where either can happen, no `40P01` (the transaction runner now logs every
+  retry with its SQLSTATE) and reconciliation empty after each; race 6 reaches the
+  re-check under lock (the change committed while the receipt waits on the users row,
+  holding the order and lines), and removing that re-check fails it; the file passed 20
+  runs in a row. Races, barriers, 10 runs each (race 1: 3 runs of 50 requests), business outcomes asserted (research R11
   1–3, 6–8), each asserting the lock order (no `users` row before an order or line): 50 single-unit receipts on a line with 30 outstanding (exactly 30 recorded,
   20 `409`, 30 receipts, 30 entries); overlapping multi-line commands (both fit → both;
   one fits → one in full, the other refused in full); receipts on different lines of one
@@ -371,10 +378,10 @@ shows quantities, progress and history.
   ORDER_FULLY_RECEIVED` (after the version check), nothing changes; a receipt after cancel
   → `409 ORDER_NOT_RECEIVABLE`, outstanding still `ordered − Σ receipts` —
   `backend/tests/integration/approvals-cancel.test.ts` — FR-016, FR-017, FR-LCK-02.
-- [ ] T031 [US5] Cancel service: reads `open_line_count` under the order lock, refuses
+- [X] T031 [US5] Cancel service (with T029's race 4 as its failing test): reads `open_line_count` under the order lock, refuses
   fully received; T030 green — `backend/src/approvals/service.ts`, `repository.ts` — R5,
   ADR-0001 T10.
-- [ ] T032 [US5] Races (research R11 4–5), 10 runs each start order: cancel vs a receipt
+- [X] T032 [US5] Races (research R11 4–5; done in T029, `tests/concurrency/receipts.test.ts`), 10 runs each start order: cancel vs a receipt
   that fully receives (cancelled + receipt `409 ORDER_NOT_RECEIVABLE`, or received + cancel
   `409 ORDER_FULLY_RECEIVED`); cancel vs a partial receipt (both, with the receipt in
   `PO_CANCELLED`, or the receipt refused); never a `PO_CANCELLED` disagreeing with the
