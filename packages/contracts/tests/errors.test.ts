@@ -22,7 +22,9 @@ import {
   ORDER_OWNER_INACTIVE_CANCEL_HINT,
   carriesOrderState,
   carriesReceiptLines,
-  ORDER_WRITE_FORBIDDEN_DETAIL,
+  ORDER_RECEIPT_FORBIDDEN_DETAIL,
+  exceedingLinesDetail,
+  lineNumber,
 } from '../src/index.js';
 
 describe('[NFR-API-02] error code registry', () => {
@@ -247,11 +249,24 @@ describe('[NFR-API-02] AppError', () => {
     }
   });
 
-  it('[NFR-AUTH-01] a receipt is an order write: Approvers and Admins get its FORBIDDEN details', () => {
-    expect(ORDER_WRITE_FORBIDDEN_DETAIL).toEqual({
+  it("[NFR-AUTH-01] a receipt's FORBIDDEN details: the Approver's own message, the Admin's read-only one", () => {
+    expect(ORDER_RECEIPT_FORBIDDEN_DETAIL).toEqual({
       ADMIN: 'Admins can view orders but not change them.',
-      APPROVER: 'Approvers can review orders but not change them.',
+      APPROVER: "Approvers can't record receipts. The order's Buyer records them.",
     });
+  });
+
+  it('[FR-RCV-02] human-readable text numbers a line position + 1, never "line 0"', () => {
+    expect(lineNumber(0)).toBe(1);
+    expect(lineNumber(4)).toBe(5);
+    const detail = exceedingLinesDetail([
+      { lineId: '0192f0c4-1c2d-7e3f-8a4b-5c6d7e8f9a0c', position: 0, outstanding: 5, requested: 6 },
+      { lineId: '0192f0c4-1c2d-7e3f-8a4b-5c6d7e8f9a0d', position: 2, outstanding: 0, requested: 1 },
+    ]);
+    expect(detail).toBe(
+      'Nothing was recorded. Line 1 has only 5 outstanding; you entered 6. Line 3 has only 0 outstanding; you entered 1.',
+    );
+    expect(detail).not.toMatch(/line 0\b/i);
   });
 
   it('[NFR-API-02] refuses an unregistered code at compile time and at run time', () => {

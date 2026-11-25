@@ -8,7 +8,10 @@ import {
   ORDER_LOCKED_MESSAGES,
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
+  ORDER_RECEIPT_FORBIDDEN_DETAIL,
   ORDER_WRITE_FORBIDDEN_DETAIL,
+  RECEIPT_NOTHING_RECORDED,
+  exceedingLineSentence,
   SELF_APPROVAL_DETAIL,
   SELF_APPROVAL_DETAILS,
   type LockedOrderStatus,
@@ -159,7 +162,7 @@ export const errorMessages = {
     action: 'Reload the order to see its status.',
   },
   RECEIPT_EXCEEDS_OUTSTANDING: {
-    message: 'Nothing was recorded.',
+    message: RECEIPT_NOTHING_RECORDED,
     action: 'Reload the order to see what is outstanding.',
   },
   ORDER_FULLY_RECEIVED: {
@@ -179,11 +182,6 @@ function isNotReceivableStatus(
   status: OrderStatus,
 ): status is keyof typeof NOT_RECEIVABLE_STATUS_WORDS {
   return Object.hasOwn(NOT_RECEIVABLE_STATUS_WORDS, status);
-}
-
-/** One offending line of an over-receipt, numbered as the order shows it (position + 1). */
-function exceedingLineSentence({ position, outstanding, requested }: ExceedingLine): string {
-  return `Line ${String(position + 1)} has only ${String(outstanding)} outstanding; you entered ${String(requested)}.`;
 }
 
 /** The words for each public revoke reason, in "You were logged out because …". */
@@ -276,7 +274,10 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
  */
 export function messageForOrderAction(
   problem: ProblemLike,
-  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' | 'cancel' },
+  {
+    roles,
+    action,
+  }: { roles: readonly UserRole[]; action: 'write' | 'decision' | 'cancel' | 'receipt' },
 ): ErrorMessage {
   if (problem.code === 'SELF_APPROVAL' && action === 'cancel') {
     return { message: SELF_APPROVAL_DETAILS.CANCEL };
@@ -285,9 +286,11 @@ export function messageForOrderAction(
     const details: Partial<Record<UserRole, string>> =
       action === 'write'
         ? ORDER_WRITE_FORBIDDEN_DETAIL
-        : action === 'cancel'
-          ? ORDER_CANCEL_FORBIDDEN_DETAIL
-          : ORDER_DECISION_FORBIDDEN_DETAIL;
+        : action === 'receipt'
+          ? ORDER_RECEIPT_FORBIDDEN_DETAIL
+          : action === 'cancel'
+            ? ORDER_CANCEL_FORBIDDEN_DETAIL
+            : ORDER_DECISION_FORBIDDEN_DETAIL;
     const message = roles.map((role) => details[role]).find((d) => d !== undefined);
     if (message !== undefined) return { message };
   }

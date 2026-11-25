@@ -1,4 +1,5 @@
-import { LINE_QUANTITY_MAX } from './orders.js';
+import type { ExceedingLine } from './errors.js';
+import { LINE_QUANTITY_MAX, ORDER_ADMIN_READ_ONLY_MESSAGE } from './orders.js';
 
 // Goods receipt constants (specs/007-goods-receipt/data-model.md, research R1, R4, R8).
 // The receipts table's CHECKs and triggers (migration 0016_receipts) hold SQL copies of
@@ -34,3 +35,33 @@ export const RECEIPT_READ_ONLY_FIELDS = [
   'receivedAfter',
   'outstandingAfter',
 ] as const;
+
+/** The detail of a pure Approver's 403 on a receipt (owner, 2026-11-25). */
+export const ORDER_RECEIPT_APPROVER_MESSAGE =
+  "Approvers can't record receipts. The order's Buyer records them.";
+/** A receipt's route-level FORBIDDEN detail, by the caller's role. */
+export const ORDER_RECEIPT_FORBIDDEN_DETAIL = {
+  ADMIN: ORDER_ADMIN_READ_ONLY_MESSAGE,
+  APPROVER: ORDER_RECEIPT_APPROVER_MESSAGE,
+} as const;
+
+/**
+ * A line's number in human-readable text: positions count from 0 in every field, and
+ * every sentence numbers lines from 1, never "line 0" (owner, 2026-11-25).
+ */
+export function lineNumber(position: number): number {
+  return position + 1;
+}
+
+/** What an over-receipt records: nothing. */
+export const RECEIPT_NOTHING_RECORDED = 'Nothing was recorded.';
+
+/** One offending line of an over-receipt, as a sentence. */
+export function exceedingLineSentence({ position, outstanding, requested }: ExceedingLine): string {
+  return `Line ${String(lineNumber(position))} has only ${String(outstanding)} outstanding; you entered ${String(requested)}.`;
+}
+
+/** RECEIPT_EXCEEDS_OUTSTANDING's detail: nothing recorded, then every offending line. */
+export function exceedingLinesDetail(lines: readonly ExceedingLine[]): string {
+  return [RECEIPT_NOTHING_RECORDED, ...lines.map(exceedingLineSentence)].join(' ');
+}

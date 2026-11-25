@@ -1,4 +1,4 @@
-import type { OrderStatus, ReceiptProgress } from '@po/contracts';
+import { lineNumber, type OrderStatus, type ReceiptProgress } from '@po/contracts';
 
 // The receipt words, in one place (specs/007-goods-receipt/research.md R8, R12,
 // contracts/ui.md): the received summary, the badges, the fully-received warning and the
@@ -44,7 +44,7 @@ export function receiptBadge(status: OrderStatus, progress: ReceiptProgress): st
 
 /** The receipt dialog's warning for each line the receipt would fully receive. */
 export function fullyReceivedWarning(position: number): string {
-  return `This marks line ${String(position + 1)} as fully received. Receipts can't be changed or undone.`;
+  return `This marks line ${String(lineNumber(position))} as fully received. Receipts can't be changed or undone.`;
 }
 
 /** A user's open orders, as the Admin's dialogs show them. */

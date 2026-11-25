@@ -99,6 +99,16 @@ describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)
     ).toEqual(errorMessages.VERSION_CONFLICT);
   });
 
+  it('[NFR-AUTH-01] a refused receipt says why: an Approver gets its own words, an Admin the read-only ones', () => {
+    const forbidden = { code: 'FORBIDDEN' };
+    expect(messageForOrderAction(forbidden, { roles: ['APPROVER'], action: 'receipt' })).toEqual({
+      message: "Approvers can't record receipts. The order's Buyer records them.",
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'receipt' })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
+  });
+
   it('[FR-SOD-01] a refused cancel says why: Buyer, Admin, or the order is your own', () => {
     const forbidden = { code: 'FORBIDDEN' };
     expect(messageForOrderAction(forbidden, { roles: ['BUYER'], action: 'cancel' })).toEqual({
@@ -289,6 +299,13 @@ describe('[FR-RCV-02] receipt messages (specs/007-goods-receipt/contracts/errors
     ).toBe(
       'Nothing was recorded. Line 2 has only 5 outstanding; you entered 6. Line 3 has only 0 outstanding; you entered 1.',
     );
+    // The first line is line 1, never line 0.
+    expect(
+      sentenceFor({
+        code: 'RECEIPT_EXCEEDS_OUTSTANDING',
+        lines: [{ lineId: 'a', position: 0, outstanding: 2, requested: 3 }],
+      }),
+    ).toBe('Nothing was recorded. Line 1 has only 2 outstanding; you entered 3.');
     expect(sentenceFor({ code: 'RECEIPT_EXCEEDS_OUTSTANDING' })).toBe(
       'Nothing was recorded. Reload the order to see what is outstanding.',
     );
