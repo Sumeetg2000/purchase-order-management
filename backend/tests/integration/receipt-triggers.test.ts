@@ -162,7 +162,7 @@ describe('[FR-RCV-01] a receipt is one document, written once', () => {
   });
 
   for (const role of ['po_app', 'po_owner'] as const) {
-    it(`[FR-RCV-02] ${role}: a line added to a receipt recorded earlier is refused (PO023)`, async () => {
+    it(`[FR-RCV-02] ${role}: a line added to a receipt by a later transaction is refused (PO023)`, async () => {
       const f = await orderFixture();
       const { orderId, lineIds } = await approvedOrder(f, [
         { quantity: 5, unitPrice: '1' },
@@ -182,7 +182,53 @@ describe('[FR-RCV-01] a receipt is one document, written once', () => {
       expect(await receiptCount(f.app, orderId)).toEqual({ receipts: 1, lines: 1 });
       expect((await readLines(f.app, orderId)).map((l) => l.received_quantity)).toEqual([1, 0]);
     });
+
+    it(`[FR-RCV-02] ${role}: a line added by a second statement in the same transaction is refused (PO023)`, async () => {
+      const f = await orderFixture();
+      const { orderId, lineIds } = await approvedOrder(f, [
+        { quantity: 5, unitPrice: '1' },
+        { quantity: 5, unitPrice: '1' },
+      ]);
+      const state = await sqlstate(() =>
+        asActor(role === 'po_app' ? f.app : f.owner, buyer(f), async (q) => {
+          const receiptId = await insertReceipt(q, orderId, [
+            { lineId: lineIds[0] ?? '', quantity: 1 },
+          ]);
+          await q.query(
+            `INSERT INTO goods_receipt_lines (receipt_id, order_id, line_id, quantity)
+             VALUES ($1, $2, $3, 1)`,
+            [receiptId, orderId, lineIds[1]],
+          );
+        }),
+      );
+      expect(state).toBe(RECEIPT_IMMUTABLE);
+      expect(await receiptCount(f.app, orderId)).toEqual({ receipts: 0, lines: 0 });
+      expect((await readLines(f.app, orderId)).map((l) => l.received_quantity)).toEqual([0, 0]);
+    });
   }
+
+  it('[FR-RCV-01] a receipt rolled back to a savepoint can be retried in the same transaction', async () => {
+    const f = await orderFixture();
+    const { orderId, lineIds } = await approvedOrder(f, [{ quantity: 5, unitPrice: '1' }]);
+    const lines = [{ lineId: lineIds[0] ?? '', quantity: 2 }];
+    await asActor(f.app, buyer(f), async (q) => {
+      // A refused receipt, rolled back, then the same receipt allowed.
+      await q.query('SAVEPOINT refused');
+      expect(
+        await sqlstate(() =>
+          insertReceipt(q, orderId, [{ lineId: lineIds[0] ?? '', quantity: 6 }]),
+        ),
+      ).toBe(RECEIPT_EXCEEDS_ORDERED);
+      await q.query('ROLLBACK TO SAVEPOINT refused');
+      // An allowed receipt, rolled back, then retried.
+      await q.query('SAVEPOINT retried');
+      await insertReceipt(q, orderId, lines);
+      await q.query('ROLLBACK TO SAVEPOINT retried');
+      await insertReceipt(q, orderId, lines);
+    });
+    expect(await receiptCount(f.app, orderId)).toEqual({ receipts: 1, lines: 1 });
+    expect((await readLines(f.app, orderId))[0]?.received_quantity).toBe(2);
+  });
 });
 
 describe('[FR-SM-01] D12: receipts only on approved orders', () => {
