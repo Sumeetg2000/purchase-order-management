@@ -303,7 +303,7 @@ shows quantities, progress and history.
 - [X] T024 [US2] Service: every offending line listed (not only the first); the set-based
   writes pinned by T023; T022, T023 green — `backend/src/receipts/service.ts`,
   `repository.ts` — R5 step 9, R6.
-- [ ] T025 [P] [US2] Record receipt form and dialog, component tests first: the "Record
+- [X] T025 [P] [US2] Record receipt form and dialog, component tests first: the "Record
   receipt" button (from T021), only for the owner of an `APPROVED` order not fully
   received; one row per
   line with outstanding > 0 (blank = not in this delivery, labelled per line); date
@@ -314,8 +314,8 @@ shows quantities, progress and history.
   opening reused on retry; `RECEIPT_EXCEEDS_OUTSTANDING` inside with every line and each
   input marked, Reload order; success reloads the order and receipts and announces
   "Receipt recorded."; axe — `frontend/src/pages/orders/ReceiptForm.tsx`,
-  `ReceiptDialog.tsx` (new), `frontend/tests/receipt-form.test.tsx`,
-  `receipt-dialog.test.tsx` (new), `order-dialog-reload.test.tsx` — FR-019,
+  `ReceiptDialog.tsx` (new), `frontend/tests/receipt-form.test.tsx` (form and dialog
+  together), `order-dialog-reload.test.tsx` — FR-019,
   contracts/ui.md, NFR-FE-09, SC-007.
 
 ---

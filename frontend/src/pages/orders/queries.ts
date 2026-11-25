@@ -166,3 +166,26 @@ export function useOrderReceipt(id: string, receiptId: string, { enabled = true 
     enabled,
   });
 }
+
+export type RecordReceiptBody = NonNullable<
+  paths['/orders/{id}/receipts']['post']['requestBody']
+>['content']['application/json'];
+
+/** Records a receipt with the opened dialog's Idempotency-Key, reused on its retry. */
+export function recordReceipt(id: string, body: RecordReceiptBody, idempotencyKey: string) {
+  return api.POST('/orders/{id}/receipts', {
+    params: { path: { id }, header: { 'Idempotency-Key': idempotencyKey } },
+    body,
+  });
+}
+
+/** After a receipt: the order, its receipts and every list reread. */
+export function useReceiptRecorded() {
+  const queryClient = useQueryClient();
+  return async (id: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: orderKey(id) }),
+      queryClient.invalidateQueries({ queryKey: [...ORDERS_KEY, 'list'] }),
+    ]);
+  };
+}
