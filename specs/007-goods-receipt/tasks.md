@@ -160,7 +160,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 receives as someone else, writes `received_quantity`, or changes a receipt.
 **Independent test**: the attacks below, each refused, then reconciliation zero rows.
 
-- [ ] T010 [P] Trigger tests, seen failing on part 1 (reworked 2026-11-25): as `po_app`
+- [X] T010 [P] Trigger tests, seen failing on part 1 (reworked 2026-11-25): as `po_app`
   with an actor context, inserting a receipt with its lines in one statement: on a
   draft, pending, rejected, cancelled order → `PO020`; `recorded_by` ≠ owner, or ≠ the
   actor, or actor `SYSTEM` → `PO021`; `received_on` the day before approval (IST) →
@@ -187,7 +187,7 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   `recompute_orders` 0 times and `recompute_open_lines` once
   (`po.open_line_recompute_count`); an order edit's counts unchanged —
   `backend/tests/integrity/trigger-count.test.ts` — R3, FR-009, NFR-PERF-03.
-- [ ] T013 Migration part 2 (reworked 2026-11-25): `goods_receipts_before_insert`
+- [X] T013 Migration part 2 (reworked 2026-11-25): `goods_receipts_before_insert`
   (`recorded_at := now()`); `goods_receipts_after_insert` (statement, `new_receipts`: a
   receipt with no line → `23514`); `goods_receipt_lines_after_insert` (statement,
   `new_lines`; orders then lines locked in id order before any check; D16 for a line on

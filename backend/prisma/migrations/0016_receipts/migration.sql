@@ -86,7 +86,8 @@ ALTER TABLE idempotency_keys
 --   PO021 RECEIPT_NOT_BY_OWNER      recorded_by not the owner, or not the actor (D13)
 --   PO022 RECEIPT_EXCEEDS_ORDERED   received above ordered (D15)
 --   PO023 RECEIPT_IMMUTABLE         a receipt or receipt line updated, deleted or
---                                   truncated, or a line added to an earlier receipt (D16)
+--                                   truncated, or a line added to a receipt by a later
+--                                   statement (D16)
 --   PO024 RECEIPT_BEFORE_APPROVAL   received_on before the approval date (D14)
 --   PO025 RECEIPT_DATE_TOO_LATE     received_on after the database's India date + 1 (D17)
 -- and 23514 on goods_receipts_has_lines: a receipt with no line.
@@ -228,8 +229,8 @@ CREATE TRIGGER goods_receipts_after_insert
   FOR EACH STATEMENT EXECUTE FUNCTION goods_receipts_after_insert();
 
 -- Once per receipt-line statement (research R2): lock the orders, then the lines, in id
--- order; then check, reading each line's receipt: D16 (a line on a receipt recorded in an
--- earlier transaction), D12, D13, D14, D17, and D15 on the sums over every receipt in the
+-- order; then check, reading each line's receipt: D16 (a receipt with lines from another
+-- statement), D12, D13, D14, D17, and D15 on the sums over every receipt in the
 -- statement; then one set-based update of the lines' received quantities under the
 -- po.receipts flag. The service has already locked the order FOR UPDATE and the lines FOR
 -- UPDATE, so these locks are no-ops there; the lines take FOR NO KEY UPDATE so a raw
@@ -248,15 +249,20 @@ BEGIN
     WHERE id IN (SELECT order_id FROM new_lines) ORDER BY id FOR NO KEY UPDATE;
   PERFORM 1 FROM public.order_lines
     WHERE id IN (SELECT line_id FROM new_lines) ORDER BY id FOR NO KEY UPDATE;
-  -- D16: a receipt's lines are written with it, never added later. recorded_at is always
-  -- the recording transaction's now() (goods_receipts_before_insert), savepoints included.
-  SELECT g.id INTO bad FROM public.goods_receipts g
-   WHERE g.id IN (SELECT receipt_id FROM new_lines) AND g.recorded_at <> now()
+  -- D16: a receipt's lines all arrive in one INSERT statement. A receipt in this statement
+  -- with a line from any other statement is refused; with goods_receipts_has_lines (every
+  -- receipt has a line when its own statement ends) no later statement, in this
+  -- transaction or another, can add a line to a receipt.
+  SELECT l.receipt_id INTO bad FROM public.goods_receipt_lines l
+   WHERE l.receipt_id IN (SELECT receipt_id FROM new_lines)
+     AND NOT EXISTS (SELECT 1 FROM new_lines n
+                      WHERE n.receipt_id = l.receipt_id AND n.line_id = l.line_id)
    LIMIT 1;
   IF FOUND THEN
     RAISE EXCEPTION 'RECEIPT_IMMUTABLE' USING
       ERRCODE = 'PO023',
-      DETAIL = format('receipt %s was recorded earlier: its lines never change', bad.id);
+      DETAIL = format('receipt %s already has lines: its lines arrive in one statement',
+                      bad.receipt_id);
   END IF;
   -- D12.
   SELECT o.id, o.status INTO bad FROM public.purchase_orders o
