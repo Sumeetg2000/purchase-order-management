@@ -133,7 +133,35 @@ describe('[FR-RCV-01] the receipt form', () => {
     expect(date).toHaveAttribute('min', '2026-11-18');
     expect(date).toHaveAttribute('max', TODAY);
     expect(within(form).getByLabelText('Note (optional)')).toHaveAttribute('maxlength', '500');
-    expect(within(form).getByRole('button', { name: 'Continue' })).toBeDisabled();
+    const continueButton = within(form).getByRole('button', { name: 'Continue' });
+    expect(continueButton).toBeEnabled();
+    expect(continueButton).toHaveAttribute('type', 'submit');
+    expect(await axeViolations(document.body)).toEqual([]);
+  });
+
+  it('[NFR-FE-09] Enter in a quantity submits the form and opens the dialog', async () => {
+    const { user, form } = await openForm();
+    await user.type(within(form).getAllByRole('spinbutton')[0] as HTMLElement, '5{Enter}');
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent(
+      'Line 1: receiving 5, received so far 40, outstanding after 55',
+    );
+  });
+
+  it('[NFR-FE-09] every line blank: the message is tied to the lines and focus moves to the first', async () => {
+    const { user, form, seen } = await openForm();
+    await user.click(within(form).getByRole('button', { name: 'Continue' }));
+    const message = within(form).getByText('Enter a quantity for at least one line.');
+    const first = within(form).getAllByRole('spinbutton')[0] as HTMLElement;
+    expect(first).toHaveFocus();
+    expect(first).toHaveAttribute('aria-describedby', message.id);
+    expect(first).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(posts(seen)).toHaveLength(0);
+    // Entering a quantity clears it.
+    await user.type(first, '1');
+    expect(
+      within(form).queryByText('Enter a quantity for at least one line.'),
+    ).not.toBeInTheDocument();
     expect(await axeViolations(document.body)).toEqual([]);
   });
 

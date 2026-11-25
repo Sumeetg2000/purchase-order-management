@@ -307,15 +307,17 @@ shows quantities, progress and history.
   receipt" button (from T021), only for the owner of an `APPROVED` order not fully
   received; one row per
   line with outstanding > 0 (blank = not in this delivery, labelled per line); date
-  (default today IST, `min` approval date, `max` today); note 0–500; at least one quantity
-  to continue; field errors inline by code; dialog per line "Line {n}: receiving {N},
+  (default today IST, `min` approval date, `max` today); note 0–500; Continue is a submit
+  button, so Enter in a quantity submits; with every line blank, submit says "Enter a
+  quantity for at least one line." tied to the lines (`aria-describedby`) and moves focus
+  to the first line (owner, 2026-11-25); field errors inline by code; dialog per line "Line {n}: receiving {N},
   received so far {R}, outstanding after {M}" and the fully-received warning per line
   reaching 0; "Go back" focused; one request on a double click; one `Idempotency-Key` per
   opening reused on retry; `RECEIPT_EXCEEDS_OUTSTANDING` inside with every line and each
   input marked, Reload order; success reloads the order and receipts and announces
   "Receipt recorded."; axe — `frontend/src/pages/orders/ReceiptForm.tsx`,
-  `ReceiptDialog.tsx` (new), `frontend/tests/receipt-form.test.tsx` (form and dialog
-  together), `order-dialog-reload.test.tsx` — FR-019,
+  `ReceiptDialog.tsx` (new), `frontend/tests/receipt-form.test.tsx` (new: the form and
+  the dialog, one file) — FR-019,
   contracts/ui.md, NFR-FE-09, SC-007.
 
 ---

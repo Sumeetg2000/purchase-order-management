@@ -1,5 +1,5 @@
 import { lineNumber, RECEIPT_NOTE_MAX, RECEIPT_TIME_ZONE } from '@po/contracts';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { ReceiptDialog, type ReceiptLinePlan } from './ReceiptDialog';
@@ -43,6 +43,9 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [exceeding, setExceeding] = useState<ReadonlySet<string>>(new Set());
+  const [blank, setBlank] = useState(false);
+  const blankId = useId();
+  const firstQuantity = useRef<HTMLInputElement>(null);
   const dateId = useId();
   const noteId = useId();
 
@@ -68,7 +71,12 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
         aria-label="Record receipt"
         onSubmit={(event) => {
           event.preventDefault();
-          if (plan.length > 0) setConfirming(true);
+          if (plan.length > 0) {
+            setConfirming(true);
+            return;
+          }
+          setBlank(true);
+          firstQuantity.current?.focus();
         }}
       >
         <h2>Record receipt</h2>
@@ -84,7 +92,7 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
             </tr>
           </thead>
           <tbody>
-            {open.map(({ line, position }) => {
+            {open.map(({ line, position }, index) => {
               const label = `Line ${String(lineNumber(position))}, ${line.description}: quantity received (${String(line.outstandingQuantity)} outstanding)`;
               return (
                 <tr key={line.id}>
@@ -99,12 +107,15 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
                       min={1}
                       max={line.outstandingQuantity}
                       step={1}
+                      ref={index === 0 ? firstQuantity : undefined}
                       aria-label={label}
-                      aria-invalid={exceeding.has(line.id) ? true : undefined}
+                      aria-invalid={blank || exceeding.has(line.id) ? true : undefined}
+                      aria-describedby={blank ? blankId : undefined}
                       value={quantities[line.id] ?? ''}
                       onChange={(event) => {
                         const value = event.target.value;
                         setQuantities((was) => ({ ...was, [line.id]: value }));
+                        setBlank(false);
                       }}
                     />
                   </td>
@@ -139,14 +150,12 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
           />
         </p>
         <p>
-          <button
-            type="button"
-            className={controls.button}
-            disabled={plan.length === 0}
-            onClick={() => {
-              setConfirming(true);
-            }}
-          >
+          {blank && (
+            <span id={blankId} role="alert">
+              Enter a quantity for at least one line.
+            </span>
+          )}{' '}
+          <button type="submit" className={controls.button}>
             Continue
           </button>{' '}
           <button type="button" className={controls.button} onClick={onClose}>
