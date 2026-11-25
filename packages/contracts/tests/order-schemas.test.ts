@@ -270,7 +270,6 @@ describe('[FR-PO-01] order list query and responses', () => {
             'vendorSnapshot',
             'approval',
             'cancellation',
-            'receiptProgress',
           ].includes(key),
       ),
     );

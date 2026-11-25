@@ -193,6 +193,8 @@ describe('[FR-APR-01] slice 4 response schemas', () => {
       total: '1.0000',
       lineCount: 1,
       createdAt: AT,
+      // Slice 6: the list badge's value.
+      receiptProgress: 'NOT_RECEIVED',
     };
     expect(orderListItem.safeParse(item).success).toBe(true);
     expect(orderListItem.safeParse({ ...item, approval: null }).success).toBe(false);
@@ -265,7 +267,6 @@ describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
       'vendorSnapshot',
       'approval',
       'cancellation',
-      'receiptProgress',
     ]);
     const listed = { ...item, status: 'CANCELLED', vendor: { id: ID, name: 'Acme Supplies' } };
     expect(orderListItem.safeParse(listed).success).toBe(true);

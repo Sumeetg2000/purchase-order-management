@@ -913,8 +913,11 @@ export interface components {
             lineCount: number;
             /** Format: date-time */
             createdAt: string;
+            receiptProgress: components["schemas"]["ReceiptProgress"];
         };
         Money: string;
+        /** @enum {string} */
+        ReceiptProgress: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED";
         Order: {
             /** Format: uuid */
             id: string;
@@ -1002,8 +1005,6 @@ export interface components {
             cancelledAt: string;
             reason: string;
         };
-        /** @enum {string} */
-        ReceiptProgress: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED";
         PageOfOrderTimelineItem: {
             items: components["schemas"]["OrderTimelineItem"][];
             page: number;

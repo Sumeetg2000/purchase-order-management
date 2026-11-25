@@ -130,8 +130,6 @@ export const orderListItem = order
     vendorSnapshot: true,
     approval: true,
     cancellation: true,
-    // The list's receipt badge comes with the lists' own change (research R9).
-    receiptProgress: true,
   })
   .extend({ vendor: z.strictObject({ id: z.uuid(), name: z.string() }) })
   .meta({ id: 'OrderListItem' });

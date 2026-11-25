@@ -89,6 +89,8 @@ describe('[FR-OWN-01] order lists are scoped in the database', () => {
       total: '6.0000',
       lineCount: 3,
       createdAt: a[2]?.createdAt,
+      // Slice 6: the list badge's value.
+      receiptProgress: 'NOT_RECEIVED',
     });
   });
 

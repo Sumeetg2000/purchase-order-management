@@ -399,7 +399,7 @@ shows quantities, progress and history.
 
 ## Phase 9: List badge (FR-021a)
 
-- [ ] T034 Lists, tests first: `orderListItem` += `receiptProgress` (schema, from T005)
+- [X] T034 Lists, tests first: `orderListItem` += `receiptProgress` (schema, from T005)
   and every scope's rows carry it (approved
   nothing/partly/fully; cancelled with and without receipts; drafts, pending, rejected
   `NOT_RECEIVED`); counts unchanged; no new filter —

@@ -417,8 +417,17 @@ export function orderListSql(
   // page's own rows are then read from the table.
   const keys = byPoNumber ? Prisma.sql`po_number` : Prisma.sql`created_at, id`;
   const join = byPoNumber ? Prisma.sql`o.po_number = k.po_number` : Prisma.sql`o.id = k.id`;
+  // The receipt badge (research R9): computed per page row, after the page is cut, so it
+  // never touches the WHERE clauses or the count: at most one index probe of
+  // goods_receipts_order_recorded_idx per row, only for an approved or cancelled order
+  // that still has an open line.
   const page = Prisma.sql`SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total,
-           o.created_at, o.current_round
+           o.created_at, o.current_round,
+           CASE WHEN o.status NOT IN ('APPROVED', 'CANCELLED') THEN 'NOT_RECEIVED'
+                WHEN o.open_line_count = 0 THEN 'FULLY_RECEIVED'
+                WHEN EXISTS (SELECT 1 FROM goods_receipts r WHERE r.order_id = o.id)
+                  THEN 'PARTIALLY_RECEIVED'
+                ELSE 'NOT_RECEIVED' END AS receipt_progress
       FROM (SELECT k.* FROM (${union(keys, offset + limit)}) k
              ORDER BY ${order('k')} LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}) k
       JOIN purchase_orders o ON ${join}`;
@@ -441,6 +450,7 @@ export function orderListSql(
                                                         AND r.round = p.current_round) END),
                       'owner', json_build_object('id', p.owner_id::text, 'name', u.name),
                       'total', p.total::text,
+                      'receiptProgress', p.receipt_progress,
                       'lineCount', (SELECT count(*) FROM order_lines l WHERE l.order_id = p.id),
                       'createdAt', to_char(p.created_at AT TIME ZONE 'UTC',
                                            'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
