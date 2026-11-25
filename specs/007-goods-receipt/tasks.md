@@ -286,7 +286,7 @@ shows quantities, progress and history.
 
 ## Phase 5: User Story 2 — Several lines at once, all or nothing (P1)
 
-- [ ] T022 [US2] Tests, seen failing: lines A 10, B 5, C 8 outstanding: A 10, B 6, C 8 →
+- [X] T022 [US2] Tests, seen failing: lines A 10, B 5, C 8 outstanding: A 10, B 6, C 8 →
   `409 RECEIPT_EXCEEDS_OUTSTANDING` with `lines` = [B] (outstanding 5, requested 6), no
   receipt, no audit entry, no line changed; A 11, B 6 → both listed in position order; A
   10, B 5, C 3 → one receipt with 3 lines, 3 entries sharing its id, date and note; a fully received line and
@@ -296,11 +296,11 @@ shows quantities, progress and history.
   note 501 `TOO_LONG`; unknown field `UNKNOWN_FIELD`; a read-only field `READ_ONLY_FIELD`;
   a 500-line receipt accepted — `backend/tests/integration/receipts-multiline.test.ts`
   (new) — FR-002, FR-RCV-01, FR-RCV-02, NFR-VAL-01.
-- [ ] T023 [US2] Query count, seen failing: one command runs 7 statements for 1 line and
+- [X] T023 [US2] Query count, seen failing: one command runs 7 statements for 1 line and
   for 500 (key claim, order lock, line lock and read, user lock, receipt insert (header
   and lines, one CTE), audit insert, key completion) — `backend/tests/integration/receipts-query-count.test.ts` (new)
   — R6, NFR-PERF-03.
-- [ ] T024 [US2] Service: every offending line listed (not only the first); the set-based
+- [X] T024 [US2] Service: every offending line listed (not only the first); the set-based
   writes pinned by T023; T022, T023 green — `backend/src/receipts/service.ts`,
   `repository.ts` — R5 step 9, R6.
 - [ ] T025 [P] [US2] Record receipt form and dialog, component tests first: the "Record
