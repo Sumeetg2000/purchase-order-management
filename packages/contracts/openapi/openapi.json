@@ -9905,7 +9905,8 @@
               "APPROVAL_STEP_APPROVED",
               "APPROVAL_STEP_REJECTED",
               "PO_WITHDRAWN",
-              "PO_CANCELLED"
+              "PO_CANCELLED",
+              "GOODS_RECEIPT_RECORDED"
             ]
           },
           "occurredAt": {

@@ -50,6 +50,24 @@ export interface AuditCancelledLine {
   receivedQuantity: number;
 }
 
+/** One line of a receipt, as GOODS_RECEIPT_RECORDED records it (ADR-0016, 2026-11-25). */
+export interface AuditReceiptLine {
+  /** The receipt's id: the same on every entry of one receipt. */
+  receiptId: string;
+  lineId: string;
+  /** From 0, as stored. */
+  position: number;
+  quantity: number;
+  receivedBefore: number;
+  receivedAfter: number;
+  outstandingAfter: number;
+  /** The India receipt date, YYYY-MM-DD. */
+  receivedOn: string;
+  /** The database clock when the receipt was recorded. */
+  recordedAt: string;
+  note: string | null;
+}
+
 /** A step a withdraw voided, with the approval it had, if any (ADR-0001). */
 export interface AuditVoidedStep {
   step: number;
@@ -197,6 +215,11 @@ export interface AuditEventCatalogue {
   PO_CANCELLED: {
     entityType: 'order';
     details: { round: number; reason: string; lines: AuditCancelledLine[] };
+  };
+  /** The owner recorded a receipt (slice 6): one entry per receipt line, in one statement. */
+  GOODS_RECEIPT_RECORDED: {
+    entityType: 'order';
+    details: AuditReceiptLine;
   };
   /** A new policy version: by the operator CLI, or SYSTEM for the migration's seed. */
   APPROVAL_POLICY_CHANGED: {

@@ -70,4 +70,17 @@ describe('[NFR-AUD-03] the order timeline', () => {
     expect(items[1]).toHaveTextContent('Auto-approved');
     expect(items[2]).toHaveTextContent('Submitted');
   });
+
+  it('[NFR-AUD-03] names a receipt line entry "Goods received"', async () => {
+    fakeApi({
+      'GET /me': () => json(200, { ...ME, roles: ['BUYER'] }),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, order(), { ETag: '"1"' }),
+      [`GET /orders/${ORDER_ID}/timeline`]: () =>
+        json(200, page([entry('GOODS_RECEIPT_RECORDED', {}, '1')])),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('link', { name: 'Timeline' }));
+    const list = await screen.findByRole('list', { name: 'Order timeline' });
+    expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Goods received');
+  });
 });

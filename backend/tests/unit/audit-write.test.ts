@@ -1,7 +1,7 @@
 import type { Money } from '@po/contracts';
 import { describe, expectTypeOf, it } from 'vitest';
 import type { AuditEvent, AuditEventCatalogue } from '../../src/audit/events.js';
-import type { writeAudit } from '../../src/audit/write.js';
+import type { writeAudit, writeAuditBatch } from '../../src/audit/write.js';
 import type { Prisma } from '../../src/generated/prisma/client.js';
 
 // Compile-time checks: `npm run typecheck` fails if an event that should be refused is
@@ -205,5 +205,38 @@ describe('[NFR-AUD-02] typed audit events', () => {
   it('[NFR-AUD-02] takes only a transaction from withTransaction, never a plain Prisma one', () => {
     // @ts-expect-error: a raw prisma.$transaction client has no actor context set
     expectTypeOf<Prisma.TransactionClient>().toExtend<Transaction>();
+  });
+});
+
+interface ReceiptDetails {
+  receiptId: string;
+  lineId: string;
+  position: number;
+  quantity: number;
+  receivedBefore: number;
+  receivedAfter: number;
+  outstandingAfter: number;
+  receivedOn: string;
+  recordedAt: string;
+  note: string | null;
+}
+type ReceiptRecorded = OrderEvent<'GOODS_RECEIPT_RECORDED', ReceiptDetails>;
+type ReceiptWithOldDateName = OrderEvent<
+  'GOODS_RECEIPT_RECORDED',
+  Omit<ReceiptDetails, 'receivedOn'> & { receivedAt: string }
+>;
+type BatchEvents = Parameters<typeof writeAuditBatch>[1];
+
+describe('[NFR-AUD-01] the receipt audit event and the batch writer', () => {
+  it('[NFR-AUD-01] GOODS_RECEIPT_RECORDED carries the receipt id and both dates, per receipt line', () => {
+    expectTypeOf<ReceiptRecorded>().toExtend<Event>();
+    // @ts-expect-error: the receipt date is receivedOn
+    expectTypeOf<ReceiptWithOldDateName>().toExtend<Event>();
+  });
+
+  it('[NFR-AUD-01] writeAuditBatch takes the same transaction and a list of the same events', () => {
+    expectTypeOf<Parameters<typeof writeAuditBatch>[0]>().toEqualTypeOf<Transaction>();
+    expectTypeOf<ReceiptRecorded[]>().toExtend<BatchEvents>();
+    expectTypeOf<Created[]>().toExtend<BatchEvents>();
   });
 });

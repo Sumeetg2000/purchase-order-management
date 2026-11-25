@@ -102,21 +102,22 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 
 ### Contracts
 
-- [ ] T005 [P] Schemas, seen failing first: `recordReceiptBody` (strict; `receivedOn`
+- [X] T005 [P] Schemas, seen failing first: `recordReceiptBody` (strict; `receivedOn`
   `YYYY-MM-DD`; `note` plain text 0–500, nullable, optional; `lines` 1–500 of strict
   `{ lineId: uuid, quantity }` with quantity "a whole number 1–1,000,000"
   (`INVALID_FORMAT` non-integer, `OUT_OF_RANGE` 0/negative/above); the same `lineId` twice
   → `DUPLICATE_LINE_ID` at `body.lines.{i}.lineId` of the later entry); `recordedReceipt`
   (the receipt: `id`, `receivedOn`, `recordedAt`, `note`, `receiptProgress`, `lines`);
   `receiptSummary` (a receipt with `lineCount`); `receiptPage`; `receiptDetail` (a receipt
-  with its lines, ≤ 500, position order); `orderLine` += `receivedQuantity`, `outstandingQuantity`;
-  `order` += `receiptProgress`, `receivedLines { complete, partly, total }`;
-  `orderListItem` += `receiptProgress`; `adminUserDetail` += `openOrders { draft, pending,
-  approvedWithOpenLines }`; every new response field read-only in request bodies
-  (`READ_ONLY_FIELD`) — `packages/contracts/src/schemas/receipts.ts` (new), `orders.ts`,
+  with its lines, ≤ 500, position order); every new response field read-only in request
+  bodies (`READ_ONLY_FIELD`; `RECEIPT_READ_ONLY_FIELDS`, `ORDER_READ_ONLY_FIELDS` +=
+  `receiptProgress`, `receivedLines`). The new required response fields on `orderLine`,
+  `order`, `orderListItem` and `adminUserDetail` land with the reads that produce them
+  (T020, T034, T038): every response is checked against the committed OpenAPI document,
+  so adding them here would fail every order and admin response until then — `packages/contracts/src/schemas/receipts.ts` (new), `orders.ts`,
   `admin-users.ts`, `read-only.ts`, `packages/contracts/tests/receipt-schemas.test.ts`
   (new), `order-schemas.test.ts` — contracts/api.md, NFR-VAL-01.
-- [ ] T006 [P] Error codes and details, seen failing first: `FIELD_CODES` gains
+- [X] T006 [P] Error codes and details, seen failing first: `FIELD_CODES` gains
   `DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL`; `ORDER_NOT_RECEIVABLE` carries `orderState: {
   status }`; `RECEIPT_EXCEEDS_OUTSTANDING` carries `lines: [{ lineId, position,
   outstanding, requested }]` (every offending line, position order);
@@ -124,12 +125,12 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   review orders but not change them." — `packages/contracts/src/errors.ts`,
   `schemas/problem.ts`, `orders.ts`, `packages/contracts/tests/errors.test.ts` —
   contracts/errors.md, ADR-0007 2026-11-24.
-- [ ] T007 [P] Database errors `PO020`–`PO025` (`ORDER_NOT_RECEIVABLE`,
+- [X] T007 [P] Database errors `PO020`–`PO025` (`ORDER_NOT_RECEIVABLE`,
   `RECEIPT_NOT_BY_OWNER`, `RECEIPT_EXCEEDS_ORDERED`, `RECEIPT_IMMUTABLE`,
   `RECEIPT_BEFORE_APPROVAL`, `RECEIPT_DATE_TOO_LATE`) → `INTERNAL_ERROR` with their names,
   unit test first — `backend/src/db/errors.ts`, `backend/tests/unit/db-errors.test.ts` —
   R4, data-model.md.
-- [ ] T008 [P] Audit: event `GOODS_RECEIPT_RECORDED`, one per receipt line (actor `USER`
+- [X] T008 [P] Audit: event `GOODS_RECEIPT_RECORDED`, one per receipt line (actor `USER`
   acting as `BUYER`; details `{ receiptId, lineId, position, quantity, receivedBefore,
   receivedAfter, outstandingAfter, receivedOn, recordedAt, note }`, `receiptId` the
   receipt's id on every entry of one receipt); `ORDER_AUDIT_ACTIONS` extended;
@@ -138,8 +139,9 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   every row carries the actor's name and email, the capacity (`acting_role` `BUYER`) and
   the request id) — `backend/src/audit/events.ts`, `write.ts`,
   `packages/contracts/src/orders.ts`, `backend/tests/unit/audit-write.test.ts`,
-  `backend/tests/integration/audit.test.ts` — R6, ADR-0016 2026-11-24, NFR-AUD-01.
-- [ ] T009 [P] Web messages and helper, tests first: messages for `ORDER_NOT_RECEIVABLE`
+  `backend/tests/integration/audit-batch.test.ts` (new); the timeline names the event
+  "Goods received" — R6, ADR-0016 2026-11-24, NFR-AUD-01.
+- [X] T009 [P] Web messages and helper, tests first: messages for `ORDER_NOT_RECEIVABLE`
   ("This order can't receive goods: it is {status}."), `RECEIPT_EXCEEDS_OUTSTANDING`
   ("Nothing was recorded." + one line per offending line), `ORDER_FULLY_RECEIVED`,
   `DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL ({date})`; `receipt-progress.ts`: the summary
@@ -255,8 +257,9 @@ follow. **Independent test**: spec US1's independent test.
   (new), `backend/src/api.ts`, `backend/tests/integration/route-table.test.ts`,
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T016, T017 green.
-- [ ] T020 [US1] Order read and history, tests first: lines gain `receivedQuantity`,
-  `outstandingQuantity`; order gains `receiptProgress`, `receivedLines`; the receipts page
+- [ ] T020 [US1] Order read and history, tests first: the schemas and reads together:
+  `orderLine` += `receivedQuantity`, `outstandingQuantity`; `order` += `receiptProgress`,
+  `receivedLines { complete, partly, total }` (from T005); the receipts page
   (summaries with `lineCount`; stable sort, equal `recorded_at` ordered by id, page
   boundaries) and one receipt's lines (position order; a 500-line receipt; another
   order's receipt id `404`) for owner, Approver, Admin; other Buyer `404` on both; the timeline shows both dates —
@@ -376,7 +379,8 @@ shows quantities, progress and history.
 
 ## Phase 9: List badge (FR-021a)
 
-- [ ] T034 Lists, tests first: every scope's rows carry `receiptProgress` (approved
+- [ ] T034 Lists, tests first: `orderListItem` += `receiptProgress` (schema, from T005)
+  and every scope's rows carry it (approved
   nothing/partly/fully; cancelled with and without receipts; drafts, pending, rejected
   `NOT_RECEIVED`); counts unchanged; no new filter —
   `backend/src/orders/repository.ts` (`orderListSql`: the per-row `CASE … EXISTS` after
@@ -403,7 +407,8 @@ shows quantities, progress and history.
 
 - [ ] T038 [US6] Tests, seen failing: the spec's Buyer (2 drafts, 1 pending, 3 approved of
   which 1 fully received, 1 rejected, 1 cancelled) → `openOrders { draft: 2, pending: 1,
-  approvedWithOpenLines: 2 }` on `GET /api/admin/users/{id}` and on the update response;
+  approvedWithOpenLines: 2 }` on `GET /api/admin/users/{id}` and on the update response
+  (`adminUserDetail` += `openOrders`, schema from T005);
   a user with no orders, an Approver, an Admin → zeros —
   `backend/tests/integration/admin-users.test.ts`, `backend/src/admin-users/service.ts`,
   `repository.ts` — FR-023, FR-ADM-02.

@@ -118,5 +118,7 @@ export const ORDER_AUDIT_ACTIONS = [
   'PO_WITHDRAWN',
   // Slice 5.
   'PO_CANCELLED',
+  // Slice 6: one entry per receipt line.
+  'GOODS_RECEIPT_RECORDED',
 ] as const;
 export type OrderAuditAction = (typeof ORDER_AUDIT_ACTIONS)[number];
