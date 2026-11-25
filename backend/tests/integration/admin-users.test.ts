@@ -196,7 +196,7 @@ describe('[FR-ADM-01] admin user list', () => {
 });
 
 describe('[FR-ADM-01] admin user detail', () => {
-  it('[FR-ADM-01] returns the user with their version as ETag, and no open-order counts yet', async () => {
+  it('[FR-ADM-01] returns the user with their version as ETag, and their open-order counts (slice 6)', async () => {
     const { h, jar } = await asAdmin();
     const bea = await h.seedUser({ name: 'Bea Buyer' });
     const res = await h.get(`/admin/users/${bea.id}`, jar);
@@ -211,6 +211,7 @@ describe('[FR-ADM-01] admin user detail', () => {
       lastLoginAt: null,
       createdAt: expect.any(String) as unknown,
       version: 1,
+      openOrders: { draft: 0, pending: 0, approvedWithOpenLines: 0 },
     });
   });
 

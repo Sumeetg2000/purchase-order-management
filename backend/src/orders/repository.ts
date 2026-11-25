@@ -483,3 +483,29 @@ export async function selectOrderAccess(
     SELECT owner_id::text AS "ownerId", status FROM purchase_orders WHERE id = ${id}::uuid`;
   return row ?? null;
 }
+
+/** A user's open orders, as the Admin's user detail shows them (slice 6, US6). */
+export interface OpenOrderCounts {
+  draft: number;
+  pending: number;
+  approvedWithOpenLines: number;
+}
+
+/**
+ * The three counts, each read through purchase_orders_owner_status_created_idx (owner,
+ * status, created_at) for the owner and one status; the approved count reads each of the
+ * owner's approved rows for its open-line count.
+ */
+export function openOrderCountsSql(ownerId: string): Prisma.Sql {
+  const count = (status: string, extra = Prisma.empty) => Prisma.sql`
+    (SELECT count(*)::int FROM purchase_orders
+      WHERE owner_id = ${ownerId}::uuid AND status = ${status} ${extra})`;
+  return Prisma.sql`
+    SELECT ${count('DRAFT')} AS draft, ${count('PENDING_APPROVAL')} AS pending,
+           ${count('APPROVED', Prisma.sql`AND open_line_count > 0`)} AS "approvedWithOpenLines"`;
+}
+
+export async function countOpenOrders(db: Db, ownerId: string): Promise<OpenOrderCounts> {
+  const [row] = await db.$queryRaw<OpenOrderCounts[]>(openOrderCountsSql(ownerId));
+  return row ?? { draft: 0, pending: 0, approvedWithOpenLines: 0 };
+}

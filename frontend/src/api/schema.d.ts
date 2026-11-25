@@ -807,6 +807,11 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             version: number;
+            openOrders: {
+                draft: number;
+                pending: number;
+                approvedWithOpenLines: number;
+            };
         };
         AdminAccessRequest: {
             /** @enum {string} */

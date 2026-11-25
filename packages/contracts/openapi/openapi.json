@@ -9549,6 +9549,32 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "openOrders": {
+            "type": "object",
+            "properties": {
+              "draft": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "approvedWithOpenLines": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "draft",
+              "pending",
+              "approvedWithOpenLines"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -9559,7 +9585,8 @@
           "status",
           "lastLoginAt",
           "createdAt",
-          "version"
+          "version",
+          "openOrders"
         ],
         "additionalProperties": false
       },

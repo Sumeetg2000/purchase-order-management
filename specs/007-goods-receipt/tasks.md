@@ -425,7 +425,7 @@ shows quantities, progress and history.
 
 ## Phase 10: User Story 6 — The Admin sees open orders (P3)
 
-- [ ] T038 [US6] Tests, seen failing: the spec's Buyer (2 drafts, 1 pending, 3 approved of
+- [X] T038 [US6] Tests, seen failing: the spec's Buyer (2 drafts, 1 pending, 3 approved of
   which 1 fully received, 1 rejected, 1 cancelled) → `openOrders { draft: 2, pending: 1,
   approvedWithOpenLines: 2 }` on `GET /api/admin/users/{id}` and on the update response
   (`adminUserDetail` += `openOrders`, schema from T005);
