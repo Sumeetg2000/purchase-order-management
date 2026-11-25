@@ -340,9 +340,12 @@ shows quantities, progress and history.
   the re-check under lock; check order as ADR-0004
   2026-11-24 (`LINE_NOT_FOUND` and `DATE_BEFORE_APPROVAL` after `ORDER_NOT_RECEIVABLE`) —
   `backend/tests/integration/receipts-access.test.ts` — FR-012, FR-ACC-07, FR-ACT-01.
-- [ ] T028 [US3] `/security-review` of US3 (CLAUDE.md: permission stories): the route
+- [X] T028 [US3] `/security-review` of US3 (CLAUDE.md: permission stories): the route
   role check, the under-lock caller re-check, D13 in the database; fix findings tests
-  first. The slice-end review (T045) stays.
+  first. The slice-end review (T045) stays. Ran 2026-11-25: no findings (route roles,
+  404 for non-readers, receipt ids scoped to their order, idempotency per user and order,
+  the re-check under lock, D13 in the database, parameterised SQL, SECURITY DEFINER
+  search paths, po_app's column grants).
 
 ---
 
