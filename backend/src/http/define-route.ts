@@ -130,6 +130,15 @@ export function idParamOf(req: Request): string {
   return id;
 }
 
+/** The `receiptId` path parameter validateRequest parsed (receiptParams: a UUID). */
+export function receiptIdParamOf(req: Request): string {
+  const id = req.params['receiptId'];
+  if (typeof id !== 'string') {
+    throw new Error('receiptIdParamOf on a route without a receiptId parameter');
+  }
+  return id;
+}
+
 /** The Idempotency-Key validateRequest parsed, for an idempotent create's handler. */
 export function idempotencyKeyOf(res: Response): string {
   const key = (res.locals['input'] as { idempotencyKey?: unknown } | undefined)?.idempotencyKey;
