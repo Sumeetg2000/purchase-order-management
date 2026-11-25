@@ -417,7 +417,7 @@ shows quantities, progress and history.
   owner before adding a stored counter or index** — `backend/tests/plans/orders.plan.test.ts`,
   `receipts.plan.test.ts` (new), `docs/query-plans/orders/` — FR-021a, R9, R10,
   NFR-PERF-01.
-- [ ] T037 [P] Web: every order list shows the badge after the status (text, not colour
+- [X] T037 [P] Web: every order list shows the badge after the status (text, not colour
   alone); the approval queue unchanged — `frontend/src/pages/orders/OrdersList.tsx`,
   `frontend/tests/orders-list.test.tsx` — FR-021a, NFR-FE-08.
 
