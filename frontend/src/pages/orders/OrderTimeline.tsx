@@ -1,5 +1,6 @@
 import {
   formatInr,
+  lineNumber,
   MONEY_PATTERN,
   oneOf,
   ORDER_AUDIT_ACTIONS,
@@ -8,7 +9,7 @@ import {
 } from '@po/contracts';
 import { useParams } from 'react-router';
 import { Pager } from '../../components/Pager';
-import { formatDateTime } from '../../format/date';
+import { formatDate, formatDateTime } from '../../format/date';
 import { ACTING_ROLE_LABELS } from '../../format/roles';
 import { useListParams } from '../../hooks/useListParams';
 import { useQueryStates } from '../../hooks/useQueryStates';
@@ -63,6 +64,19 @@ function totalOf({ details }: Item): string | undefined {
   return total === undefined ? undefined : `Total: ${rupees(total)}`;
 }
 
+/** A receipt line entry: which line (numbered from 1), how much, and both dates. */
+function receiptOf({ action, details }: Item): string[] | undefined {
+  if (action !== 'GOODS_RECEIPT_RECORDED') return undefined;
+  const { position, quantity, receivedBefore, receivedAfter, outstandingAfter } = details;
+  const { receivedOn, recordedAt } = details;
+  if (typeof position !== 'number' || typeof receivedOn !== 'string') return undefined;
+  const recorded = typeof recordedAt === 'string' ? formatDateTime(recordedAt) : '';
+  return [
+    `Line ${String(lineNumber(position))}: ${String(quantity)} received (${String(receivedBefore)} → ${String(receivedAfter)}), ${String(outstandingAfter)} outstanding`,
+    `Received on ${formatDate(receivedOn)} · recorded ${recorded}`,
+  ];
+}
+
 /**
  * An order's timeline: its entries newest first and paged, each with what
  * happened, who did it in what capacity, when, and the total it left.
@@ -91,6 +105,7 @@ export function OrderTimeline() {
           <ol aria-label="Order timeline" className={styles.timeline}>
             {states.data.items.map((item) => {
               const total = totalOf(item);
+              const receipt = receiptOf(item);
               return (
                 <li key={item.id}>
                   <h2>{actionLabel(item.action)}</h2>
@@ -99,6 +114,9 @@ export function OrderTimeline() {
                     <time dateTime={item.occurredAt}>{formatDateTime(item.occurredAt)}</time>
                   </p>
                   {total && <p>{total}</p>}
+                  {receipt?.map((text) => (
+                    <p key={text}>{text}</p>
+                  ))}
                 </li>
               );
             })}

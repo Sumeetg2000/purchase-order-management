@@ -83,4 +83,42 @@ describe('[NFR-AUD-03] the order timeline', () => {
     const list = await screen.findByRole('list', { name: 'Order timeline' });
     expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Goods received');
   });
+
+  it('[NFR-AUD-03] a receipt line entry says which line (from 1), how much, and both dates', async () => {
+    fakeApi({
+      'GET /me': () => json(200, { ...ME, roles: ['BUYER'] }),
+      [`GET /orders/${ORDER_ID}`]: () => json(200, order(), { ETag: '"1"' }),
+      [`GET /orders/${ORDER_ID}/timeline`]: () =>
+        json(
+          200,
+          page([
+            entry(
+              'GOODS_RECEIPT_RECORDED',
+              {
+                receiptId: '0192e4a0-0000-7000-8000-0000000000d1',
+                lineId: '0192e4a0-0000-7000-8000-0000000000c1',
+                position: 0,
+                quantity: 40,
+                receivedBefore: 0,
+                receivedAfter: 40,
+                outstandingAfter: 60,
+                receivedOn: '2026-11-24',
+                recordedAt: '2026-11-25T04:00:00.000Z',
+                note: null,
+              },
+              '1',
+            ),
+          ]),
+        ),
+    });
+    const { user } = renderApp(`/orders/${ORDER_ID}`);
+    await user.click(await screen.findByRole('link', { name: 'Timeline' }));
+    const list = await screen.findByRole('list', { name: 'Order timeline' });
+    const item = within(list).getAllByRole('listitem')[0];
+    expect(item).toHaveTextContent('Line 1: 40 received (0 → 40), 60 outstanding');
+    expect(item).toHaveTextContent(
+      'Received on 24 November 2026 · recorded 25 November 2026 at 9:30 am',
+    );
+    expect(item).not.toHaveTextContent(/line 0\b/i);
+  });
 });

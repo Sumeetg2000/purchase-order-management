@@ -225,7 +225,7 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
 **Goal**: the owner records 40 then 60 on a line; quantities, progress and history
 follow. **Independent test**: spec US1's independent test.
 
-- [ ] T016 [US1] Receipt service tests, seen failing: owner on an approved one-line order
+- [X] T016 [US1] Receipt service tests, seen failing: owner on an approved one-line order
   of 100 records 40 (date today IST, injected clock) → `201` `recordedReceipt` (one receipt,
   its line with before 0, after 40, outstanding 60; progress `PARTIALLY_RECEIVED`); then 60 →
   100/0, `FULLY_RECEIVED`, status still `APPROVED`; `version` unchanged, no `If-Match`
@@ -234,12 +234,12 @@ follow. **Independent test**: spec US1's independent test.
   DATE_IN_FUTURE`; before approval → `400 DATE_BEFORE_APPROVAL`; vendor inactive →
   recorded — `backend/tests/integration/receipts-record.test.ts` (new) — FR-001, FR-006,
   FR-007, FR-013, FR-RCV-01, FR-VEN-02, NFR-AUD-01.
-- [ ] T017 [US1] Idempotency tests, seen failing: no key → `400` `REQUIRED` at
+- [X] T017 [US1] Idempotency tests, seen failing: no key → `400` `REQUIRED` at
   `header.idempotency-key`; bad key `INVALID_FORMAT`; same key and body → the stored
   response, one receipt; same key, other body or other order → `409
   IDEMPOTENCY_KEY_REUSED` — `backend/tests/integration/receipts-record.test.ts` — FR-007,
   NFR-CON-03.
-- [ ] T018 [US1] Receipt repository and service: lock order idempotency key → order
+- [X] T018 [US1] Receipt repository and service: lock order idempotency key → order
   `FOR UPDATE` → the command's lines (id asc) `FOR UPDATE` → the caller's `users` row
   `FOR SHARE` (ADR-0006's receipt row), all taken before the checks, which then run in
   research R5's order on the locked rows (R5 "Locks first, then checks"); the response's
@@ -250,7 +250,7 @@ follow. **Independent test**: spec US1's independent test.
   carrying the receipt's id); the key completed with the
   response; clock injected — `backend/src/receipts/service.ts`, `repository.ts` (new) —
   R5, R6, ADR-0006 2026-11-24.
-- [ ] T019 [US1] Routes and operations: `recordReceipt` (`POST /api/orders/{id}/receipts`,
+- [X] T019 [US1] Routes and operations: `recordReceipt` (`POST /api/orders/{id}/receipts`,
   role BUYER, Approver and Admin `FORBIDDEN` details, `Idempotency-Key` required, CSRF,
   `201`); `listOrderReceipts` (`GET`, receipt summaries with `lineCount`, paginated
   `recorded_at DESC, id DESC`, `404` when the order is unreadable); `getOrderReceipt`
@@ -260,7 +260,7 @@ follow. **Independent test**: spec US1's independent test.
   (new), `backend/src/api.ts`, `backend/tests/integration/route-table.test.ts`,
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T016, T017 green.
-- [ ] T020 [US1] Order read and history, tests first: the schemas and reads together:
+- [X] T020 [US1] Order read and history, tests first: the schemas and reads together:
   `orderLine` += `receivedQuantity`, `outstandingQuantity`; `order` += `receiptProgress`,
   `receivedLines { complete, partly, total }` (from T005); the receipts page
   (summaries with `lineCount`; stable sort, equal `recorded_at` ordered by id, page
@@ -269,12 +269,12 @@ follow. **Independent test**: spec US1's independent test.
   `backend/src/orders/repository.ts`, `backend/src/receipts/repository.ts`,
   `backend/tests/integration/orders-read.test.ts`, `receipts-history.test.ts` (new),
   `orders-timeline.test.ts` — FR-005, FR-021, FR-RCV-03, R7, R8.
-- [ ] T021 [P] [US1] Order detail, component tests first: Ordered, Received, Outstanding
+- [X] T021 [P] [US1] Order detail, component tests first: Ordered, Received, Outstanding
   columns on non-draft orders; the progress badge by the status; `ReceiptsSection`
   (per receipt summary: receipt date, recorded by, recorded at, note, "N lines"; newest
   first; paginated; expanding a receipt loads its lines, with loading and error states;
-  "No goods received yet."); "Record receipt" only for the owner of an `APPROVED` order
-  not fully received; axe — `frontend/src/pages/orders/OrderDetail.tsx`,
+  "No goods received yet."); the "Record receipt" button lands with the form it opens
+  (T025): shown only to the owner of an `APPROVED` order not fully received; axe — `frontend/src/pages/orders/OrderDetail.tsx`,
   `ReceiptsSection.tsx` (new), `queries.ts`, `frontend/tests/order-receipts-detail.test.tsx`
   (new) — FR-021, contracts/ui.md, NFR-FE-08.
 
@@ -302,7 +302,9 @@ shows quantities, progress and history.
 - [ ] T024 [US2] Service: every offending line listed (not only the first); the set-based
   writes pinned by T023; T022, T023 green — `backend/src/receipts/service.ts`,
   `repository.ts` — R5 step 9, R6.
-- [ ] T025 [P] [US2] Record receipt form and dialog, component tests first: one row per
+- [ ] T025 [P] [US2] Record receipt form and dialog, component tests first: the "Record
+  receipt" button (from T021), only for the owner of an `APPROVED` order not fully
+  received; one row per
   line with outstanding > 0 (blank = not in this delivery, labelled per line); date
   (default today IST, `min` approval date, `max` today); note 0–500; at least one quantity
   to continue; field errors inline by code; dialog per line "Line {n}: receiving {N},

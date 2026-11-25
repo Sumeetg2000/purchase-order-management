@@ -22,6 +22,8 @@ import { CancelDialog } from './CancelDialog';
 import { CancellationSection } from './CancellationSection';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
+import { ReceiptsSection } from './ReceiptsSection';
+import { cancelledSummary, receiptBadge, receivedSummary } from './receipt-progress';
 import { useOrder, useOrderSaved, type Order } from './queries';
 import { SubmitDialog } from './SubmitDialog';
 import { WithdrawDialog } from './WithdrawDialog';
@@ -108,6 +110,9 @@ export function OrderDetail() {
   // An Approver cancels an approved order they don't own (ADR-0001 T10, ADR-0004).
   const approved = order.status === 'APPROVED';
   const mayCancel = canCancel && approved && order.owner.id !== me?.id;
+  // Receipts apply once an order is approved; a cancelled one keeps what it received.
+  const receivable = approved || order.status === 'CANCELLED';
+  const progressBadge = receiptBadge(order.status, order.receiptProgress);
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -115,6 +120,7 @@ export function OrderDetail() {
       <div className={styles.header}>
         <h1>{order.poNumber}</h1>
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
+        {progressBadge && <span className={styles.badge}>{progressBadge}</span>}
         {canEdit && ownDraft && <Link to={`/orders/${order.id}/edit`}>Edit</Link>}
         {canSubmit && ownDraft && (
           <button
@@ -229,6 +235,12 @@ export function OrderDetail() {
             <th scope="col">Quantity</th>
             <th scope="col">Unit price</th>
             <th scope="col">Line total</th>
+            {order.status !== 'DRAFT' && (
+              <>
+                <th scope="col">Received</th>
+                <th scope="col">Outstanding</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -238,6 +250,12 @@ export function OrderDetail() {
               <td className={styles.number}>{line.quantity}</td>
               <td className={styles.number}>{formatInr(toMoney(line.unitPrice))}</td>
               <td className={styles.number}>{formatInr(toMoney(line.lineTotal))}</td>
+              {order.status !== 'DRAFT' && (
+                <>
+                  <td className={styles.number}>{line.receivedQuantity}</td>
+                  <td className={styles.number}>{line.outstandingQuantity}</td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -245,7 +263,15 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
+      {receivable && (
+        <p>
+          {order.status === 'CANCELLED'
+            ? cancelledSummary(order.receivedLines)
+            : receivedSummary(order.receivedLines)}
+        </p>
+      )}
       {order.cancellation && <CancellationSection cancellation={order.cancellation} />}
+      {receivable && <ReceiptsSection order={order} />}
       {order.approval && <ApprovalPanel round={order.approval} />}
       {cancelling && (
         <CancelDialog

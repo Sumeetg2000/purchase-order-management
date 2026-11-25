@@ -140,3 +140,29 @@ export function useOrderTimeline(id: string, page: number) {
     placeholderData: keepPreviousData,
   });
 }
+
+/** One page of an order's receipt summaries, newest first; not fetched until `enabled`. */
+export function useOrderReceipts(id: string, page: number, { enabled = true } = {}) {
+  const query = definedParams({ page });
+  return useQuery({
+    queryKey: [...orderKey(id), 'receipts', query],
+    queryFn: async () =>
+      dataOrThrow(await api.GET('/orders/{id}/receipts', { params: { path: { id }, query } })),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** One receipt's lines, loaded when the receipt is expanded. */
+export function useOrderReceipt(id: string, receiptId: string, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: [...orderKey(id), 'receipts', 'receipt', receiptId],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/orders/{id}/receipts/{receiptId}', {
+          params: { path: { id, receiptId } },
+        }),
+      ),
+    enabled,
+  });
+}
