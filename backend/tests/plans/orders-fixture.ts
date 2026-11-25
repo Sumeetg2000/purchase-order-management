@@ -8,6 +8,7 @@ import {
   type OrderListScope,
 } from '../../src/orders/repository.js';
 import { approvalQueueSql, type QueueFilter } from '../../src/approvals/repository.js';
+import { receiptLinesSql, receiptPageSql } from '../../src/receipts/repository.js';
 import type { PlanQuery } from './vendors-fixture.js';
 
 // The order query-plan data and queries (research R7), shared by the plan test and the plan
@@ -31,8 +32,28 @@ export const STATUS_MIX = {
   PENDING_APPROVAL: 3_000,
   REJECTED: 2_000,
 };
-/** Order 30,000 has 500 lines and the first 50 order entries: the busiest order. */
+/**
+ * Order 30,000 has 500 lines and the first 50 order entries: the busiest order. It is
+ * approved and received in one 500-line receipt (slice 6: the widest receipt), and order
+ * 30,011 is a draft in its place, so the status mix stays exact.
+ */
 export const HOT_ORDER = 30_000;
+const HOT_SWAP = HOT_ORDER + 11;
+/** A fully received order of three receipts: the receipt history's plan reads it. */
+export const RECEIPT_ORDER = 1_013;
+
+/**
+ * ADR-0012's receipt mix (amended 2026-11-24, slice 6): of the approved orders, 45,000
+ * fully received, 25,000 partly and 19,000 with nothing; of the cancelled, 500 partly and
+ * 500 with nothing. 1–3 receipts per received order, about 1.5M receipt lines.
+ */
+export const RECEIPT_MIX = {
+  'APPROVED FULLY_RECEIVED': 45_000,
+  'APPROVED NOT_RECEIVED': 19_000,
+  'APPROVED PARTIALLY_RECEIVED': 25_000,
+  'CANCELLED NOT_RECEIVED': 500,
+  'CANCELLED PARTIALLY_RECEIVED': 500,
+};
 const HOT_ORDER_ENTRIES = 50;
 /** A later page: 99 pages of 20 skipped, so the plans show the offset's cost too. */
 export const DEEP_PAGE = 100;
@@ -49,7 +70,8 @@ const SEED_TIER = APPROVAL_POLICY_SEED_TIERS[0];
 /** Order n's status: 5 % drafts, 3 % pending, 2 % rejected, 1 % cancelled, the rest
  * approved (STATUS_MIX). */
 const STATUS_OF = (n: string) =>
-  `CASE WHEN ${n} % 100 < 5 THEN 'DRAFT' WHEN ${n} % 100 < 8 THEN 'PENDING_APPROVAL'
+  `CASE WHEN ${n} = ${String(HOT_ORDER)} THEN 'APPROVED' WHEN ${n} = ${String(HOT_SWAP)} THEN 'DRAFT'
+        WHEN ${n} % 100 < 5 THEN 'DRAFT' WHEN ${n} % 100 < 8 THEN 'PENDING_APPROVAL'
         WHEN ${n} % 100 < 10 THEN 'REJECTED' WHEN ${n} % 100 = 10 THEN 'CANCELLED'
         ELSE 'APPROVED' END`;
 const vendorId = (n: string) => `md5('plan-order-vendor-' || ${n})::uuid`;
@@ -60,7 +82,7 @@ const lineCount = (n: string) =>
 
 const FULL_SAMPLE_STATISTICS_TARGET = 10_000;
 const TABLES =
-  'users, vendors, purchase_orders, order_lines, audit_entries, approval_rounds, approval_steps';
+  'users, vendors, purchase_orders, order_lines, audit_entries, approval_rounds, approval_steps, goods_receipts, goods_receipt_lines';
 
 /**
  * Seeds every table with one INSERT … SELECT each, as the superuser with row triggers off,
@@ -167,6 +189,79 @@ export async function seedOrderPlanData(superuser: pg.Client, app: pg.Client): P
        FROM approval_rounds r JOIN purchase_orders o ON o.id = r.order_id
       WHERE r.total > ${SEED_TIER}`,
   );
+  // Receipts (slice 6, RECEIPT_MIX), with the triggers off, so the received quantities,
+  // open-line counts and audit entries are written here and checked by reconciliation.
+  // Fully received: n % 100 from 11 to 55 among the approved, and the busiest order.
+  // Partly: the first 25,000 other approved orders, and the first 500 cancelled, of more
+  // than one line (one line of quantity 1 can't be partly received): every line but the
+  // last received. A received order has 3 receipts (1 for n % 20 = 0, 2 for n % 20 = 1),
+  // a day apart from its approval, splitting each line's quantity: about 1.5M receipt
+  // lines from the million order lines.
+  await superuser.query(
+    `CREATE TEMP TABLE plan_receipt_orders AS
+     WITH st AS (
+       SELECT n, ${STATUS_OF('n')} AS status, ${lineCount('n')} AS lines
+         FROM generate_series(1, ${String(ORDER_COUNT)}) AS n
+     ), ranked AS (
+       SELECT n, status, lines,
+              (status = 'APPROVED' AND (n % 100 BETWEEN 11 AND 55 OR n = ${String(HOT_ORDER)}))
+                AS full_receipt,
+              row_number() OVER (PARTITION BY status,
+                                 (status = 'APPROVED' AND (n % 100 BETWEEN 11 AND 55
+                                                           OR n = ${String(HOT_ORDER)})),
+                                 lines > 1
+                                 ORDER BY n) AS rank
+         FROM st WHERE status IN ('APPROVED', 'CANCELLED')
+     )
+     SELECT ${orderId('r.n')} AS id, r.n, r.lines,
+            CASE WHEN r.n % 20 = 0 THEN 1 WHEN r.n % 20 = 1 THEN 2 ELSE 3 END AS k,
+            CASE WHEN r.full_receipt THEN 'FULL'
+                 WHEN r.lines > 1 AND r.status = 'APPROVED' AND r.rank <= 25000 THEN 'PART'
+                 WHEN r.lines > 1 AND r.status = 'CANCELLED' AND r.rank <= 500 THEN 'PART'
+            END AS kind
+       FROM ranked r`,
+  );
+  await superuser.query(`DELETE FROM plan_receipt_orders WHERE kind IS NULL`);
+  await superuser.query(
+    `CREATE TEMP TABLE plan_receipt_lines AS
+     SELECT md5('plan-receipt-' || ro.n || '-' || j)::uuid AS receipt_id, ro.id AS order_id,
+            j, l.id AS line_id,
+            l.quantity / ro.k + CASE WHEN j = 1 THEN l.quantity % ro.k ELSE 0 END AS quantity
+       FROM plan_receipt_orders ro
+       JOIN order_lines l ON l.order_id = ro.id
+      CROSS JOIN LATERAL generate_series(1, ro.k) AS j
+      WHERE (ro.kind = 'FULL' OR l.position < ro.lines - 1)
+        AND l.quantity / ro.k + CASE WHEN j = 1 THEN l.quantity % ro.k ELSE 0 END > 0`,
+  );
+  await superuser.query(
+    `INSERT INTO goods_receipts (id, order_id, received_on, recorded_at, recorded_by)
+     SELECT DISTINCT rl.receipt_id, o.id,
+            (o.approved_at AT TIME ZONE 'Asia/Kolkata')::date + rl.j,
+            o.approved_at + rl.j * interval '1 day', o.owner_id
+       FROM plan_receipt_lines rl JOIN purchase_orders o ON o.id = rl.order_id`,
+  );
+  await superuser.query(
+    `INSERT INTO goods_receipt_lines (receipt_id, order_id, line_id, quantity)
+     SELECT receipt_id, order_id, line_id, quantity FROM plan_receipt_lines`,
+  );
+  await superuser.query(
+    `UPDATE order_lines l SET received_quantity = s.received
+       FROM (SELECT line_id, sum(quantity) AS received FROM plan_receipt_lines GROUP BY line_id) s
+      WHERE l.id = s.line_id`,
+  );
+  await superuser.query(
+    `UPDATE purchase_orders o SET open_line_count = s.open_lines
+       FROM (SELECT order_id, count(*) FILTER (WHERE received_quantity < quantity) AS open_lines
+               FROM order_lines WHERE order_id IN (SELECT id FROM plan_receipt_orders)
+              GROUP BY order_id) s
+      WHERE o.id = s.order_id`,
+  );
+  await superuser.query(
+    `INSERT INTO audit_entries (occurred_at, actor_type, action, entity_type, entity_id, order_id)
+     SELECT r.recorded_at, 'SYSTEM', 'GOODS_RECEIPT_RECORDED', 'order', r.order_id::text,
+            r.order_id
+       FROM goods_receipt_lines gl JOIN goods_receipts r ON r.id = gl.receipt_id`,
+  );
   // Three entries in 20 are an order's: the first 50 the busiest order's, the rest round
   // the orders. The others are user entries.
   const orderEntry = `(n / 20) * 3 + n % 20`;
@@ -207,10 +302,14 @@ export async function orderPlanIds(client: pg.Client) {
     order: string;
     approver: string;
     dualApprover: string;
+    receiptOrder: string;
+    widestReceipt: string;
   }>(
     `SELECT ${buyerId('1')}::text AS buyer, ${vendorId('1')}::text AS vendor,
             ${orderId(String(HOT_ORDER))}::text AS order, ${APPROVER_ID}::text AS approver,
-            ${buyerId(String(DUAL_BUYER))}::text AS "dualApprover"`,
+            ${buyerId(String(DUAL_BUYER))}::text AS "dualApprover",
+            ${orderId(String(RECEIPT_ORDER))}::text AS "receiptOrder",
+            md5('plan-receipt-${String(HOT_ORDER)}-1')::uuid::text AS "widestReceipt"`,
   );
   const ids = rows[0];
   if (!ids) throw new Error('no plan ids');
@@ -224,6 +323,8 @@ export function orderPlanQueries(ids: {
   order: string;
   approver: string;
   dualApprover: string;
+  receiptOrder: string;
+  widestReceipt: string;
 }): PlanQuery[] {
   const limit = PAGE_SIZE_DEFAULT;
   const scopes: [string, OrderListScope][] = [
@@ -314,6 +415,24 @@ export function orderPlanQueries(ids: {
       });
     }
   }
+
+  // The receipt history (slice 6, research R10): a page of receipt summaries with their
+  // line counts and its count, on an order of three receipts; one receipt's lines, on the
+  // 500-line receipt.
+  const receipts = receiptPageSql(ids.receiptOrder, { offset: 0, limit });
+  queries.push({
+    name: 'receipts-history-page-1',
+    sql: receipts.page,
+    page: true,
+    rowsBound: limit,
+  });
+  queries.push({ name: 'receipts-history-count', sql: receipts.count, page: false, rowsBound: 0 });
+  queries.push({
+    name: 'receipt-lines-500',
+    sql: receiptLinesSql(ids.widestReceipt),
+    page: true,
+    rowsBound: 500,
+  });
 
   const timeline = entityHistorySql(entity, { offset: 0, limit });
   const [timelinePage, timelineCount] = [timeline.page, timeline.count];

@@ -2,4 +2,4 @@
 -- values: []
 
 Aggregate
-  ->  Index Only Scan using purchase_orders_nondraft_po_number_idx on purchase_orders
+  ->  Index Only Scan using purchase_orders_nondraft_created_idx on purchase_orders

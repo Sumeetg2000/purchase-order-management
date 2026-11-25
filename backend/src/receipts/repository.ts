@@ -116,7 +116,8 @@ export function receiptPageSql(
   { offset, limit }: PageArgs,
 ): { statement: Prisma.Sql; page: Prisma.Sql; count: Prisma.Sql } {
   const page = Prisma.sql`
-    SELECT r.id, r.received_on, r.recorded_at, r.recorded_by, r.note
+    SELECT r.id, r.received_on, r.recorded_at, r.recorded_by, r.note,
+           (SELECT count(*) FROM goods_receipt_lines gl WHERE gl.receipt_id = r.id) AS line_count
       FROM goods_receipts r
      WHERE r.order_id = ${orderId}::uuid
      ORDER BY r.recorded_at DESC, r.id DESC
@@ -132,8 +133,7 @@ export function receiptPageSql(
                       'recordedById', u.id::text,
                       'recordedByName', u.name,
                       'note', p.note,
-                      'lineCount', (SELECT count(*) FROM goods_receipt_lines gl
-                                     WHERE gl.receipt_id = p.id))
+                      'lineCount', p.line_count)
                     ORDER BY p.recorded_at DESC, p.id DESC)
                FROM (${page}) p JOIN users u ON u.id = p.recorded_by), '[]'::json) AS rows`;
   return { statement, page, count };

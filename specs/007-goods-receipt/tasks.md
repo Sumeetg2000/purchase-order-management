@@ -405,12 +405,12 @@ shows quantities, progress and history.
   `NOT_RECEIVED`); counts unchanged; no new filter —
   `backend/src/orders/repository.ts` (`orderListSql`: the per-row `CASE … EXISTS` after
   the page is cut), `backend/tests/integration/orders-list.test.ts` — FR-021a, R9.
-- [ ] T035 [P] Plan fixture receipt mix (ADR-0012 2026-11-24): of 89,000 approved, 45,000
+- [X] T035 [P] Plan fixture receipt mix (ADR-0012 2026-11-24): of 89,000 approved, 45,000
   fully, 25,000 partly, 19,000 nothing; of 1,000 cancelled, 500 partly, 500 nothing; 1–3
   receipts per received order (≈1.5M receipt lines), inserted set-based through the trigger, with
   matching audit entries; reconciliation on the fixture zero rows —
   `backend/tests/plans/orders-fixture.ts` — R13.7, NFR-PERF-01.
-- [ ] T036 Plans: every page-1 list plan (buyer, buyer+approver, approver, admin; each
+- [X] T036 Plans: every page-1 list plan (buyer, buyer+approver, approver, admin; each
   committed filter) re-committed with the probe and still stopping at its page; the
   receipt history page 1 plan (with the per-row `lineCount`) and its `COUNT` plan on the
   busiest order; one receipt's lines plan on a 500-line receipt. **If any plan fails, stop and show the

@@ -1,0 +1,10 @@
+-- SELECT r.id, r.received_on, r.recorded_at, r.recorded_by, r.note, (SELECT count(*) FROM goods_receipt_lines gl WHERE gl.receipt_id = r.id) AS line_count FROM goods_receipts r WHERE r.order_id = $1::uuid ORDER BY r.recorded_at DESC, r.id DESC LIMIT $2 OFFSET $3
+-- values: ["4d5353d4-6e65-063d-c8b7-3f07b77c5723",20,0]
+
+Limit
+  ->  Index Scan using goods_receipts_order_recorded_idx on goods_receipts r
+        Index Cond: (order_id = '4d5353d4-6e65-063d-c8b7-3f07b77c5723'::uuid)
+        SubPlan 1
+          ->  Aggregate
+                ->  Index Only Scan using goods_receipt_lines_pkey on goods_receipt_lines gl
+                      Index Cond: (receipt_id = r.id)

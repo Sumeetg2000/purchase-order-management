@@ -1,0 +1,12 @@
+-- SELECT ol.id, ol.position, ol.description, gl.quantity FROM goods_receipt_lines gl JOIN order_lines ol ON ol.id = gl.line_id WHERE gl.receipt_id = $1::uuid ORDER BY ol.position
+-- values: ["d8375b21-ce1c-54c3-d7e1-a0392ce066b7"]
+
+Sort
+  Sort Key: ol."position"
+  ->  Nested Loop
+        ->  Bitmap Heap Scan on goods_receipt_lines gl
+              Recheck Cond: (receipt_id = 'd8375b21-ce1c-54c3-d7e1-a0392ce066b7'::uuid)
+              ->  Bitmap Index Scan on goods_receipt_lines_pkey
+                    Index Cond: (receipt_id = 'd8375b21-ce1c-54c3-d7e1-a0392ce066b7'::uuid)
+        ->  Index Scan using order_lines_pkey on order_lines ol
+              Index Cond: (id = gl.line_id)

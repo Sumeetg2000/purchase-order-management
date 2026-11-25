@@ -5,6 +5,7 @@ import {
   AUDIT_ENTRY_COUNT,
   ORDER_COUNT,
   ORDER_ENTRY_COUNT,
+  RECEIPT_MIX,
   STATUS_MIX,
   orderPlanIds,
   orderPlanQueries,
@@ -31,6 +32,8 @@ function nodes(node: PlanNode): PlanNode[] {
 }
 
 const TABLES = new Set([
+  'goods_receipts',
+  'goods_receipt_lines',
   'purchase_orders',
   'order_lines',
   'audit_entries',
@@ -98,15 +101,45 @@ describe('[NFR-PERF-01] order query plans at the ADR-0012 sizes', () => {
       `SELECT (SELECT count(*)::int FROM purchase_orders) AS orders,
               (SELECT count(*)::int FROM order_lines) AS lines,
               (SELECT count(*)::int FROM audit_entries) AS entries,
-              (SELECT count(*)::int FROM audit_entries WHERE entity_type = 'order') AS order_entries`,
+              (SELECT count(*)::int FROM audit_entries WHERE entity_type = 'order') AS order_entries,
+              (SELECT count(*)::int FROM goods_receipt_lines) AS receipt_lines`,
     );
+    // Each receipt line has its GOODS_RECEIPT_RECORDED entry, on top of the base entries.
+    const receiptLines = rows[0]?.receipt_lines ?? 0;
     expect(rows[0]).toMatchObject({
       orders: ORDER_COUNT,
-      entries: AUDIT_ENTRY_COUNT,
-      order_entries: ORDER_ENTRY_COUNT,
+      entries: AUDIT_ENTRY_COUNT + receiptLines,
+      order_entries: ORDER_ENTRY_COUNT + receiptLines,
     });
     expect(rows[0]?.lines).toBeGreaterThan(1_000_000);
     expect(rows[0]?.lines).toBeLessThan(1_200_000);
+  });
+
+  it("[NFR-PERF-01] holds ADR-0012's receipt mix: about 1.5M receipt lines, a 500-line receipt", async () => {
+    const { rows } = await app.query<{ status: string; progress: string; n: number }>(
+      `SELECT o.status,
+              CASE WHEN o.open_line_count = 0 THEN 'FULLY_RECEIVED'
+                   WHEN EXISTS (SELECT 1 FROM goods_receipts r WHERE r.order_id = o.id)
+                     THEN 'PARTIALLY_RECEIVED'
+                   ELSE 'NOT_RECEIVED' END AS progress,
+              count(*)::int AS n
+         FROM purchase_orders o WHERE o.status IN ('APPROVED', 'CANCELLED')
+        GROUP BY 1, 2 ORDER BY 1, 2`,
+    );
+    expect(Object.fromEntries(rows.map((r) => [`${r.status} ${r.progress}`, r.n]))).toEqual(
+      RECEIPT_MIX,
+    );
+    const [size] = await app
+      .query<{ lines: number; receipts: number; widest: number }>(
+        `SELECT (SELECT count(*)::int FROM goods_receipt_lines) AS lines,
+              (SELECT count(*)::int FROM goods_receipts) AS receipts,
+              (SELECT max(n)::int FROM (SELECT count(*) AS n FROM goods_receipt_lines
+                                         GROUP BY receipt_id) w) AS widest`,
+      )
+      .then((r) => r.rows);
+    expect(size?.lines).toBeGreaterThan(1_200_000);
+    expect(size?.lines).toBeLessThan(1_800_000);
+    expect(size?.widest).toBe(500);
   });
 
   it("[NFR-PERF-01] holds ADR-0012's status mix, every pending order in one queue", async () => {
