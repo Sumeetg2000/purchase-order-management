@@ -7,6 +7,7 @@ import {
   openOrdersCounts,
   openOrdersNote,
   receiptBadge,
+  receivedLinesOf,
   receivedSummary,
 } from '../src/pages/orders/receipt-progress';
 
@@ -15,6 +16,17 @@ import {
 // Admin's open-order counts.
 
 describe('[FR-RCV-01] the received summary', () => {
+  it("[FR-RCV-01] counts complete and partly received lines from the order's own lines", () => {
+    expect(
+      receivedLinesOf([
+        { quantity: 100, receivedQuantity: 40 },
+        { quantity: 5, receivedQuantity: 5 },
+        { quantity: 8, receivedQuantity: 0 },
+      ]),
+    ).toEqual({ complete: 1, partly: 1, total: 3 });
+    expect(receivedLinesOf([])).toEqual({ complete: 0, partly: 0, total: 0 });
+  });
+
   it('[FR-RCV-01] says complete and partly received lines out of all, leaving a zero part out', () => {
     expect(receivedSummary({ complete: 2, partly: 1, total: 5 })).toBe(
       '2 of 5 lines complete, 1 partly received',

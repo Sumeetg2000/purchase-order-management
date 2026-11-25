@@ -25,7 +25,6 @@ const partlyReceived = () =>
       orderLine({ id: '0192e4a0-0000-7000-8000-0000000000c2', description: 'Bolts', quantity: 7 }),
     ],
     receiptProgress: 'PARTIALLY_RECEIVED',
-    receivedLines: { complete: 0, partly: 1, total: 2 },
   });
 
 const summary = {
@@ -103,7 +102,6 @@ describe('[FR-RCV-01] received and outstanding on the order page', () => {
       approvedOrder({
         lines: [orderLine({ receivedQuantity: 3 })],
         receiptProgress: 'FULLY_RECEIVED',
-        receivedLines: { complete: 1, partly: 0, total: 1 },
       }),
     );
     await heading();

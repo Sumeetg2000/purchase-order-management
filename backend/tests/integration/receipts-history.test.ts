@@ -13,7 +13,6 @@ import {
 
 interface OrderRead {
   receiptProgress: string;
-  receivedLines: { complete: number; partly: number; total: number };
   lines: { id: string; quantity: number; receivedQuantity: number; outstandingQuantity: number }[];
 }
 
@@ -63,7 +62,7 @@ describe('[FR-RCV-01] the order shows what was received', () => {
     const { h, jar, id } = await threeLines();
     const order = await read(h, id);
     expect(order.receiptProgress).toBe('NOT_RECEIVED');
-    expect(order.receivedLines).toEqual({ complete: 0, partly: 0, total: 3 });
+    expect(order).not.toHaveProperty('receivedLines');
     expect(order.lines.map((l) => [l.receivedQuantity, l.outstandingQuantity])).toEqual([
       [0, 100],
       [0, 5],
@@ -72,7 +71,6 @@ describe('[FR-RCV-01] the order shows what was received', () => {
     const draft = (await h.createOrder(h.orderBody(), { as: jar })).body as { id: string };
     expect(await read(h, draft.id)).toMatchObject({
       receiptProgress: 'NOT_RECEIVED',
-      receivedLines: { complete: 0, partly: 0, total: 1 },
     });
   });
 
@@ -87,7 +85,6 @@ describe('[FR-RCV-01] the order shows what was received', () => {
     );
     const order = await read(h, id);
     expect(order.receiptProgress).toBe('PARTIALLY_RECEIVED');
-    expect(order.receivedLines).toEqual({ complete: 1, partly: 1, total: 3 });
     expect(order.lines.map((l) => [l.receivedQuantity, l.outstandingQuantity])).toEqual([
       [40, 60],
       [5, 0],
@@ -108,7 +105,7 @@ describe('[FR-RCV-01] the order shows what was received', () => {
     expect(await read(h, id)).toMatchObject({
       status: 'APPROVED',
       receiptProgress: 'FULLY_RECEIVED',
-      receivedLines: { complete: 3, partly: 0, total: 3 },
+      lines: [{ outstandingQuantity: 0 }, { outstandingQuantity: 0 }, { outstandingQuantity: 0 }],
     });
   });
 });

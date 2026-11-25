@@ -23,7 +23,12 @@ import { CancellationSection } from './CancellationSection';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
 import { ReceiptsSection } from './ReceiptsSection';
-import { cancelledSummary, receiptBadge, receivedSummary } from './receipt-progress';
+import {
+  cancelledSummary,
+  receiptBadge,
+  receivedLinesOf,
+  receivedSummary,
+} from './receipt-progress';
 import { useOrder, useOrderSaved, type Order } from './queries';
 import { SubmitDialog } from './SubmitDialog';
 import { WithdrawDialog } from './WithdrawDialog';
@@ -266,8 +271,8 @@ export function OrderDetail() {
       {receivable && (
         <p>
           {order.status === 'CANCELLED'
-            ? cancelledSummary(order.receivedLines)
-            : receivedSummary(order.receivedLines)}
+            ? cancelledSummary(receivedLinesOf(order.lines))
+            : receivedSummary(receivedLinesOf(order.lines))}
         </p>
       )}
       {order.cancellation && <CancellationSection cancellation={order.cancellation} />}

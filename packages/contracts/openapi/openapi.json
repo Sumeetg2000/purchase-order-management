@@ -10205,32 +10205,6 @@
           },
           "receiptProgress": {
             "$ref": "#/components/schemas/ReceiptProgress"
-          },
-          "receivedLines": {
-            "type": "object",
-            "properties": {
-              "complete": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "partly": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "total": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": [
-              "complete",
-              "partly",
-              "total"
-            ],
-            "additionalProperties": false
           }
         },
         "required": [
@@ -10251,8 +10225,7 @@
           "vendorSnapshot",
           "approval",
           "cancellation",
-          "receiptProgress",
-          "receivedLines"
+          "receiptProgress"
         ],
         "additionalProperties": false
       },

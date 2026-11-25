@@ -494,8 +494,6 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
       if (typeof properties === 'object' && properties !== null) {
         for (const [key, value] of Object.entries(properties as Json)) {
           if (!moneyFields.has(key)) continue;
-          // receivedLines.total is a line count (slice 6), not an amount.
-          if (key === 'total' && 'complete' in (properties as Json)) continue;
           const schema = resolve(value as Json);
           found.push(key);
           expect(schema['type'], key).toBe('string');

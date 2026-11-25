@@ -34,7 +34,7 @@ receiptDetail = { id, receivedOn, recordedAt, recordedBy: { id, name }, note,
 
 // schemas/orders.ts (additive)
 orderLine        += { receivedQuantity: int, outstandingQuantity: int }   // read-only
-order            += { receiptProgress, receivedLines: { complete, partly, total } }
+order            += { receiptProgress }   // counts: derived by the client from lines
 orderListItem    += { receiptProgress }
 
 // schemas/admin-users.ts (additive)

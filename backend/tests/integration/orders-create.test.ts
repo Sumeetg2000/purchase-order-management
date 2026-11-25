@@ -72,7 +72,6 @@ describe('[FR-PO-01] raise a draft order', () => {
       cancellation: null,
       // Slice 6: nothing received on a draft.
       receiptProgress: 'NOT_RECEIVED',
-      receivedLines: { complete: 0, partly: 0, total: 3 },
     });
 
     const read = await h.getOrder(order.id);

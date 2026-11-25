@@ -132,7 +132,6 @@ describe('[NFR-VAL-01] order bodies', () => {
         'outstandingQuantity',
         'openLineCount',
         'receiptProgress',
-        'receivedLines',
       ]),
     );
   });
@@ -250,9 +249,12 @@ describe('[FR-PO-01] order list query and responses', () => {
       cancellation: null,
       // Slice 6's: nothing received on a draft.
       receiptProgress: 'NOT_RECEIVED',
-      receivedLines: { complete: 0, partly: 0, total: 1 },
     };
     expect(order.safeParse(base).success).toBe(true);
+    // The received counts are derived from the lines the same response carries.
+    expect(
+      order.safeParse({ ...base, receivedLines: { complete: 0, partly: 0, total: 1 } }).success,
+    ).toBe(false);
     expect(order.safeParse({ ...base, total: 0.3 }).success).toBe(false);
     expect(order.safeParse({ ...base, total: '0.3' }).success).toBe(false);
     const item = Object.fromEntries(
@@ -269,7 +271,6 @@ describe('[FR-PO-01] order list query and responses', () => {
             'approval',
             'cancellation',
             'receiptProgress',
-            'receivedLines',
           ].includes(key),
       ),
     );

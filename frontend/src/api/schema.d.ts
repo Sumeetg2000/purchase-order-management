@@ -948,11 +948,6 @@ export interface components {
             approval: components["schemas"]["ApprovalRound"] | null;
             cancellation: components["schemas"]["OrderCancellation"] | null;
             receiptProgress: components["schemas"]["ReceiptProgress"];
-            receivedLines: {
-                complete: number;
-                partly: number;
-                total: number;
-            };
         };
         OrderLine: {
             /** Format: uuid */

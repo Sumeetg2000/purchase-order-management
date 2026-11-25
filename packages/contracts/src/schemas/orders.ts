@@ -116,8 +116,6 @@ export const order = z
     cancellation: orderCancellation.nullable(),
     /** Derived from the lines and receipts (slice 6, research R8). */
     receiptProgress,
-    /** Lines fully received, lines partly received, and all lines. */
-    receivedLines: z.strictObject({ complete: z.int(), partly: z.int(), total: z.int() }),
   })
   .meta({ id: 'Order' });
 
@@ -134,7 +132,6 @@ export const orderListItem = order
     cancellation: true,
     // The list's receipt badge comes with the lists' own change (research R9).
     receiptProgress: true,
-    receivedLines: true,
   })
   .extend({ vendor: z.strictObject({ id: z.uuid(), name: z.string() }) })
   .meta({ id: 'OrderListItem' });

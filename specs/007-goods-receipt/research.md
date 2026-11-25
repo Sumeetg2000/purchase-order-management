@@ -195,8 +195,9 @@ everything needing the owner's sign-off is listed in R13.
   one query on the lines' primary key joined to `order_lines`, its plan committed.
 - Order read: each line gains `receivedQuantity`, `outstandingQuantity`; the order gains
   `receiptProgress` (`NOT_RECEIVED | PARTIALLY_RECEIVED | FULLY_RECEIVED`, ADR-0001's
-  names) and `receivedLines: { complete, partly, total }`. List rows gain
-  `receiptProgress`.
+  names). List rows gain `receiptProgress`. No `receivedLines` counts (owner,
+  2026-11-25): the same response's lines carry `receivedQuantity` and
+  `outstandingQuantity`, so the web app counts complete and partly received lines itself.
 - Admin user detail and the admin update response gain `openOrders: { draft, pending,
   approvedWithOpenLines }`.
 - Idempotency: `recordReceipt` joins `IDEMPOTENT_OPERATIONS` and the table's CHECK; the
@@ -214,7 +215,8 @@ everything needing the owner's sign-off is listed in R13.
   lines, so a draft never qualifies; only approved or cancelled orders can have receipts,
   and a cancelled one can't be fully received); else `PARTIALLY_RECEIVED` when the order
   has any receipt; else `NOT_RECEIVED`.
-- `receivedLines` on the order read: counted over its lines (already read for the page).
+- The received counts (complete, partly, all) are computed by the web app from the order's
+  lines; the API sends no separate counts.
 - Text, one helper in the web app: "2 of 5 lines complete, 1 partly received"; a zero
   part left out; "Nothing received" when both are zero. Badges: approved "Partly
   received" / "Fully received"; cancelled with receipts "Cancelled · partly received".

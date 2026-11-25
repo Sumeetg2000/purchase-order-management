@@ -112,7 +112,7 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   `receiptSummary` (a receipt with `lineCount`); `receiptPage`; `receiptDetail` (a receipt
   with its lines, ≤ 500, position order); every new response field read-only in request
   bodies (`READ_ONLY_FIELD`; `RECEIPT_READ_ONLY_FIELDS`, `ORDER_READ_ONLY_FIELDS` +=
-  `receiptProgress`, `receivedLines`). The new required response fields on `orderLine`,
+  `receiptProgress`). The new required response fields on `orderLine`,
   `order`, `orderListItem` and `adminUserDetail` land with the reads that produce them
   (T020, T034, T038): every response is checked against the committed OpenAPI document,
   so adding them here would fail every order and admin response until then — `packages/contracts/src/schemas/receipts.ts` (new), `orders.ts`,
@@ -261,8 +261,9 @@ follow. **Independent test**: spec US1's independent test.
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T016, T017 green.
 - [X] T020 [US1] Order read and history, tests first: the schemas and reads together:
-  `orderLine` += `receivedQuantity`, `outstandingQuantity`; `order` += `receiptProgress`,
-  `receivedLines { complete, partly, total }` (from T005); the receipts page
+  `orderLine` += `receivedQuantity`, `outstandingQuantity`; `order` += `receiptProgress`
+  (from T005; no `receivedLines`: the web app counts from the lines, owner 2026-11-25);
+  the receipts page
   (summaries with `lineCount`; stable sort, equal `recorded_at` ordered by id, page
   boundaries) and one receipt's lines (position order; a 500-line receipt; another
   order's receipt id `404`) for owner, Approver, Admin; other Buyer `404` on both; the timeline shows both dates —

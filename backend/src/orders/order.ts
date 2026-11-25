@@ -43,11 +43,6 @@ export function toOrder(header: OrderRow): Order {
         ? null
         : { ...header.cancellation, cancelledAt: iso(header.cancellation.cancelledAt) },
     receiptProgress: header.receiptProgress,
-    receivedLines: {
-      complete: lines.filter((l) => l.receivedQuantity === l.quantity).length,
-      partly: lines.filter((l) => l.receivedQuantity > 0 && l.receivedQuantity < l.quantity).length,
-      total: lines.length,
-    },
   };
 }
 

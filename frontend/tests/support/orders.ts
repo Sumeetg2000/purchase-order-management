@@ -49,7 +49,6 @@ export const order = (extra: Record<string, unknown> = {}) => ({
   approval: null,
   cancellation: null,
   receiptProgress: 'NOT_RECEIVED',
-  receivedLines: { complete: 0, partly: 0, total: 2 },
   ...extra,
 });
 

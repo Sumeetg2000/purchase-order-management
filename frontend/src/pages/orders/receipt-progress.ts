@@ -11,6 +11,17 @@ export interface ReceivedLines {
   total: number;
 }
 
+/** The counts, from the order's own lines: received in full, received in part, all. */
+export function receivedLinesOf(
+  lines: readonly { quantity: number; receivedQuantity: number }[],
+): ReceivedLines {
+  return {
+    complete: lines.filter((l) => l.receivedQuantity === l.quantity).length,
+    partly: lines.filter((l) => l.receivedQuantity > 0 && l.receivedQuantity < l.quantity).length,
+    total: lines.length,
+  };
+}
+
 /** "2 of 5 lines complete, 1 partly received", a zero part left out; or "Nothing received". */
 export function receivedSummary({ complete, partly, total }: ReceivedLines): string {
   if (complete === 0 && partly === 0) return 'Nothing received';

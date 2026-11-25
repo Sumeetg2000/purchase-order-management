@@ -85,7 +85,6 @@ const draftOrder = {
   approval: null,
   cancellation: null,
   receiptProgress: 'NOT_RECEIVED',
-  receivedLines: { complete: 0, partly: 0, total: 1 },
 };
 
 describe('[NFR-VAL-01] slice 4 request schemas', () => {
@@ -267,7 +266,6 @@ describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
       'approval',
       'cancellation',
       'receiptProgress',
-      'receivedLines',
     ]);
     const listed = { ...item, status: 'CANCELLED', vendor: { id: ID, name: 'Acme Supplies' } };
     expect(orderListItem.safeParse(listed).success).toBe(true);
