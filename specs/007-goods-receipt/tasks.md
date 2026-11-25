@@ -373,11 +373,11 @@ shows quantities, progress and history.
 
 ## Phase 8: User Story 5 — Cancelling an order with receipts (P2)
 
-- [ ] T030 [US5] Cancel tests, seen failing: partly received → `200`, receipts kept,
+- [X] T030 [US5] Cancel tests (the check landed with T029's race 4, so mutation-checked): partly received → `200`, receipts kept,
   `PO_CANCELLED` lines carry each `receivedQuantity`; fully received → `409
   ORDER_FULLY_RECEIVED` (after the version check), nothing changes; a receipt after cancel
   → `409 ORDER_NOT_RECEIVABLE`, outstanding still `ordered − Σ receipts` —
-  `backend/tests/integration/approvals-cancel.test.ts` — FR-016, FR-017, FR-LCK-02.
+  `backend/tests/integration/receipts-cancel.test.ts` (new) — FR-016, FR-017, FR-LCK-02.
 - [X] T031 [US5] Cancel service (with T029's race 4 as its failing test): reads `open_line_count` under the order lock, refuses
   fully received; T030 green — `backend/src/approvals/service.ts`, `repository.ts` — R5,
   ADR-0001 T10.
@@ -387,14 +387,13 @@ shows quantities, progress and history.
   `PO_CANCELLED`, or the receipt refused); never a `PO_CANCELLED` disagreeing with the
   receipts; no deadlock — `backend/tests/concurrency/cancel.test.ts` — FR-018, SC-004,
   NFR-CON-01.
-- [ ] T033 [P] [US5] Cancel dialog and page, component tests first: per line ordered and
+- [X] T033 [P] [US5] Cancel dialog and page, component tests first: per line ordered and
   received; the summary instead of "Nothing has been received against this order." when
   something was; `ORDER_FULLY_RECEIVED` inside with Reload order; no Cancel and no
   owner-can't-act marker on a fully received order; a cancelled page shows "Cancelled ·
   2 of 5 lines complete, 1 partly received" and per-line "60 of 100 received"; axe —
   `frontend/src/pages/orders/CancelDialog.tsx`, `CancellationSection.tsx`,
-  `OrderDetail.tsx`, `frontend/tests/cancel-order-dialog.test.tsx`,
-  `order-cancel-detail.test.tsx` — FR-020, NFR-FE-09.
+  `OrderDetail.tsx`, `frontend/tests/cancel-receipts.test.tsx` (new) — FR-020, NFR-FE-09.
 
 ---
 

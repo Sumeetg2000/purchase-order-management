@@ -1,9 +1,10 @@
-import { DECISION_REASON_MAX, formatInr, toMoney } from '@po/contracts';
+import { DECISION_REASON_MAX, formatInr, lineNumber, toMoney } from '@po/contracts';
 import { useCurrentUser } from '../../auth/current-user';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { messageForOrderAction, REASON_REQUIRED_MESSAGE } from '../../errors/messages';
 import { reloadOrderAction, useDialogAction } from '../../hooks/useDialogAction';
 import { cancelOrder, type Order } from './queries';
+import { receivedLinesOf, receivedSummary } from './receipt-progress';
 
 export interface CancelDialogProps {
   order: Order;
@@ -14,8 +15,8 @@ export interface CancelDialogProps {
 
 /**
  * Cancel approved order (ADR-0018 dialogs, contracts/ui.md): names the order, its buyer,
- * vendor and total and what was received; a required reason; cancelling is final. Focus
- * starts on "Keep order". Receipts arrive in slice 6, so nothing has been received yet.
+ * vendor and total and what was received, per line and in sum; a required reason;
+ * cancelling is final. Focus starts on "Keep order".
  */
 export function CancelDialog({ order, onClose, onReload, onCancelled }: CancelDialogProps) {
   const action = useDialogAction();
@@ -45,7 +46,21 @@ export function CancelDialog({ order, onClose, onReload, onCancelled }: CancelDi
       <p>
         Raised by {order.owner.name} with {vendor}, total {formatInr(toMoney(order.total))}.
       </p>
-      <p>Nothing has been received against this order.</p>
+      {order.receiptProgress === 'NOT_RECEIVED' ? (
+        <p>Nothing has been received against this order.</p>
+      ) : (
+        <>
+          <ul>
+            {order.lines.map((line, position) => (
+              <li key={line.id}>
+                Line {lineNumber(position)}, {line.description}: ordered {line.quantity}, received{' '}
+                {line.receivedQuantity}
+              </li>
+            ))}
+          </ul>
+          <p>{receivedSummary(receivedLinesOf(order.lines))}</p>
+        </>
+      )}
       <p>Cancelling is final. No further goods can be received against this order.</p>
     </ConfirmDialog>
   );

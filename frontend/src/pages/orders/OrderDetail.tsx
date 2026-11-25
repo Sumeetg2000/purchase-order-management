@@ -118,7 +118,9 @@ export function OrderDetail() {
   const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
   // An Approver cancels an approved order they don't own (ADR-0001 T10, ADR-0004).
   const approved = order.status === 'APPROVED';
-  const mayCancel = canCancel && approved && order.owner.id !== me?.id;
+  // Nothing left to receive: a fully received order is never cancelled (ADR-0001 T10).
+  const fullyReceived = order.receiptProgress === 'FULLY_RECEIVED';
+  const mayCancel = canCancel && approved && !fullyReceived && order.owner.id !== me?.id;
   // Receipts apply once an order is approved; a cancelled one keeps what it received.
   const receivable = approved || order.status === 'CANCELLED';
   const progressBadge = receiptBadge(order.status, order.receiptProgress);
@@ -225,7 +227,7 @@ export function OrderDetail() {
         </p>
       )}
       {/* ADR-0004 S5, extended 2026-11-20: cancelling is how such an order is closed. */}
-      {approved && !order.ownerCanAct && (
+      {approved && !order.ownerCanAct && !fullyReceived && (
         <p className={styles.notice}>
           <span>{ORDER_OWNER_INACTIVE_APPROVED_MARKER}</span>
           {mayCancel && (
@@ -313,7 +315,9 @@ export function OrderDetail() {
           }}
         />
       )}
-      {order.cancellation && <CancellationSection cancellation={order.cancellation} />}
+      {order.cancellation && (
+        <CancellationSection cancellation={order.cancellation} lines={order.lines} />
+      )}
       {receivable && <ReceiptsSection order={order} />}
       {order.approval && <ApprovalPanel round={order.approval} />}
       {cancelling && (

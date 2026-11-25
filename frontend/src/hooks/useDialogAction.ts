@@ -72,6 +72,8 @@ const ORDER_STALE_CODES = [
   'VERSION_CONFLICT',
   'INVALID_STATE_TRANSITION',
   'NOT_FOUND',
+  // A receipt completed the order behind the cancel dialog (slice 6).
+  'ORDER_FULLY_RECEIVED',
 ] as const satisfies readonly ErrorCode[];
 
 export const isOrderStale = (code: string): boolean =>
