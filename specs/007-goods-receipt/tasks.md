@@ -324,17 +324,20 @@ shows quantities, progress and history.
 
 ## Phase 6: User Story 3 — Only the owner, only approved orders (P1)
 
-- [ ] T026 [US3] Matrix receipt row, tests first where new: owner → `201`; other Buyer →
+- [X] T026 [US3] Matrix receipt row, tests first where new: owner → `201`; other Buyer →
   `404`; Buyer+Approver non-owner → `403 NOT_ORDER_OWNER`; pure Approver → `403
-  FORBIDDEN` "Approvers can review orders but not change them." also for an order that
+  FORBIDDEN` "Approvers can't record receipts. The order's Buyer records them." (owner,
+  2026-11-25) also for an order that
   doesn't exist and with a bad body; Admin → `403 FORBIDDEN` (Admin detail); no role →
   `403 NO_ROLE_ASSIGNED`; anonymous `401`; × 5 states (owner on draft, pending, rejected,
   cancelled → `409 ORDER_NOT_RECEIVABLE` with `orderState.status`); the receipts read row
   × callers; every refusal leaves lines, receipts and audit unchanged —
   `backend/tests/integration/authorization-matrix.test.ts`, `receipts-access.test.ts`
   (new) — FR-010, FR-011, FR-OWN-01, FR-APR-01, SC-002.
-- [ ] T027 [US3] Caller under lock: owner without BUYER → `403 FORBIDDEN`; deactivated →
-  `401 ACCOUNT_DEACTIVATED`; restored → receives again; check order as ADR-0004
+- [X] T027 [US3] Caller under lock: owner without BUYER → `403 FORBIDDEN`; deactivated →
+  `401 ACCOUNT_DEACTIVATED`; restored → receives again; the same two changes made after
+  the route check (the service called with the user as the route saw them) refused by
+  the re-check under lock; check order as ADR-0004
   2026-11-24 (`LINE_NOT_FOUND` and `DATE_BEFORE_APPROVAL` after `ORDER_NOT_RECEIVABLE`) —
   `backend/tests/integration/receipts-access.test.ts` — FR-012, FR-ACC-07, FR-ACT-01.
 - [ ] T028 [US3] `/security-review` of US3 (CLAUDE.md: permission stories): the route
