@@ -947,6 +947,12 @@ export interface components {
             vendorSnapshot: components["schemas"]["VendorOrderSnapshot"] | null;
             approval: components["schemas"]["ApprovalRound"] | null;
             cancellation: components["schemas"]["OrderCancellation"] | null;
+            receiptProgress: components["schemas"]["ReceiptProgress"];
+            receivedLines: {
+                complete: number;
+                partly: number;
+                total: number;
+            };
         };
         OrderLine: {
             /** Format: uuid */
@@ -955,6 +961,8 @@ export interface components {
             quantity: number;
             unitPrice: components["schemas"]["Money"];
             lineTotal: components["schemas"]["Money"];
+            receivedQuantity: number;
+            outstandingQuantity: number;
         };
         VendorOrderSnapshot: {
             /** Format: uuid */
@@ -999,6 +1007,8 @@ export interface components {
             cancelledAt: string;
             reason: string;
         };
+        /** @enum {string} */
+        ReceiptProgress: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED";
         PageOfOrderTimelineItem: {
             items: components["schemas"]["OrderTimelineItem"][];
             page: number;
@@ -1080,8 +1090,6 @@ export interface components {
                 outstandingAfter: number;
             }[];
         };
-        /** @enum {string} */
-        ReceiptProgress: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED";
         ReceiptPage: {
             items: components["schemas"]["ReceiptSummary"][];
             page: number;

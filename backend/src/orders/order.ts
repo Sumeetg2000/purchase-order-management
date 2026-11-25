@@ -22,6 +22,8 @@ export function toOrder(header: OrderRow): Order {
       quantity: line.quantity,
       unitPrice: toMoney(line.unitPrice),
       lineTotal: toMoney(line.lineTotal),
+      receivedQuantity: line.receivedQuantity,
+      outstandingQuantity: line.quantity - line.receivedQuantity,
     })),
     version: header.version,
     createdAt: header.createdAt.toISOString(),
@@ -40,6 +42,12 @@ export function toOrder(header: OrderRow): Order {
       header.cancellation === null
         ? null
         : { ...header.cancellation, cancelledAt: iso(header.cancellation.cancelledAt) },
+    receiptProgress: header.receiptProgress,
+    receivedLines: {
+      complete: lines.filter((l) => l.receivedQuantity === l.quantity).length,
+      partly: lines.filter((l) => l.receivedQuantity > 0 && l.receivedQuantity < l.quantity).length,
+      total: lines.length,
+    },
   };
 }
 

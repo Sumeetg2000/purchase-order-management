@@ -18,6 +18,7 @@ import { approvalRound, vendorOrderSnapshot } from './approvals.js';
 import { extensibleEnum } from './extensible-enum.js';
 import { pageQueryShape } from './pagination.js';
 import { readOnlyGuarded } from './read-only.js';
+import { receiptProgress } from './receipts.js';
 import { plainText, poNumberPrefix } from './text.js';
 
 // Draft orders (specs/004-draft-orders/contracts/api.md, research R6 and R9).
@@ -74,6 +75,9 @@ export const orderLine = z
     quantity: z.int(),
     unitPrice: money,
     lineTotal: money,
+    /** The sum of the line's receipts (slice 6), and what is still to come. */
+    receivedQuantity: z.int(),
+    outstandingQuantity: z.int(),
   })
   .meta({ id: 'OrderLine' });
 
@@ -110,6 +114,10 @@ export const order = z
     approval: approvalRound.nullable(),
     /** Who cancelled the order, when and why; null unless it is cancelled (slice 5, R6). */
     cancellation: orderCancellation.nullable(),
+    /** Derived from the lines and receipts (slice 6, research R8). */
+    receiptProgress,
+    /** Lines fully received, lines partly received, and all lines. */
+    receivedLines: z.strictObject({ complete: z.int(), partly: z.int(), total: z.int() }),
   })
   .meta({ id: 'Order' });
 
@@ -124,6 +132,9 @@ export const orderListItem = order
     vendorSnapshot: true,
     approval: true,
     cancellation: true,
+    // The list's receipt badge comes with the lists' own change (research R9).
+    receiptProgress: true,
+    receivedLines: true,
   })
   .extend({ vendor: z.strictObject({ id: z.uuid(), name: z.string() }) })
   .meta({ id: 'OrderListItem' });

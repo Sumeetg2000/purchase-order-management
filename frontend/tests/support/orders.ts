@@ -5,14 +5,21 @@ import { ACME_ID } from './vendors';
 export const ORDER_ID = '0192e4a0-0000-7000-8000-0000000000b1';
 const BUYER_ID = '0192e4a0-7b1c-7cc0-8a4e-1f2b3c4d5e6f';
 
-export const orderLine = (extra: Record<string, unknown> = {}) => ({
-  id: '0192e4a0-0000-7000-8000-0000000000c1',
-  description: 'Washers',
-  quantity: 3,
-  unitPrice: '0.1000',
-  lineTotal: '0.3000',
-  ...extra,
-});
+export const orderLine = (extra: Record<string, unknown> = {}) => {
+  const quantity = typeof extra['quantity'] === 'number' ? extra['quantity'] : 3;
+  const received = typeof extra['receivedQuantity'] === 'number' ? extra['receivedQuantity'] : 0;
+  return {
+    id: '0192e4a0-0000-7000-8000-0000000000c1',
+    description: 'Washers',
+    quantity,
+    unitPrice: '0.1000',
+    lineTotal: '0.3000',
+    // Slice 6: what was received, and what is still to come.
+    receivedQuantity: received,
+    outstandingQuantity: quantity - received,
+    ...extra,
+  };
+};
 
 export const order = (extra: Record<string, unknown> = {}) => ({
   id: ORDER_ID,
@@ -41,6 +48,8 @@ export const order = (extra: Record<string, unknown> = {}) => ({
   vendorSnapshot: null,
   approval: null,
   cancellation: null,
+  receiptProgress: 'NOT_RECEIVED',
+  receivedLines: { complete: 0, partly: 0, total: 2 },
   ...extra,
 });
 

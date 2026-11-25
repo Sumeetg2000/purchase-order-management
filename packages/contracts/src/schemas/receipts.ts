@@ -58,6 +58,9 @@ export const recordReceiptBody = readOnlyGuarded(
 
 const recordedBy = z.strictObject({ id: z.uuid(), name: z.string() });
 
+/** How much of an order has been received (research R8), as the order and a receipt show it. */
+export const receiptProgress = z.enum(RECEIPT_PROGRESS).meta({ id: 'ReceiptProgress' });
+
 /** The receipt's own fields, as every receipt response carries them. */
 const receiptHead = {
   id: z.uuid(),
@@ -70,7 +73,7 @@ const receiptHead = {
 export const recordedReceipt = z
   .strictObject({
     ...receiptHead,
-    receiptProgress: z.enum(RECEIPT_PROGRESS).meta({ id: 'ReceiptProgress' }),
+    receiptProgress,
     lines: z.array(
       z.strictObject({
         lineId: z.uuid(),

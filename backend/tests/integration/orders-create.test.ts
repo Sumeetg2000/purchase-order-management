@@ -38,6 +38,8 @@ describe('[FR-PO-01] raise a draft order', () => {
           quantity: 3,
           unitPrice: '0.1000',
           lineTotal: '0.3000',
+          receivedQuantity: 0,
+          outstandingQuantity: 3,
         },
         {
           id: expect.any(String) as unknown,
@@ -45,6 +47,8 @@ describe('[FR-PO-01] raise a draft order', () => {
           quantity: 7,
           unitPrice: '0.0125',
           lineTotal: '0.0875',
+          receivedQuantity: 0,
+          outstandingQuantity: 7,
         },
         {
           id: expect.any(String) as unknown,
@@ -52,6 +56,8 @@ describe('[FR-PO-01] raise a draft order', () => {
           quantity: 1,
           unitPrice: '0.0000',
           lineTotal: '0.0000',
+          receivedQuantity: 0,
+          outstandingQuantity: 1,
         },
       ],
       version: 1,
@@ -64,6 +70,9 @@ describe('[FR-PO-01] raise a draft order', () => {
       vendorSnapshot: null,
       approval: null,
       cancellation: null,
+      // Slice 6: nothing received on a draft.
+      receiptProgress: 'NOT_RECEIVED',
+      receivedLines: { complete: 0, partly: 0, total: 3 },
     });
 
     const read = await h.getOrder(order.id);

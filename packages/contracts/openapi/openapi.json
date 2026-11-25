@@ -10202,6 +10202,35 @@
                 "type": "null"
               }
             ]
+          },
+          "receiptProgress": {
+            "$ref": "#/components/schemas/ReceiptProgress"
+          },
+          "receivedLines": {
+            "type": "object",
+            "properties": {
+              "complete": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "partly": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "complete",
+              "partly",
+              "total"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -10221,7 +10250,9 @@
           "ownerCanAct",
           "vendorSnapshot",
           "approval",
-          "cancellation"
+          "cancellation",
+          "receiptProgress",
+          "receivedLines"
         ],
         "additionalProperties": false
       },
@@ -10246,6 +10277,16 @@
           },
           "lineTotal": {
             "$ref": "#/components/schemas/Money"
+          },
+          "receivedQuantity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "outstandingQuantity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -10253,7 +10294,9 @@
           "description",
           "quantity",
           "unitPrice",
-          "lineTotal"
+          "lineTotal",
+          "receivedQuantity",
+          "outstandingQuantity"
         ],
         "additionalProperties": false
       },
@@ -10486,6 +10529,14 @@
           "reason"
         ],
         "additionalProperties": false
+      },
+      "ReceiptProgress": {
+        "type": "string",
+        "enum": [
+          "NOT_RECEIVED",
+          "PARTIALLY_RECEIVED",
+          "FULLY_RECEIVED"
+        ]
       },
       "PageOfOrderTimelineItem": {
         "type": "object",
@@ -10873,14 +10924,6 @@
           "lines"
         ],
         "additionalProperties": false
-      },
-      "ReceiptProgress": {
-        "type": "string",
-        "enum": [
-          "NOT_RECEIVED",
-          "PARTIALLY_RECEIVED",
-          "FULLY_RECEIVED"
-        ]
       },
       "ReceiptPage": {
         "type": "object",

@@ -6,6 +6,7 @@ import {
   type ApprovalRoundOutcome,
   type ApprovalStepState,
   type OrderStatus,
+  type ReceiptProgress,
   type VendorStatus,
 } from '@po/contracts';
 import { Prisma } from '../generated/prisma/client.js';
@@ -50,6 +51,7 @@ export interface OrderRow {
     cancelledAt: string;
     reason: string;
   } | null;
+  receiptProgress: ReceiptProgress;
 }
 
 /** An approval round as the order read returns it (slice 4, research R10). */
@@ -77,6 +79,7 @@ export interface OrderLineRow {
   id: string;
   description: string;
   quantity: number;
+  receivedQuantity: number;
   /** numeric as text. */
   unitPrice: string;
   lineTotal: string;
@@ -210,6 +213,7 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                       'id', l.id::text,
                       'description', l.description,
                       'quantity', l.quantity,
+                      'receivedQuantity', l.received_quantity,
                       'unitPrice', l.unit_price::text,
                       'lineTotal', l.line_total::text) ORDER BY l.position), '[]'::json)
               FROM order_lines l WHERE l.order_id = o.id) AS lines,
@@ -243,7 +247,13 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                      'cancelledBy', json_build_object('id', c.id::text, 'name', c.name),
                      'cancelledAt', o.cancelled_at,
                      'reason', o.cancel_reason)
-              FROM users c WHERE c.id = o.cancelled_by) AS cancellation
+              FROM users c WHERE c.id = o.cancelled_by) AS cancellation,
+           -- Receipt progress (research R8): only approved or cancelled orders have receipts.
+           CASE WHEN o.status NOT IN ('APPROVED', 'CANCELLED') THEN 'NOT_RECEIVED'
+                WHEN o.open_line_count = 0 THEN 'FULLY_RECEIVED'
+                WHEN EXISTS (SELECT 1 FROM goods_receipts r WHERE r.order_id = o.id)
+                  THEN 'PARTIALLY_RECEIVED'
+                ELSE 'NOT_RECEIVED' END AS "receiptProgress"
       FROM purchase_orders o
       JOIN users u ON u.id = o.owner_id
       JOIN vendors v ON v.id = o.vendor_id
