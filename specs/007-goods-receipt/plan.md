@@ -124,7 +124,7 @@ packages/contracts/src/
 ├── schemas/orders.ts            # line received/outstanding, progress, list item
 ├── schemas/admin-users.ts       # openOrders
 ├── errors.ts                    # DATE_IN_FUTURE, DATE_BEFORE_APPROVAL; error details
-└── operations.ts                # + recordReceipt, listOrderReceipts
+└── operations.ts                # + recordReceipt, listOrderReceipts, getOrderReceipt
 backend/prisma/migrations/0016_receipts/migration.sql
 backend/prisma/schema.prisma
 backend/src/

@@ -15,7 +15,8 @@ attack tests are seen failing on part 1. Decisions in [research.md](research.md)
 | `recorded_by` | `uuid` NOT NULL | FK `users`; the order's owner and the actor in context (D13) |
 | `note` | `text` NULL | CHECK trimmed plain text, 1–500 characters, no control character but line breaks (the reason rule's character set); absent is `NULL` |
 
-A receipt has at least one line, written in the same statement (R1).
+A receipt has at least one line, and all its lines arrive in the statement that inserts it
+(R1): no later statement can add one.
 
 ## `goods_receipt_lines` (new): what one receipt received, per order line
 
@@ -59,7 +60,7 @@ recorded_at DESC, id DESC)`, `goods_receipts_id_order_key UNIQUE (id, order_id)`
 |---|---|---|
 | `goods_receipts_before_insert` | row, `BEFORE INSERT` | sets `recorded_at := now()` |
 | `goods_receipts_after_insert` | statement, `AFTER INSERT`, `new_receipts` | a receipt with no line → `23514` (`goods_receipts_has_lines`) |
-| `goods_receipt_lines_after_insert` | statement, `AFTER INSERT`, `new_lines` | locks (orders, then lines, id order); D16 (a line on an earlier transaction's receipt), D12, D13, D14, D17, D15 on the sums over every receipt in the statement (research R2); one set-based line update |
+| `goods_receipt_lines_after_insert` | statement, `AFTER INSERT`, `new_lines` | locks (orders, then lines, id order); D16 (a receipt that already has lines outside this statement: a receipt's lines all arrive in one `INSERT`; receipt), D12, D13, D14, D17, D15 on the sums over every receipt in the statement (research R2); one set-based line update |
 | `receipts_immutable` | statement, `BEFORE UPDATE OR DELETE OR TRUNCATE`, on both tables | D16 `PO023` |
 | `require_actor_context` | statement, on both tables | as on every audited table |
 | `recompute_open_lines(uuid[])` | function, `SECURITY DEFINER` | locks the orders in id order, writes `open_line_count` only, counts runs in `po.open_line_recompute_count` |

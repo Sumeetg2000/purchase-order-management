@@ -92,8 +92,9 @@ complains of "no numbering discipline".
     *Amended 2026-11-25 (receipt document, ADR-0011, **owner decision**)*: a receipt is a
     `goods_receipts` row with its `goods_receipt_lines`; the rules above run in the
     statement trigger on the lines, read through each line's receipt (`received_on`,
-    `recorded_by`); D16 covers both tables and also refuses a line added to a receipt
-    recorded in an earlier transaction; a receipt with no line is refused.
+    `recorded_by`); D16 covers both tables and also refuses a receipt that already has
+    lines outside the inserting statement, so all of a receipt's lines arrive in one
+    `INSERT`; a receipt with no line is refused (`23514`).
   - A trigger allows `DELETE` of an order only while it's `DRAFT`. Lines may change only
     while their order is `DRAFT`.
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the

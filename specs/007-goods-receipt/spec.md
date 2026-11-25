@@ -340,8 +340,8 @@ update response, and in both dialogs.
 - **FR-004** (FR-RCV-02): Receipts MUST be append-only: no update, delete, reversal or
   negative receipt, by the API or by raw SQL as the application's role.
 - **FR-005** (FR-RCV-03): Anyone who can read an order MUST be able to read its receipt
-  history: its receipts, each with its lines, paginated with a stable sort, newest
-  first.
+  history: its receipts (date, recorder, recorded-at time, note, number of lines),
+  paginated with a stable sort, newest first, and each receipt's lines on request.
 - **FR-006** (NFR-AUD-01): Each receipt line MUST write one `GOODS_RECEIPT_RECORDED`
   audit entry in the same transaction, with the receipt's id, the line, quantity, received before and
   after, outstanding after, the receipt date and the recorded-at time; the order's

@@ -6,9 +6,10 @@
 - Status area: the receipt badge (approved: "Partly received" / "Fully received";
   cancelled with receipts: "Cancelled · partly received"); the cancelled summary line
   "Cancelled · 2 of 5 lines complete, 1 partly received".
-- `ReceiptsSection.tsx`: the history, one entry per receipt (receipt date, recorded by,
-  recorded at, note, then its lines: position, description, quantity), newest first,
-  paginated by receipt; empty state "No goods received yet."
+- `ReceiptsSection.tsx`: the history, one row per receipt summary (receipt date,
+  recorded by, recorded at, note, "N lines"), newest first, paginated; a row expands
+  (a disclosure button, `aria-expanded`) to load that receipt's lines (position,
+  description, quantity) from `getOrderReceipt`, with a loading and an error state; empty state "No goods received yet."
 - Actions: "Record receipt" for the owner of an `APPROVED` order with
   `receiptProgress ≠ FULLY_RECEIVED`. Cancel and the owner-can't-act marker hidden when
   fully received.

@@ -36,8 +36,10 @@
     `goods_receipt_lines` row per line (line, quantity; a receipt names a line once),
     written together in one statement. Composite keys tie every receipt line to the
     receipt's order and to a line of that order. Each receipt line still gets its own
-    `GOODS_RECEIPT_RECORDED` entry, carrying the receipt's id. The history lists
-    receipts, newest first, each with its lines.
+    `GOODS_RECEIPT_RECORDED` entry, carrying the receipt's id. A receipt's lines all
+    arrive in the one statement that inserts it; no later statement can add one. The
+    history lists receipt summaries (with their line count), newest first, paginated;
+    one receipt's lines are read on their own (`GET /api/orders/:id/receipts/:receiptId`).
   - The receipt confirmation dialog covers the whole command (ADR-0018).
 - **Receipt corrections: not adopted** (owner decision 2026-10-20; ADR-0019). Receipts are
   append-only, with no reversal, negative receipt or edit.

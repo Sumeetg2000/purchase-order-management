@@ -22,7 +22,7 @@ seen failing on part 1 (table, grants, keys, indexes) before part 2 (triggers, g
 D10's branch, the split recompute, INV-3).
 
 **Operations per story**: Foundational adds constants, schemas, codes and the audit
-event, but no operation. US1 adds `recordReceipt` and `listOrderReceipts` to `OPERATIONS`
+event, but no operation. US1 adds `recordReceipt`, `listOrderReceipts` and `getOrderReceipt` to `OPERATIONS`
 with their routes, and grows the OpenAPI operation list, the body inventory, the route
 table and the authorization-matrix pins in the same commit.
 
@@ -108,7 +108,8 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   (`INVALID_FORMAT` non-integer, `OUT_OF_RANGE` 0/negative/above); the same `lineId` twice
   → `DUPLICATE_LINE_ID` at `body.lines.{i}.lineId` of the later entry); `recordedReceipt`
   (the receipt: `id`, `receivedOn`, `recordedAt`, `note`, `receiptProgress`, `lines`);
-  `receiptItem` (a receipt with its lines); `receiptPage`; `orderLine` += `receivedQuantity`, `outstandingQuantity`;
+  `receiptSummary` (a receipt with `lineCount`); `receiptPage`; `receiptDetail` (a receipt
+  with its lines, ≤ 500, position order); `orderLine` += `receivedQuantity`, `outstandingQuantity`;
   `order` += `receiptProgress`, `receivedLines { complete, partly, total }`;
   `orderListItem` += `receiptProgress`; `adminUserDetail` += `openOrders { draft, pending,
   approvedWithOpenLines }`; every new response field read-only in request bodies
@@ -159,14 +160,15 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 receives as someone else, writes `received_quantity`, or changes a receipt.
 **Independent test**: the attacks below, each refused, then reconciliation zero rows.
 
-- [X] T010 [P] Trigger tests, seen failing on part 1 (reworked 2026-11-25): as `po_app`
+- [ ] T010 [P] Trigger tests, seen failing on part 1 (reworked 2026-11-25): as `po_app`
   with an actor context, inserting a receipt with its lines in one statement: on a
   draft, pending, rejected, cancelled order → `PO020`; `recorded_by` ≠ owner, or ≠ the
   actor, or actor `SYSTEM` → `PO021`; `received_on` the day before approval (IST) →
   `PO024`, the approval day allowed; `received_on` the database's IST date + 2 → `PO025`,
   + 1 allowed; one line over ordered, two receipts in one statement on one line summing
   over, one multi-line receipt with one bad line → `PO022` and nothing written; a
-  receipt with no line → `23514`; a line added to an earlier transaction's receipt →
+  receipt with no line → `23514`; a line for a receipt that already has lines from another statement (a
+  second statement in the same transaction, a later transaction) →
   `PO023` (as `po_app` and `po_owner`); `recorded_at` sent → replaced by `now()`; an
   allowed receipt sets `received_quantity` and `open_line_count`, leaves `version` and
   `total`; `UPDATE`/`DELETE`/`TRUNCATE` of either table → `PO023` (as `po_owner`;
@@ -185,11 +187,11 @@ receives as someone else, writes `received_quantity`, or changes a receipt.
   `recompute_orders` 0 times and `recompute_open_lines` once
   (`po.open_line_recompute_count`); an order edit's counts unchanged —
   `backend/tests/integrity/trigger-count.test.ts` — R3, FR-009, NFR-PERF-03.
-- [X] T013 Migration part 2 (reworked 2026-11-25): `goods_receipts_before_insert`
+- [ ] T013 Migration part 2 (reworked 2026-11-25): `goods_receipts_before_insert`
   (`recorded_at := now()`); `goods_receipts_after_insert` (statement, `new_receipts`: a
   receipt with no line → `23514`); `goods_receipt_lines_after_insert` (statement,
   `new_lines`; orders then lines locked in id order before any check; D16 for a line on
-  an earlier transaction's receipt, D12, D13, D14, D17 read through each line's receipt,
+  a receipt that already has lines outside this statement, D12, D13, D14, D17 read through each line's receipt,
   D15 on the sums naming the first line by position; flag `po.receipts`; one set-based
   `UPDATE order_lines`); `receipts_immutable` (D16) on both tables;
   `order_lines_received_guard` (`PO005`); `recompute_open_lines(uuid[])` and
@@ -245,24 +247,26 @@ follow. **Independent test**: spec US1's independent test.
   R5, R6, ADR-0006 2026-11-24.
 - [ ] T019 [US1] Routes and operations: `recordReceipt` (`POST /api/orders/{id}/receipts`,
   role BUYER, Approver and Admin `FORBIDDEN` details, `Idempotency-Key` required, CSRF,
-  `201`); `listOrderReceipts` (`GET`, receipts paginated `recorded_at DESC, id DESC`, each with
-  its lines in position order, `404` when the order is unreadable); OpenAPI regenerated; route table, CSRF, body inventory,
+  `201`); `listOrderReceipts` (`GET`, receipt summaries with `lineCount`, paginated
+  `recorded_at DESC, id DESC`, `404` when the order is unreadable); `getOrderReceipt`
+  (`GET …/receipts/{receiptId}`, the receipt's lines in position order, `404` when the
+  order is unreadable or the receipt isn't on it); OpenAPI regenerated; route table, CSRF, body inventory,
   matrix pins — `packages/contracts/src/operations.ts`, `backend/src/receipts/routes.ts`
   (new), `backend/src/api.ts`, `backend/tests/integration/route-table.test.ts`,
   `packages/contracts/tests/openapi.test.ts`, `body-inventory.test.ts` — contracts/api.md;
   T016, T017 green.
 - [ ] T020 [US1] Order read and history, tests first: lines gain `receivedQuantity`,
   `outstandingQuantity`; order gains `receiptProgress`, `receivedLines`; the receipts page
-  (receipts with their lines in position order; stable sort, equal `recorded_at` ordered
-  by id, page boundaries cut receipts, never a receipt's lines) for owner, Approver,
-  Admin; other Buyer `404`; the timeline shows both dates —
+  (summaries with `lineCount`; stable sort, equal `recorded_at` ordered by id, page
+  boundaries) and one receipt's lines (position order; a 500-line receipt; another
+  order's receipt id `404`) for owner, Approver, Admin; other Buyer `404` on both; the timeline shows both dates —
   `backend/src/orders/repository.ts`, `backend/src/receipts/repository.ts`,
   `backend/tests/integration/orders-read.test.ts`, `receipts-history.test.ts` (new),
   `orders-timeline.test.ts` — FR-005, FR-021, FR-RCV-03, R7, R8.
 - [ ] T021 [P] [US1] Order detail, component tests first: Ordered, Received, Outstanding
   columns on non-draft orders; the progress badge by the status; `ReceiptsSection`
-  (per receipt: receipt date, recorded by, recorded at, note, then its lines with
-  position, description, quantity; newest first; paginated;
+  (per receipt summary: receipt date, recorded by, recorded at, note, "N lines"; newest
+  first; paginated; expanding a receipt loads its lines, with loading and error states;
   "No goods received yet."); "Record receipt" only for the owner of an `APPROVED` order
   not fully received; axe — `frontend/src/pages/orders/OrderDetail.tsx`,
   `ReceiptsSection.tsx` (new), `queries.ts`, `frontend/tests/order-receipts-detail.test.tsx`
@@ -384,7 +388,8 @@ shows quantities, progress and history.
   `backend/tests/plans/orders-fixture.ts` — R13.7, NFR-PERF-01.
 - [ ] T036 Plans: every page-1 list plan (buyer, buyer+approver, approver, admin; each
   committed filter) re-committed with the probe and still stopping at its page; the
-  receipt history page 1 plan and its `COUNT` plan on the busiest order. **If any plan fails, stop and show the
+  receipt history page 1 plan (with the per-row `lineCount`) and its `COUNT` plan on the
+  busiest order; one receipt's lines plan on a 500-line receipt. **If any plan fails, stop and show the
   owner before adding a stored counter or index** — `backend/tests/plans/orders.plan.test.ts`,
   `receipts.plan.test.ts` (new), `docs/query-plans/orders/` — FR-021a, R9, R10,
   NFR-PERF-01.

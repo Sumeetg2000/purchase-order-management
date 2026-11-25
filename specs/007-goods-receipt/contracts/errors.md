@@ -51,7 +51,7 @@ Cancel: unchanged up to the version check, then `409 ORDER_FULLY_RECEIVED`.
 ## Database SQLSTATEs (mapped once in `db/errors.ts`, all `INTERNAL_ERROR`)
 
 `PO020 ORDER_NOT_RECEIVABLE` · `PO021 RECEIPT_NOT_BY_OWNER` · `PO022
-RECEIPT_EXCEEDS_ORDERED` · `PO023 RECEIPT_IMMUTABLE` (also a line added to an earlier transaction's receipt) · `PO024 RECEIPT_BEFORE_APPROVAL` · `PO025 RECEIPT_DATE_TOO_LATE` (D17 backstop) ·
+RECEIPT_EXCEEDS_ORDERED` · `PO023 RECEIPT_IMMUTABLE` (also a line for a receipt that already has lines from another statement) · `PO024 RECEIPT_BEFORE_APPROVAL` · `PO025 RECEIPT_DATE_TOO_LATE` (D17 backstop) ·
 `PO019` gains the fully-received branch · `PO005` covers `received_quantity` · `23514`
 on `goods_receipts_has_lines` (a receipt with no line; the service always sends lines in
 the same statement).

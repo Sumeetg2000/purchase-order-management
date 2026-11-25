@@ -27,9 +27,10 @@ recordReceiptBody = z.strictObject({
 // The receipt document (research R1): one per command, with a line per order line.
 recordedReceipt = { id, receivedOn, recordedAt, note, receiptProgress,
   lines: [{ lineId, position, quantity, receivedBefore, receivedAfter, outstandingAfter }] };
-receiptItem = { id, receivedOn, recordedAt, recordedBy: { id, name }, note,
-  lines: [{ line: { id, position, description }, quantity }] };   // position order
-receiptPage = page(receiptItem);             // the shared envelope; pages cut receipts
+receiptSummary = { id, receivedOn, recordedAt, recordedBy: { id, name }, note, lineCount };
+receiptPage = page(receiptSummary);          // the shared envelope; pages cut receipts
+receiptDetail = { id, receivedOn, recordedAt, recordedBy: { id, name }, note,
+  lines: [{ line: { id, position, description }, quantity }] };   // ≤ 500, position order
 
 // schemas/orders.ts (additive)
 orderLine        += { receivedQuantity: int, outstandingQuantity: int }   // read-only
@@ -48,7 +49,8 @@ All new response fields are read-only: a request carrying them is refused
 | Operation | Method, path | Access | Headers | Success |
 |---|---|---|---|---|
 | `recordReceipt` | `POST /api/orders/{id}/receipts` | BUYER (route); owner (service) | `Idempotency-Key` required; no `If-Match` | `201` `recordedReceipt` |
-| `listOrderReceipts` | `GET /api/orders/{id}/receipts` | whoever can read the order | — | `200` `receiptPage` (receipts newest first, each with its lines) |
+| `listOrderReceipts` | `GET /api/orders/{id}/receipts` | whoever can read the order | — | `200` `receiptPage` (receipt summaries newest first, each with `lineCount`) |
+| `getOrderReceipt` | `GET /api/orders/{id}/receipts/{receiptId}` | whoever can read the order | — | `200` `receiptDetail` (its lines in position order); `404` when the order is unreadable or the receipt isn't on it |
 | `getOrder`, `listOrders` | unchanged paths | unchanged | — | new fields |
 | `getAdminUser`, `updateAdminUser` | unchanged paths | unchanged | — | `openOrders` |
 
@@ -59,8 +61,9 @@ ORDER_NOT_RECEIVABLE`, `409 RECEIPT_EXCEEDS_OUTSTANDING`, `503`.
 
 ## OpenAPI diff (additive)
 
-- 1 new path (`/api/orders/{id}/receipts`: `post`, `get`), 4 new schemas
-  (`RecordReceiptBody`, `RecordedReceipt`, `ReceiptItem`, `ReceiptPage`), 1 new enum
+- 2 new paths (`/api/orders/{id}/receipts`: `post`, `get`;
+  `/api/orders/{id}/receipts/{receiptId}`: `get`), 5 new schemas (`RecordReceiptBody`,
+  `RecordedReceipt`, `ReceiptSummary`, `ReceiptPage`, `ReceiptDetail`), 1 new enum
   (`ReceiptProgress`).
 - New required response properties on `Order`, `OrderLine`, `OrderListItem`,
   `AdminUserDetail`; new error responses on `cancelOrder`.
