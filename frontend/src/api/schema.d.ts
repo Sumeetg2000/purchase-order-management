@@ -691,13 +691,21 @@ export interface components {
                 id: string;
                 name: string;
             };
-            /** @description The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders. */
+            /** @description The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders, and ORDER_NOT_RECEIVABLE. */
             orderState?: {
                 /** @enum {string} */
                 status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
                 /** @enum {string} */
                 action?: "EDIT" | "DELETE" | "SUBMIT" | "WITHDRAW" | "APPROVE" | "REJECT" | "CANCEL";
             };
+            /** @description Every line a receipt would take above its outstanding quantity, in position order (position from 0): RECEIPT_EXCEEDS_OUTSTANDING only. */
+            lines?: {
+                /** Format: uuid */
+                lineId: string;
+                position: number;
+                outstanding: number;
+                requested: number;
+            }[];
         };
         /** @description Every code in the registry (packages/contracts/src/errors.ts). */
         ErrorCode: string;

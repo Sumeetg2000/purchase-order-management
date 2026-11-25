@@ -21,6 +21,8 @@ import {
   ORDER_OWNER_INACTIVE_APPROVED_MARKER,
   ORDER_OWNER_INACTIVE_CANCEL_HINT,
   carriesOrderState,
+  carriesReceiptLines,
+  ORDER_WRITE_FORBIDDEN_DETAIL,
 } from '../src/index.js';
 
 describe('[NFR-API-02] error code registry', () => {
@@ -29,7 +31,7 @@ describe('[NFR-API-02] error code registry', () => {
     for (const code of ERROR_CODES) expect(code).toMatch(/^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/);
   });
 
-  it('[NFR-API-02] holds exactly the slice 0 to slice 4 codes with their statuses', () => {
+  it('[NFR-API-02] holds exactly the slice 0 to slice 6 codes with their statuses', () => {
     const statuses = Object.fromEntries(ERROR_CODES.map((c) => [c, ERROR_REGISTRY[c].status]));
     expect(statuses).toEqual({
       VALIDATION_FAILED: 400,
@@ -78,6 +80,10 @@ describe('[NFR-API-02] error code registry', () => {
       ORDER_LOCKED: 409,
       ORDER_PENDING_APPROVAL: 409,
       ORDER_OWNER_INACTIVE: 409,
+      // Slice 6 (specs/007-goods-receipt/contracts/errors.md)
+      ORDER_NOT_RECEIVABLE: 409,
+      RECEIPT_EXCEEDS_OUTSTANDING: 409,
+      ORDER_FULLY_RECEIVED: 409,
     });
   });
 
@@ -153,7 +159,7 @@ describe('[NFR-API-02] error code registry', () => {
     ]);
   });
 
-  it('[NFR-VAL-01] lists the slice 0 to slice 3 field codes', () => {
+  it('[NFR-VAL-01] lists the slice 0 to slice 6 field codes', () => {
     expect([...FIELD_CODES].sort()).toEqual(
       [
         'MALFORMED_JSON',
@@ -175,6 +181,8 @@ describe('[NFR-API-02] error code registry', () => {
         'LINE_NOT_FOUND',
         'DUPLICATE_LINE_ID',
         'READ_ONLY_FIELD',
+        'DATE_IN_FUTURE',
+        'DATE_BEFORE_APPROVAL',
       ].sort(),
     );
   });
@@ -215,9 +223,35 @@ describe('[NFR-API-02] AppError', () => {
     expect(() => new AppError('VERSION_CONFLICT', { orderState })).toThrow(TypeError);
     for (const code of ERROR_CODES) {
       expect(carriesOrderState(code), code).toBe(
-        ['ORDER_LOCKED', 'ORDER_PENDING_APPROVAL', 'INVALID_STATE_TRANSITION'].includes(code),
+        [
+          'ORDER_LOCKED',
+          'ORDER_PENDING_APPROVAL',
+          'INVALID_STATE_TRANSITION',
+          'ORDER_NOT_RECEIVABLE',
+        ].includes(code),
       );
     }
+    expect(
+      new AppError('ORDER_NOT_RECEIVABLE', { orderState: { status: 'CANCELLED' } }).orderState,
+    ).toEqual({ status: 'CANCELLED' });
+  });
+
+  it('[FR-RCV-02] carries the offending lines on RECEIPT_EXCEEDS_OUTSTANDING only', () => {
+    const lines = [
+      { lineId: '0192f0c4-1c2d-7e3f-8a4b-5c6d7e8f9a0c', position: 1, outstanding: 5, requested: 6 },
+    ];
+    expect(new AppError('RECEIPT_EXCEEDS_OUTSTANDING', { lines }).lines).toEqual(lines);
+    expect(() => new AppError('VERSION_CONFLICT', { lines })).toThrow(TypeError);
+    for (const code of ERROR_CODES) {
+      expect(carriesReceiptLines(code), code).toBe(code === 'RECEIPT_EXCEEDS_OUTSTANDING');
+    }
+  });
+
+  it('[NFR-AUTH-01] a receipt is an order write: Approvers and Admins get its FORBIDDEN details', () => {
+    expect(ORDER_WRITE_FORBIDDEN_DETAIL).toEqual({
+      ADMIN: 'Admins can view orders but not change them.',
+      APPROVER: 'Approvers can review orders but not change them.',
+    });
   });
 
   it('[NFR-API-02] refuses an unregistered code at compile time and at run time', () => {
@@ -275,6 +309,32 @@ describe('[NFR-API-02] problem schema', () => {
     expect(problemSchema.safeParse({ ...valid, orderState: { status: 'DRAFT' } }).success).toBe(
       false,
     );
+  });
+
+  it('[FR-RCV-02] accepts lines on RECEIPT_EXCEEDS_OUTSTANDING only, and orderState on ORDER_NOT_RECEIVABLE', () => {
+    const lines = [
+      { lineId: '0192f0c4-1c2d-7e3f-8a4b-5c6d7e8f9a0c', position: 1, outstanding: 5, requested: 6 },
+    ];
+    const exceeds = {
+      ...valid,
+      code: 'RECEIPT_EXCEEDS_OUTSTANDING',
+      status: 409,
+      title: 'Receipt exceeds outstanding',
+    };
+    expect(problemSchema.safeParse({ ...exceeds, lines }).success).toBe(true);
+    expect(
+      problemSchema.safeParse({ ...exceeds, lines: [{ ...lines[0], requested: 'six' }] }).success,
+    ).toBe(false);
+    expect(problemSchema.safeParse({ ...valid, lines }).success).toBe(false);
+    const notReceivable = {
+      ...valid,
+      code: 'ORDER_NOT_RECEIVABLE',
+      status: 409,
+      title: 'Order not receivable',
+    };
+    expect(
+      problemSchema.safeParse({ ...notReceivable, orderState: { status: 'CANCELLED' } }).success,
+    ).toBe(true);
   });
 
   it('[NFR-FE-02] accepts a public reason on SESSION_REVOKED, and no reason anywhere else', () => {

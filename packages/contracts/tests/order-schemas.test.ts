@@ -125,6 +125,18 @@ describe('[NFR-VAL-01] order bodies', () => {
     }
   });
 
+  it("[FR-RCV-01] the slice 6 receipt fields are read-only in an order's body too", () => {
+    expect(ORDER_READ_ONLY_FIELDS).toEqual(
+      expect.arrayContaining([
+        'receivedQuantity',
+        'outstandingQuantity',
+        'openLineCount',
+        'receiptProgress',
+        'receivedLines',
+      ]),
+    );
+  });
+
   it('[NFR-VAL-01] any other extra field is UNKNOWN_FIELD, and a line id only belongs in an edit', () => {
     expect(failures(createOrderBody, create([line()], { notes: 'x' }))).toEqual([
       'body.notes UNKNOWN_FIELD',

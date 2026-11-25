@@ -8533,7 +8533,7 @@
             "additionalProperties": false
           },
           "orderState": {
-            "description": "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders.",
+            "description": "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders, and ORDER_NOT_RECEIVABLE.",
             "type": "object",
             "properties": {
               "status": {
@@ -8563,6 +8563,42 @@
               "status"
             ],
             "additionalProperties": false
+          },
+          "lines": {
+            "description": "Every line a receipt would take above its outstanding quantity, in position order (position from 0): RECEIPT_EXCEEDS_OUTSTANDING only.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lineId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "outstanding": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "requested": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "lineId",
+                "position",
+                "outstanding",
+                "requested"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -8619,7 +8655,10 @@
           "SELF_APPROVAL",
           "ORDER_LOCKED",
           "ORDER_PENDING_APPROVAL",
-          "ORDER_OWNER_INACTIVE"
+          "ORDER_OWNER_INACTIVE",
+          "ORDER_NOT_RECEIVABLE",
+          "RECEIPT_EXCEEDS_OUTSTANDING",
+          "ORDER_FULLY_RECEIVED"
         ]
       },
       "FieldError": {
@@ -8649,7 +8688,9 @@
               "VENDOR_NOT_FOUND",
               "LINE_NOT_FOUND",
               "DUPLICATE_LINE_ID",
-              "READ_ONLY_FIELD"
+              "READ_ONLY_FIELD",
+              "DATE_IN_FUTURE",
+              "DATE_BEFORE_APPROVAL"
             ]
           }
         },

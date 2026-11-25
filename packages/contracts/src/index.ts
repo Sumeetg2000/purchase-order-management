@@ -25,6 +25,7 @@ export * from './schemas/orders.js';
 export * from './schemas/pagination.js';
 export * from './schemas/problem.js';
 export * from './schemas/read-only.js';
+export * from './schemas/receipts.js';
 export * from './schemas/sessions.js';
 export * from './schemas/vendors.js';
 export * from './session-cookies.js';

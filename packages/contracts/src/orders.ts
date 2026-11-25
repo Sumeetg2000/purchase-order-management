@@ -100,6 +100,9 @@ export const ORDER_READ_ONLY_FIELDS = [
   'cancelledBy',
   'cancelledAt',
   'cancelReason',
+  // Slice 6 (specs/007-goods-receipt/contracts/api.md).
+  'receiptProgress',
+  'receivedLines',
 ] as const;
 
 /** The audit actions of an order's timeline (data-model.md). */

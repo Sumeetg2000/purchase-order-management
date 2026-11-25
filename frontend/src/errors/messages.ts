@@ -18,6 +18,7 @@ import {
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
   type ErrorCode,
+  type ExceedingLine,
   type FieldCode,
   type PublicRevokeReason,
   type UserRole,
@@ -151,7 +152,39 @@ export const errorMessages = {
   ORDER_LOCKED: { message: "This order can't be changed any more." },
   ORDER_PENDING_APPROVAL: { message: ORDER_PENDING_APPROVAL_DETAIL },
   ORDER_OWNER_INACTIVE: { message: ORDER_OWNER_INACTIVE_DETAIL },
+  // Slice 6 (specs/007-goods-receipt/contracts/errors.md). ORDER_NOT_RECEIVABLE names the
+  // order's status and RECEIPT_EXCEEDS_OUTSTANDING each offending line (messageForProblem).
+  ORDER_NOT_RECEIVABLE: {
+    message: "This order can't receive goods.",
+    action: 'Reload the order to see its status.',
+  },
+  RECEIPT_EXCEEDS_OUTSTANDING: {
+    message: 'Nothing was recorded.',
+    action: 'Reload the order to see what is outstanding.',
+  },
+  ORDER_FULLY_RECEIVED: {
+    message: "This order has been fully received, so it can't be cancelled.",
+  },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
+
+/** An order's status in "This order can't receive goods: it is …" (an approved one can). */
+const NOT_RECEIVABLE_STATUS_WORDS = {
+  DRAFT: 'a draft',
+  PENDING_APPROVAL: 'pending approval',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+} as const satisfies Partial<Record<OrderStatus, string>>;
+
+function isNotReceivableStatus(
+  status: OrderStatus,
+): status is keyof typeof NOT_RECEIVABLE_STATUS_WORDS {
+  return Object.hasOwn(NOT_RECEIVABLE_STATUS_WORDS, status);
+}
+
+/** One offending line of an over-receipt, numbered as the order shows it (position + 1). */
+function exceedingLineSentence({ position, outstanding, requested }: ExceedingLine): string {
+  return `Line ${String(position + 1)} has only ${String(outstanding)} outstanding; you entered ${String(requested)}.`;
+}
 
 /** The words for each public revoke reason, in "You were logged out because …". */
 export const revokeReasonText = {
@@ -184,6 +217,8 @@ export interface ProblemLike {
   existingVendor?: { id: string; name: string } | undefined;
   /** The order's status and the refused action, on the order state codes. */
   orderState?: { status: OrderStatus; action?: OrderAction | undefined } | undefined;
+  /** The lines a receipt would over-receive, on RECEIPT_EXCEEDS_OUTSTANDING only. */
+  lines?: readonly ExceedingLine[] | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -215,6 +250,20 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
     if (status !== undefined && isLockedStatus(status)) {
       return { message: ORDER_LOCKED_MESSAGES[status] };
     }
+  }
+  if (problem.code === 'ORDER_NOT_RECEIVABLE') {
+    const status = problem.orderState?.status;
+    if (status !== undefined && isNotReceivableStatus(status)) {
+      return {
+        message: `This order can't receive goods: it is ${NOT_RECEIVABLE_STATUS_WORDS[status]}.`,
+      };
+    }
+  }
+  if (problem.code === 'RECEIPT_EXCEEDS_OUTSTANDING' && problem.lines?.length) {
+    return {
+      message: errorMessages.RECEIPT_EXCEEDS_OUTSTANDING.message,
+      action: problem.lines.map(exceedingLineSentence).join(' '),
+    };
   }
   return messageFor(problem.code);
 }
@@ -273,7 +322,14 @@ export const fieldMessages = {
   LINE_NOT_FOUND: 'This line is no longer on the order. Reload it.',
   DUPLICATE_LINE_ID: 'This line appears twice. Reload the order.',
   READ_ONLY_FIELD: "This is calculated by the system and can't be set.",
+  DATE_IN_FUTURE: "Enter today's date or an earlier one.",
+  DATE_BEFORE_APPROVAL: "Enter a date on or after the order's approval.",
 } as const satisfies Record<FieldCode, string>;
+
+/** DATE_BEFORE_APPROVAL with the approval date, as the receipt form knows it. */
+export function dateBeforeApprovalMessage(approvalDate: string): string {
+  return `Enter a date on or after the order's approval (${approvalDate}).`;
+}
 
 /** The password rule, as account pages state it next to a new-password field. */
 export const PASSWORD_RULE = `Use ${String(PASSWORD_MIN_LENGTH)} to ${String(PASSWORD_MAX_LENGTH)} characters. Common passwords are refused.`;
