@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readReconciliationSql } from '../../src/db/reconciliation.js';
-import type { CookieJar } from '../support/accounts.js';
+import request from 'supertest';
+import { APP_ORIGIN, type CookieJar } from '../support/accounts.js';
 import {
   indiaDate,
   receiptBody,
@@ -52,7 +53,7 @@ async function waiters(h: ReceiptsHarness, n: number, ms = 10_000): Promise<bool
 }
 
 /** The relations the backend waiting on a lock already holds locks on. */
-async function heldByWaiter(h: ReceiptsHarness): Promise<string[]> {
+async function heldByWaiter(h: ReceiptsHarness, running = '%'): Promise<string[]> {
   await h.query('SELECT pg_stat_clear_snapshot()');
   const rows = await h.query<{ relname: string }>(
     `SELECT DISTINCT c.relname
@@ -60,7 +61,9 @@ async function heldByWaiter(h: ReceiptsHarness): Promise<string[]> {
        JOIN pg_stat_activity a ON a.pid = l.pid
        JOIN pg_class c ON c.oid = l.relation
       WHERE a.datname = current_database() AND a.pid <> pg_backend_pid()
-        AND a.wait_event_type = 'Lock' AND l.granted AND l.mode = 'RowShareLock'`,
+        AND a.wait_event_type = 'Lock' AND l.granted AND l.mode = 'RowShareLock'
+        AND a.query LIKE $1`,
+    [running],
   );
   return rows.map((r) => r.relname).sort();
 }
@@ -298,28 +301,28 @@ describe('[FR-LCK-02] receipts racing a cancel', () => {
 });
 
 describe('[FR-ACC-07] a receipt racing a change to its owner', () => {
-  for (const [change, sql, admin, code] of [
-    [
-      'deactivation',
-      `status = 'DEACTIVATED', deactivated_at = now()`,
-      { isActive: false },
-      'ACCOUNT_DEACTIVATED',
-    ],
-    ['BUYER removal', `roles = '{APPROVER}'`, { roles: ['APPROVER'] }, 'FORBIDDEN'],
+  for (const [change, admin, code] of [
+    ['deactivation', { isActive: false }, 'ACCOUNT_DEACTIVATED'],
+    ['BUYER removal', { roles: ['APPROVER'] }, 'FORBIDDEN'],
   ] as const) {
-    it(`[FR-ACC-07] race 6, ${change} first: committed while the receipt waits on the users row, the re-check under lock refuses it`, async () => {
+    it(`[FR-ACC-07] race 6, ${change} first: the admin's change holds the users row, the receipt waits on it holding the order and lines; the re-check under lock refuses it`, async () => {
       const { h, today } = await harness();
+      const adminJar = await h.loggedIn(await h.seedUser({ roles: '{ADMIN}' }));
       for (let run = 0; run < RUNS; run += 1) {
         const owner = await h.seedUser({ roles: '{BUYER}', name: `Owner ${String(run)}` });
         const jar: CookieJar = await h.loggedIn(owner);
         const order = await h.approvedOrder([5], jar);
-        // The change is made, not yet committed. Updating non-key columns holds the row FOR
-        // NO KEY UPDATE, as an admin change does: the receipt's key claim (its foreign key
-        // to users takes KEY SHARE) passes, and the receipt then waits at its FOR SHARE on
-        // the users row, after the order and its lines.
+        const label = `run ${String(run)}`;
+        // The real admin change (users row FOR NO KEY UPDATE, the update, the sessions
+        // revoked), paused at its audit entry, so it holds the users row uncommitted.
         await h.query('BEGIN');
-        await h.query('SET LOCAL session_replication_role = replica');
-        await h.query(`UPDATE users SET ${sql} WHERE id = $1`, [owner.id]);
+        await h.query('LOCK TABLE audit_entries IN SHARE MODE');
+        const changing = start(
+          h.send('patch', `/admin/users/${owner.id}`, adminJar, admin, { 'If-Match': '"1"' }),
+        );
+        expect(await waiters(h, 1), `${label}: the change waits at its audit entry`).toBe(true);
+        // The receipt's key claim (KEY SHARE on the users row) passes the change; the
+        // receipt then waits at its FOR SHARE re-check, holding the order and its lines.
         const receipt = start(
           h.recordReceipt(
             order.id,
@@ -327,14 +330,13 @@ describe('[FR-ACC-07] a receipt racing a change to its owner', () => {
             { as: jar },
           ),
         );
-        expect(await waiters(h, 1), `run ${String(run)}: the receipt waits`).toBe(true);
-        // It waits on the users row holding the order and its lines: the lock order.
-        expect(await heldByWaiter(h)).toEqual(
+        expect(await waiters(h, 2), `${label}: the receipt waits on the users row`).toBe(true);
+        expect(await heldByWaiter(h, '%FOR SHARE%'), label).toEqual(
           expect.arrayContaining(['order_lines', 'purchase_orders']),
         );
         await h.query('COMMIT');
-        const res = await receipt;
-        const label = `run ${String(run)}`;
+        const [res, changed] = await Promise.all([receipt, changing]);
+        expect(changed.status, label).toBe(200);
         expect(codeOf(res), label).toBe(code);
         expect(await h.receiptCounts(order.id), label).toEqual({ receipts: 0, lines: 0 });
         await settled(h, label);
@@ -415,5 +417,45 @@ describe('[FR-VEN-02] a receipt racing its vendor', () => {
       }
       await settled(h, label);
     }
+  });
+});
+
+describe('[NFR-CON-01] a keyed command and its user row (ADR-0006)', () => {
+  it("[NFR-CON-01] a password reset request doesn't wait on the user's in-flight receipt, which holds only its key's KEY SHARE", async () => {
+    const { h, today } = await harness();
+    const owner = await h.seedUser({ roles: '{BUYER}', name: 'Owner' });
+    const jar: CookieJar = await h.loggedIn(owner);
+    const order = await h.approvedOrder([5], jar);
+    // The receipt claims its key (KEY SHARE on the users row), then waits on the order.
+    await h.query('BEGIN');
+    await h.query(`SELECT 1 FROM purchase_orders WHERE id = $1 FOR UPDATE`, [order.id]);
+    let outcome: string | undefined;
+    try {
+      const receipt = start(
+        h.recordReceipt(
+          order.id,
+          receiptBody(today, [{ lineId: order.lineIds[0] ?? '', quantity: 1 }]),
+          { as: jar },
+        ),
+      );
+      expect(await waiters(h, 1)).toBe(true);
+      // Issuing the reset link locks the users row (FOR NO KEY UPDATE, never FOR UPDATE).
+      const forgot = start(
+        request(h.app)
+          .post('/auth/forgot-password')
+          .set('Origin', APP_ORIGIN)
+          .send({ email: owner.email }),
+      );
+      outcome = await Promise.race([
+        forgot.then((res) => (res.status === 202 ? 'link sent' : `status ${String(res.status)}`)),
+        waiters(h, 2, 3_000).then((blocked) => (blocked ? 'reset waits' : 'timed out')),
+      ]);
+      await h.query('COMMIT');
+      expect((await receipt).status).toBe(201);
+    } finally {
+      await h.query('ROLLBACK').catch(() => undefined);
+    }
+    expect(outcome).toBe('link sent');
+    await settled(h, 'password reset during a receipt');
   });
 });

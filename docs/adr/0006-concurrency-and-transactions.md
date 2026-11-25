@@ -6,7 +6,9 @@
   amended 2026-11-17 (approve reads the owner's user row `FOR SHARE`; slice 4) · amended
   2026-11-17 (one lock order per order command; no user-then-order lock; slice 4 plan,
   research R6) · amended 2026-11-20 (cancel's lock order; receipts lock the order first; slice 5 plan) · amended 2026-11-24
-  (the receipt lock row; slice 6 plan, **owner sign-off** 2026-11-24)
+  (the receipt lock row; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25
+  (keyed commands' `KEY SHARE` on the caller's `users` row first; `users` never locked
+  `FOR UPDATE`; slice 6, **owner decision**)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
@@ -70,6 +72,18 @@
   (ADR-0004, 2026-11-17). User-management commands lock
   only user and session rows and never touch order data. With `users` always last on one
   side and alone on the other, no lock cycle can form between the two families.
+- **Exception: a keyed command's key comes first** (amended 2026-11-25, slice 6, **owner
+  decision**). Every command with an `Idempotency-Key` (create, receipt) inserts its key
+  first, and the key's foreign key to `users` takes `FOR KEY SHARE` on the caller's
+  `users` row before the order or vendor. That is safe because (a) nothing locks a `users`
+  row `FOR UPDATE`, the only row lock `KEY SHARE` conflicts with short of a key change:
+  user changes, token issue and consumption, and password changes lock it `FOR NO KEY
+  UPDATE`, what the row's own `UPDATE` takes (it still conflicts with an order command's
+  `FOR SHARE` re-check); and (b) no path that locks `users` then locks an order, line,
+  round, step or vendor. So a user change, a reset link or a password change never waits
+  on a receipt that holds only its key, and the re-check under lock still sees a change
+  committed while the receipt waits. A guard test (`tests/unit/users-lock-guard.test.ts`)
+  fails if any backend source or migration locks `users` `FOR UPDATE`.
 
 ## Tests (assert business outcomes)
 50 parallel receipts on one line; edit vs submit (the final status matches the final

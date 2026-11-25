@@ -43,7 +43,8 @@ export async function issueToken(
   purpose: TokenPurpose,
 ): Promise<IssuedToken> {
   const token = randomBytes(32).toString('base64url');
-  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+  // FOR NO KEY UPDATE, never FOR UPDATE: a keyed command's KEY SHARE must not wait (ADR-0006).
+  await tx.$executeRaw`SELECT 1 FROM users WHERE id = ${userId}::uuid FOR NO KEY UPDATE`;
   await tx.$executeRaw`
     UPDATE one_time_tokens SET superseded_at = now()
      WHERE user_id = ${userId}::uuid AND purpose = ${purpose}
@@ -83,7 +84,7 @@ export async function consumeToken(
     SELECT id::text FROM users
      WHERE id = (SELECT user_id FROM one_time_tokens
                   WHERE token_hash = ${hashToken(token)} AND purpose = ${purpose})
-       FOR UPDATE`;
+       FOR NO KEY UPDATE`;
   if (!owner) return { ok: false, code: 'INVALID_TOKEN' };
   const [row] = await tx.$queryRaw<
     { id: string; user_id: string; used: boolean; superseded: boolean; expired: boolean }[]

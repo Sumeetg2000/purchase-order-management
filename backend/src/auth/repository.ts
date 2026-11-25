@@ -306,7 +306,7 @@ export async function lockPasswordChange(
     { password_hash: string | null; locked_until: Date | null; status: string; id: string }[]
   >`
     SELECT id::text, password_hash, locked_until, status FROM users
-     WHERE id = ${change.userId}::uuid FOR UPDATE`;
+     WHERE id = ${change.userId}::uuid FOR NO KEY UPDATE`;
   const [session] = await tx.$queryRaw<
     {
       revoked_at: Date | null;
