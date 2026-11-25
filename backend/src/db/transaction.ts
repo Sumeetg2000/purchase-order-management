@@ -6,6 +6,7 @@ import {
   classifyDbError,
   ConcurrencyRetryExhaustedError,
   DatabaseUnavailableError,
+  sqlstateOf,
 } from './errors.js';
 
 /** Who is acting (ADR-0016). Written to transaction-local settings for the triggers. */
@@ -108,6 +109,9 @@ export async function withTransaction<T>(
     } catch (error) {
       const kind = classifyDbError(error);
       if (kind === 'retryable') {
+        // A deadlock (40P01) or serialization failure (40001) retried away is still worth
+        // seeing: the concurrency suites assert no deadlock from these lines.
+        logger.warn({ sqlstate: sqlstateOf(error), attempt: attempt + 1 }, 'transaction retried');
         if (attempt < retry.retries) {
           await backoff(retry.baseDelayMs, attempt);
           continue;

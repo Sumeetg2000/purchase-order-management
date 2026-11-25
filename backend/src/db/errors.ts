@@ -72,6 +72,14 @@ export function violatedConstraint(error: unknown): string | undefined {
 
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
 
+/** The SQLSTATE a database error carries, from the adapter or the raw driver error. */
+export function sqlstateOf(error: unknown): string | undefined {
+  if (error instanceof Prisma.PrismaClientKnownRequestError)
+    return adapterCause(error)?.originalCode;
+  const code = error instanceof Error ? (error as Error & { code?: unknown }).code : undefined;
+  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : undefined;
+}
+
 // adapter-pg kinds for a connection that can't be made or was lost (it maps ECONNREFUSED
 // and ENOTFOUND, ECONNRESET, ETIMEDOUT and SQLSTATE 53300 to these).
 const UNAVAILABLE_KINDS = new Set([

@@ -9,6 +9,7 @@ import {
   type TransactionOptions,
 } from '../../src/db/transaction.js';
 import { createTestDatabase } from '../support/db.js';
+import { createCapture } from '../support/log-capture.js';
 import { trackDatabase } from '../support/setup.js';
 
 const operator: ActorContext = { type: 'OPERATOR', osUser: 'tester', host: 'ci-host' };
@@ -173,6 +174,22 @@ describe('[NFR-CON-01] retries of serialization failures and deadlocks', () => {
     });
     expect(result).toBe('done');
     expect(attempts).toBe(3);
+  });
+
+  it('logs each retry with its SQLSTATE, so a deadlock retried away is still seen', async () => {
+    const { options } = await setup();
+    const { logger, lines } = createCapture();
+    let attempts = 0;
+    await withTransaction({ ...options, logger }, async (tx) => {
+      attempts += 1;
+      if (attempts === 1) await tx.$executeRawUnsafe(raiseSqlstate('40P01'));
+      if (attempts === 2) await tx.$executeRawUnsafe(raiseSqlstate('40001'));
+    });
+    const retries = lines.filter((l) => l['msg'] === 'transaction retried');
+    expect(retries.map((l) => [l['sqlstate'], l['attempt'], l['level']])).toEqual([
+      ['40P01', 1, 40],
+      ['40001', 2, 40],
+    ]);
   });
 
   it('gives up after 3 retries with CONCURRENCY_RETRY_EXHAUSTED', async () => {
