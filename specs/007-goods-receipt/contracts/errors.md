@@ -12,6 +12,10 @@ Messages (web, by code): "This order can't receive goods: it is {status}." · "N
 was recorded." followed by one line each: "Line {position} has only {outstanding}
 outstanding; you entered {requested}." · "This order has been fully received, so it can't be cancelled."
 
+Positions count from 0 in every field (`lines[].position`, audit details); every
+human-readable text, the problem `detail` included, numbers a line `position + 1`, never
+"line 0" (owner, 2026-11-25).
+
 ## New field codes (`VALIDATION_FAILED` details, ADR-0007)
 
 | Code | Path | Message |
@@ -19,8 +23,9 @@ outstanding; you entered {requested}." · "This order has been fully received, s
 | `DATE_IN_FUTURE` | `body.receivedOn` | "Enter today's date or an earlier one." |
 | `DATE_BEFORE_APPROVAL` | `body.receivedOn` | "Enter a date on or after the order's approval ({date})." |
 
-Both are new values of the `FieldCode` enum in error responses: the `breaking` check is
-expected to need the label (as in slice 5).
+Both are new values of the `FieldCode` enum, published as `x-extensible-enum` (ADR-0008),
+as is `ErrorCode`: new field and error codes are non-breaking and need no `breaking`
+label. Only a value added to a fixed enum, such as `orderState.action`, does.
 
 The same line twice in one command → `DUPLICATE_LINE_ID` on the later entry
 (`body.lines.{i}.lineId`). Quantity is a whole number 1–1,000,000: `INVALID_FORMAT` for a
@@ -37,7 +42,9 @@ All locks are taken first (key → order → lines id asc → the caller's `user
 rows. Codes unchanged.
 
 1. `401` → `403 NO_ROLE_ASSIGNED` → `403 FORBIDDEN` by role (pure Approver, Admin, no
-   BUYER), before validation and lookup
+   BUYER), before validation and lookup; details: Approver "Approvers can't record
+   receipts. The order's Buyer records them." (owner, 2026-11-25), Admin "Admins can view
+   orders but not change them."
 2. `400` shape, `DATE_IN_FUTURE` (injected clock)
 3. `409 IDEMPOTENCY_KEY_REUSED` / replay
 4. `404` → `403 NOT_ORDER_OWNER`

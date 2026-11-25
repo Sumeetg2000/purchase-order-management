@@ -22,7 +22,7 @@
   2026-11-17 (slice 4, **owner decisions**: `409 ORDER_PENDING_APPROVAL` and
   `409 ORDER_OWNER_INACTIVE`, ADR-0001) · amended 2026-11-17 (slice 4 implementation: the
   `orderState` extension member) · amended 2026-11-24 (receipt field codes and error
-  details; slice 6 plan, **owner sign-off** 2026-11-24)
+  details; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (new field and error codes are non-breaking: extensible enums; slice 6)
 - **Brief:** §5, §6 · Gaps G1, G4 · Lessons 1, 5, 6
 - **Principles:** VI
 
@@ -95,9 +95,11 @@ One registry module holds every code. Every endpoint documents its codes in the 
   - `VENDOR_NOT_FOUND`, `LINE_NOT_FOUND`, `DUPLICATE_LINE_ID`, `READ_ONLY_FIELD`
   - `VERSION_REQUIRED`
   - `DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL` (amended 2026-11-24, slice 6: a receipt date
-    after today in India time, or before the order's approval date). New field codes are
-    new enum values in error responses, so the contract's `breaking` check needs the
-    label when one is added.
+    after today in India time, or before the order's approval date). *Amended 2026-11-25
+    (slice 6, **owner decision**; corrects the 2026-11-24 note)*: field and error codes are
+    published as `x-extensible-enum` (ADR-0008, amended 2026-11-03), so a new one is not a
+    breaking change and the `breaking` label is not needed; only a value added to a fixed
+    enum, such as `orderState.action`, needs it.
   - `INVALID_ROLE_SET`
   - `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `PASSWORD_TOO_COMMON`, `INCORRECT_PASSWORD`,
     `PASSWORD_UNCHANGED`

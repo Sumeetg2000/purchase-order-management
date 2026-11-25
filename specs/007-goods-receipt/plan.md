@@ -64,7 +64,7 @@ with the badge probe; receipt history page 1 and its count, and the Admin's coun
 planned.
 
 **Constraints**: every receipt rule in the database; `users` locked last; contract
-additive but for two new `FieldCode` values (the `breaking` label expected); no stored
+additive (new field and error codes are extensible enums: no `breaking` label); no stored
 progress counter unless a plan fails (owner first).
 
 **Scale/Scope**: 2 new operations, 4 changed reads; 1 table, 4 indexes; 6 SQLSTATEs; 3
@@ -82,7 +82,7 @@ dialogs changed or added, 1 section, 1 badge.
 | III. Authorization | Route role first (pure Approver, Admin `403 FORBIDDEN`), then 404 → `NOT_ORDER_OWNER` → caller re-checked under lock; owner-only in the database too (D13); matrix receipt row amended 2026-11-24 | Pass |
 | IV. Audit | One `GOODS_RECEIPT_RECORDED` per receipt in the same transaction, both dates; append-only receipts (D16) | Pass |
 | V. Concurrency | Lock order key → order → lines → user; eight races with business outcomes; idempotent retries; no `If-Match` by design (ADR-0006) | Pass |
-| VI. API contract | Zod first; OpenAPI additive but for two `FieldCode` values (label expected); codes from the registry; strict body; read-only fields refused | Pass |
+| VI. API contract | Zod first; OpenAPI additive (new codes are extensible enums, no label); codes from the registry; strict body; read-only fields refused | Pass |
 | VII. Performance | Set-based writes, statement-level triggers; 0 total recomputes per receipt; list, history and count plans; timings at 50/3 | Pass |
 | VIII. Test-first | Each story's tests first, seen failing against Testcontainers; attack tests on part 1 before part 2 | Pass |
 | IX. Operability and security | No new config, secret or role; CSRF on the new write; no `.env` change | Pass |

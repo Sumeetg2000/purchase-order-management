@@ -53,7 +53,8 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
 - [X] T001 Commit the spec, plan, research, data model, contracts, quickstart, tasks and
   the ADR updates (0001, 0003, 0004, 0006, 0007, 0012, 0016, owner sign-off 2026-11-24);
   draft PR for `007-goods-receipt` against `main`, body linking them, noting the
-  `breaking` label is expected for the two new `FieldCode` values; no dependency change —
+  `breaking` label is not needed (new field and error codes are extensible enums,
+  ADR-0008; corrected 2026-11-25); no dependency change —
   GitHub.
 
 ---
@@ -121,8 +122,10 @@ checkpoint (green CI on the slice's draft PR) and a short summary stop.
   `DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL`; `ORDER_NOT_RECEIVABLE` carries `orderState: {
   status }`; `RECEIPT_EXCEEDS_OUTSTANDING` carries `lines: [{ lineId, position,
   outstanding, requested }]` (every offending line, position order);
-  `ORDER_FULLY_RECEIVED` no member; the Approver receipt `FORBIDDEN` detail "Approvers can
-  review orders but not change them." — `packages/contracts/src/errors.ts`,
+  `ORDER_FULLY_RECEIVED` no member; the receipt `FORBIDDEN` details, Approver "Approvers
+  can't record receipts. The order's Buyer records them." (owner, 2026-11-25), Admin the
+  order-write one; new field and error codes are non-breaking (`x-extensible-enum`, no
+  label) — `packages/contracts/src/errors.ts`,
   `schemas/problem.ts`, `orders.ts`, `packages/contracts/tests/errors.test.ts` —
   contracts/errors.md, ADR-0007 2026-11-24.
 - [X] T007 [P] Database errors `PO020`–`PO025` (`ORDER_NOT_RECEIVABLE`,
@@ -465,7 +468,7 @@ shows quantities, progress and history.
 | D17 loose date backstop; exact "not after today" in the service | T010, T016 |
 | Every offending line listed | T006, T022, T024, T025 |
 | Same line twice → 400; quantity whole number ≥ 1 | T005, T022 |
-| `breaking` label expected for the new field codes | T001, T006 |
+| New field and error codes non-breaking (extensible enums, no label) | T001, T006 |
 | Pure Approver `403 FORBIDDEN` by role, before lookup | T019, T026 |
 | Badge by per-row EXISTS; plans proved; stop if one fails | T034, T036 |
 | 500-line p95 ≤ 500 ms; single-line 150 ms; 50 after 3 | T041 |

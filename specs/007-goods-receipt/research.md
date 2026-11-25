@@ -131,7 +131,8 @@ everything needing the owner's sign-off is listed in R13.
   the caller's `users` row before the lines.
 - **Check order** (ADR-0004 precedence):
   1. `401`; `403 NO_ROLE_ASSIGNED`; `403 FORBIDDEN` by role, before validation and before
-     any lookup (pure Approver: "Approvers can review orders but not change them.";
+     any lookup (pure Approver: "Approvers can't record receipts. The order's Buyer
+     records them." (owner, 2026-11-25);
      Admin: "Admins can view orders but not change them.")
   2. `400` shape: strict body; `Idempotency-Key` (`REQUIRED`/`INVALID_FORMAT`); 1–500
      lines; the same line twice → `DUPLICATE_LINE_ID` on the later entry's `lineId`;
@@ -202,9 +203,10 @@ everything needing the owner's sign-off is listed in R13.
   request hash covers the order id and the body, so the same key on another order is
   `IDEMPOTENCY_KEY_REUSED`.
 - Contract change: new operations, new response fields, three registry codes going live.
-  The two new field codes are new values of the `FieldCode` enum in error responses, so
-  the `breaking` check is expected to flag them and need the label, as cancel's codes did
-  in slice 5 (owner, 2026-11-24).
+  The two new field codes and three error codes are values of extensible enums
+  (`x-extensible-enum`, ADR-0008), so the contract change is non-breaking and needs no
+  `breaking` label (owner, 2026-11-25, correcting 2026-11-24); only a value added to a
+  fixed enum, such as slice 5's `CANCEL` in `orderState.action`, needs it.
 
 ## R8 Receipt progress and the received summary
 

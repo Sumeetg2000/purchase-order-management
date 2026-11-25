@@ -67,6 +67,7 @@ ORDER_NOT_RECEIVABLE`, `409 RECEIPT_EXCEEDS_OUTSTANDING`, `503`.
   (`ReceiptProgress`).
 - New required response properties on `Order`, `OrderLine`, `OrderListItem`,
   `AdminUserDetail`; new error responses on `cancelOrder`.
-- New `FieldCode` values (`DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL`) in error responses:
-  the `breaking` check is expected to flag them and need the label, as in slice 5. No
-  field is removed or narrowed.
+- New `FieldCode` values (`DATE_IN_FUTURE`, `DATE_BEFORE_APPROVAL`) and `ErrorCode`
+  values: both are `x-extensible-enum` (ADR-0008), so they are non-breaking and need no
+  `breaking` label; only a value added to a fixed enum (such as `orderState.action`)
+  would. No field is removed or narrowed.
