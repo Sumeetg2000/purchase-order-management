@@ -436,7 +436,7 @@ shows quantities, progress and history.
   `(owner_id, status, created_at)`, no new index (if it fails, stop and show the owner) —
   `backend/tests/plans/orders.plan.test.ts`, `docs/query-plans/orders/` — R10,
   NFR-PERF-01.
-- [ ] T040 [P] [US6] Admin dialogs, component tests first: RoleDialog and ActivationDialog
+- [X] T040 [P] [US6] Admin dialogs, component tests first: RoleDialog and ActivationDialog
   load the user detail on open (loading state, then "{draft} drafts · {pending} pending ·
   {approvedWithOpenLines} approved with goods to receive"), and when any is above zero
   "An Approver rejects their pending orders and cancels their approved ones; a buyer

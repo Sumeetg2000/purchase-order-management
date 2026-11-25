@@ -35,8 +35,12 @@ const detail = (extra: Record<string, unknown> = {}) => ({
   ...user(extra),
   createdAt: '2026-10-01T06:30:00.000Z',
   version: 3,
+  openOrders: { draft: 0, pending: 0, approvedWithOpenLines: 0 },
   ...extra,
 });
+
+const NEXT_STEPS =
+  'An Approver rejects their pending orders and cancels their approved ones; a buyer raises new orders if still needed.';
 
 const page = (items: unknown[], extra: Record<string, unknown> = {}) => ({
   items,
@@ -179,9 +183,14 @@ describe('[NFR-FE-09] change role dialog', () => {
     const { user: u } = renderApp('/admin/users');
     await u.click(await screen.findByRole('button', { name: 'Change role for Bea Buyer' }));
     const dialog = await screen.findByRole('alertdialog', { name: 'Change role for Bea Buyer?' });
-    // Open-order counts arrive with orders (ADR-0019); until then the dialog states none.
+    // Slice 6: the user's open orders; with none, no next steps.
     expect(await within(dialog).findByRole('radio', { name: 'Approver' })).toBeInTheDocument();
-    expect(within(dialog).queryByText(/Open orders/)).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'Open orders: 0 drafts · 0 pending · 0 approved with goods to receive',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(NEXT_STEPS)).not.toBeInTheDocument();
     expect(
       within(dialog).getByText("Their sessions will end and they'll need to log in again."),
     ).toBeInTheDocument();
@@ -274,6 +283,30 @@ describe('[NFR-FE-09] change role dialog', () => {
     await within(dialog).findByRole('radio', { name: 'Approver' });
     expect(await axeViolations(document.body)).toEqual([]);
   });
+});
+
+describe('[FR-ADM-02] the open-order counts in the role and deactivate dialogs', () => {
+  const busy = { openOrders: { draft: 2, pending: 1, approvedWithOpenLines: 2 } };
+  for (const [name, button] of [
+    ['Change role for Bea Buyer?', 'Change role for Bea Buyer'],
+    ['Deactivate Bea Buyer?', 'Deactivate Bea Buyer'],
+  ] as const) {
+    it(`[FR-ADM-02] "${name}" loads the counts on open and says what happens to them`, async () => {
+      adminApi({
+        [`GET /admin/users/${user().id}`]: () => json(200, detail(busy), { ETag: '"3"' }),
+      });
+      const { user: u } = renderApp('/admin/users');
+      await u.click(await screen.findByRole('button', { name: button }));
+      const dialog = await screen.findByRole('alertdialog', { name });
+      expect(
+        await within(dialog).findByText(
+          'Open orders: 2 drafts · 1 pending · 2 approved with goods to receive',
+        ),
+      ).toBeInTheDocument();
+      expect(within(dialog).getByText(NEXT_STEPS)).toBeInTheDocument();
+      expect(await axeViolations(document.body)).toEqual([]);
+    });
+  }
 });
 
 describe('[NFR-FE-09] deactivate, reactivate and reset dialogs', () => {
