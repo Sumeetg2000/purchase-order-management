@@ -64,7 +64,17 @@ const draftOrder = {
   owner: { id: ID, name: 'Asha Buyer' },
   total: '1.0000',
   lineCount: 1,
-  lines: [{ id: ID, description: 'Bolts', quantity: 1, unitPrice: '1.0000', lineTotal: '1.0000' }],
+  lines: [
+    {
+      id: ID,
+      description: 'Bolts',
+      quantity: 1,
+      unitPrice: '1.0000',
+      lineTotal: '1.0000',
+      receivedQuantity: 0,
+      outstandingQuantity: 1,
+    },
+  ],
   version: 1,
   createdAt: AT,
   updatedAt: AT,
@@ -74,6 +84,8 @@ const draftOrder = {
   vendorSnapshot: null,
   approval: null,
   cancellation: null,
+  receiptProgress: 'NOT_RECEIVED',
+  receivedLines: { complete: 0, partly: 0, total: 1 },
 };
 
 describe('[NFR-VAL-01] slice 4 request schemas', () => {
@@ -254,6 +266,8 @@ describe('[FR-LCK-02] slice 5: the cancel record on an order', () => {
       'vendorSnapshot',
       'approval',
       'cancellation',
+      'receiptProgress',
+      'receivedLines',
     ]);
     const listed = { ...item, status: 'CANCELLED', vendor: { id: ID, name: 'Acme Supplies' } };
     expect(orderListItem.safeParse(listed).success).toBe(true);

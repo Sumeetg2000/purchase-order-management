@@ -233,6 +233,8 @@ describe('[FR-PO-01] order list query and responses', () => {
           quantity: 3,
           unitPrice: '0.1000',
           lineTotal: '0.3000',
+          receivedQuantity: 0,
+          outstandingQuantity: 3,
         },
       ],
       version: 1,
@@ -246,6 +248,9 @@ describe('[FR-PO-01] order list query and responses', () => {
       approval: null,
       // Slice 5's.
       cancellation: null,
+      // Slice 6's: nothing received on a draft.
+      receiptProgress: 'NOT_RECEIVED',
+      receivedLines: { complete: 0, partly: 0, total: 1 },
     };
     expect(order.safeParse(base).success).toBe(true);
     expect(order.safeParse({ ...base, total: 0.3 }).success).toBe(false);
@@ -263,6 +268,8 @@ describe('[FR-PO-01] order list query and responses', () => {
             'vendorSnapshot',
             'approval',
             'cancellation',
+            'receiptProgress',
+            'receivedLines',
           ].includes(key),
       ),
     );
