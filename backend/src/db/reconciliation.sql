@@ -24,11 +24,11 @@ violations AS (
     FROM purchase_orders o LEFT JOIN line_sums s ON s.order_id = o.id
    WHERE o.total <> coalesce(s.total, 0)
   UNION ALL
-  -- INV-3: received_quantity = Σ receipts.quantity.
+  -- INV-3: received_quantity = Σ goods_receipt_lines.quantity.
   SELECT 'INV-3', l.id::text,
          format('received_quantity %s, receipts sum to %s', l.received_quantity, coalesce(r.received, 0))
     FROM order_lines l
-    LEFT JOIN (SELECT line_id, sum(quantity) AS received FROM receipts GROUP BY line_id) r
+    LEFT JOIN (SELECT line_id, sum(quantity) AS received FROM goods_receipt_lines GROUP BY line_id) r
       ON r.line_id = l.id
    WHERE l.received_quantity <> coalesce(r.received, 0)
   UNION ALL

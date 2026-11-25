@@ -36,7 +36,7 @@ model User {
   submittedRounds       ApprovalRound[]  @relation("RoundSubmitter")
   decidedSteps          ApprovalStep[]   @relation("StepDecider")
   idempotencyKeys       IdempotencyKey[]
-  receipts              Receipt[]        @relation("ReceiptRecorder")
+  receipts              GoodsReceipt[]   @relation("ReceiptRecorder")
 
   @@index([name, id], map: "users_name_id_idx")
   @@index([status, name, id], map: "users_status_name_id_idx")
@@ -208,6 +208,7 @@ model PurchaseOrder {
   canceller     User?           @relation("OrderCanceller", fields: [cancelledBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vendor        Vendor          @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines         OrderLine[]
+  receipts      GoodsReceipt[]
   rounds        ApprovalRound[] @relation("OrderRounds")
   current       ApprovalRound?  @relation("CurrentRound", fields: [id, currentRound], references: [orderId, round], onDelete: NoAction, onUpdate: NoAction, map: "purchase_orders_current_round_fkey")
 
@@ -224,41 +225,54 @@ model PurchaseOrder {
 }
 
 model OrderLine {
-  id               String        @id @db.Uuid
-  orderId          String        @map("order_id") @db.Uuid
+  id               String             @id @db.Uuid
+  orderId          String             @map("order_id") @db.Uuid
   position         Int
   description      String
   quantity         Int
-  unitPrice        Decimal       @map("unit_price") @db.Decimal(13, 4)
-  lineTotal        Decimal?      @default(dbgenerated("((quantity)::numeric * unit_price)")) @map("line_total") @db.Decimal(22, 4)
-  receivedQuantity Int           @default(0) @map("received_quantity")
-  order            PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  receipts         Receipt[]
+  unitPrice        Decimal            @map("unit_price") @db.Decimal(13, 4)
+  lineTotal        Decimal?           @default(dbgenerated("((quantity)::numeric * unit_price)")) @map("line_total") @db.Decimal(22, 4)
+  receivedQuantity Int                @default(0) @map("received_quantity")
+  order            PurchaseOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  receiptLines     GoodsReceiptLine[]
 
   @@unique([orderId, position], map: "order_lines_order_position_key")
   @@unique([id, orderId], map: "order_lines_id_order_key")
   @@map("order_lines")
 }
 
-// Goods receipts (migration 0016_receipts, research R1): one row per line per receipt
-// command, never changed. po_app inserts the caller columns; the triggers set recordedAt
-// and keep order_lines.received_quantity.
-model Receipt {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId    String    @map("order_id") @db.Uuid
-  lineId     String    @map("line_id") @db.Uuid
-  quantity   Int
-  receivedAt DateTime  @map("received_at") @db.Date
-  recordedAt DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  recordedBy String    @map("recorded_by") @db.Uuid
+// Goods receipts (migration 0016_receipts, research R1): a receipt document per command
+// (GoodsReceipt) with a row per order line it covers (GoodsReceiptLine), written in one
+// statement and never changed. po_app inserts the caller columns; the triggers set
+// recordedAt and keep order_lines.received_quantity.
+model GoodsReceipt {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String             @map("order_id") @db.Uuid
+  receivedOn DateTime           @map("received_on") @db.Date
+  recordedAt DateTime           @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  recordedBy String             @map("recorded_by") @db.Uuid
   note       String?
-  line       OrderLine @relation(fields: [lineId, orderId], references: [id, orderId], onDelete: Restrict, onUpdate: NoAction, map: "receipts_line_fkey")
-  recorder   User      @relation("ReceiptRecorder", fields: [recordedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order      PurchaseOrder      @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "goods_receipts_order_fkey")
+  recorder   User               @relation("ReceiptRecorder", fields: [recordedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines      GoodsReceiptLine[]
 
-  @@index([orderId, recordedAt(sort: Desc), id(sort: Desc)], map: "receipts_order_recorded_idx")
-  @@index([lineId], map: "receipts_line_idx")
-  @@index([recordedBy], map: "receipts_recorded_by_idx")
-  @@map("receipts")
+  @@unique([id, orderId], map: "goods_receipts_id_order_key")
+  @@index([orderId, recordedAt(sort: Desc), id(sort: Desc)], map: "goods_receipts_order_recorded_idx")
+  @@index([recordedBy], map: "goods_receipts_recorded_by_idx")
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  receiptId String       @map("receipt_id") @db.Uuid
+  orderId   String       @map("order_id") @db.Uuid
+  lineId    String       @map("line_id") @db.Uuid
+  quantity  Int
+  receipt   GoodsReceipt @relation(fields: [receiptId, orderId], references: [id, orderId], onDelete: Restrict, onUpdate: NoAction, map: "goods_receipt_lines_receipt_fkey")
+  line      OrderLine    @relation(fields: [lineId, orderId], references: [id, orderId], onDelete: Restrict, onUpdate: NoAction, map: "goods_receipt_lines_line_fkey")
+
+  @@id([receiptId, lineId], map: "goods_receipt_lines_pkey")
+  @@index([lineId], map: "goods_receipt_lines_line_idx")
+  @@map("goods_receipt_lines")
 }
 
 model PoNumberCounter {
