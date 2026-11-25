@@ -142,6 +142,24 @@ describe('[NFR-PERF-01] order query plans at the ADR-0012 sizes', () => {
     expect(size?.widest).toBe(500);
   });
 
+  it("[FR-ADM-02] the Admin's open-order counts at the busiest Buyer read the owner's index, no new one", async () => {
+    const query = queries.find((q) => q.name === 'admin-open-orders');
+    if (!query) throw new Error('no admin-open-orders query');
+    const plan = await explain(query.sql.text, query.sql.values);
+    // Each count's index access (an index-only scan, or a bitmap index scan under the
+    // approved count's heap recheck of open_line_count) uses the owner's index; none
+    // reads the table in full.
+    const all = nodes(plan) as (PlanNode & { 'Index Name'?: string })[];
+    const indexes = all.flatMap((n) => (n['Index Name'] === undefined ? [] : [n['Index Name']]));
+    expect(indexes).toEqual([
+      'purchase_orders_owner_status_created_idx',
+      'purchase_orders_owner_status_created_idx',
+      'purchase_orders_owner_status_created_idx',
+    ]);
+    expect(all.filter((n) => n['Node Type'] === 'Seq Scan')).toEqual([]);
+    expect(pageProblems(plan, query.rowsBound)).toEqual([]);
+  });
+
   it("[NFR-PERF-01] holds ADR-0012's status mix, every pending order in one queue", async () => {
     const { rows } = await app.query<{ status: string; n: number }>(
       `SELECT status, count(*)::int AS n FROM purchase_orders GROUP BY status ORDER BY status`,

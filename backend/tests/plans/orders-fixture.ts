@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { entityHistorySql } from '../../src/audit/repository.js';
 import { readReconciliationSql } from '../../src/db/reconciliation.js';
 import {
+  openOrderCountsSql,
   orderListSql,
   type OrderListFilter,
   type OrderListScope,
@@ -432,6 +433,15 @@ export function orderPlanQueries(ids: {
     sql: receiptLinesSql(ids.widestReceipt),
     page: true,
     rowsBound: 500,
+  });
+
+  // The Admin's open-order counts for a user (slice 6, US6), at the busiest Buyer: read
+  // through the owner's index, never more than that Buyer's own orders.
+  queries.push({
+    name: 'admin-open-orders',
+    sql: openOrderCountsSql(ids.buyer),
+    page: true,
+    rowsBound: ORDER_COUNT / 40,
   });
 
   const timeline = entityHistorySql(entity, { offset: 0, limit });

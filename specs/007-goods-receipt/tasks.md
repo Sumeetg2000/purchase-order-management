@@ -432,7 +432,7 @@ shows quantities, progress and history.
   a user with no orders, an Approver, an Admin → zeros —
   `backend/tests/integration/admin-users.test.ts`, `backend/src/admin-users/service.ts`,
   `repository.ts` — FR-023, FR-ADM-02.
-- [ ] T039 [P] [US6] Count plan at the busiest Buyer on the fixture uses
+- [X] T039 [P] [US6] Count plan at the busiest Buyer on the fixture uses
   `(owner_id, status, created_at)`, no new index (if it fails, stop and show the owner) —
   `backend/tests/plans/orders.plan.test.ts`, `docs/query-plans/orders/` — R10,
   NFR-PERF-01.
