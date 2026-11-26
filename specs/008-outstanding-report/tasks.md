@@ -81,7 +81,7 @@ US6 (plan order), then Polish. Each story ends with green CI on the slice's draf
 **Goal**: the report lists exactly the outstanding orders, filterable by vendor and age
 band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
-- [ ] T005 [US1] Integration tests, seen failing: only approved orders with an open line
+- [X] T005 [US1] Integration tests, seen failing: only approved orders with an open line
   (cancelled, rejected, pending, draft, fully received excluded); a partial receipt keeps
   an order (open-line count and outstanding quantity drop), the final receipt removes it;
   each bucket with an injected clock, orders exactly 30, 60 and 90 days old in the lower
@@ -91,13 +91,13 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
   field; inactive vendor marked; `lineCount` and `outstandingQuantity` exact —
   `backend/tests/integration/reports-outstanding.test.ts` — FR-001–FR-004, FR-007–FR-009,
   R3, R5, FR-RPT-01, FR-RPT-03.
-- [ ] T006 [US1] `listOutstandingOrders`: operation, route, service (clock-injected as-of
+- [X] T006 [US1] `listOutstandingOrders`: operation, route, service (clock-injected as-of
   date, scope by role) and repository (one statement, page and total, the scope's partial
   index, bucket bounds as India midnights, page-row aggregate over lines, no receipts);
   OpenAPI regenerated; route table and matrix pins grown — `packages/contracts/src/
   operations.ts`, `backend/src/reports/{routes,service,repository}.ts`,
   `backend/src/http/routes/index.ts` — FR-001–FR-008, R1–R5, FR-RPT-01.
-- [ ] T007 [US1] Query count, seen failing until T006: one statement per report request,
+- [X] T007 [US1] Query count, seen failing until T006: one statement per report request,
   whatever the page size or line counts — `backend/tests/integration/reports-query-count.test.ts`
   — FR-011, NFR-PERF-01.
 - [ ] T008 [P] [US1] Web component tests, seen failing: Orders view heading and as-of

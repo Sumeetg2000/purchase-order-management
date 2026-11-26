@@ -3,7 +3,6 @@ import {
   exceedingLinesDetail,
   NOT_ORDER_OWNER_DETAIL,
   ORDER_RECEIPT_FORBIDDEN_DETAIL,
-  RECEIPT_TIME_ZONE,
   ROLE,
   type ExceedingLine,
   type FieldError,
@@ -23,6 +22,7 @@ import { withDatabase, type TransactionRunner } from '../db/transaction.js';
 import { claimIdempotencyKey, completeIdempotencyKey } from '../idempotency/repository.js';
 import { requestHash } from '../idempotency/request-hash.js';
 import type { Clock } from '../lib/clock.js';
+import { indiaToday } from '../lib/india-date.js';
 import { pageArgs } from '../lib/pagination.js';
 import type { RequestContext } from '../lib/request-context.js';
 import { selectOrderAccess } from '../orders/repository.js';
@@ -71,18 +71,6 @@ interface ReceiptsServiceDependencies {
   prisma: AppPrismaClient;
   transactions: TransactionRunner;
   clock: Clock;
-}
-
-const INDIA_DATE = new Intl.DateTimeFormat('en-CA', {
-  timeZone: RECEIPT_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-/** Today in India time, `YYYY-MM-DD` (research R4: "not after today" is the service's). */
-export function indiaToday(clock: Clock): string {
-  return INDIA_DATE.format(clock.now());
 }
 
 function receiptDateError(code: 'DATE_IN_FUTURE' | 'DATE_BEFORE_APPROVAL'): AppError {

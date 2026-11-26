@@ -70,6 +70,8 @@ const PINNED_ACCESS: Record<string, Access> = {
   recordReceipt: 'role',
   listOrderReceipts: 'role',
   getOrderReceipt: 'role',
+  // Slice 7: the outstanding report (ADR-0004's "Outstanding report and order lists" row).
+  listOutstandingOrders: 'role',
 };
 
 /** The roles of each role-level operation (ADR-0004's vendor rows), pinned the same way. */
@@ -97,6 +99,7 @@ const PINNED_ROLES: Record<string, readonly string[]> = {
   recordReceipt: ['BUYER'],
   listOrderReceipts: ['BUYER', 'APPROVER', 'ADMIN'],
   getOrderReceipt: ['BUYER', 'APPROVER', 'ADMIN'],
+  listOutstandingOrders: ['BUYER', 'APPROVER', 'ADMIN'],
 };
 
 /** Callable with no session (ADR-0004 "Public endpoints", plus the slice 0 health checks). */
@@ -228,10 +231,11 @@ describe('[SC-005] authorization matrix: every operation × every caller kind', 
         }
       }
     }
-    // Zero cells untested: 47 operations (2 health checks, 22 of slice 1, 7 vendor ones,
-    // 6 order ones, 6 of slice 4, cancel of slice 5, 3 receipt ones of slice 6) × 6 callers.
+    // Zero cells untested: 48 operations (2 health checks, 22 of slice 1, 7 vendor ones,
+    // 6 order ones, 6 of slice 4, cancel of slice 5, 3 receipt ones of slice 6, the report
+    // of slice 7) × 6 callers.
     expect(cells).toHaveLength(operations.length * Object.keys(CALLERS).length);
-    expect(operations).toHaveLength(47);
+    expect(operations).toHaveLength(48);
   });
 });
 

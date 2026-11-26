@@ -15,6 +15,8 @@ import { orderRoutes } from '../../orders/routes.js';
 import { createOrdersService } from '../../orders/service.js';
 import { profileRoutes } from '../../profile/routes.js';
 import { receiptRoutes } from '../../receipts/routes.js';
+import { reportRoutes } from '../../reports/routes.js';
+import { createReportsService } from '../../reports/service.js';
 import { createReceiptsService } from '../../receipts/service.js';
 import { createProfileService } from '../../profile/service.js';
 import { vendorRoutes } from '../../vendors/routes.js';
@@ -49,5 +51,6 @@ export function productionRoutes(deps: RouteDependencies): RouteDefinition[] {
     ...orderRoutes(createOrdersService(deps)),
     ...approvalRoutes(createApprovalsService(deps)),
     ...receiptRoutes(createReceiptsService(deps)),
+    ...reportRoutes(createReportsService(deps)),
   ];
 }

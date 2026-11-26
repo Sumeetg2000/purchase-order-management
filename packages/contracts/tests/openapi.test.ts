@@ -94,6 +94,7 @@ describe('[NFR-API-01] generated OpenAPI document', () => {
         'recordReceipt post /orders/{id}/receipts',
         'listOrderReceipts get /orders/{id}/receipts',
         'getOrderReceipt get /orders/{id}/receipts/{receiptId}',
+        'listOutstandingOrders get /reports/outstanding',
         'reactivateVendor post /vendors/{id}/reactivate',
       ].sort(),
     );

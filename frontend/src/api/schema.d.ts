@@ -659,6 +659,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/outstanding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approved orders with something still to receive, oldest approval first, filtered by vendor and age band; a Buyer sees their own, an Approver or Admin all. Ages are whole India days to asOf. */
+        get: operations["listOutstandingOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -720,6 +737,8 @@ export interface components {
                 quantity: number;
             }[];
         };
+        /** @enum {string} */
+        AgeBucket: "DAYS_0_30" | "DAYS_31_60" | "DAYS_61_90" | "OVER_90";
         Problem: {
             type: string;
             title: string;
@@ -1134,6 +1153,42 @@ export interface components {
                 };
                 quantity: number;
             }[];
+        };
+        OutstandingReportPage: {
+            items: components["schemas"]["OutstandingOrder"][];
+            page: number;
+            pageSize: number;
+            total: number;
+            /** Format: date */
+            asOf: string;
+        };
+        OutstandingOrder: {
+            /** Format: uuid */
+            id: string;
+            poNumber: string;
+            vendor: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                /** @enum {string} */
+                status: "ACTIVE" | "INACTIVE";
+            };
+            owner: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            approvedAt: string;
+            /** Format: date */
+            approvedOn: string;
+            ageDays: number;
+            ageBucket: components["schemas"]["AgeBucket"];
+            lineCount: number;
+            openLineCount: number;
+            outstandingQuantity: number;
         };
     };
     responses: {
@@ -5546,6 +5601,83 @@ export interface operations {
             };
             /** @description Problem document with code NOT_FOUND. */
             404: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code INTERNAL_ERROR. */
+            500: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code SERVICE_UNAVAILABLE or CONCURRENCY_RETRY_EXHAUSTED. */
+            503: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listOutstandingOrders: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                vendorId?: string;
+                ageBucket?: components["schemas"]["AgeBucket"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutstandingReportPage"];
+                };
+            };
+            /** @description Problem document with code VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED or ACCOUNT_DEACTIVATED or SESSION_REVOKED or SESSION_EXPIRED. */
+            401: {
+                headers: {
+                    "X-Request-Id": components["headers"]["XRequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem document with code NO_ROLE_ASSIGNED or FORBIDDEN. */
+            403: {
                 headers: {
                     "X-Request-Id": components["headers"]["XRequestId"];
                     [name: string]: unknown;
