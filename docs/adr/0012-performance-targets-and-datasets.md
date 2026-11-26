@@ -4,7 +4,8 @@
   amended 2026-11-03 (POC scope, owner decision: the user dataset is built in slice 7,
   ADR-0021) · amended 2026-11-06 (audit-entry volume recorded, slice 2 analysis) ·
   amended 2026-11-17 (order status mix and the approver-queue plans, slice 4 plan) · amended 2026-11-20 (1,000 cancelled orders in the status mix, slice 5 plan) · amended 2026-11-24 (a 500-line receipt p95 500 ms; owner decision; slice 6) · amended 2026-11-24 (the
-  receipt mix; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (receipt mix counted in receipt lines; ADR-0011)
+  receipt mix; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (receipt mix counted in receipt lines; ADR-0011) · amended 2026-11-26 (slice 7 plan, **owner sign-off**: the load test,
+  its recorded run, the vendor summary's group sort)
 - **Brief:** §3.7, §6, §8 · Gaps G5, G13, G14, Q6, Q7
 - **Principles:** VII
 
@@ -45,7 +46,28 @@
   order 500 ms each; a single receipt or approval 150 ms; a 500-line receipt 500 ms
   (amended 2026-11-24, owner decision; 50 timed runs after 3 warm-up); 50 concurrent virtual users for
   10 min with zero pool-exhaustion or timeout errors, < 0.1% errors, and zero reconciliation
-  rows.
+  rows. *Amended 2026-11-26 (slice 7)*: the load test replaces the 50-user, 10-minute,
+  median-of-3 job; see "Load test" below. The latency targets are enforced by the timing
+  tests on the 100k fixture (50 timed runs after 3 warm-up).
+- **Load test** (*amended 2026-11-26, owner decisions at clarify and sign-off*):
+  - raises the brief's §8 scenario through the HTTP API: 10,000 orders across 200 vendors
+    with varying receipt histories, about 20 concurrent virtual users, a plain Node script
+    (no load tool), on its own isolated compose project (`po-load`)
+  - runs on demand (`npm run load`) and nightly; never on pull requests
+  - ages are spread by shifting each order's own timestamps back 0–180 days after the run,
+    only on the `po-load` stack (project name and container label checked), with the
+    superuser password read from the stack's throwaway env file; reconciliation runs right
+    after the shift; audit entries keep their real times
+  - fails on any 5xx or timeout, any reconciliation row, or an unused index not in the
+    committed expected-unused list (each with a one-line reason); timings over target are
+    recorded, not failed
+  - one run is recorded in `docs/perf/load-run.md` (duration, error counts by status,
+    report and summary timings against target, unused-index result), with the
+    outstanding-orders-by-age plan on its data
+- **Plan rule exception** (*amended 2026-11-26*): the outstanding report's vendor summary
+  may sort its vendor groups (bounded by the vendor count), since it must aggregate before
+  ordering vendors by oldest approval (ADR-0015); it may not scan orders, lines or
+  receipts.
 - Page 100 (offset about 5,000) is measured and recorded with no target.
 - **Frontend targets** (Playwright, 4× CPU throttling, production build):
   - 500-line editor: keystroke in a cell → next paint p95 ≤ 50 ms; add or remove a line

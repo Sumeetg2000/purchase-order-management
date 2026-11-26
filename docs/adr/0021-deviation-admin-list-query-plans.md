@@ -28,6 +28,13 @@ builds the same tooling for the order lists anyway.
 Building the seed and plan tooling now (the original slice 1 plan, research R13): the
 same work, done twice in different shapes.
 
+## Closure plan (slice 7 plan, owner sign-off 2026-11-26)
+A 10,000-user plan fixture; the access-request list rewritten as one raw statement
+(behaviour unchanged) so its SQL can be explained; page, page 100 and `COUNT` plans for
+both lists with each filter, committed under `docs/query-plans/admin/`, with a test that
+fails on a Seq Scan or an over-page Sort; first pages timed at p95 ≤ 200 ms. This ADR is
+marked Closed in the commit that adds them.
+
 ## Revisit condition
 Closed when slice 7 commits the page and `COUNT` plans for both lists at the ADR-0012
 user dataset, with a test that fails on a sequential scan. Slice 7 may not merge with

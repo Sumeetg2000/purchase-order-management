@@ -1,6 +1,8 @@
 # ADR-0015: Outstanding orders report
 
-- **Status:** Accepted · 2026-10-16
+- **Status:** Accepted · 2026-10-16 · amended 2026-11-26 (slice 7 plan, **owner sign-off**:
+  a third index, India calendar-day ages with an as-of date, summary numbers per row with
+  line detail from the order read, the summary's group sort)
 - **Brief:** §3.7, §6, §7.3, §8
 - **Principles:** I, VII
 
@@ -23,18 +25,29 @@ receipts. That is only true if "outstanding" can be decided from the order row a
 - **Age** is measured from `approved_at`, when the obligation to the vendor began.
   `created_at` is also returned. Buckets: 0–30, 31–60, 61–90 and over 90 days. Buckets are
   computed from `approved_at` ranges, so the index range is used.
-- **Indexes**:
-  - `(vendor_id, approved_at) WHERE status = 'APPROVED' AND open_line_count > 0`, for the
-    vendor filter and summary
-  - `(owner_id, approved_at)` with the same predicate, for a Buyer's own report (Principle
-    III scoping)
+  *Amended 2026-11-26*: age is whole calendar days in India time (the as-of India date
+  minus the approval's India date), so bucket bounds are India midnights and an order
+  exactly 30 days old is in 0–30. Every response states its as-of India date.
+- **Indexes** (*amended 2026-11-26*: three, each ending in `id` for a stable order):
+  - `(approved_at, id) WHERE status = 'APPROVED' AND open_line_count > 0`, for the
+    Approver's and Admin's report unfiltered or by bucket (oldest approval first across
+    vendors; without it every page sorts every outstanding order)
+  - `(vendor_id, approved_at, id)` with the same predicate, for the vendor filter and the
+    summary
+  - `(owner_id, approved_at, id) INCLUDE (vendor_id)` with the same predicate, for a
+    Buyer's own report and summary (Principle III scoping), index-only
 - **Query shape**:
   - The page query and its `COUNT` read only the partial index and the order rows, joined
     to vendors for names.
-  - Line detail (outstanding per line) is fetched in one query for the ≤ 50 orders on the
-    page.
+  - *Amended 2026-11-26 (owner decision)*: rows carry summary numbers only, the open-line
+    count and the outstanding quantity (Σ ordered − received over the row's lines, read
+    for page rows only). Line detail is the existing order read (`GET /orders/{id}`),
+    fetched when a row is expanded; there are no lines in the page.
   - The per-vendor summary (order count, count per bucket, oldest `approved_at`) is an
-    index-range aggregate.
+    index-range aggregate. *Amended 2026-11-26*: it aggregates every outstanding order in
+    the caller's scope before it can order vendors by oldest approval, so its plan sorts
+    the vendor groups (at most the vendors with anything outstanding), never orders: an
+    accepted exception to "no Sort over more than the page" (ADR-0012).
   - Neither query reads receipts.
 - No outstanding *amount* is reported. It would need another stored derived value, and the
   brief doesn't ask for it.
@@ -48,11 +61,12 @@ receipts. That is only true if "outstanding" can be decided from the order row a
 - The index stays small: it holds only approved orders still open, and shrinks as orders
   complete.
 - §7.3 answer: "It touches the partial index on approved, still-open orders and those order
-  rows, plus vendors for names, and lines only for the page being returned. Never receipts."
+  rows, plus vendors for names, and lines only for the page being returned (to sum what is
+  outstanding). Never receipts."
 
 ## Tests
 Filters by vendor and age bucket; excludes cancelled, rejected and fully received orders; a
 partial receipt keeps the order in the report, and the final receipt removes it;
 `open_line_count` in reconciliation; a raw-SQL write to `open_line_count` →
 denied/`DERIVED_VALUE_READ_ONLY`; committed `EXPLAIN` (10k and 100k datasets) showing the
-partial index for page and `COUNT`, with no lines/receipts scan.
+partial index for page and `COUNT`, with no receipts read and lines read only for page rows.
