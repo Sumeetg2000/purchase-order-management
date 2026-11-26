@@ -16,6 +16,8 @@ import { createTransactionRunner } from '../../src/db/transaction.js';
 import { systemClock } from '../../src/lib/clock.js';
 import { createOrdersService, type OrdersService } from '../../src/orders/service.js';
 import { createReceiptsService, type ReceiptsService } from '../../src/receipts/service.js';
+import { createReportsService, type ReportsService } from '../../src/reports/service.js';
+import { testClock } from '../support/clock.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.js';
@@ -25,11 +27,15 @@ import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.j
 // Buyer's first page, one approval, one cancel and the approval queue's first page within
 // 150 ms; a receipt of one line within 150 ms and of 500 lines within 500 ms (slice 6); at
 // the 95th percentile, through the services as the API calls them. Results are printed for
-// research R7 (slice 4), R8 (slice 5) and the slice 6 quickstart results.
+// research R7 (slice 4), R8 (slice 5), the slice 6 quickstart results and slice 7's
+// report and vendor summary (200 and 300 ms).
 
 const WRITE_P95_MS = 500;
 const LIST_P95_MS = 150;
 const DECISION_P95_MS = 150;
+/** ADR-0012: the outstanding report's page and its vendor summary. */
+const REPORT_P95_MS = 200;
+const VENDOR_SUMMARY_P95_MS = 300;
 const WARM_UP_RUNS = 3;
 /** Timed runs per measurement, after the warm-up: writes, decisions and pages alike. */
 const TIMED_RUNS = 50;
@@ -61,6 +67,8 @@ let prisma: AppPrismaClient;
 let orders: OrdersService;
 let approvals: ApprovalsService;
 let receipts: ReceiptsService;
+let reports: ReportsService;
+let reportAsOf: string;
 let buyer: Parameters<OrdersService['createOrder']>[0];
 let approver: Parameters<ApprovalsService['approveOrder']>[0];
 let vendorId: string;
@@ -89,6 +97,7 @@ beforeAll(async () => {
   );
   await superuser.query('COMMIT');
   const ids = await orderPlanIds(app);
+  reportAsOf = ids.asOf;
   const { rows } = await app.query<{ name: string; email: string }>(
     'SELECT name, email FROM users WHERE id = $1',
     [ids.buyer],
@@ -120,6 +129,11 @@ beforeAll(async () => {
   orders = createOrdersService({ prisma, transactions });
   approvals = createApprovalsService({ prisma, transactions });
   receipts = createReceiptsService({ prisma, transactions, clock: systemClock });
+  // The report counts ages to the fixture's own as-of date (its latest approval's day).
+  reports = createReportsService({
+    prisma,
+    clock: testClock(new Date(`${reportAsOf}T12:00:00+05:30`)),
+  });
 });
 
 /** Today in India, the receipt date every timed receipt uses (approved today, too). */
@@ -279,6 +293,40 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     results.receipt1P95 = Math.round(p95(oneLineReceipts));
     expect(results.receipt500P95).toBeLessThanOrEqual(WRITE_P95_MS);
     expect(results.receipt1P95).toBeLessThanOrEqual(DECISION_P95_MS);
+  });
+
+  it('[NFR-PERF-01] the outstanding report, first page: p95 within 200 ms, for the Admin and the busiest Buyer', async () => {
+    const callers = [
+      ['reportAdminP95', { ...approver, roles: ['ADMIN'] as const }],
+      ['reportBuyerP95', buyer],
+    ] as const;
+    for (const [name, caller] of callers) {
+      const samples: number[] = [];
+      const ignored: number[] = [];
+      for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
+        const page = await timed(run < WARM_UP_RUNS ? ignored : samples, () =>
+          reports.listOutstandingOrders(caller, { page: 1, pageSize: 20 }),
+        );
+        expect(page.asOf).toBe(reportAsOf);
+        expect(page.items.length).toBeGreaterThan(0);
+      }
+      results[name] = Math.round(p95(samples));
+      expect(results[name]).toBeLessThanOrEqual(REPORT_P95_MS);
+    }
+  });
+
+  it('[NFR-PERF-01] the outstanding vendor summary, first page: p95 within 300 ms', async () => {
+    const admin = { ...approver, roles: ['ADMIN'] as const };
+    const samples: number[] = [];
+    const ignored: number[] = [];
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
+      const page = await timed(run < WARM_UP_RUNS ? ignored : samples, () =>
+        reports.listOutstandingVendors(admin, { page: 1, pageSize: 20 }),
+      );
+      expect(page.items.length).toBeGreaterThan(0);
+    }
+    results.vendorSummaryP95 = Math.round(p95(samples));
+    expect(results.vendorSummaryP95).toBeLessThanOrEqual(VENDOR_SUMMARY_P95_MS);
   });
 
   it("[NFR-PERF-01] the Approver's queue, first page: p95 within 150 ms", async () => {

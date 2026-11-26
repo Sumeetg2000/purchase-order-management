@@ -149,7 +149,7 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
 ## Phase 6: Report plans and timings (FR-RPT-02)
 
-- [ ] T014 Plan queries in the 100k fixture, and assertions, seen failing: report page 1
+- [X] T014 Plan queries in the 100k fixture, and assertions, seen failing: report page 1
   and 100 and count for the Admin (unfiltered, each bucket, a vendor, vendor and bucket)
   and a top Buyer (unfiltered, a bucket); summary page 1 and total for the Admin and the
   Buyer; each uses its outstanding index, reads no `goods_receipts` or
@@ -158,9 +158,9 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
   latest approval, every bucket non-empty — `backend/tests/plans/orders-fixture.ts`,
   `backend/tests/plans/orders.plan.test.ts` — FR-011, FR-012, R5, R10, ADR-0012,
   FR-RPT-02, NFR-PERF-01. **If a plan fails the rule, stop and show the owner the plan.**
-- [ ] T015 Commit the report and summary plans (`npm run plans:orders`) —
+- [X] T015 Commit the report and summary plans (`npm run plans:orders`) —
   `docs/query-plans/orders/report-*.txt`, `summary-*.txt` — FR-012, SC-003.
-- [ ] T016 Timings, 50 timed after 3 warm-up: report page 1 (Admin, and a Buyer) p95 ≤
+- [X] T016 Timings, 50 timed after 3 warm-up: report page 1 (Admin, and a Buyer) p95 ≤
   200 ms, summary ≤ 300 ms — `backend/tests/plans/orders.timing.test.ts` — SC-001,
   NFR-PERF-01.
 

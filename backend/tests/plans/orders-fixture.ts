@@ -1,4 +1,9 @@
-import { APPROVAL_POLICY_SEED_TIERS, PAGE_SIZE_DEFAULT } from '@po/contracts';
+import {
+  AGE_BUCKETS,
+  APPROVAL_POLICY_SEED_TIERS,
+  PAGE_SIZE_DEFAULT,
+  RECEIPT_TIME_ZONE,
+} from '@po/contracts';
 import type pg from 'pg';
 import { entityHistorySql } from '../../src/audit/repository.js';
 import { readReconciliationSql } from '../../src/db/reconciliation.js';
@@ -10,6 +15,12 @@ import {
 } from '../../src/orders/repository.js';
 import { approvalQueueSql, type QueueFilter } from '../../src/approvals/repository.js';
 import { receiptLinesSql, receiptPageSql } from '../../src/receipts/repository.js';
+import {
+  outstandingReportSql,
+  outstandingVendorsSql,
+  type ReportFilter,
+  type ReportScope,
+} from '../../src/reports/repository.js';
 import type { PlanQuery } from './vendors-fixture.js';
 
 // The order query-plan data and queries (research R7), shared by the plan test and the plan
@@ -305,8 +316,13 @@ export async function orderPlanIds(client: pg.Client) {
     dualApprover: string;
     receiptOrder: string;
     widestReceipt: string;
+    asOf: string;
   }>(
-    `SELECT ${buyerId('1')}::text AS buyer, ${vendorId('1')}::text AS vendor,
+    // The report's as-of date: the India date of the fixture's latest approval, so its
+    // ages spread over the months the fixture's orders were raised in.
+    `SELECT (SELECT ((max(approved_at) AT TIME ZONE '${RECEIPT_TIME_ZONE}')::date)::text
+               FROM purchase_orders) AS "asOf",
+            ${buyerId('1')}::text AS buyer, ${vendorId('1')}::text AS vendor,
             ${orderId(String(HOT_ORDER))}::text AS order, ${APPROVER_ID}::text AS approver,
             ${buyerId(String(DUAL_BUYER))}::text AS "dualApprover",
             ${orderId(String(RECEIPT_ORDER))}::text AS "receiptOrder",
@@ -326,6 +342,7 @@ export function orderPlanQueries(ids: {
   dualApprover: string;
   receiptOrder: string;
   widestReceipt: string;
+  asOf: string;
 }): PlanQuery[] {
   const limit = PAGE_SIZE_DEFAULT;
   const scopes: [string, OrderListScope][] = [
@@ -444,9 +461,96 @@ export function orderPlanQueries(ids: {
     rowsBound: ORDER_COUNT / 40,
   });
 
+  queries.push(...reportPlanQueries(ids));
+
   const timeline = entityHistorySql(entity, { offset: 0, limit });
   const [timelinePage, timelineCount] = [timeline.page, timeline.count];
   queries.push({ name: 'timeline-page-1', sql: timelinePage, page: true, rowsBound: limit });
   queries.push({ name: 'timeline-count', sql: timelineCount, page: false, rowsBound: 0 });
+  return queries;
+}
+
+/** Which outstanding index each report query must walk (ADR-0015, amended 2026-11-26). */
+export const REPORT_INDEXES = {
+  all: 'purchase_orders_outstanding_idx',
+  vendor: 'purchase_orders_outstanding_vendor_idx',
+  own: 'purchase_orders_outstanding_owner_idx',
+} as const;
+
+/**
+ * The outstanding report and vendor summary (slice 7, research R10): the page statement
+ * (with each row's lines summed) and the count, for the Admin (every filter) and the
+ * busiest Buyer, pages 1 and DEEP_PAGE; the summary for both. `index` names the partial
+ * index the page must walk.
+ */
+export function reportPlanQueries(ids: {
+  buyer: string;
+  vendor: string;
+  asOf: string;
+}): (PlanQuery & { index?: string })[] {
+  const limit = PAGE_SIZE_DEFAULT;
+  const callers: [string, ReportScope, ReportFilter[]][] = [
+    [
+      'admin',
+      { kind: 'all' },
+      [{}, ...AGE_BUCKETS.map((ageBucket) => ({ ageBucket })), { vendorId: ids.vendor }],
+    ],
+    ['buyer', { kind: 'own', ownerId: ids.buyer }, [{}, { ageBucket: 'OVER_90' }]],
+  ];
+  const queries: (PlanQuery & { index?: string })[] = [];
+  for (const [callerName, scope, filters] of callers) {
+    for (const filter of [
+      ...filters,
+      ...(callerName === 'admin' ? [{ vendorId: ids.vendor, ageBucket: 'OVER_90' as const }] : []),
+    ]) {
+      const filterName =
+        [
+          filter.vendorId === undefined ? '' : 'vendor',
+          filter.ageBucket?.toLowerCase().replaceAll('_', '-') ?? '',
+        ]
+          .filter(Boolean)
+          .join('-') || 'all';
+      const index =
+        scope.kind === 'own'
+          ? REPORT_INDEXES.own
+          : filter.vendorId === undefined
+            ? REPORT_INDEXES.all
+            : REPORT_INDEXES.vendor;
+      for (const page of [1, DEEP_PAGE]) {
+        const offset = (page - 1) * limit;
+        const sql = outstandingReportSql(scope, filter, ids.asOf, { offset, limit });
+        queries.push({
+          name: `report-${callerName}-${filterName}-page-${String(page)}`,
+          sql: sql.statement,
+          page: true,
+          rowsBound: offset + limit,
+          index,
+        });
+      }
+      queries.push({
+        name: `report-${callerName}-${filterName}-count`,
+        sql: outstandingReportSql(scope, filter, ids.asOf, { offset: 0, limit }).count,
+        page: false,
+        rowsBound: 0,
+      });
+    }
+    const summary = outstandingVendorsSql(scope, ids.asOf, { offset: 0, limit });
+    // The summary aggregates every outstanding order in scope before it can order vendors
+    // by their oldest approval: it may sort its groups, at most one per vendor (ADR-0012's
+    // exception, signed off 2026-11-26), never orders.
+    queries.push({
+      name: `summary-${callerName}-page-1`,
+      sql: summary.statement,
+      page: true,
+      rowsBound: VENDOR_COUNT,
+      index: scope.kind === 'own' ? REPORT_INDEXES.own : REPORT_INDEXES.vendor,
+    });
+    queries.push({
+      name: `summary-${callerName}-count`,
+      sql: summary.count,
+      page: false,
+      rowsBound: 0,
+    });
+  }
   return queries;
 }

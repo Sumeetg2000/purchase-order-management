@@ -1,0 +1,5 @@
+-- SELECT count(*) FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0
+-- values: []
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o

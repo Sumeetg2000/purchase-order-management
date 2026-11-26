@@ -1,0 +1,30 @@
+-- SELECT (SELECT count(*) FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.approved_at >= (($1::date - $2::int)::timestamp AT TIME ZONE $3) AND o.approved_at < (($4::date - $5::int)::timestamp AT TIME ZONE $6))::int AS total, coalesce(( SELECT json_agg(json_build_object( 'id', p.id::text, 'poNumber', p.po_number, 'vendor', json_build_object('id', v.id::text, 'name', v.name, 'status', v.status), 'owner', json_build_object('id', u.id::text, 'name', u.name), 'createdAt', to_char(p.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'approvedAt', to_char(p.approved_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'approvedOn', (p.approved_at AT TIME ZONE $7)::date::text, 'ageDays', ($8::date - (p.approved_at AT TIME ZONE $9)::date), 'ageBucket', CASE WHEN ($10::date - (p.approved_at AT TIME ZONE $11)::date) <= $12::int THEN $13 WHEN ($14::date - (p.approved_at AT TIME ZONE $15)::date) <= $16::int THEN $17 WHEN ($18::date - (p.approved_at AT TIME ZONE $19)::date) <= $20::int THEN $21 ELSE $22 END, 'lineCount', l.line_count, 'openLineCount', p.open_line_count, 'outstandingQuantity', l.outstanding) ORDER BY p.approved_at, p.id) FROM (SELECT o.id, o.po_number, o.vendor_id, o.owner_id, o.created_at, o.approved_at, o.open_line_count FROM (SELECT o.approved_at, o.id FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.approved_at >= (($23::date - $24::int)::timestamp AT TIME ZONE $25) AND o.approved_at < (($26::date - $27::int)::timestamp AT TIME ZONE $28) ORDER BY o.approved_at, o.id LIMIT 20 OFFSET 0) k JOIN purchase_orders o ON o.id = k.id) p JOIN vendors v ON v.id = p.vendor_id JOIN users u ON u.id = p.owner_id -- The page row's lines, by the order-lines key: never another order's. CROSS JOIN LATERAL ( SELECT count(*)::int AS line_count, sum(ol.quantity - ol.received_quantity)::int AS outstanding FROM order_lines ol WHERE ol.order_id = p.id) l), '[]'::json) AS items
+-- values: ["2027-03-14",90,"Asia/Kolkata","2027-03-14",60,"Asia/Kolkata","Asia/Kolkata","2027-03-14","Asia/Kolkata","2027-03-14","Asia/Kolkata",30,"DAYS_0_30","2027-03-14","Asia/Kolkata",60,"DAYS_31_60","2027-03-14","Asia/Kolkata",90,"DAYS_61_90","OVER_90","2027-03-14",90,"Asia/Kolkata","2027-03-14",60,"Asia/Kolkata"]
+
+Result
+  InitPlan 1
+    ->  Aggregate
+          ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o
+                Index Cond: ((approved_at >= '2026-12-13 18:30:00+00'::timestamp with time zone) AND (approved_at < '2027-01-12 18:30:00+00'::timestamp with time zone))
+  InitPlan 2
+    ->  Aggregate
+          ->  Sort
+                Sort Key: o_1.approved_at, o_1.id
+                ->  Nested Loop
+                      ->  Nested Loop
+                            ->  Nested Loop
+                                  ->  Nested Loop
+                                        ->  Limit
+                                              ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o_2
+                                                    Index Cond: ((approved_at >= '2026-12-13 18:30:00+00'::timestamp with time zone) AND (approved_at < '2027-01-12 18:30:00+00'::timestamp with time zone))
+                                        ->  Index Scan using purchase_orders_pkey on purchase_orders o_1
+                                              Index Cond: (id = o_2.id)
+                                  ->  Index Scan using vendors_pkey on vendors v
+                                        Index Cond: (id = o_1.vendor_id)
+                            ->  Index Scan using users_pkey on users u
+                                  Index Cond: (id = o_1.owner_id)
+                      ->  Aggregate
+                            ->  Bitmap Heap Scan on order_lines ol
+                                  Recheck Cond: (order_id = o_1.id)
+                                  ->  Bitmap Index Scan on order_lines_order_position_key
+                                        Index Cond: (order_id = o_1.id)
