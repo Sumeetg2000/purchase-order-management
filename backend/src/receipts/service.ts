@@ -81,7 +81,7 @@ const INDIA_DATE = new Intl.DateTimeFormat('en-CA', {
 });
 
 /** Today in India time, `YYYY-MM-DD` (research R4: "not after today" is the service's). */
-function indiaToday(clock: Clock): string {
+export function indiaToday(clock: Clock): string {
   return INDIA_DATE.format(clock.now());
 }
 

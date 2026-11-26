@@ -288,6 +288,94 @@ describe('[FR-SM-01] demo orders in each reachable approval state', () => {
   });
 });
 
+describe('[FR-RCV-01] demo receipts', () => {
+  it('[FR-RCV-01] each demo Buyer has one partly and one fully received approved order, and the cancelled order partly received before its cancel, through the receipt service', async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    await seedOrders();
+    const progress = () =>
+      h.query<{
+        email: string;
+        status: string;
+        outcome: string;
+        receipts: number;
+        ordered: number;
+        received: number;
+        before_cancel: boolean | null;
+      }>(
+        `SELECT u.email, o.status, r.outcome,
+                (SELECT count(*)::int FROM goods_receipts g WHERE g.order_id = o.id) AS receipts,
+                (SELECT sum(quantity)::int FROM order_lines l WHERE l.order_id = o.id) AS ordered,
+                (SELECT sum(received_quantity)::int FROM order_lines l WHERE l.order_id = o.id)
+                  AS received,
+                (SELECT bool_and(g.recorded_at < o.cancelled_at) FROM goods_receipts g
+                  WHERE g.order_id = o.id) AS before_cancel
+           FROM purchase_orders o
+           JOIN users u ON u.id = o.owner_id
+           JOIN approval_rounds r ON r.order_id = o.id AND r.outcome IN ('APPROVED', 'AUTO_APPROVED')
+          ORDER BY u.email, o.po_number`,
+      );
+    const seeded = await progress();
+    for (const email of ['buyer1@example.com', 'buyer2@example.com']) {
+      expect(
+        seeded.filter((r) => r.email === email),
+        email,
+      ).toEqual([
+        // Fully received over two receipts.
+        {
+          email,
+          status: 'APPROVED',
+          outcome: 'AUTO_APPROVED',
+          receipts: 2,
+          ordered: 10,
+          received: 10,
+          before_cancel: null,
+        },
+        // Partly received.
+        {
+          email,
+          status: 'APPROVED',
+          outcome: 'APPROVED',
+          receipts: 1,
+          ordered: 2,
+          received: 1,
+          before_cancel: null,
+        },
+        // Partly received, then cancelled.
+        {
+          email,
+          status: 'CANCELLED',
+          outcome: 'APPROVED',
+          receipts: 1,
+          ordered: 3,
+          received: 1,
+          before_cancel: true,
+        },
+      ]);
+    }
+    // Each receipt recorded by the order's Buyer, as the receipt service records it.
+    expect(
+      await h.query(
+        `SELECT a.actor_type, a.acting_role, count(*)::int AS n
+           FROM audit_entries a
+          WHERE a.action = 'GOODS_RECEIPT_RECORDED'
+          GROUP BY a.actor_type, a.acting_role`,
+      ),
+    ).toEqual([{ actor_type: 'USER', acting_role: 'BUYER', n: 8 }]);
+    expect(
+      await h.query(
+        `SELECT count(*)::int AS n FROM goods_receipts g
+           JOIN purchase_orders o ON o.id = g.order_id WHERE g.recorded_by <> o.owner_id`,
+      ),
+    ).toEqual([{ n: 0 }]);
+    // A reseed records nothing more.
+    await seedOrders();
+    expect(await progress()).toEqual(seeded);
+    expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+});
+
 describe('[FR-APR-05] demo orders under a changed policy', () => {
   it('[FR-APR-05] under a raised tier, an order the submit approved is never decided', async () => {
     const { h, seed, seedVendors, seedOrders } = await setup();

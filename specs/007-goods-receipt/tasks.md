@@ -448,20 +448,20 @@ shows quantities, progress and history.
 
 ## Phase 11: Polish & cross-cutting
 
-- [ ] T041 [P] Receipt timings on the plan fixture, 50 timed runs after 3 warm-up:
+- [X] T041 [P] Receipt timings on the plan fixture, 50 timed runs after 3 warm-up:
   single-line p95 ≤ 150 ms (`DECISION_P95_MS`), 500-line p95 ≤ 500 ms (`WRITE_P95_MS`) — `backend/tests/plans/orders.timing.test.ts` — SC-005, NFR-PERF-01.
-- [ ] T042 [P] Demo seed: per demo Buyer one partly and one fully received approved order,
+- [X] T042 [P] Demo seed: per demo Buyer one partly and one fully received approved order,
   and the cancelled order partly received (receipts before the cancel), all through the
   receipt service; idempotent on reseed; reconciliation zero rows; no `.env` change —
   `backend/src/migrate/seed-demo.ts`, `backend/tests/integration/seed-demo.test.ts` —
   spec Assumptions, R12.
-- [ ] T043 E2E: create → submit → approve → partial receipt (dialog, warning absent) → a
+- [X] T043 E2E: create → submit → approve → partial receipt (dialog, warning absent) → a
   receipt fully receiving a line (fully-received wording) → badges in the list; the
   Approver's cancel dialog shows the summary; axe on the form, dialog and page —
   `frontend/e2e/receipts.spec.ts` (new) — FR-022, NFR-FE-07, NFR-FE-09, SC-006 (recorded
   as observed in this run and the quickstart walkthrough; no timed step), SC-007.
   Run `npm run e2e:local`.
-- [ ] T044 Traceability: FR-RCV-01–04, FR-LCK-02, FR-SM-01, FR-OWN-01, FR-RPT-03 (the
+- [X] T044 Traceability: FR-RCV-01–04, FR-LCK-02, FR-SM-01, FR-OWN-01, FR-RPT-03 (the
   stored count), FR-PO-03 (the outstanding half), FR-ADM-02 (counts), NFR-AUD-01,
   NFR-CON-01, NFR-CON-03, NFR-PERF-01/03, NFR-FE-07/08/09 — each with its passing test,
   status as the slice leaves it (the report itself is slice 7); `npm run

@@ -1,5 +1,12 @@
 import type { Logger } from 'pino';
-import { createOrderBody, ROLE, type Order, type UserRole, type VendorBody } from '@po/contracts';
+import {
+  createOrderBody,
+  recordReceiptBody,
+  ROLE,
+  type Order,
+  type UserRole,
+  type VendorBody,
+} from '@po/contracts';
 import { hashPassword } from '../auth/passwords.js';
 import type { AuthenticatedUser } from '../auth/service.js';
 import type { AppEnv } from '../config/rules.js';
@@ -15,7 +22,9 @@ import { createApprovalsService, type ApprovalsService } from '../approvals/serv
 import { createOrdersService } from '../orders/service.js';
 import { listOrders } from '../orders/repository.js';
 import type { RequestContext } from '../lib/request-context.js';
+import { systemClock } from '../lib/clock.js';
 import { uuidv7 } from '../lib/uuid.js';
+import { createReceiptsService, indiaToday } from '../receipts/service.js';
 import { findUserByEmail, insertUserIfAbsent } from '../users/repository.js';
 import { findVendorByNameKey, selectVendor } from '../vendors/repository.js';
 import { SYSTEM_ACTOR } from '../users/actor.js';
@@ -186,13 +195,16 @@ type DemoApprovalEnd =
  * seeded ₹1,00,000 tier except the auto-approved one. Decisions are the Demo Approver's;
  * under a policy whose tier is above an order's total, the order is approved on submit and
  * not decided. The cancelled one is approved, then cancelled by the Demo Approver (cancel is
- * no approval decision, so it is cancelled under any tier).
+ * no approval decision, so it is cancelled under any tier). `receipts` are recorded by the
+ * Buyer once the order is approved (before the cancel): per receipt, a quantity per line,
+ * 0 for a line the receipt leaves out.
  */
 export const DEMO_APPROVAL_ORDERS: readonly {
   end: DemoApprovalEnd;
   vendor: string;
   lines: { description: string; quantity: number; unitPrice: string }[];
   reason?: string;
+  receipts?: readonly (readonly number[])[];
 }[] = [
   {
     end: 'PENDING',
@@ -203,11 +215,15 @@ export const DEMO_APPROVAL_ORDERS: readonly {
     end: 'AUTO_APPROVED',
     vendor: 'Acme Supplies',
     lines: [{ description: 'Safety helmet', quantity: 10, unitPrice: '2500' }],
+    // Fully received, in two deliveries.
+    receipts: [[6], [4]],
   },
   {
     end: 'APPROVED',
     vendor: 'Bright Office Goods',
     lines: [{ description: 'Standing desk', quantity: 2, unitPrice: '125000' }],
+    // Partly received.
+    receipts: [[1]],
   },
   {
     end: 'REJECTED',
@@ -224,8 +240,13 @@ export const DEMO_APPROVAL_ORDERS: readonly {
   {
     end: 'CANCELLED',
     vendor: 'Acme Supplies',
-    lines: [{ description: 'Forklift battery', quantity: 1, unitPrice: '180000' }],
+    lines: [
+      { description: 'Forklift battery', quantity: 1, unitPrice: '180000' },
+      { description: 'Battery charger', quantity: 2, unitPrice: '9000' },
+    ],
     reason: 'Supplier closed; reorder from another vendor',
+    // The battery arrived before the supplier closed; the chargers never did.
+    receipts: [[1, 0]],
   },
 ];
 
@@ -288,6 +309,11 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
   });
   const orders = createOrdersService({ prisma: options.prisma, transactions });
   const approvals = createApprovalsService({ prisma: options.prisma, transactions });
+  const receipts = createReceiptsService({
+    prisma: options.prisma,
+    transactions,
+    clock: systemClock,
+  });
   const ctx = () => ({
     requestId: uuidv7(),
     logger: options.logger,
@@ -326,26 +352,36 @@ export async function seedDemoOrders(options: SeedOptions): Promise<number> {
       const reason = demoOrder.reason ?? '';
       // The operator may have raised the tier: an order the submit approved (at or below
       // it) has nothing left to decide, but the one to be cancelled still is.
-      if (submitted.status === 'APPROVED') {
-        if (demoOrder.end === 'CANCELLED') {
-          await approvals.cancelOrder(
-            approver,
-            { id: submitted.id, version: submitted.version, reason },
+      const decided = { id: submitted.id, version: submitted.version };
+      const approved =
+        submitted.status === 'APPROVED'
+          ? submitted
+          : demoOrder.end === 'APPROVED' || demoOrder.end === 'CANCELLED'
+            ? await approveUntilApproved(approvals, approver, submitted, tierCount, ctx)
+            : undefined;
+      if (approved) {
+        for (const quantities of demoOrder.receipts ?? []) {
+          const body = recordReceiptBody.parse({
+            receivedOn: indiaToday(systemClock),
+            lines: approved.lines
+              .map((line, i) => ({ lineId: line.id, quantity: quantities[i] ?? 0 }))
+              .filter((line) => line.quantity > 0),
+          });
+          await receipts.recordReceipt(
+            buyer,
+            { orderId: approved.id, body, idempotencyKey: uuidv7() },
             ctx(),
           );
         }
-        continue;
-      }
-      const decided = { id: submitted.id, version: submitted.version };
-      if (demoOrder.end === 'APPROVED' || demoOrder.end === 'CANCELLED') {
-        const approved = await approveUntilApproved(approvals, approver, submitted, tierCount, ctx);
         if (demoOrder.end === 'CANCELLED') {
+          // A receipt never moves the order's version (ADR-0016).
           await approvals.cancelOrder(
             approver,
             { id: approved.id, version: approved.version, reason },
             ctx(),
           );
         }
+        continue;
       }
       if (demoOrder.end === 'REJECTED') {
         await approvals.rejectOrder(approver, { ...decided, reason }, ctx());
