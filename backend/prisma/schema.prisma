@@ -183,7 +183,9 @@ model Vendor {
 // Orders (migration 0013_orders). The derived columns (total, open_line_count, line_total)
 // and received_quantity are read-only for po_app: repositories read them as text and never
 // write them (ADR-0003, ADR-0010). The triggers that keep them live in the migration only.
-// po_number is COLLATE "C" in the database, which Prisma can't express.
+// po_number is COLLATE "C" in the database, which Prisma can't express. The outstanding
+// report's partial indexes (migration 0017) live in the migration only;
+// tests/integration/report-schema.test.ts pins them.
 model PurchaseOrder {
   id            String          @id @db.Uuid
   poNumber      String?         @unique(map: "purchase_orders_po_number_key") @map("po_number")

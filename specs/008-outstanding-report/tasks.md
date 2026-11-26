@@ -52,7 +52,7 @@ US6 (plan order), then Polish. Each story ends with green CI on the slice's draf
 
 ## Phase 2: Foundational
 
-- [ ] T002 [P] Migration `0017_outstanding_report`: the three partial indexes
+- [X] T002 [P] Migration `0017_outstanding_report`: the three partial indexes
   `purchase_orders_outstanding_idx (approved_at, id)`,
   `purchase_orders_outstanding_vendor_idx (vendor_id, approved_at, id)`,
   `purchase_orders_outstanding_owner_idx (owner_id, approved_at, id) INCLUDE (vendor_id)`,
@@ -61,7 +61,7 @@ US6 (plan order), then Polish. Each story ends with green CI on the slice's draf
   `backend/prisma/migrations/0017_outstanding_report/migration.sql`,
   `backend/prisma/schema.prisma`, `backend/tests/integration/order-constants.test.ts` —
   FR-011, R4, ADR-0015, FR-RPT-02.
-- [ ] T003 [P] Contracts: `AGE_BUCKETS`, `AgeBucket`, `AGE_BUCKET_UPPER_DAYS` in
+- [X] T003 [P] Contracts: `AGE_BUCKETS`, `AgeBucket`, `AGE_BUCKET_UPPER_DAYS` in
   `packages/contracts/src/reports.ts`; `outstandingReportQuery`, `outstandingVendorsQuery`,
   `outstandingOrder` (with `outstandingQuantity` ≥ 1, no lines), `outstandingVendor`
   (`byBucket` keys built from `AGE_BUCKETS`), both pages with `asOf`, in
@@ -69,7 +69,7 @@ US6 (plan order), then Polish. Each story ends with green CI on the slice's draf
   unknown field, bad bucket, bad uuid, `byBucket` has exactly the four keys) —
   `packages/contracts/tests/report-schemas.test.ts` — FR-002, FR-002a, FR-003, FR-009,
   R1, R3, FR-RPT-01.
-- [ ] T004 [P] Web words: bucket labels as `Record<AgeBucket, string>`, age text ("today",
+- [X] T004 [P] Web words: bucket labels as `Record<AgeBucket, string>`, age text ("today",
   "1 day", "{n} days"), the as-of line, empty states; unit test first —
   `frontend/src/pages/reports/report-words.ts`, `frontend/tests/report-words.test.ts` —
   ui.md, FR-RPT-01.
