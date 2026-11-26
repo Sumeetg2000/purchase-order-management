@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { accessRequestListSql } from '../../src/access-requests/repository.js';
 import { accountsHarness, type AccountsHarness, type CookieJar } from '../support/accounts.js';
 
 // Admin-initiated password reset and the admin's access-request list (ADR-0016; spec US3
@@ -170,6 +171,38 @@ describe('[FR-ADM-06] admin access-request list', () => {
     expect(open.body).toMatchObject({ total: 1, items: [{ id: kept.id }] });
     const dismissed = await h.get('/admin/access-requests?status=DISMISSED', jar);
     expect(dismissed.body).toMatchObject({ total: 1, items: [{ id: gone.id }] });
+  });
+
+  it('[FR-ADM-06] one statement gives the page and its total, as the API answers, for each filter and page', async () => {
+    const { h, jar } = await asAdmin();
+    for (let i = 0; i < 3; i += 1) await openRequest(h);
+    await dismiss(h, jar, (await openRequest(h)).id);
+    for (const [status, page] of [
+      [undefined, 1],
+      [undefined, 2],
+      ['OPEN', 1],
+      ['DISMISSED', 1],
+      ['OPEN', 9],
+    ] as const) {
+      const qs = new URLSearchParams({
+        pageSize: '2',
+        page: String(page),
+        ...(status ? { status } : {}),
+      });
+      const api = (await h.get(`/admin/access-requests?${qs.toString()}`, jar)).body as {
+        items: { id: string }[];
+        total: number;
+      };
+      const sql = accessRequestListSql({ status }, { offset: (page - 1) * 2, limit: 2 });
+      const [row] = await h.query<{ total: number; items: { id: string }[] | null }>(
+        sql.statement.text,
+        sql.statement.values,
+      );
+      expect(
+        { total: row?.total, ids: (row?.items ?? []).map((r) => r.id) },
+        `${String(status)} page ${String(page)}`,
+      ).toEqual({ total: api.total, ids: api.items.map((r) => r.id) });
+    }
   });
 
   it('[FR-ADM-06] an unknown status is 400; a Buyer gets 403', async () => {

@@ -168,7 +168,7 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
 ## Phase 7: User Story 5 — Admin list plans at 10,000 users (P2; closes ADR-0021)
 
-- [ ] T017 [US5] The access-request list as one raw statement (page and total from one
+- [X] T017 [US5] The access-request list as one raw statement (page and total from one
   snapshot), behaviour unchanged: the existing list tests stay green; a new test pins the
   order, filters and total — `backend/src/access-requests/repository.ts`,
   `backend/tests/integration/access-requests*.test.ts` — FR-017, R9.
