@@ -61,6 +61,8 @@ export interface ConfirmDialogProps {
   errorLabels?: FormFields['labels'];
   /** The dialog's own words for a problem, by its code (e.g. cancel's SELF_APPROVAL). */
   errorMessageFor?: FormFields['messageFor'];
+  /** The dialog's own words for one field error, when it knows more (e.g. a date). */
+  errorFieldText?: FormFields['fieldText'];
   /** Extra actions for the error, such as reloading after a version conflict. */
   errorActions?: readonly { label: string; onPress: () => void }[];
 }
@@ -83,6 +85,7 @@ export function ConfirmDialog({
   error,
   errorLabels,
   errorMessageFor,
+  errorFieldText,
   errorActions = [],
 }: ConfirmDialogProps) {
   const bodyId = useId();
@@ -177,7 +180,12 @@ export function ConfirmDialog({
             </TextField>
           )}
           {shownError && !serverRefusedReason && (
-            <ErrorState {...shownError} labels={errorLabels} messageFor={errorMessageFor} />
+            <ErrorState
+              {...shownError}
+              labels={errorLabels}
+              messageFor={errorMessageFor}
+              fieldText={errorFieldText}
+            />
           )}
           <div className={styles.actions}>
             {errorActions.map((action) => (

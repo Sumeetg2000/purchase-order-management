@@ -72,6 +72,14 @@ export function violatedConstraint(error: unknown): string | undefined {
 
 const RETRYABLE_SQLSTATES = new Set(['40001', '40P01']);
 
+/** The SQLSTATE a database error carries, from the adapter or the raw driver error. */
+export function sqlstateOf(error: unknown): string | undefined {
+  if (error instanceof Prisma.PrismaClientKnownRequestError)
+    return adapterCause(error)?.originalCode;
+  const code = error instanceof Error ? (error as Error & { code?: unknown }).code : undefined;
+  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : undefined;
+}
+
 // adapter-pg kinds for a connection that can't be made or was lost (it maps ECONNREFUSED
 // and ENOTFOUND, ECONNRESET, ETIMEDOUT and SQLSTATE 53300 to these).
 const UNAVAILABLE_KINDS = new Set([
@@ -140,46 +148,97 @@ type ConstraintErrors = Readonly<Record<string, () => AppError>>;
 
 // Our trigger functions raise custom SQLSTATEs in class PO (slice 0 research R6, slice 3
 // research R4). Each one means a bug in our code, never a client error: the services check
-// everything first. So all of them map to INTERNAL_ERROR, logged with their name.
-const TRIGGER_ERRORS: Readonly<Record<string, string>> = {
-  // No actor context, or an incomplete, inconsistent or stale one.
-  PO001: 'ACTOR_CONTEXT_REQUIRED',
-  // An explicit audit value contradicts the context.
-  PO002: 'ACTOR_CONTEXT_MISMATCH',
-  // An UPDATE of an audit entry, by any role.
-  PO003: 'AUDIT_IMMUTABLE',
-  // Deleting an audit entry inside its 8-year retention.
-  PO004: 'AUDIT_RETENTION_ACTIVE',
-  // A write of an order's total or open-line count outside recompute_orders.
-  PO005: 'DERIVED_VALUE_READ_ONLY',
-  // A line change on an order that isn't a draft.
-  PO006: 'ORDER_LINES_LOCKED',
-  // An order left without lines at commit.
-  PO007: 'ORDER_WITHOUT_LINES',
-  // A change of an order's PO number (once set), owner or creation time.
-  PO008: 'ORDER_FIELD_IMMUTABLE',
-  // A status change not in order_status_transitions.
-  PO009: 'ORDER_STATUS_TRANSITION_REFUSED',
-  // A delete of an order that isn't a draft.
-  PO010: 'ORDER_DELETE_REFUSED',
-  // An order committed without a PO number.
-  PO011: 'PO_NUMBER_UNASSIGNED',
-  // An approval step inserted, moved, changed after its round closed, or deleted (slice 4).
-  PO012: 'APPROVAL_STEP_REFUSED',
-  // An approval round inserted, changed or deleted out of turn; AUTO_APPROVED outside SYSTEM.
-  PO013: 'APPROVAL_ROUND_REFUSED',
-  // At commit: an order's status, round, chain or dates disagree.
-  PO014: 'ORDER_APPROVAL_INCONSISTENT',
-  // The vendor or a submission column changed outside a status transition.
-  PO015: 'ORDER_SUBMISSION_FIELD_LOCKED',
-  // A step decided by the order's owner, or by someone other than the acting user.
-  PO016: 'SELF_DECISION_REFUSED',
-  // A policy row changed, or set_approval_policy outside OPERATOR or with invalid tiers.
-  PO017: 'APPROVAL_POLICY_IMMUTABLE',
-  // Any change to a rejected or cancelled order: both are final (slice 5, D9).
-  PO018: 'ORDER_CLOSED',
-  // The cancel record set outside the cancel, or the cancel changing anything else (D10).
-  PO019: 'ORDER_CANCEL_REFUSED',
+// everything first. So all of them map to INTERNAL_ERROR, logged with their name and rule.
+/** A trigger's SQLSTATE: its name, and the rule it enforces, as logged. */
+interface TriggerError {
+  name: string;
+  rule: string;
+}
+
+const TRIGGER_ERRORS: Readonly<Record<string, TriggerError>> = {
+  PO001: {
+    name: 'ACTOR_CONTEXT_REQUIRED',
+    rule: 'no actor context, or an incomplete, inconsistent or stale one',
+  },
+  PO002: {
+    name: 'ACTOR_CONTEXT_MISMATCH',
+    rule: 'an explicit audit value contradicts the context',
+  },
+  PO003: { name: 'AUDIT_IMMUTABLE', rule: 'an UPDATE of an audit entry, by any role' },
+  PO004: {
+    name: 'AUDIT_RETENTION_ACTIVE',
+    rule: 'deleting an audit entry inside its 8-year retention',
+  },
+  PO005: {
+    name: 'DERIVED_VALUE_READ_ONLY',
+    rule: "a write of an order's total or open-line count outside recompute_orders",
+  },
+  PO006: { name: 'ORDER_LINES_LOCKED', rule: "a line change on an order that isn't a draft" },
+  PO007: { name: 'ORDER_WITHOUT_LINES', rule: 'an order left without lines at commit' },
+  PO008: {
+    name: 'ORDER_FIELD_IMMUTABLE',
+    rule: "a change of an order's PO number (once set), owner or creation time",
+  },
+  PO009: {
+    name: 'ORDER_STATUS_TRANSITION_REFUSED',
+    rule: 'a status change not in order_status_transitions',
+  },
+  PO010: { name: 'ORDER_DELETE_REFUSED', rule: "a delete of an order that isn't a draft" },
+  PO011: { name: 'PO_NUMBER_UNASSIGNED', rule: 'an order committed without a PO number' },
+  PO012: {
+    name: 'APPROVAL_STEP_REFUSED',
+    rule: 'an approval step inserted, moved, changed after its round closed, or deleted (slice 4)',
+  },
+  PO013: {
+    name: 'APPROVAL_ROUND_REFUSED',
+    rule: 'an approval round inserted, changed or deleted out of turn; AUTO_APPROVED outside SYSTEM',
+  },
+  PO014: {
+    name: 'ORDER_APPROVAL_INCONSISTENT',
+    rule: "at commit: an order's status, round, chain or dates disagree",
+  },
+  PO015: {
+    name: 'ORDER_SUBMISSION_FIELD_LOCKED',
+    rule: 'the vendor or a submission column changed outside a status transition',
+  },
+  PO016: {
+    name: 'SELF_DECISION_REFUSED',
+    rule: "a step decided by the order's owner, or by someone other than the acting user",
+  },
+  PO017: {
+    name: 'APPROVAL_POLICY_IMMUTABLE',
+    rule: 'a policy row changed, or set_approval_policy outside OPERATOR or with invalid tiers',
+  },
+  PO018: {
+    name: 'ORDER_CLOSED',
+    rule: 'any change to a rejected or cancelled order: both are final (slice 5, D9)',
+  },
+  PO019: {
+    name: 'ORDER_CANCEL_REFUSED',
+    rule: 'the cancel record set outside the cancel, or the cancel changing anything else (D10)',
+  },
+  // Slice 6: goods receipt (specs/007-goods-receipt/research.md R4, D12-D17).
+  PO020: { name: 'ORDER_NOT_RECEIVABLE', rule: 'a receipt on an order that is not APPROVED' },
+  PO021: {
+    name: 'RECEIPT_NOT_BY_OWNER',
+    rule: 'a receipt not recorded by the order owner as the acting user',
+  },
+  PO022: {
+    name: 'RECEIPT_EXCEEDS_ORDERED',
+    rule: 'a receipt taking a line above its ordered quantity',
+  },
+  PO023: {
+    name: 'RECEIPT_IMMUTABLE',
+    rule: 'a receipt or receipt line changed, or a line added to a receipt by a later statement',
+  },
+  PO024: {
+    name: 'RECEIPT_BEFORE_APPROVAL',
+    rule: "a receipt dated before the order's approval date in India time",
+  },
+  PO025: {
+    name: 'RECEIPT_DATE_TOO_LATE',
+    rule: "a receipt dated after the database's India date plus one day",
+  },
 };
 const TRIGGER_SQLSTATE = /^PO[0-9A-Z]{3}$/;
 
@@ -238,10 +297,11 @@ export function mapDbError(
   const sqlstate = cause?.originalCode;
   if (sqlstate !== undefined && TRIGGER_SQLSTATE.test(sqlstate)) {
     // A code path forgot its actor context or contradicted it: a bug, never a client error.
-    const triggerError = Object.hasOwn(TRIGGER_ERRORS, sqlstate)
-      ? TRIGGER_ERRORS[sqlstate]
-      : undefined;
-    logger.error({ err: error, sqlstate, triggerError }, 'database trigger refused the change');
+    const known = Object.hasOwn(TRIGGER_ERRORS, sqlstate) ? TRIGGER_ERRORS[sqlstate] : undefined;
+    logger.error(
+      { err: error, sqlstate, triggerError: known?.name, rule: known?.rule },
+      'database trigger refused the change',
+    );
     return new AppError('INTERNAL_ERROR', { cause: error });
   }
   logger.error({ err: error, prismaCode: error.code, sqlstate }, 'unmapped database error');

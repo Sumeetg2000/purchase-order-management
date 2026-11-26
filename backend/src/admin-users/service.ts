@@ -1,3 +1,4 @@
+import { countOpenOrders, type OpenOrderCounts } from '../orders/repository.js';
 import {
   ACCESS_REQUEST_STATUS,
   AppError,
@@ -75,11 +76,12 @@ function toItem(user: ManagedUser): AdminUserItem {
   };
 }
 
-function toDetail(user: ManagedUser): AdminUserDetail {
+function toDetail(user: ManagedUser, openOrders: OpenOrderCounts): AdminUserDetail {
   return {
     ...toItem(user),
     createdAt: user.createdAt.toISOString(),
     version: user.version,
+    openOrders,
   };
 }
 
@@ -172,7 +174,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
     getUser: async (id) => {
       const user = await withDatabase(() => findManagedUser(deps.prisma, id));
       if (!user) throw new AppError('NOT_FOUND');
-      return toDetail(user);
+      return toDetail(user, await withDatabase(() => countOpenOrders(deps.prisma, id)));
     },
 
     updateUser: async (admin, { id, version, change }, ctx) => {
@@ -237,7 +239,7 @@ export function createAdminUsersService(deps: AdminUsersServiceDependencies): Ad
           userAgent: ctx.userAgent,
         });
       }
-      return toDetail(result.user);
+      return toDetail(result.user, await withDatabase(() => countOpenOrders(deps.prisma, id)));
     },
 
     sendPasswordReset: async (admin, id, ctx) => {

@@ -92,6 +92,15 @@ describe('[NFR-DATA-01] reconciliation query', () => {
     expect(rows).toContainEqual(['INV-4', lineId]);
   });
 
+  it('[NFR-DATA-01] INV-3: a received quantity that is not the sum of its receipts', async () => {
+    const f = await orderFixture();
+    const { lineIds } = await consistentDraft(f, [{ quantity: 5, unitPrice: '5' }]);
+    const lineId = lineIds[0] ?? '';
+    expect(
+      await rowsAfter(f, [`UPDATE order_lines SET received_quantity = 2 WHERE id = '${lineId}'`]),
+    ).toContainEqual(['INV-3', lineId]);
+  });
+
   it('[NFR-DATA-01] INV-5: an order with no line', async () => {
     const f = await orderFixture();
     plantsViolations(f.db);

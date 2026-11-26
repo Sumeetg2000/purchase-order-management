@@ -22,7 +22,7 @@ import {
   verifyEmailBody,
 } from './schemas/auth.js';
 import { healthSchema, readinessSchema } from './schemas/health.js';
-import { idParams } from './schemas/ids.js';
+import { idParams, receiptParams } from './schemas/ids.js';
 import { me, updateMeBody } from './schemas/me.js';
 import { pageOf, pageQuery } from './schemas/pagination.js';
 import { sessionItem } from './schemas/sessions.js';
@@ -49,6 +49,13 @@ import {
 } from './schemas/approvals.js';
 import { vendor, vendorBody, vendorHistoryItem, vendorListQuery } from './schemas/vendors.js';
 import { ROLE, type UserRole } from './users.js';
+import { ORDER_RECEIPT_FORBIDDEN_DETAIL } from './receipts.js';
+import {
+  receiptDetail,
+  receiptPage,
+  recordedReceipt,
+  recordReceiptBody,
+} from './schemas/receipts.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -720,6 +727,7 @@ export const OPERATIONS = {
       'SELF_APPROVAL',
       'INVALID_STATE_TRANSITION',
       'VERSION_CONFLICT',
+      'ORDER_FULLY_RECEIVED',
     ],
   },
   withdrawOrder: {
@@ -736,5 +744,52 @@ export const OPERATIONS = {
     request: { params: idParams, body: decisionReasonBody },
     responses: { 200: order },
     errors: ['NOT_FOUND', 'NOT_ORDER_OWNER', 'INVALID_STATE_TRANSITION', 'VERSION_CONFLICT'],
+  },
+
+  // Slice 6, US1: record a receipt and read the receipts (specs/007-goods-receipt/contracts/api.md).
+  recordReceipt: {
+    method: 'post',
+    path: '/orders/:id/receipts',
+    operationId: 'recordReceipt',
+    summary:
+      'Record goods received on your approved order: one receipt, with a quantity for each line delivered; all or nothing.',
+    access: 'role',
+    roles: [ROLE.BUYER],
+    forbiddenDetail: ORDER_RECEIPT_FORBIDDEN_DETAIL,
+    idempotencyKey: 'required',
+    request: { params: idParams, body: recordReceiptBody },
+    responses: { 201: recordedReceipt },
+    errors: [
+      'ACCOUNT_DEACTIVATED',
+      'NOT_FOUND',
+      'NOT_ORDER_OWNER',
+      'IDEMPOTENCY_KEY_REUSED',
+      'ORDER_NOT_RECEIVABLE',
+      'RECEIPT_EXCEEDS_OUTSTANDING',
+    ],
+  },
+  listOrderReceipts: {
+    method: 'get',
+    path: '/orders/:id/receipts',
+    operationId: 'listOrderReceipts',
+    summary:
+      "An order's receipts, newest recorded first, each with its line count: whoever can read the order.",
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { params: idParams, query: pageQuery },
+    responses: { 200: receiptPage },
+    errors: ['NOT_FOUND'],
+  },
+  getOrderReceipt: {
+    method: 'get',
+    path: '/orders/:id/receipts/:receiptId',
+    operationId: 'getOrderReceipt',
+    summary:
+      'One receipt of an order, with its lines in position order: whoever can read the order.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { params: receiptParams },
+    responses: { 200: receiptDetail },
+    errors: ['NOT_FOUND'],
   },
 } as const satisfies Record<string, OperationContract>;

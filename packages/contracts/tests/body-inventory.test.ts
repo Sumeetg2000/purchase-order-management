@@ -80,6 +80,8 @@ const EXPECTED: BodyInventory = {
   rejectOrder: { reason: 'required' },
   cancelOrder: { reason: 'required' },
   withdrawOrder: { reason: 'required' },
+  // Slice 6: a receipt, its date, an optional note and its lines.
+  recordReceipt: { receivedOn: 'required', note: 'optional', lines: 'required' },
 };
 
 describe('[NFR-VAL-01] body-schema inventory of mutating operations', () => {

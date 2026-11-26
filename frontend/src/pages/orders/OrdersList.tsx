@@ -4,6 +4,8 @@ import {
   ORDER_STATUSES,
   PO_NUMBER_PREFIX_MAX,
   toMoney,
+  type OrderStatus,
+  type ReceiptProgress,
 } from '@po/contracts';
 import { Link } from 'react-router';
 import { useCan } from '../../auth/can';
@@ -16,6 +18,7 @@ import { useQueryStates } from '../../hooks/useQueryStates';
 import { classes } from '../../styles/classes';
 import controlsCss from '../../styles/controls.module.css';
 import { useOrderList } from './queries';
+import { receiptBadge } from './receipt-progress';
 import { ORDER_STATUS_LABELS } from './status';
 import css from './orders.module.css';
 
@@ -42,6 +45,17 @@ const NO_FILTERS = {
   createdTo: undefined,
 };
 const RANGE_ERROR_ID = 'created-range-error';
+
+/**
+ * The status and, after it, the receipt badge in words: "Approved · Partly
+ * received". A cancelled order's badge, "Cancelled · partly received", names the status
+ * itself.
+ */
+function statusWithBadge(status: OrderStatus, progress: ReceiptProgress): string {
+  const badge = receiptBadge(status, progress);
+  if (badge === undefined) return ORDER_STATUS_LABELS[status];
+  return status === 'CANCELLED' ? badge : `${ORDER_STATUS_LABELS[status]} · ${badge}`;
+}
 
 /**
  * The orders the caller may read (contracts/ui.md, research R7): status, vendor, PO-number
@@ -224,7 +238,7 @@ export function OrdersList() {
                       <td>
                         <Link to={`/orders?vendorId=${order.vendor.id}`}>{order.vendor.name}</Link>
                       </td>
-                      <td>{ORDER_STATUS_LABELS[order.status]}</td>
+                      <td>{statusWithBadge(order.status, order.receiptProgress)}</td>
                       <td className={styles.number}>{order.lineCount}</td>
                       <td className={styles.number}>{formatInr(toMoney(order.total))}</td>
                       <td>

@@ -80,14 +80,19 @@ type RawUser<T extends { roles: UserRole[]; status: UserStatus }> = Omit<T, 'rol
   status: string;
 };
 
-/** Locks the user row that matches and reads it in the same statement, or null. */
+/**
+ * Locks the user row that matches and reads it in the same statement, or null. FOR NO KEY
+ * UPDATE, what the row's own UPDATE takes (ADR-0006): it serializes user changes and
+ * conflicts with an order command's FOR SHARE re-check, but not with the KEY SHARE a keyed
+ * command's Idempotency-Key insert takes on the caller's row.
+ */
 async function lockOne<T extends { id: string; roles: UserRole[]; status: UserStatus }>(
   tx: AuditedTransaction,
   columns: Prisma.Sql,
   where: Prisma.Sql,
 ): Promise<T | null> {
   const [row] = await tx.$queryRaw<RawUser<T>[]>`
-    SELECT ${columns} FROM users WHERE ${where} FOR UPDATE`;
+    SELECT ${columns} FROM users WHERE ${where} FOR NO KEY UPDATE`;
   return row ? (parsed(row) as unknown as T) : null;
 }
 

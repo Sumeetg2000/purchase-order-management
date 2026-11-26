@@ -161,6 +161,12 @@ describe('[NFR-API-02] central database error mapper', () => {
     ['PO017', 'APPROVAL_POLICY_IMMUTABLE'],
     ['PO018', 'ORDER_CLOSED'],
     ['PO019', 'ORDER_CANCEL_REFUSED'],
+    ['PO020', 'ORDER_NOT_RECEIVABLE'],
+    ['PO021', 'RECEIPT_NOT_BY_OWNER'],
+    ['PO022', 'RECEIPT_EXCEEDS_ORDERED'],
+    ['PO023', 'RECEIPT_IMMUTABLE'],
+    ['PO024', 'RECEIPT_BEFORE_APPROVAL'],
+    ['PO025', 'RECEIPT_DATE_TOO_LATE'],
   ])(
     '[NFR-API-02] trigger SQLSTATE %s (%s) is INTERNAL_ERROR, logged as a bug by name',
     (sqlstate, name) => {
@@ -171,6 +177,25 @@ describe('[NFR-API-02] central database error mapper', () => {
           (l) => l['level'] === 50 && l['sqlstate'] === sqlstate && l['triggerError'] === name,
         ),
       ).toBe(true);
+    },
+  );
+
+  it.each([
+    ['PO020', 'a receipt on an order that is not APPROVED'],
+    ['PO021', 'a receipt not recorded by the order owner as the acting user'],
+    ['PO022', 'a receipt taking a line above its ordered quantity'],
+    [
+      'PO023',
+      'a receipt or receipt line changed, or a line added to a receipt by a later statement',
+    ],
+    ['PO024', "a receipt dated before the order's approval date in India time"],
+    ['PO025', "a receipt dated after the database's India date plus one day"],
+  ])(
+    '[FR-RCV-02] receipt trigger SQLSTATE %s is logged with the rule it enforces',
+    (sqlstate, rule) => {
+      const { result, lines } = map(adapterError({ kind: 'postgres', originalCode: sqlstate }));
+      expect(result?.code).toBe('INTERNAL_ERROR');
+      expect(lines.some((l) => l['sqlstate'] === sqlstate && l['rule'] === rule)).toBe(true);
     },
   );
 

@@ -14,6 +14,7 @@ import {
 } from '@po/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  dateBeforeApprovalMessage,
   describeFailure,
   errorMessages,
   fieldMessages,
@@ -96,6 +97,16 @@ describe('[FR-PO-01] order messages (specs/004-draft-orders/contracts/errors.md)
     expect(
       messageForOrderAction({ code: 'VERSION_CONFLICT' }, { roles: ['ADMIN'], action: 'write' }),
     ).toEqual(errorMessages.VERSION_CONFLICT);
+  });
+
+  it('[NFR-AUTH-01] a refused receipt says why: an Approver gets its own words, an Admin the read-only ones', () => {
+    const forbidden = { code: 'FORBIDDEN' };
+    expect(messageForOrderAction(forbidden, { roles: ['APPROVER'], action: 'receipt' })).toEqual({
+      message: "Approvers can't record receipts. The order's Buyer records them.",
+    });
+    expect(messageForOrderAction(forbidden, { roles: ['ADMIN'], action: 'receipt' })).toEqual({
+      message: ORDER_ADMIN_READ_ONLY_MESSAGE,
+    });
   });
 
   it('[FR-SOD-01] a refused cancel says why: Buyer, Admin, or the order is your own', () => {
@@ -254,5 +265,65 @@ describe('[NFR-FE-01] validation failures with no highlighted field', () => {
       message: `Some of the details are not valid. ${fieldMessages.UNKNOWN_FIELD}`,
       action: 'Check the highlighted fields and try again.',
     });
+  });
+});
+
+describe('[FR-RCV-02] receipt messages (specs/007-goods-receipt/contracts/errors.md)', () => {
+  it("[FR-SM-01] a receipt on an order that isn't approved names its status", () => {
+    expect(sentenceFor({ code: 'ORDER_NOT_RECEIVABLE', orderState: { status: 'CANCELLED' } })).toBe(
+      "This order can't receive goods: it is cancelled.",
+    );
+    expect(
+      sentenceFor({ code: 'ORDER_NOT_RECEIVABLE', orderState: { status: 'PENDING_APPROVAL' } }),
+    ).toBe("This order can't receive goods: it is pending approval.");
+    expect(sentenceFor({ code: 'ORDER_NOT_RECEIVABLE', orderState: { status: 'DRAFT' } })).toBe(
+      "This order can't receive goods: it is a draft.",
+    );
+    expect(sentenceFor({ code: 'ORDER_NOT_RECEIVABLE', orderState: { status: 'REJECTED' } })).toBe(
+      "This order can't receive goods: it is rejected.",
+    );
+    expect(sentenceFor({ code: 'ORDER_NOT_RECEIVABLE' })).toBe(
+      "This order can't receive goods. Reload the order to see its status.",
+    );
+  });
+
+  it('[FR-RCV-02] an over-receipt says nothing was recorded, then one line per offending line', () => {
+    expect(
+      sentenceFor({
+        code: 'RECEIPT_EXCEEDS_OUTSTANDING',
+        lines: [
+          { lineId: 'b', position: 1, outstanding: 5, requested: 6 },
+          { lineId: 'c', position: 2, outstanding: 0, requested: 1 },
+        ],
+      }),
+    ).toBe(
+      'Nothing was recorded. Line 2 has only 5 outstanding; you entered 6. Line 3 has only 0 outstanding; you entered 1.',
+    );
+    // The first line is line 1, never line 0.
+    expect(
+      sentenceFor({
+        code: 'RECEIPT_EXCEEDS_OUTSTANDING',
+        lines: [{ lineId: 'a', position: 0, outstanding: 2, requested: 3 }],
+      }),
+    ).toBe('Nothing was recorded. Line 1 has only 2 outstanding; you entered 3.');
+    expect(sentenceFor({ code: 'RECEIPT_EXCEEDS_OUTSTANDING' })).toBe(
+      'Nothing was recorded. Reload the order to see what is outstanding.',
+    );
+  });
+
+  it('[FR-LCK-02] a fully received order says why it cannot be cancelled', () => {
+    expect(sentenceFor({ code: 'ORDER_FULLY_RECEIVED' })).toBe(
+      "This order has been fully received, so it can't be cancelled.",
+    );
+  });
+
+  it('[NFR-VAL-01] the receipt date field codes say what to enter', () => {
+    expect(fieldMessages.DATE_IN_FUTURE).toBe("Enter today's date or an earlier one.");
+    expect(fieldMessages.DATE_BEFORE_APPROVAL).toBe(
+      "Enter a date on or after the order's approval.",
+    );
+    expect(dateBeforeApprovalMessage('24 Nov 2026')).toBe(
+      "Enter a date on or after the order's approval (24 Nov 2026).",
+    );
   });
 });

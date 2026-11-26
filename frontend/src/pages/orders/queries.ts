@@ -140,3 +140,52 @@ export function useOrderTimeline(id: string, page: number) {
     placeholderData: keepPreviousData,
   });
 }
+
+/** One page of an order's receipt summaries, newest first; not fetched until `enabled`. */
+export function useOrderReceipts(id: string, page: number, { enabled = true } = {}) {
+  const query = definedParams({ page });
+  return useQuery({
+    queryKey: [...orderKey(id), 'receipts', query],
+    queryFn: async () =>
+      dataOrThrow(await api.GET('/orders/{id}/receipts', { params: { path: { id }, query } })),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** One receipt's lines, loaded when the receipt is expanded. */
+export function useOrderReceipt(id: string, receiptId: string, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: [...orderKey(id), 'receipts', 'receipt', receiptId],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/orders/{id}/receipts/{receiptId}', {
+          params: { path: { id, receiptId } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+export type RecordReceiptBody = NonNullable<
+  paths['/orders/{id}/receipts']['post']['requestBody']
+>['content']['application/json'];
+
+/** Records a receipt with the opened dialog's Idempotency-Key, reused on its retry. */
+export function recordReceipt(id: string, body: RecordReceiptBody, idempotencyKey: string) {
+  return api.POST('/orders/{id}/receipts', {
+    params: { path: { id }, header: { 'Idempotency-Key': idempotencyKey } },
+    body,
+  });
+}
+
+/** After a receipt: the order, its receipts and every list reread. */
+export function useReceiptRecorded() {
+  const queryClient = useQueryClient();
+  return async (id: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: orderKey(id) }),
+      queryClient.invalidateQueries({ queryKey: [...ORDERS_KEY, 'list'] }),
+    ]);
+  };
+}

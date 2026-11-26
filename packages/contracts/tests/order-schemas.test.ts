@@ -125,6 +125,17 @@ describe('[NFR-VAL-01] order bodies', () => {
     }
   });
 
+  it("[FR-RCV-01] the slice 6 receipt fields are read-only in an order's body too", () => {
+    expect(ORDER_READ_ONLY_FIELDS).toEqual(
+      expect.arrayContaining([
+        'receivedQuantity',
+        'outstandingQuantity',
+        'openLineCount',
+        'receiptProgress',
+      ]),
+    );
+  });
+
   it('[NFR-VAL-01] any other extra field is UNKNOWN_FIELD, and a line id only belongs in an edit', () => {
     expect(failures(createOrderBody, create([line()], { notes: 'x' }))).toEqual([
       'body.notes UNKNOWN_FIELD',
@@ -221,6 +232,8 @@ describe('[FR-PO-01] order list query and responses', () => {
           quantity: 3,
           unitPrice: '0.1000',
           lineTotal: '0.3000',
+          receivedQuantity: 0,
+          outstandingQuantity: 3,
         },
       ],
       version: 1,
@@ -234,8 +247,14 @@ describe('[FR-PO-01] order list query and responses', () => {
       approval: null,
       // Slice 5's.
       cancellation: null,
+      // Slice 6's: nothing received on a draft.
+      receiptProgress: 'NOT_RECEIVED',
     };
     expect(order.safeParse(base).success).toBe(true);
+    // The received counts are derived from the lines the same response carries.
+    expect(
+      order.safeParse({ ...base, receivedLines: { complete: 0, partly: 0, total: 1 } }).success,
+    ).toBe(false);
     expect(order.safeParse({ ...base, total: 0.3 }).success).toBe(false);
     expect(order.safeParse({ ...base, total: '0.3' }).success).toBe(false);
     const item = Object.fromEntries(

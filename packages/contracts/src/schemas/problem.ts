@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   carriesOrderState,
+  carriesReceiptLines,
   carriesRevokeReason,
   clashMemberOf,
   ERROR_CODES,
@@ -48,7 +49,21 @@ export const problemSchema = z
       .optional()
       .meta({
         description:
-          "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders.",
+          "The order's status, and the action refused: ORDER_LOCKED, ORDER_PENDING_APPROVAL and INVALID_STATE_TRANSITION on orders, and ORDER_NOT_RECEIVABLE.",
+      }),
+    lines: z
+      .array(
+        z.strictObject({
+          lineId: z.uuid(),
+          position: z.int(),
+          outstanding: z.int(),
+          requested: z.int(),
+        }),
+      )
+      .optional()
+      .meta({
+        description:
+          'Every line a receipt would take above its outstanding quantity, in position order (position from 0): RECEIPT_EXCEEDS_OUTSTANDING only.',
       }),
   })
   .refine(
@@ -68,6 +83,12 @@ export const problemSchema = z
       problem.orderState === undefined ||
       (isErrorCode(problem.code) && carriesOrderState(problem.code)),
     { path: ['orderState'], message: 'only the order state codes carry orderState' },
+  )
+  .refine(
+    (problem) =>
+      problem.lines === undefined ||
+      (isErrorCode(problem.code) && carriesReceiptLines(problem.code)),
+    { path: ['lines'], message: 'only RECEIPT_EXCEEDS_OUTSTANDING carries lines' },
   )
   .meta({ id: 'Problem' });
 

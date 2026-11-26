@@ -8,7 +8,7 @@
   `INVALID_STATE_TRANSITION`, **owner decision**; slice 4) · amended 2026-11-17 (approve
   refused while the owner can't act, `409 ORDER_OWNER_INACTIVE`, **owner decision**;
   slice 4) · amended 2026-11-17 (slice 4 plan: approval rounds and steps, and what the
-  database refuses, research R2–R4) · amended 2026-11-20 (cancel live; the database freezes rejected and cancelled orders and keeps the cancel record; the fully-received check arrives with receipts; **owner sign-off**; slice 5 plan)
+  database refuses, research R2–R4) · amended 2026-11-20 (cancel live; the database freezes rejected and cancelled orders and keeps the cancel record; the fully-received check arrives with receipts; **owner sign-off**; slice 5 plan) · amended 2026-11-24 (receipts: what the database refuses; a full receipt leaves the order `APPROVED`, the state table unchanged; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25 (receipt rules read through the receipt document; ADR-0011)
 - **Brief:** §1, §3.2, §3.4, §3.5 · Gaps G25, Q4
 - **Principles:** II, I, IV
 
@@ -50,6 +50,9 @@ complains of "no numbering discipline".
   approval. Reject (T8) stays allowed: it is how such an order is closed (ADR-0016).
 - Goods receipt is not a transition. The owner records receipts against `APPROVED` orders
   only (`409 ORDER_NOT_RECEIVABLE` otherwise), including after vendor deactivation.
+  *Confirmed 2026-11-24 (slice 6 plan)*: a receipt that completes the last line leaves the
+  order `APPROVED`; receipt progress stays derived, and this table gains no transition.
+  T10's "not fully received" guard goes live (`open_line_count = 0` means fully received).
 - Any other (state, action) pair → `409 INVALID_STATE_TRANSITION`, with the current status
   and the attempted action in `orderState`.
 - **Database enforcement**:
@@ -75,6 +78,23 @@ complains of "no numbering discipline".
     nothing else but `version` (+1) and `updated_at`; and requires that update to be made
     by the acting user, never the owner. The commit-time check also covers `CANCELLED`:
     its round stays closed as approved, and `approved_at` stays the round's close.
+  - *Amended 2026-11-24 (slice 6 plan, **owner sign-off** 2026-11-24, slice 6 research R2–R4)*: receipts are
+    their own append-only table, one row per line per receipt, each row's order tied to its
+    line's order by a composite foreign key. A statement-level trigger on receipt inserts
+    locks the orders, then the lines, in id order, and refuses: a receipt on an order that
+    isn't `APPROVED` (D12, `PO020`); one not recorded by the order's owner as the acting
+    user (D13, `PO021`); a receipt date before the order's approval date in India time
+    (D14, `PO024`) or after the database's India date + 1 day (D17, `PO025`, a loose
+    backstop: the exact "not after today" is the service's, from its injectable clock);
+    and received above ordered, on any insert path (D15, `PO022`). Any update, delete or
+    truncate of a receipt is refused for every role (D16, `PO023`). The cancel trigger (D10)
+    also refuses `APPROVED → CANCELLED` once every line is fully received (`PO019`).
+    *Amended 2026-11-25 (receipt document, ADR-0011, **owner decision**)*: a receipt is a
+    `goods_receipts` row with its `goods_receipt_lines`; the rules above run in the
+    statement trigger on the lines, read through each line's receipt (`received_on`,
+    `recorded_by`); D16 covers both tables and also refuses a receipt that already has
+    lines outside the inserting statement, so all of a receipt's lines arrive in one
+    `INSERT`; a receipt with no line is refused (`23514`).
   - A trigger allows `DELETE` of an order only while it's `DRAFT`. Lines may change only
     while their order is `DRAFT`.
 - **Locked orders**: in every non-draft state, lines, vendor and header are immutable (the
@@ -146,6 +166,8 @@ complains of "no numbering discipline".
 
 ## Tests
 - One test per transition, allowed and refused.
+- A receipt completing the last line leaves the status `APPROVED`; cancel of a fully
+  received order → `409 ORDER_FULLY_RECEIVED` (and `PO019` from raw SQL).
 - Approve with the owner deactivated or without BUYER → `409 ORDER_OWNER_INACTIVE`;
   reject is allowed; approve racing a deactivation or role removal ends either approved
   before the change or refused after it.

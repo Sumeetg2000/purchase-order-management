@@ -1,10 +1,12 @@
 import {
   carriesOrderState,
+  carriesReceiptLines,
   carriesRevokeReason,
   clashMemberOf,
   ERROR_REGISTRY,
   isErrorCode,
   type ErrorCode,
+  type ExceedingLine,
   type FieldError,
   type OrderState,
 } from './errors.js';
@@ -25,6 +27,8 @@ export interface AppErrorOptions {
   existingVendor?: ExistingVendor;
   /** The order's status and the action refused; only for codes that carry orderState. */
   orderState?: OrderState;
+  /** The lines a receipt would over-receive; only for codes that carry them. */
+  lines?: readonly ExceedingLine[];
   /** Seconds until a retry can succeed, sent as Retry-After (lockout, rate limits). */
   retryAfterSeconds?: number;
   cause?: unknown;
@@ -45,6 +49,7 @@ export class AppError extends Error {
   readonly reason: PublicRevokeReason | undefined;
   readonly existingVendor: ExistingVendor | undefined;
   readonly orderState: OrderState | undefined;
+  readonly lines: readonly ExceedingLine[] | undefined;
   readonly retryAfterSeconds: number | undefined;
 
   constructor(code: ErrorCode, options: AppErrorOptions = {}) {
@@ -60,6 +65,9 @@ export class AppError extends Error {
     if (options.orderState !== undefined && !carriesOrderState(code)) {
       throw new TypeError(`Error code ${code} can't carry orderState`);
     }
+    if (options.lines !== undefined && !carriesReceiptLines(code)) {
+      throw new TypeError(`Error code ${code} can't carry lines`);
+    }
     super(code, options.cause === undefined ? undefined : { cause: options.cause });
     this.code = code;
     this.status = ERROR_REGISTRY[code].status;
@@ -68,6 +76,7 @@ export class AppError extends Error {
     this.reason = options.reason;
     this.existingVendor = options.existingVendor;
     this.orderState = options.orderState;
+    this.lines = options.lines;
     this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }

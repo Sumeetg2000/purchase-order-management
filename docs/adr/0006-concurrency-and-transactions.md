@@ -5,7 +5,10 @@
   2026-11-12 (the PO counter row is locked last; replays leave no gap; slice 3) ·
   amended 2026-11-17 (approve reads the owner's user row `FOR SHARE`; slice 4) · amended
   2026-11-17 (one lock order per order command; no user-then-order lock; slice 4 plan,
-  research R6) · amended 2026-11-20 (cancel's lock order; receipts lock the order first; slice 5 plan)
+  research R6) · amended 2026-11-20 (cancel's lock order; receipts lock the order first; slice 5 plan) · amended 2026-11-24
+  (the receipt lock row; slice 6 plan, **owner sign-off** 2026-11-24) · amended 2026-11-25
+  (keyed commands' `KEY SHARE` on the caller's `users` row first; `users` never locked
+  `FOR UPDATE`; slice 6, **owner decision**)
 - **Brief:** §8 · Gaps G2, G6 · Lessons 2, 8
 - **Principles:** V
 
@@ -54,6 +57,7 @@
 | approve | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → vendor `FOR SHARE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order (always two different rows) |
 | reject | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` → the owner's and the acting Approver's `users` rows `FOR SHARE`, in id order |
 | withdraw | order `FOR UPDATE` → current round's steps (step asc) `FOR UPDATE` |
+| receipt (amended 2026-11-24, slice 6 plan, **owner sign-off** 2026-11-24) | idempotency key → order `FOR UPDATE` → the receipt's lines (id asc) `FOR UPDATE` → the caller's `users` row `FOR SHARE`, re-checked under the lock (the receipt trigger's own locks are on rows already held) |
 | cancel (amended 2026-11-20, slice 5 plan) | order `FOR UPDATE` → the acting Approver's `users` row `FOR SHARE` (lines, the closed round and its steps are frozen under the order lock; vendor and owner aren't read for the decision) |
 
 - **Receipts lock the order first** (amended 2026-11-20): a receipt (slice 6) locks its
@@ -68,6 +72,18 @@
   (ADR-0004, 2026-11-17). User-management commands lock
   only user and session rows and never touch order data. With `users` always last on one
   side and alone on the other, no lock cycle can form between the two families.
+- **Exception: a keyed command's key comes first** (amended 2026-11-25, slice 6, **owner
+  decision**). Every command with an `Idempotency-Key` (create, receipt) inserts its key
+  first, and the key's foreign key to `users` takes `FOR KEY SHARE` on the caller's
+  `users` row before the order or vendor. That is safe because (a) nothing locks a `users`
+  row `FOR UPDATE`, the only row lock `KEY SHARE` conflicts with short of a key change:
+  user changes, token issue and consumption, and password changes lock it `FOR NO KEY
+  UPDATE`, what the row's own `UPDATE` takes (it still conflicts with an order command's
+  `FOR SHARE` re-check); and (b) no path that locks `users` then locks an order, line,
+  round, step or vendor. So a user change, a reset link or a password change never waits
+  on a receipt that holds only its key, and the re-check under lock still sees a change
+  committed while the receipt waits. A guard test (`tests/unit/users-lock-guard.test.ts`)
+  fails if any backend source or migration locks `users` `FOR UPDATE`.
 
 ## Tests (assert business outcomes)
 50 parallel receipts on one line; edit vs submit (the final status matches the final
@@ -81,4 +97,9 @@ order, and an approve and an admin deactivation or role change of the acting App
 started in either order, finish without deadlock; two concurrent approve requests on the same step (a double
 click, or two tabs; exactly one decision recorded); cancel vs cancel (one cancel recorded); cancel vs the acting Approver's deactivation or APPROVER removal, started in either order (cancelled before the change, or `401` / `403` after it, never after it); cancel vs the vendor's or the owner's deactivation (both succeed, no deadlock); cancel vs receive; concurrent PO number
 allocation; a simulated pool timeout → 503; missing `If-Match` on each listed command →
-400 `VERSION_REQUIRED`; stale `If-Match` → 409; receipts accepted without `If-Match`.
+400 `VERSION_REQUIRED`; stale `If-Match` → 409; receipts accepted without `If-Match`. *Amended 2026-11-24
+(slice 6 plan)*, each run 10 times: 50 parallel receipts on one line never exceed
+ordered; overlapping multi-line receipts (each all or nothing); receipts on different
+lines of one order; cancel vs a receipt that completes the order, and vs a partial one;
+a receipt vs the owner's deactivation or BUYER removal; the same `Idempotency-Key` twice
+at once (one receipt); a receipt vs the vendor's deactivation.

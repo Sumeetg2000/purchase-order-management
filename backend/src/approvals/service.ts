@@ -318,6 +318,9 @@ export function createApprovalsService(deps: ApprovalsServiceDependencies): Appr
           });
         }
         if (locked.version !== version) throw new AppError('VERSION_CONFLICT');
+        // T10's guard (ADR-0001): a fully received order is never cancelled; read under the
+        // order lock, so a receipt and a cancel serialize on it (research R5).
+        if (locked.openLineCount === 0) throw new AppError('ORDER_FULLY_RECEIVED');
         const lines = await selectLineQuantities(tx, id);
         await cancelApprovedOrder(tx, { orderId: id, approverId: approver.userId, reason });
         const order = await readOrder(tx, id);

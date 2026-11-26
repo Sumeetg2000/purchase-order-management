@@ -22,7 +22,15 @@ import { CancelDialog } from './CancelDialog';
 import { CancellationSection } from './CancellationSection';
 import { DeleteDraftDialog } from './DeleteDraftDialog';
 import { OrderTabs } from './OrderTabs';
-import { useOrder, useOrderSaved, type Order } from './queries';
+import { ReceiptForm } from './ReceiptForm';
+import { ReceiptsSection } from './ReceiptsSection';
+import {
+  cancelledSummary,
+  receiptBadge,
+  receivedLinesOf,
+  receivedSummary,
+} from './receipt-progress';
+import { useOrder, useOrderSaved, useReceiptRecorded, type Order } from './queries';
 import { SubmitDialog } from './SubmitDialog';
 import { WithdrawDialog } from './WithdrawDialog';
 import { ORDER_STATUS_LABELS } from './status';
@@ -63,6 +71,8 @@ export function OrderDetail() {
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const receiptRecorded = useReceiptRecorded();
   // The editor's "Withdraw" (a pending order's stale save) opens the dialog here.
   // The request is cleared once read, so a refresh or Back doesn't open the dialog again.
   const location = useLocation();
@@ -89,6 +99,7 @@ export function OrderDetail() {
   const canReject = useCan('rejectOrder');
   const canWithdraw = useCan('withdrawOrder');
   const canCancel = useCan('cancelOrder');
+  const canRecord = useCan('recordReceipt');
   if (states.view) {
     return (
       <>
@@ -107,7 +118,18 @@ export function OrderDetail() {
   const mayWithdraw = canWithdraw && pending && order.owner.id === me?.id;
   // An Approver cancels an approved order they don't own (ADR-0001 T10, ADR-0004).
   const approved = order.status === 'APPROVED';
-  const mayCancel = canCancel && approved && order.owner.id !== me?.id;
+  // Nothing left to receive: a fully received order is never cancelled (ADR-0001 T10).
+  const fullyReceived = order.receiptProgress === 'FULLY_RECEIVED';
+  const mayCancel = canCancel && approved && !fullyReceived && order.owner.id !== me?.id;
+  // Receipts apply once an order is approved; a cancelled one keeps what it received.
+  const receivable = approved || order.status === 'CANCELLED';
+  const progressBadge = receiptBadge(order.status, order.receiptProgress);
+  // Only the owner records receipts, while something is still outstanding (ADR-0004).
+  const mayRecord =
+    canRecord &&
+    approved &&
+    order.owner.id === me?.id &&
+    order.receiptProgress !== 'FULLY_RECEIVED';
   return (
     <>
       <title>{`${order.poNumber} · Purchase Orders`}</title>
@@ -115,6 +137,19 @@ export function OrderDetail() {
       <div className={styles.header}>
         <h1>{order.poNumber}</h1>
         <span className={styles.badge}>{ORDER_STATUS_LABELS[order.status]}</span>
+        {progressBadge && <span className={styles.badge}>{progressBadge}</span>}
+        {mayRecord && !recording && (
+          <button
+            type="button"
+            className={controls.button}
+            onClick={() => {
+              setRecording(true);
+              setNotice(undefined);
+            }}
+          >
+            Record receipt
+          </button>
+        )}
         {canEdit && ownDraft && <Link to={`/orders/${order.id}/edit`}>Edit</Link>}
         {canSubmit && ownDraft && (
           <button
@@ -192,7 +227,7 @@ export function OrderDetail() {
         </p>
       )}
       {/* ADR-0004 S5, extended 2026-11-20: cancelling is how such an order is closed. */}
-      {approved && !order.ownerCanAct && (
+      {approved && !order.ownerCanAct && !fullyReceived && (
         <p className={styles.notice}>
           <span>{ORDER_OWNER_INACTIVE_APPROVED_MARKER}</span>
           {mayCancel && (
@@ -229,6 +264,12 @@ export function OrderDetail() {
             <th scope="col">Quantity</th>
             <th scope="col">Unit price</th>
             <th scope="col">Line total</th>
+            {receivable && (
+              <>
+                <th scope="col">Received</th>
+                <th scope="col">Outstanding</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -238,6 +279,12 @@ export function OrderDetail() {
               <td className={styles.number}>{line.quantity}</td>
               <td className={styles.number}>{formatInr(toMoney(line.unitPrice))}</td>
               <td className={styles.number}>{formatInr(toMoney(line.lineTotal))}</td>
+              {receivable && (
+                <>
+                  <td className={styles.number}>{line.receivedQuantity}</td>
+                  <td className={styles.number}>{line.outstandingQuantity}</td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -245,7 +292,33 @@ export function OrderDetail() {
       <p className={styles.total}>
         <span>Total</span> <span data-testid="order-total">{formatInr(toMoney(order.total))}</span>
       </p>
-      {order.cancellation && <CancellationSection cancellation={order.cancellation} />}
+      {receivable && (
+        <p>
+          {order.status === 'CANCELLED'
+            ? cancelledSummary(receivedLinesOf(order.lines))
+            : receivedSummary(receivedLinesOf(order.lines))}
+        </p>
+      )}
+      {mayRecord && recording && (
+        <ReceiptForm
+          order={order}
+          onClose={() => {
+            setRecording(false);
+          }}
+          onReload={() => {
+            void query.refetch();
+          }}
+          onRecorded={() => {
+            setRecording(false);
+            setNotice('Receipt recorded.');
+            void receiptRecorded(order.id);
+          }}
+        />
+      )}
+      {order.cancellation && (
+        <CancellationSection cancellation={order.cancellation} lines={order.lines} />
+      )}
+      {receivable && <ReceiptsSection order={order} />}
       {order.approval && <ApprovalPanel round={order.approval} />}
       {cancelling && (
         <CancelDialog

@@ -64,7 +64,17 @@ const draftOrder = {
   owner: { id: ID, name: 'Asha Buyer' },
   total: '1.0000',
   lineCount: 1,
-  lines: [{ id: ID, description: 'Bolts', quantity: 1, unitPrice: '1.0000', lineTotal: '1.0000' }],
+  lines: [
+    {
+      id: ID,
+      description: 'Bolts',
+      quantity: 1,
+      unitPrice: '1.0000',
+      lineTotal: '1.0000',
+      receivedQuantity: 0,
+      outstandingQuantity: 1,
+    },
+  ],
   version: 1,
   createdAt: AT,
   updatedAt: AT,
@@ -74,6 +84,7 @@ const draftOrder = {
   vendorSnapshot: null,
   approval: null,
   cancellation: null,
+  receiptProgress: 'NOT_RECEIVED',
 };
 
 describe('[NFR-VAL-01] slice 4 request schemas', () => {
@@ -182,6 +193,8 @@ describe('[FR-APR-01] slice 4 response schemas', () => {
       total: '1.0000',
       lineCount: 1,
       createdAt: AT,
+      // Slice 6: the list badge's value.
+      receiptProgress: 'NOT_RECEIVED',
     };
     expect(orderListItem.safeParse(item).success).toBe(true);
     expect(orderListItem.safeParse({ ...item, approval: null }).success).toBe(false);

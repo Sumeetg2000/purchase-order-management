@@ -37,7 +37,8 @@ goes to Mailpit at <http://localhost:8025>, and `SEED_DEMO_DATA=true` adds
 
 The demo seed is not incremental: it creates the demo orders once, for a demo Buyer who
 has never submitted, and leaves existing data as it is. When a slice adds demo states
-(slice 5 added a cancelled order), reset the demo data to see them:
+(slice 5 added a cancelled order, slice 6 the receipts on it and on two approved orders),
+reset the demo data to see them:
 `docker compose down -v`, then `docker compose up`. This deletes every local order and
 account; the stack seeds again from empty.
 Troubleshooting (including snap-packaged Docker) is in the

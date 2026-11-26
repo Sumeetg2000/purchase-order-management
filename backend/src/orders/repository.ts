@@ -6,6 +6,7 @@ import {
   type ApprovalRoundOutcome,
   type ApprovalStepState,
   type OrderStatus,
+  type ReceiptProgress,
   type VendorStatus,
 } from '@po/contracts';
 import { Prisma } from '../generated/prisma/client.js';
@@ -50,6 +51,7 @@ export interface OrderRow {
     cancelledAt: string;
     reason: string;
   } | null;
+  receiptProgress: ReceiptProgress;
 }
 
 /** An approval round as the order read returns it (slice 4, research R10). */
@@ -77,6 +79,7 @@ export interface OrderLineRow {
   id: string;
   description: string;
   quantity: number;
+  receivedQuantity: number;
   /** numeric as text. */
   unitPrice: string;
   lineTotal: string;
@@ -160,13 +163,15 @@ export interface LockedOrder {
   status: OrderStatus;
   version: number;
   currentRound: number | null;
+  /** Lines not yet fully received (slice 6): 0 means fully received. */
+  openLineCount: number;
 }
 
 /** Locks the order FOR UPDATE (ADR-0006: the order first, then its lines, then the vendor). */
 export async function lockOrder(tx: AuditedTransaction, id: string): Promise<LockedOrder | null> {
   const [row] = await tx.$queryRaw<LockedOrder[]>`
     SELECT id::text, owner_id::text AS "ownerId", vendor_id::text AS "vendorId", status, version,
-           current_round::int AS "currentRound"
+           current_round::int AS "currentRound", open_line_count::int AS "openLineCount"
       FROM purchase_orders WHERE id = ${id}::uuid FOR UPDATE`;
   return row ?? null;
 }
@@ -210,6 +215,7 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                       'id', l.id::text,
                       'description', l.description,
                       'quantity', l.quantity,
+                      'receivedQuantity', l.received_quantity,
                       'unitPrice', l.unit_price::text,
                       'lineTotal', l.line_total::text) ORDER BY l.position), '[]'::json)
               FROM order_lines l WHERE l.order_id = o.id) AS lines,
@@ -243,7 +249,13 @@ export async function selectOrder(db: Db, id: string): Promise<OrderRow | null> 
                      'cancelledBy', json_build_object('id', c.id::text, 'name', c.name),
                      'cancelledAt', o.cancelled_at,
                      'reason', o.cancel_reason)
-              FROM users c WHERE c.id = o.cancelled_by) AS cancellation
+              FROM users c WHERE c.id = o.cancelled_by) AS cancellation,
+           -- Receipt progress (research R8): only approved or cancelled orders have receipts.
+           CASE WHEN o.status NOT IN ('APPROVED', 'CANCELLED') THEN 'NOT_RECEIVED'
+                WHEN o.open_line_count = 0 THEN 'FULLY_RECEIVED'
+                WHEN EXISTS (SELECT 1 FROM goods_receipts r WHERE r.order_id = o.id)
+                  THEN 'PARTIALLY_RECEIVED'
+                ELSE 'NOT_RECEIVED' END AS "receiptProgress"
       FROM purchase_orders o
       JOIN users u ON u.id = o.owner_id
       JOIN vendors v ON v.id = o.vendor_id
@@ -405,8 +417,17 @@ export function orderListSql(
   // page's own rows are then read from the table.
   const keys = byPoNumber ? Prisma.sql`po_number` : Prisma.sql`created_at, id`;
   const join = byPoNumber ? Prisma.sql`o.po_number = k.po_number` : Prisma.sql`o.id = k.id`;
+  // The receipt badge (research R9): computed per page row, after the page is cut, so it
+  // never touches the WHERE clauses or the count: at most one index probe of
+  // goods_receipts_order_recorded_idx per row, only for an approved or cancelled order
+  // that still has an open line.
   const page = Prisma.sql`SELECT o.id, o.po_number, o.status, o.owner_id, o.vendor_id, o.total,
-           o.created_at, o.current_round
+           o.created_at, o.current_round,
+           CASE WHEN o.status NOT IN ('APPROVED', 'CANCELLED') THEN 'NOT_RECEIVED'
+                WHEN o.open_line_count = 0 THEN 'FULLY_RECEIVED'
+                WHEN EXISTS (SELECT 1 FROM goods_receipts r WHERE r.order_id = o.id)
+                  THEN 'PARTIALLY_RECEIVED'
+                ELSE 'NOT_RECEIVED' END AS receipt_progress
       FROM (SELECT k.* FROM (${union(keys, offset + limit)}) k
              ORDER BY ${order('k')} LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}) k
       JOIN purchase_orders o ON ${join}`;
@@ -429,6 +450,7 @@ export function orderListSql(
                                                         AND r.round = p.current_round) END),
                       'owner', json_build_object('id', p.owner_id::text, 'name', u.name),
                       'total', p.total::text,
+                      'receiptProgress', p.receipt_progress,
                       'lineCount', (SELECT count(*) FROM order_lines l WHERE l.order_id = p.id),
                       'createdAt', to_char(p.created_at AT TIME ZONE 'UTC',
                                            'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
@@ -460,4 +482,30 @@ export async function selectOrderAccess(
   const [row] = await db.$queryRaw<{ ownerId: string; status: OrderStatus }[]>`
     SELECT owner_id::text AS "ownerId", status FROM purchase_orders WHERE id = ${id}::uuid`;
   return row ?? null;
+}
+
+/** A user's open orders, as the Admin's user detail shows them (slice 6, US6). */
+export interface OpenOrderCounts {
+  draft: number;
+  pending: number;
+  approvedWithOpenLines: number;
+}
+
+/**
+ * The three counts, each read through purchase_orders_owner_status_created_idx (owner,
+ * status, created_at) for the owner and one status; the approved count reads each of the
+ * owner's approved rows for its open-line count.
+ */
+export function openOrderCountsSql(ownerId: string): Prisma.Sql {
+  const count = (status: string, extra = Prisma.empty) => Prisma.sql`
+    (SELECT count(*)::int FROM purchase_orders
+      WHERE owner_id = ${ownerId}::uuid AND status = ${status} ${extra})`;
+  return Prisma.sql`
+    SELECT ${count('DRAFT')} AS draft, ${count('PENDING_APPROVAL')} AS pending,
+           ${count('APPROVED', Prisma.sql`AND open_line_count > 0`)} AS "approvedWithOpenLines"`;
+}
+
+export async function countOpenOrders(db: Db, ownerId: string): Promise<OpenOrderCounts> {
+  const [row] = await db.$queryRaw<OpenOrderCounts[]>(openOrderCountsSql(ownerId));
+  return row ?? { draft: 0, pending: 0, approvedWithOpenLines: 0 };
 }

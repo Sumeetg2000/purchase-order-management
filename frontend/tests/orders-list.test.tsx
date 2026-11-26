@@ -190,6 +190,48 @@ describe('[FR-OWN-01] the orders list by role', () => {
     expect(screen.queryByRole('link', { name: 'New order' })).toBeNull();
   });
 
+  it('[FR-RCV-01] each row shows its receipt badge after the status, in words', async () => {
+    const rows = [
+      item({
+        id: '0192e4a0-0000-7000-8000-0000000000e1',
+        poNumber: 'PO-2026-27-000201',
+        status: 'APPROVED',
+        receiptProgress: 'PARTIALLY_RECEIVED',
+      }),
+      item({
+        id: '0192e4a0-0000-7000-8000-0000000000e2',
+        poNumber: 'PO-2026-27-000202',
+        status: 'APPROVED',
+        receiptProgress: 'FULLY_RECEIVED',
+      }),
+      item({
+        id: '0192e4a0-0000-7000-8000-0000000000e3',
+        poNumber: 'PO-2026-27-000203',
+        status: 'CANCELLED',
+        receiptProgress: 'PARTIALLY_RECEIVED',
+      }),
+      item({
+        id: '0192e4a0-0000-7000-8000-0000000000e4',
+        poNumber: 'PO-2026-27-000204',
+        status: 'APPROVED',
+        receiptProgress: 'NOT_RECEIVED',
+      }),
+    ];
+    listApi({ 'GET /orders': () => json(200, page(rows)) }, ['APPROVER']);
+    renderApp('/orders');
+    const table = await screen.findByRole('table');
+    const statusOf = (poNumber: string) => {
+      const row = within(table).getByText(poNumber).closest('tr') as HTMLElement;
+      const cells = within(row).getAllByRole('cell');
+      return cells.map((c) => c.textContent).find((t) => /Approved|Cancelled/.test(t));
+    };
+    expect(statusOf('PO-2026-27-000201')).toBe('Approved · Partly received');
+    expect(statusOf('PO-2026-27-000202')).toBe('Approved · Fully received');
+    expect(statusOf('PO-2026-27-000203')).toBe('Cancelled · partly received');
+    expect(statusOf('PO-2026-27-000204')).toBe('Approved');
+    expect(await axeViolations(document.body)).toEqual([]);
+  });
+
   it('[NFR-FE-08] the status filter offers Cancelled; a cancelled row says so', async () => {
     const seen = listApi(
       { 'GET /orders': () => json(200, page([item({ status: 'CANCELLED' })])) },

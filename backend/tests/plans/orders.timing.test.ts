@@ -4,6 +4,7 @@ import {
   editOrderBody,
   ORDER_LINES_MAX,
   orderListQuery,
+  recordReceiptBody,
   type Order,
 } from '@po/contracts';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +13,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApprovalsService, type ApprovalsService } from '../../src/approvals/service.js';
 import { createPrismaClient, type AppPrismaClient } from '../../src/db/client.js';
 import { createTransactionRunner } from '../../src/db/transaction.js';
+import { systemClock } from '../../src/lib/clock.js';
 import { createOrdersService, type OrdersService } from '../../src/orders/service.js';
+import { createReceiptsService, type ReceiptsService } from '../../src/receipts/service.js';
 import { createTestDatabase, type TestDatabase } from '../support/db.js';
 import { testLogger } from '../support/log-capture.js';
 import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.js';
@@ -20,8 +23,9 @@ import { ORDER_COUNT, orderPlanIds, seedOrderPlanData } from './orders-fixture.j
 // The order and approval services' timings on the plan fixture (FR-022, SC-005, SC-006,
 // ADR-0012): raising, replacing and submitting a 500-line order within 500 ms; the busiest
 // Buyer's first page, one approval, one cancel and the approval queue's first page within
-// 150 ms; at the 95th percentile, through the services as the API calls them. Results are
-// printed for research R7 (slice 4) and R8 (slice 5).
+// 150 ms; a receipt of one line within 150 ms and of 500 lines within 500 ms (slice 6); at
+// the 95th percentile, through the services as the API calls them. Results are printed for
+// research R7 (slice 4), R8 (slice 5) and the slice 6 quickstart results.
 
 const WRITE_P95_MS = 500;
 const LIST_P95_MS = 150;
@@ -56,6 +60,7 @@ let app: pg.Client;
 let prisma: AppPrismaClient;
 let orders: OrdersService;
 let approvals: ApprovalsService;
+let receipts: ReceiptsService;
 let buyer: Parameters<OrdersService['createOrder']>[0];
 let approver: Parameters<ApprovalsService['approveOrder']>[0];
 let vendorId: string;
@@ -114,7 +119,18 @@ beforeAll(async () => {
   const transactions = createTransactionRunner({ prisma, timeoutMs: 5_000, maxWaitMs: 5_000 });
   orders = createOrdersService({ prisma, transactions });
   approvals = createApprovalsService({ prisma, transactions });
+  receipts = createReceiptsService({ prisma, transactions, clock: systemClock });
 });
+
+/** Today in India, the receipt date every timed receipt uses (approved today, too). */
+function indiaToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
 
 afterAll(async () => {
   console.info(`order service timings (ms, p95): ${JSON.stringify(results)}`);
@@ -209,6 +225,60 @@ describe('[NFR-PERF-01] order service timings on the plan fixture', () => {
     expect(results.submitP95).toBeLessThanOrEqual(WRITE_P95_MS);
     expect(results.approveP95).toBeLessThanOrEqual(DECISION_P95_MS);
     expect(results.cancelP95).toBeLessThanOrEqual(DECISION_P95_MS);
+  });
+
+  it('[NFR-PERF-01] recording a receipt of 500 lines within 500 ms and of one line within 150 ms, p95', async () => {
+    const fullReceipts: number[] = [];
+    const oneLineReceipts: number[] = [];
+    const ignored: number[] = [];
+    const receivedOn = indiaToday();
+    for (let run = 0; run < WARM_UP_RUNS + TIMED_RUNS; run += 1) {
+      const counted = run < WARM_UP_RUNS ? ignored : null;
+      // ₹1 a unit, under the seeded tier: the submit approves it in the same transaction.
+      const body = createOrderBody.parse({ vendorId, lines: fullLines(`g${String(run)}`, '1') });
+      const { order } = await orders.createOrder(
+        buyer,
+        { body, idempotencyKey: randomUUID() },
+        ctx(),
+      );
+      const approved = await approvals.submitOrder(
+        buyer,
+        { id: order.id, version: order.version },
+        ctx(),
+      );
+      expect(approved.status).toBe('APPROVED');
+      const lineIds = approved.lines.map((line) => line.id);
+      // One unit of every line: the widest receipt there is.
+      const everyLine = recordReceiptBody.parse({
+        receivedOn,
+        lines: lineIds.map((lineId) => ({ lineId, quantity: 1 })),
+      });
+      const full = await timed(counted ?? fullReceipts, () =>
+        receipts.recordReceipt(
+          buyer,
+          { orderId: approved.id, body: everyLine, idempotencyKey: randomUUID() },
+          ctx(),
+        ),
+      );
+      expect(full.lines).toHaveLength(ORDER_LINES_MAX);
+      // The second line ordered 2, so one unit is still outstanding on it.
+      const oneLine = recordReceiptBody.parse({
+        receivedOn,
+        lines: [{ lineId: lineIds[1] ?? '', quantity: 1 }],
+      });
+      const single = await timed(counted ?? oneLineReceipts, () =>
+        receipts.recordReceipt(
+          buyer,
+          { orderId: approved.id, body: oneLine, idempotencyKey: randomUUID() },
+          ctx(),
+        ),
+      );
+      expect(single.lines).toHaveLength(1);
+    }
+    results.receipt500P95 = Math.round(p95(fullReceipts));
+    results.receipt1P95 = Math.round(p95(oneLineReceipts));
+    expect(results.receipt500P95).toBeLessThanOrEqual(WRITE_P95_MS);
+    expect(results.receipt1P95).toBeLessThanOrEqual(DECISION_P95_MS);
   });
 
   it("[NFR-PERF-01] the Approver's queue, first page: p95 within 150 ms", async () => {

@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM goods_receipts WHERE order_id = $1::uuid
+-- values: ["4d5353d4-6e65-063d-c8b7-3f07b77c5723"]
+
+Aggregate
+  ->  Index Only Scan using goods_receipts_order_recorded_idx on goods_receipts
+        Index Cond: (order_id = '4d5353d4-6e65-063d-c8b7-3f07b77c5723'::uuid)

@@ -6,6 +6,7 @@ import { failureFrom } from '../../errors/problem';
 import { isVersionConflict, reloadAction } from '../../hooks/useDialogAction';
 import { useAdminDialogAction } from './dialog-action';
 import { useUserDetail } from './queries';
+import { OpenOrdersNote } from './OpenOrdersNote';
 
 // Deactivate, reactivate and send a reset (ADR-0018's admin dialogs).
 
@@ -65,7 +66,10 @@ export function ActivationDialog({
       ) : isActive ? (
         <p>They&apos;ll be able to log in again.</p>
       ) : (
-        <p>They&apos;ll be logged out everywhere and can&apos;t log in.</p>
+        <>
+          <p>They&apos;ll be logged out everywhere and can&apos;t log in.</p>
+          <OpenOrdersNote counts={current.openOrders} />
+        </>
       )}
     </ConfirmDialog>
   );

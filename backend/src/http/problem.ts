@@ -1,5 +1,6 @@
 import {
   carriesOrderState,
+  carriesReceiptLines,
   carriesRevokeReason,
   clashMemberOf,
   ERROR_REGISTRY,
@@ -38,6 +39,9 @@ export function sendProblem(res: Response, error: AppError): void {
         : {}),
       ...(carriesOrderState(error.code) && error.orderState !== undefined
         ? { orderState: error.orderState }
+        : {}),
+      ...(carriesReceiptLines(error.code) && error.lines !== undefined
+        ? { lines: error.lines }
         : {}),
     });
 }

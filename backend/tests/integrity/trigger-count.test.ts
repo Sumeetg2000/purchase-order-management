@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { approvedOrder, buyer, insertReceipt, actAs } from '../support/receipts-sql.js';
 import {
   createDraft,
   inTransaction,
@@ -124,5 +125,46 @@ describe('[NFR-PERF-03] derived values recompute once per statement', () => {
       );
     });
     expect(count).toBe(0);
+  });
+});
+
+/** Both recompute counts of `work`, run as the fixture's Buyer in one transaction. */
+async function receiptCounts(f: OrderFixture, work: (q: OrderFixture['app']) => Promise<unknown>) {
+  return inTransaction(f.app, async (q) => {
+    await actAs(q, buyer(f));
+    await work(q);
+    const { rows } = await q.query<{ total: string | null; open: string | null }>(
+      `SELECT current_setting('po.recompute_count', true) AS total,
+              current_setting('po.open_line_recompute_count', true) AS open`,
+    );
+    return { total: Number(rows[0]?.total || 0), open: Number(rows[0]?.open || 0) };
+  });
+}
+
+describe('[NFR-PERF-03] a receipt recomputes the open-line count once and the total never', () => {
+  for (const n of [1, 500]) {
+    it(`[NFR-PERF-03] a ${String(n)}-line receipt: 0 total recomputes, 1 open-line recompute`, async () => {
+      const f = await orderFixture();
+      const { orderId, lineIds } = await approvedOrder(f, lines(n));
+      expect(
+        await receiptCounts(f, (q) =>
+          insertReceipt(
+            q,
+            orderId,
+            lineIds.map((lineId) => ({ lineId, quantity: 1 })),
+          ),
+        ),
+      ).toEqual({ total: 0, open: 1 });
+    });
+  }
+
+  it('[NFR-PERF-03] an order edit still recomputes the total once and the open-line count never separately', async () => {
+    const f = await orderFixture();
+    const { orderId } = await createDraft(f, lines(20));
+    expect(
+      await receiptCounts(f, (q) =>
+        q.query(`UPDATE order_lines SET quantity = quantity + 1 WHERE order_id = $1`, [orderId]),
+      ),
+    ).toEqual({ total: 1, open: 0 });
   });
 });

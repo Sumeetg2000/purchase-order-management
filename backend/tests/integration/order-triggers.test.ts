@@ -19,6 +19,16 @@ import {
   sqlstate,
   type OrderFixture,
 } from '../support/orders-sql.js';
+import {
+  ORDER_CANCEL_REFUSED,
+  ORDER_NOT_RECEIVABLE,
+  approvedOrder,
+  asActor,
+  buyer,
+  insertReceipt,
+  receive,
+} from '../support/receipts-sql.js';
+import { plantCancelled } from '../support/orders-sql.js';
 
 // Migration 0013, part 2 (data-model.md, research R3 and R4): the database keeps every
 // order's total and open-line count, an order always has a line and a PO number, and only
@@ -272,4 +282,48 @@ describe('[FR-PO-04] derived values are written only by the recompute', () => {
     );
     expect(await readOrder(f.app, orderId)).toMatchObject({ version: 2, total: '1.0000' });
   });
+});
+
+describe('[FR-SM-01] receipts and the state machine, database side', () => {
+  const ROUTED = [{ quantity: 2, unitPrice: '60000' }];
+
+  for (const state of ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'] as const) {
+    it(`[FR-SM-01] a receipt on a ${state} order is refused`, async () => {
+      const f = await orderFixture();
+      const { orderId, lineIds } = await createDraft(f, ROUTED);
+      if (state === 'CANCELLED') await plantCancelled(f, orderId);
+      else if (state !== 'DRAFT') await plantSubmitted(f, orderId, state);
+      expect(
+        await sqlstate(() =>
+          asActor(f.app, buyer(f), (q) =>
+            insertReceipt(q, orderId, [{ lineId: lineIds[0] ?? '', quantity: 1 }]),
+          ),
+        ),
+      ).toBe(ORDER_NOT_RECEIVABLE);
+    });
+  }
+
+  for (const [name, received, refusal] of [
+    ['fully received', 2, ORDER_CANCEL_REFUSED],
+    ['partly received', 1, undefined],
+  ] as const) {
+    it(`[FR-SM-01] T10 (approved to cancelled) on a ${name} order: ${refusal ?? 'allowed'}`, async () => {
+      const f = await orderFixture();
+      const { orderId, lineIds, approverId } = await approvedOrder(f, [
+        { quantity: 2, unitPrice: '1' },
+      ]);
+      await receive(f, orderId, [{ lineId: lineIds[0] ?? '', quantity: received }]);
+      expect(
+        await sqlstate(() =>
+          asActor(f.app, { type: 'USER', userId: approverId, role: 'APPROVER' }, (q) =>
+            q.query(
+              `UPDATE purchase_orders SET status = 'CANCELLED', cancelled_by = $2,
+                      cancel_reason = 'Not needed', version = version + 1 WHERE id = $1`,
+              [orderId, approverId],
+            ),
+          ),
+        ),
+      ).toBe(refusal);
+    });
+  }
 });

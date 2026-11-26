@@ -8,7 +8,10 @@ import {
   ORDER_LOCKED_MESSAGES,
   ORDER_OWNER_INACTIVE_DETAIL,
   ORDER_PENDING_APPROVAL_DETAIL,
+  ORDER_RECEIPT_FORBIDDEN_DETAIL,
   ORDER_WRITE_FORBIDDEN_DETAIL,
+  RECEIPT_NOTHING_RECORDED,
+  exceedingLineSentence,
   SELF_APPROVAL_DETAIL,
   SELF_APPROVAL_DETAILS,
   type LockedOrderStatus,
@@ -18,6 +21,7 @@ import {
   PASSWORD_MIN_LENGTH,
   PUBLIC_REVOKE_REASONS,
   type ErrorCode,
+  type ExceedingLine,
   type FieldCode,
   type PublicRevokeReason,
   type UserRole,
@@ -151,7 +155,34 @@ export const errorMessages = {
   ORDER_LOCKED: { message: "This order can't be changed any more." },
   ORDER_PENDING_APPROVAL: { message: ORDER_PENDING_APPROVAL_DETAIL },
   ORDER_OWNER_INACTIVE: { message: ORDER_OWNER_INACTIVE_DETAIL },
+  // Slice 6 (specs/007-goods-receipt/contracts/errors.md). ORDER_NOT_RECEIVABLE names the
+  // order's status and RECEIPT_EXCEEDS_OUTSTANDING each offending line (messageForProblem).
+  ORDER_NOT_RECEIVABLE: {
+    message: "This order can't receive goods.",
+    action: 'Reload the order to see its status.',
+  },
+  RECEIPT_EXCEEDS_OUTSTANDING: {
+    message: RECEIPT_NOTHING_RECORDED,
+    action: 'Reload the order to see what is outstanding.',
+  },
+  ORDER_FULLY_RECEIVED: {
+    message: "This order has been fully received, so it can't be cancelled.",
+  },
 } as const satisfies Record<ErrorCode, ErrorMessage>;
+
+/** An order's status in "This order can't receive goods: it is …" (an approved one can). */
+const NOT_RECEIVABLE_STATUS_WORDS = {
+  DRAFT: 'a draft',
+  PENDING_APPROVAL: 'pending approval',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+} as const satisfies Partial<Record<OrderStatus, string>>;
+
+function isNotReceivableStatus(
+  status: OrderStatus,
+): status is keyof typeof NOT_RECEIVABLE_STATUS_WORDS {
+  return Object.hasOwn(NOT_RECEIVABLE_STATUS_WORDS, status);
+}
 
 /** The words for each public revoke reason, in "You were logged out because …". */
 export const revokeReasonText = {
@@ -184,6 +215,8 @@ export interface ProblemLike {
   existingVendor?: { id: string; name: string } | undefined;
   /** The order's status and the refused action, on the order state codes. */
   orderState?: { status: OrderStatus; action?: OrderAction | undefined } | undefined;
+  /** The lines a receipt would over-receive, on RECEIPT_EXCEEDS_OUTSTANDING only. */
+  lines?: readonly ExceedingLine[] | undefined;
 }
 
 /** The message for a code; an unknown code (a newer server) gets the internal-error one. */
@@ -216,6 +249,20 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
       return { message: ORDER_LOCKED_MESSAGES[status] };
     }
   }
+  if (problem.code === 'ORDER_NOT_RECEIVABLE') {
+    const status = problem.orderState?.status;
+    if (status !== undefined && isNotReceivableStatus(status)) {
+      return {
+        message: `This order can't receive goods: it is ${NOT_RECEIVABLE_STATUS_WORDS[status]}.`,
+      };
+    }
+  }
+  if (problem.code === 'RECEIPT_EXCEEDS_OUTSTANDING' && problem.lines?.length) {
+    return {
+      message: errorMessages.RECEIPT_EXCEEDS_OUTSTANDING.message,
+      action: problem.lines.map(exceedingLineSentence).join(' '),
+    };
+  }
   return messageFor(problem.code);
 }
 
@@ -227,7 +274,10 @@ export function messageForProblem(problem: ProblemLike): ErrorMessage {
  */
 export function messageForOrderAction(
   problem: ProblemLike,
-  { roles, action }: { roles: readonly UserRole[]; action: 'write' | 'decision' | 'cancel' },
+  {
+    roles,
+    action,
+  }: { roles: readonly UserRole[]; action: 'write' | 'decision' | 'cancel' | 'receipt' },
 ): ErrorMessage {
   if (problem.code === 'SELF_APPROVAL' && action === 'cancel') {
     return { message: SELF_APPROVAL_DETAILS.CANCEL };
@@ -236,9 +286,11 @@ export function messageForOrderAction(
     const details: Partial<Record<UserRole, string>> =
       action === 'write'
         ? ORDER_WRITE_FORBIDDEN_DETAIL
-        : action === 'cancel'
-          ? ORDER_CANCEL_FORBIDDEN_DETAIL
-          : ORDER_DECISION_FORBIDDEN_DETAIL;
+        : action === 'receipt'
+          ? ORDER_RECEIPT_FORBIDDEN_DETAIL
+          : action === 'cancel'
+            ? ORDER_CANCEL_FORBIDDEN_DETAIL
+            : ORDER_DECISION_FORBIDDEN_DETAIL;
     const message = roles.map((role) => details[role]).find((d) => d !== undefined);
     if (message !== undefined) return { message };
   }
@@ -273,7 +325,14 @@ export const fieldMessages = {
   LINE_NOT_FOUND: 'This line is no longer on the order. Reload it.',
   DUPLICATE_LINE_ID: 'This line appears twice. Reload the order.',
   READ_ONLY_FIELD: "This is calculated by the system and can't be set.",
+  DATE_IN_FUTURE: "Enter today's date or an earlier one.",
+  DATE_BEFORE_APPROVAL: "Enter a date on or after the order's approval.",
 } as const satisfies Record<FieldCode, string>;
+
+/** DATE_BEFORE_APPROVAL with the approval date, as the receipt form knows it. */
+export function dateBeforeApprovalMessage(approvalDate: string): string {
+  return `Enter a date on or after the order's approval (${approvalDate}).`;
+}
 
 /** The password rule, as account pages state it next to a new-password field. */
 export const PASSWORD_RULE = `Use ${String(PASSWORD_MIN_LENGTH)} to ${String(PASSWORD_MAX_LENGTH)} characters. Common passwords are refused.`;
@@ -303,6 +362,8 @@ export interface FormFields {
   labels?: Readonly<Record<string, string>>;
   /** The screen's own words for a problem, by its code (e.g. cancel's SELF_APPROVAL). */
   messageFor?: ((problem: ProblemLike) => ErrorMessage) | undefined;
+  /** The screen's own words for one field error, when it knows more (e.g. a date). */
+  fieldText?: ((detail: { path: string; code: string }) => string | undefined) | undefined;
 }
 
 /** What a field error says; a code this build doesn't know reads as not valid. */
@@ -332,7 +393,7 @@ export function describeFailure(failure: FailureLike, form: FormFields = {}): Er
   const unshown = details.filter((detail) => !highlighted.includes(detail.path));
   const said = unshown.map((detail) => {
     const label = form.labels?.[detail.path];
-    const text = fieldMessageFor(detail.code);
+    const text = form.fieldText?.(detail) ?? fieldMessageFor(detail.code);
     return label ? `${label}: ${text}` : text;
   });
   const anyHighlighted = details.length > unshown.length;

@@ -15,6 +15,17 @@ export interface ErrorDefinition {
   clash?: ClashMember;
   /** Whether the problem may carry `orderState`: the order's status, and the action refused. */
   orderState?: true;
+  /** Whether the problem may carry `lines`: each line a receipt would over-receive. */
+  receiptLines?: true;
+}
+
+/** A line a receipt would take above its ordered quantity (ADR-0007, 2026-11-24). */
+export interface ExceedingLine {
+  lineId: string;
+  /** The line's position on the order, from 0; shown as position + 1. */
+  position: number;
+  outstanding: number;
+  requested: number;
 }
 
 /** An order state refusal's typed member (ADR-0007, amended 2026-11-17). */
@@ -125,6 +136,21 @@ export const ERROR_REGISTRY = {
     title: 'Order owner can no longer act',
     fieldDetails: false,
   },
+
+  // Slice 6: goods receipt (specs/007-goods-receipt/contracts/errors.md).
+  ORDER_NOT_RECEIVABLE: {
+    status: 409,
+    title: 'Order not receivable',
+    fieldDetails: false,
+    orderState: true,
+  },
+  RECEIPT_EXCEEDS_OUTSTANDING: {
+    status: 409,
+    title: 'Receipt exceeds outstanding',
+    fieldDetails: false,
+    receiptLines: true,
+  },
+  ORDER_FULLY_RECEIVED: { status: 409, title: 'Order fully received', fieldDetails: false },
 } as const satisfies Record<string, ErrorDefinition>;
 
 export type ErrorCode = keyof typeof ERROR_REGISTRY;
@@ -143,6 +169,12 @@ export function carriesOrderState(code: ErrorCode): boolean {
 
 export function isFieldCode(value: unknown): value is FieldCode {
   return oneOf(FIELD_CODES, value);
+}
+
+/** Whether a code's problem may list the lines a receipt would over-receive. */
+export function carriesReceiptLines(code: ErrorCode): boolean {
+  const entry: ErrorDefinition = ERROR_REGISTRY[code];
+  return entry.receiptLines === true;
 }
 
 /** Whether a problem with this code may carry a public revoke `reason`. */
@@ -181,6 +213,9 @@ export const FIELD_CODES = [
   'LINE_NOT_FOUND',
   'DUPLICATE_LINE_ID',
   'READ_ONLY_FIELD',
+  // Slice 6 (specs/007-goods-receipt/contracts/errors.md): the receipt date.
+  'DATE_IN_FUTURE',
+  'DATE_BEFORE_APPROVAL',
 ] as const;
 
 export type FieldCode = (typeof FIELD_CODES)[number];
