@@ -8,6 +8,9 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // Half the cores: jsdom renders are CPU-bound, and a worker per core starves each
+      // test (and anything running beside the suite) past Testing Library's waits.
+      maxWorkers: '50%',
       reporters: ['default', 'json'],
       outputFile: {
         json: fileURLToPath(new URL('../reports/vitest-frontend.json', import.meta.url)),
