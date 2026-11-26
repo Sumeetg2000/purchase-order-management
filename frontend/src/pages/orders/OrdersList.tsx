@@ -47,7 +47,7 @@ const NO_FILTERS = {
 const RANGE_ERROR_ID = 'created-range-error';
 
 /**
- * The status and, after it, the receipt badge in words (FR-021a): "Approved · Partly
+ * The status and, after it, the receipt badge in words: "Approved · Partly
  * received". A cancelled order's badge, "Cancelled · partly received", names the status
  * itself.
  */

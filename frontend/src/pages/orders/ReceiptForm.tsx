@@ -116,6 +116,13 @@ export function ReceiptForm({ order, onClose, onReload, onRecorded }: ReceiptFor
                         const value = event.target.value;
                         setQuantities((was) => ({ ...was, [line.id]: value }));
                         setBlank(false);
+                        // A corrected line is no longer the one the server refused.
+                        setExceeding((was) => {
+                          if (!was.has(line.id)) return was;
+                          const rest = new Set(was);
+                          rest.delete(line.id);
+                          return rest;
+                        });
                       }}
                     />
                   </td>

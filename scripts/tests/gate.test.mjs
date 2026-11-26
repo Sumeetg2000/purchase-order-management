@@ -61,7 +61,7 @@ describe('[NFR-OPS-02] the local gate stops at the first failing check', () => {
 
   it('[NFR-OPS-02] a failing lint stops the gate there, with a non-zero status', () => {
     const result = gate('npm run -s lint');
-    assert.notEqual(result.status, 0);
+    assert.equal(result.status, 3, "the failing check's own exit status");
     assert.deepEqual(result.calls, ['npm run -s check:ids', 'npm run -s lint']);
     assert.match(result.stderr, /gate: lint FAILED/);
     assert.doesNotMatch(result.stdout, /all checks passed/);
@@ -69,14 +69,14 @@ describe('[NFR-OPS-02] the local gate stops at the first failing check', () => {
 
   it('[NFR-OPS-02] failing tests stop the gate before e2e and gitleaks', () => {
     const result = gate('npm test');
-    assert.notEqual(result.status, 0);
+    assert.equal(result.status, 3, "the failing check's own exit status");
     assert.equal(result.calls.at(-1), 'npm test');
     assert.match(result.stderr, /gate: test FAILED/);
   });
 
   it('[NFR-OPS-02] gitleaks finding a leak fails the gate', () => {
     const result = gate('docker run');
-    assert.notEqual(result.status, 0);
+    assert.equal(result.status, 3, "the failing check's own exit status");
     assert.match(result.stderr, /gate: gitleaks FAILED/);
   });
 

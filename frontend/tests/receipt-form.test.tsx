@@ -251,4 +251,55 @@ describe('[FR-RCV-01] the receipt form', () => {
       'true',
     );
   });
+
+  it('[FR-RCV-01] a receipt date before approval is refused inside the dialog with the approval date', async () => {
+    const app = show(partly(), {
+      post: () =>
+        problem(400, 'VALIDATION_FAILED', {
+          details: [{ path: 'body.receivedOn', code: 'DATE_BEFORE_APPROVAL' }],
+        }),
+    });
+    await heading();
+    await app.user.click(screen.getByRole('button', { name: 'Record receipt' }));
+    const form = screen.getByRole('form', { name: 'Record receipt' });
+    await app.user.type(within(form).getAllByRole('spinbutton')[0] as HTMLElement, '1');
+    await app.user.click(within(form).getByRole('button', { name: 'Continue' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await app.user.click(within(dialog).getByRole('button', { name: 'Record receipt' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(
+      /Receipt date: Enter a date on or after the order's approval \(\d{1,2} [A-Z][a-z]+ \d{4}\)\./,
+    );
+  });
+
+  it('[FR-RCV-02] after an over-receipt the page settles, and a corrected quantity is no longer marked', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const app = show(partly(), {
+        post: () =>
+          problem(409, 'RECEIPT_EXCEEDS_OUTSTANDING', {
+            detail: 'Nothing was recorded. Line 1 has only 50 outstanding; you entered 60.',
+            lines: [{ lineId: orderLine().id, position: 0, outstanding: 50, requested: 60 }],
+          }),
+      });
+      await heading();
+      await app.user.click(screen.getByRole('button', { name: 'Record receipt' }));
+      const form = screen.getByRole('form', { name: 'Record receipt' });
+      const quantity = within(form).getAllByRole('spinbutton')[0] as HTMLElement;
+      await app.user.type(quantity, '60');
+      await app.user.click(within(form).getByRole('button', { name: 'Continue' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await app.user.click(within(dialog).getByRole('button', { name: 'Record receipt' }));
+      await within(dialog).findByRole('alert');
+      // Rendering stops: no update loop between the dialog and the form.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(errors.mock.calls.flat().join(' ')).not.toMatch(/Maximum update depth/);
+      await app.user.click(within(dialog).getByRole('button', { name: 'Go back' }));
+      await app.user.clear(quantity);
+      await app.user.type(quantity, '50');
+      expect(quantity).not.toHaveAttribute('aria-invalid');
+    } finally {
+      errors.mockRestore();
+    }
+  });
 });

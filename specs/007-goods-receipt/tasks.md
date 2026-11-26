@@ -466,7 +466,7 @@ shows quantities, progress and history.
   NFR-CON-01, NFR-CON-03, NFR-PERF-01/03, NFR-FE-07/08/09 — each with its passing test,
   status as the slice leaves it (the report itself is slice 7); `npm run
   check:traceability` green — `docs/traceability.md`.
-- [ ] T045 Quickstart run and results (SC-006 recorded as observed in the walkthrough of
+- [X] T045 Quickstart run and results (SC-006 recorded as observed in the walkthrough of
   scenario 2's valid three-line command); slice-end review: `/code-review`,
   `/security-review` (permissions, the new triggers, the guard), constitution pass; fix
   findings; full gate, lint, typecheck green —

@@ -20,6 +20,8 @@ export interface ErrorStateProps {
   onRetry?: () => void;
   /** The screen's own words for a problem (FormFields['messageFor']). */
   messageFor?: FormFields['messageFor'];
+  /** The screen's own words for one field error (FormFields['fieldText']). */
+  fieldText?: FormFields['fieldText'];
 }
 
 /**
@@ -32,10 +34,11 @@ export function ErrorState({
   labels,
   onRetry,
   messageFor,
+  fieldText,
 }: ErrorStateProps) {
   const { message, action } = describeFailure(
     { problem, retryAfterSeconds },
-    { ...(labels ? { labels } : {}), messageFor },
+    { ...(labels ? { labels } : {}), messageFor, fieldText },
   );
   return (
     <div role="alert" className={styles.error}>

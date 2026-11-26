@@ -24,10 +24,12 @@ run() {
   shift
   local log="${LOG_DIR}/gate-${name}.log"
   printf '== gate: %s\n' "$name"
-  if ! "$@" >"$log" 2>&1; then
+  local status=0
+  "$@" >"$log" 2>&1 || status=$?
+  if ((status != 0)); then
     tail -n 60 "$log"
-    printf 'gate: %s FAILED (full log: %s)\n' "$name" "$log" >&2
-    exit 1
+    printf 'gate: %s FAILED with status %d (full log: %s)\n' "$name" "$status" "$log" >&2
+    exit "$status"
   fi
   grep -E "$SUMMARY" "$log" || true
 }

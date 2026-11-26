@@ -362,6 +362,8 @@ export interface FormFields {
   labels?: Readonly<Record<string, string>>;
   /** The screen's own words for a problem, by its code (e.g. cancel's SELF_APPROVAL). */
   messageFor?: ((problem: ProblemLike) => ErrorMessage) | undefined;
+  /** The screen's own words for one field error, when it knows more (e.g. a date). */
+  fieldText?: ((detail: { path: string; code: string }) => string | undefined) | undefined;
 }
 
 /** What a field error says; a code this build doesn't know reads as not valid. */
@@ -391,7 +393,7 @@ export function describeFailure(failure: FailureLike, form: FormFields = {}): Er
   const unshown = details.filter((detail) => !highlighted.includes(detail.path));
   const said = unshown.map((detail) => {
     const label = form.labels?.[detail.path];
-    const text = fieldMessageFor(detail.code);
+    const text = form.fieldText?.(detail) ?? fieldMessageFor(detail.code);
     return label ? `${label}: ${text}` : text;
   });
   const anyHighlighted = details.length > unshown.length;

@@ -1,9 +1,9 @@
 import { lineNumber, type ErrorCode } from '@po/contracts';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCurrentUser } from '../../auth/current-user';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { formatDate } from '../../format/date';
-import { messageForOrderAction } from '../../errors/messages';
+import { dateBeforeApprovalMessage, messageForOrderAction } from '../../errors/messages';
 import { reloadAction, useDialogAction } from '../../hooks/useDialogAction';
 import { recordReceipt, type Order, type RecordReceiptBody } from './queries';
 import { fullyReceivedWarning } from './receipt-progress';
@@ -56,11 +56,17 @@ export function ReceiptDialog({
   const action = useDialogAction();
   const roles = useCurrentUser().data?.roles ?? [];
   const problem = action.error?.problem;
+  // The form passes a new callback each render, and calling it re-renders the form: run
+  // this once per problem, with the latest callback, or the two would loop.
+  const exceeded = useRef(onExceeded);
+  useEffect(() => {
+    exceeded.current = onExceeded;
+  });
   useEffect(() => {
     if (problem?.code === 'RECEIPT_EXCEEDS_OUTSTANDING') {
-      onExceeded((problem.lines ?? []).map((line) => line.lineId));
+      exceeded.current((problem.lines ?? []).map((line) => line.lineId));
     }
-  }, [problem, onExceeded]);
+  }, [problem]);
   return (
     <ConfirmDialog
       title={`Record receipt for ${order.poNumber}?`}
@@ -71,6 +77,11 @@ export function ReceiptDialog({
       error={action.error}
       errorLabels={{ 'body.receivedOn': 'Receipt date', 'body.note': 'Note' }}
       errorMessageFor={(failed) => messageForOrderAction(failed, { roles, action: 'receipt' })}
+      errorFieldText={(detail) =>
+        detail.code === 'DATE_BEFORE_APPROVAL' && order.approvedAt !== null
+          ? dateBeforeApprovalMessage(formatDate(order.approvedAt))
+          : undefined
+      }
       errorActions={reloadAction(action.error, isReceiptStale, onReload, {
         label: 'Reload order',
         onClose,
