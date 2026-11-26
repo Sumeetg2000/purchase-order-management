@@ -90,6 +90,27 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
         },
       ],
     },
+    // The outstanding orders report (slice 7): read by every role that reads orders.
+    {
+      path: 'reports/outstanding',
+      element: <RequireRole operation="listOutstandingOrders" />,
+      children: [
+        {
+          index: true,
+          lazy: lazyPage(() =>
+            import('../pages/reports/OutstandingReport').then((m) => m.OutstandingReport),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+        {
+          path: 'vendors',
+          lazy: lazyPage(() =>
+            import('../pages/reports/OutstandingVendors').then((m) => m.OutstandingVendors),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
+      ],
+    },
     // Orders: raised by Buyers, read by those ADR-0004 lets read them (slice 3).
     {
       path: 'orders',

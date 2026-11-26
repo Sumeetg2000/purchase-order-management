@@ -1,0 +1,6 @@
+-- SELECT r.id, r.status, r.message, r.admin_note, r.created_at, r.updated_at, r.decided_at, r.user_id FROM access_requests r WHERE r.status = $1 ORDER BY r.updated_at DESC, r.id DESC LIMIT 20 OFFSET 0
+-- values: ["DISMISSED"]
+
+Limit
+  ->  Index Scan using access_requests_status_updated_idx on access_requests r
+        Index Cond: (status = 'DISMISSED'::text)

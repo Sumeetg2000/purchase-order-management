@@ -379,6 +379,13 @@ describe('[FR-PO-01] migration 0013: order tables', () => {
       purchase_orders_po_number_key: '(po_number)',
       purchase_orders_status_created_idx: '(status, created_at DESC, id DESC)',
       purchase_orders_vendor_created_idx: '(vendor_id, created_at DESC, id DESC)',
+      // Migration 0017: the outstanding report (ADR-0015, amended 2026-11-26).
+      purchase_orders_outstanding_idx:
+        "(approved_at, id) WHERE ((status = 'APPROVED'::text) AND (open_line_count > 0))",
+      purchase_orders_outstanding_owner_idx:
+        "(owner_id, approved_at, id) INCLUDE (vendor_id) WHERE ((status = 'APPROVED'::text) AND (open_line_count > 0))",
+      purchase_orders_outstanding_vendor_idx:
+        "(vendor_id, approved_at, id) WHERE ((status = 'APPROVED'::text) AND (open_line_count > 0))",
     });
   });
 

@@ -1,0 +1,10 @@
+-- SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt", created_at AS "createdAt", version FROM users WHERE status = $1 ORDER BY name, id LIMIT $2 OFFSET $3
+-- values: ["DEACTIVATED",20,1980]
+
+Limit
+  ->  Sort
+        Sort Key: name, id
+        ->  Bitmap Heap Scan on users
+              Recheck Cond: (status = 'DEACTIVATED'::text)
+              ->  Bitmap Index Scan on users_status_name_id_idx
+                    Index Cond: (status = 'DEACTIVATED'::text)

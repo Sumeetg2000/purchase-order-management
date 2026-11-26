@@ -4,6 +4,8 @@ import {
   type AccessRequestStatus,
 } from '@po/contracts';
 import type { AppPrismaClient } from '../db/client.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { pageNumber } from '../orders/repository.js';
 import type { AuditedTransaction } from '../db/transaction.js';
 import { uuidv7 } from '../lib/uuid.js';
 import type { PageArgs, RowsAndTotal } from '../lib/pagination.js';
@@ -127,23 +129,78 @@ function withUser(
   return { ...row, status: statusOf(row) };
 }
 
-/** A page of requests, newest activity first, and the number of matches. */
+export interface AccessRequestListSql {
+  /** What the API runs: the page and the total in one statement, one snapshot. */
+  statement: Prisma.Sql;
+  /** Its parts, each planned on its own: for the plan tests and committed plans. */
+  page: Prisma.Sql;
+  count: Prisma.Sql;
+}
+
+const iso = (column: string) =>
+  Prisma.raw(`to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
+
+/**
+ * The admin list's SQL (slice 7, closing ADR-0021): newest activity first, by
+ * access_requests_updated_idx or, with a status, access_requests_status_updated_idx, to
+ * the page and no further; only the page's users are read.
+ */
+export function accessRequestListSql(
+  filter: { status?: AccessRequestStatus | undefined },
+  { offset, limit }: PageArgs,
+): AccessRequestListSql {
+  const where =
+    filter.status === undefined ? Prisma.sql`true` : Prisma.sql`r.status = ${filter.status}`;
+  const page = Prisma.sql`SELECT r.id, r.status, r.message, r.admin_note, r.created_at,
+           r.updated_at, r.decided_at, r.user_id
+      FROM access_requests r WHERE ${where}
+     ORDER BY r.updated_at DESC, r.id DESC
+     LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}`;
+  const count = Prisma.sql`SELECT count(*) FROM access_requests r WHERE ${where}`;
+  const statement = Prisma.sql`
+    SELECT (${count})::int AS total,
+           (SELECT json_agg(json_build_object(
+                     'id', p.id::text, 'status', p.status, 'message', p.message,
+                     'adminNote', p.admin_note, 'createdAt', ${iso('p.created_at')},
+                     'updatedAt', ${iso('p.updated_at')},
+                     'decidedAt', ${iso('p.decided_at')},
+                     'user', json_build_object('id', u.id::text, 'name', u.name,
+                                               'email', u.email,
+                                               'createdAt', ${iso('u.created_at')}))
+                   ORDER BY p.updated_at DESC, p.id DESC)
+              FROM (${page}) p JOIN users u ON u.id = p.user_id) AS items`;
+  return { statement, page, count };
+}
+
+interface ListedRequest {
+  id: string;
+  status: string;
+  message: string;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  decidedAt: string | null;
+  user: { id: string; name: string; email: string; createdAt: string };
+}
+
+/** A page of requests, newest activity first, and the number of matches, in one statement. */
 export async function listAccessRequests(
   prisma: AppPrismaClient,
   filter: { status?: AccessRequestStatus | undefined } & PageArgs,
 ): Promise<RowsAndTotal<AdminAccessRequestRow>> {
-  const where = filter.status ? { status: filter.status } : {};
-  const [rows, total] = await Promise.all([
-    prisma.accessRequest.findMany({
-      where,
-      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-      skip: filter.offset,
-      take: filter.limit,
-      select: ADMIN_COLUMNS,
+  const [row] = await prisma.$queryRaw<{ total: number; items: ListedRequest[] | null }[]>(
+    accessRequestListSql(filter, filter).statement,
+  );
+  const rows = (row?.items ?? []).map((r) =>
+    withUser({
+      ...r,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt),
+      decidedAt: r.decidedAt === null ? null : new Date(r.decidedAt),
+      user: { ...r.user, createdAt: new Date(r.user.createdAt) },
     }),
-    prisma.accessRequest.count({ where }),
-  ]);
-  return { rows: rows.map(withUser), total };
+  );
+  return { rows, total: row?.total ?? 0 };
 }
 
 /** The user a request belongs to, or null if there is no such request. */

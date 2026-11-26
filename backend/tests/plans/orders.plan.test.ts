@@ -9,6 +9,7 @@ import {
   STATUS_MIX,
   orderPlanIds,
   orderPlanQueries,
+  reportPlanQueries,
   seedOrderPlanData,
 } from './orders-fixture.js';
 import { literals, type PlanQuery } from './vendors-fixture.js';
@@ -68,6 +69,7 @@ function pageProblems(root: PlanNode, rowsBound: number): string[] {
 let db: TestDatabase;
 let app: pg.Client;
 let queries: PlanQuery[];
+let ids: Awaited<ReturnType<typeof orderPlanIds>>;
 const timings: Record<string, number> = {};
 
 beforeAll(async () => {
@@ -77,7 +79,8 @@ beforeAll(async () => {
   app = await db.client('po_app');
   await seedOrderPlanData(superuser, app);
   timings.seedMs = Math.round(performance.now() - started);
-  queries = orderPlanQueries(await orderPlanIds(app));
+  ids = await orderPlanIds(app);
+  queries = orderPlanQueries(ids);
 });
 
 afterAll(async () => {
@@ -142,19 +145,20 @@ describe('[NFR-PERF-01] order query plans at the ADR-0012 sizes', () => {
     expect(size?.widest).toBe(500);
   });
 
-  it("[FR-ADM-02] the Admin's open-order counts at the busiest Buyer read the owner's index, no new one", async () => {
+  it("[FR-ADM-02] the Admin's open-order counts at the busiest Buyer read the owner's indexes", async () => {
     const query = queries.find((q) => q.name === 'admin-open-orders');
     if (!query) throw new Error('no admin-open-orders query');
     const plan = await explain(query.sql.text, query.sql.values);
-    // Each count's index access (an index-only scan, or a bitmap index scan under the
-    // approved count's heap recheck of open_line_count) uses the owner's index; none
-    // reads the table in full.
+    // Draft and pending are counted on the owner's status index; approved with open lines
+    // on the outstanding report's owner index (migration 0017), whose predicate is that
+    // count's, so it no longer rechecks open_line_count in the table. None reads the table
+    // in full.
     const all = nodes(plan) as (PlanNode & { 'Index Name'?: string })[];
     const indexes = all.flatMap((n) => (n['Index Name'] === undefined ? [] : [n['Index Name']]));
     expect(indexes).toEqual([
       'purchase_orders_owner_status_created_idx',
       'purchase_orders_owner_status_created_idx',
-      'purchase_orders_owner_status_created_idx',
+      'purchase_orders_outstanding_owner_idx',
     ]);
     expect(all.filter((n) => n['Node Type'] === 'Seq Scan')).toEqual([]);
     expect(pageProblems(plan, query.rowsBound)).toEqual([]);
@@ -221,6 +225,53 @@ describe('[NFR-PERF-01] order query plans at the ADR-0012 sizes', () => {
           ? [`${n['Node Type']} on ${table} reads ${String(removed)} rows it doesn't count`]
           : [];
       });
+      if (found.length > 0) problems[query.name] = found;
+    }
+    expect(problems).toEqual({});
+  });
+
+  it("[FR-RPT-02] every age band has outstanding orders at the fixture's as-of date", async () => {
+    const counts: Record<string, number> = {};
+    for (const query of reportPlanQueries(ids).filter(
+      (q) => /^report-admin-(days|over)/.test(q.name) && !q.page,
+    )) {
+      const { rows } = await app.query<{ count: string }>(query.sql.text, query.sql.values);
+      counts[query.name] = Number(rows[0]?.count);
+    }
+    expect(Object.keys(counts)).toHaveLength(4);
+    for (const [name, n] of Object.entries(counts)) expect(n, name).toBeGreaterThan(0);
+  });
+
+  it('[FR-RPT-02] the report and summary walk their outstanding index, never read receipts, and read lines only for page rows', async () => {
+    const problems: Record<string, string[]> = {};
+    for (const query of reportPlanQueries(ids).filter((q) => q.page)) {
+      const all = nodes(await explain(query.sql.text, query.sql.values)) as (PlanNode & {
+        'Index Name'?: string;
+      })[];
+      const found: string[] = [];
+      const indexes = all.flatMap((n) => (n['Index Name'] === undefined ? [] : [n['Index Name']]));
+      if (query.index !== undefined && !indexes.includes(query.index)) {
+        found.push(`does not walk ${query.index} (walks ${indexes.join(', ')})`);
+      }
+      for (const n of all) {
+        const table = n['Relation Name'];
+        if (table === 'goods_receipts' || table === 'goods_receipt_lines')
+          found.push(`reads ${table}`);
+        // An index scan of a page row's lines, or a bitmap heap scan driven by one: keyed
+        // on the order, never a scan of the table.
+        if (table === 'order_lines') {
+          const keyed = (m: PlanNode & { 'Index Cond'?: string }) =>
+            /Index/.test(m['Node Type']) && (m['Index Cond'] ?? '').includes('order_id');
+          const ok =
+            keyed(n) ||
+            (n['Node Type'] === 'Bitmap Heap Scan' && (n.Plans ?? []).every((m) => keyed(m)));
+          if (!ok) found.push(`${n['Node Type']} on order_lines, not keyed on the order`);
+        }
+        // Lines are read once per page row, by the order-lines key.
+        if (table === 'order_lines' && (n['Actual Loops'] ?? 1) > query.rowsBound) {
+          found.push(`order_lines read ${String(n['Actual Loops'])} times`);
+        }
+      }
       if (found.length > 0) problems[query.name] = found;
     }
     expect(problems).toEqual({});

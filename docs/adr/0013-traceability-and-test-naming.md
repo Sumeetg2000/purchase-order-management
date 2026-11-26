@@ -16,6 +16,8 @@
 - The CI check reads the runner's JSON report. Only passing tests satisfy a requirement.
   Unknown IDs in test names fail. A requirement → tests listing is uploaded as an artifact.
 - The §7 walkthrough questions trace to `docs/walkthrough.md` answers, not tests.
+  *Amended 2026-11-26 (slice 7)*: `npm run check:walkthrough` fails when the walkthrough
+  names a repository path that doesn't exist; it runs in the gate and CI's `static` job.
 - `docs/data-integrity.md` answers "where is this enforced?" for each invariant.
 - CI fails if a section of `docs/BRIEF.md` (§1–§8) has no row in `docs/traceability.md`.
 - **Row status drives the test check**, so it works from the first slice:

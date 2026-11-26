@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.owner_id = $1::uuid
+-- values: ["884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  Index Only Scan using purchase_orders_outstanding_owner_idx on purchase_orders o
+        Index Cond: (owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)

@@ -1,0 +1,30 @@
+-- SELECT (SELECT count(*) FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.owner_id = $1::uuid)::int AS total, coalesce(( SELECT json_agg(json_build_object( 'id', p.id::text, 'poNumber', p.po_number, 'vendor', json_build_object('id', v.id::text, 'name', v.name, 'status', v.status), 'owner', json_build_object('id', u.id::text, 'name', u.name), 'createdAt', to_char(p.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'approvedAt', to_char(p.approved_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'approvedOn', (p.approved_at AT TIME ZONE $2)::date::text, 'ageDays', greatest($3::date - (p.approved_at AT TIME ZONE $4)::date, 0), 'ageBucket', CASE WHEN greatest($5::date - (p.approved_at AT TIME ZONE $6)::date, 0) <= $7::int THEN $8 WHEN greatest($9::date - (p.approved_at AT TIME ZONE $10)::date, 0) <= $11::int THEN $12 WHEN greatest($13::date - (p.approved_at AT TIME ZONE $14)::date, 0) <= $15::int THEN $16 ELSE $17 END, 'lineCount', l.line_count, 'openLineCount', p.open_line_count, 'outstandingQuantity', l.outstanding) ORDER BY p.approved_at, p.id) FROM (SELECT o.id, o.po_number, o.vendor_id, o.owner_id, o.created_at, o.approved_at, o.open_line_count FROM (SELECT o.approved_at, o.id FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.owner_id = $18::uuid ORDER BY o.approved_at, o.id LIMIT 20 OFFSET 1980) k JOIN purchase_orders o ON o.id = k.id) p JOIN vendors v ON v.id = p.vendor_id JOIN users u ON u.id = p.owner_id -- The page row's lines, by the order-lines key: never another order's. CROSS JOIN LATERAL ( SELECT count(*)::int AS line_count, sum(ol.quantity - ol.received_quantity)::int AS outstanding FROM order_lines ol WHERE ol.order_id = p.id) l), '[]'::json) AS items
+-- values: ["884e6537-36f8-1205-cc4b-0dadeb0e3de1","Asia/Kolkata","2027-03-14","Asia/Kolkata","2027-03-14","Asia/Kolkata",30,"DAYS_0_30","2027-03-14","Asia/Kolkata",60,"DAYS_31_60","2027-03-14","Asia/Kolkata",90,"DAYS_61_90","OVER_90","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Result
+  InitPlan 1
+    ->  Aggregate
+          ->  Index Only Scan using purchase_orders_outstanding_owner_idx on purchase_orders o
+                Index Cond: (owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+  InitPlan 2
+    ->  Aggregate
+          ->  Sort
+                Sort Key: o_1.approved_at, o_1.id
+                ->  Nested Loop
+                      ->  Nested Loop
+                            ->  Nested Loop
+                                  ->  Nested Loop
+                                        ->  Limit
+                                              ->  Index Only Scan using purchase_orders_outstanding_owner_idx on purchase_orders o_2
+                                                    Index Cond: (owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)
+                                        ->  Index Scan using purchase_orders_pkey on purchase_orders o_1
+                                              Index Cond: (id = o_2.id)
+                                  ->  Index Scan using vendors_pkey on vendors v
+                                        Index Cond: (id = o_1.vendor_id)
+                            ->  Index Scan using users_pkey on users u
+                                  Index Cond: (id = o_1.owner_id)
+                      ->  Aggregate
+                            ->  Bitmap Heap Scan on order_lines ol
+                                  Recheck Cond: (order_id = o_1.id)
+                                  ->  Bitmap Index Scan on order_lines_order_position_key
+                                        Index Cond: (order_id = o_1.id)

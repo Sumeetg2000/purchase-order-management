@@ -87,6 +87,8 @@ export default defineConfig(
       'reports/**',
       '.specify/**',
       '.claude/**',
+      // Local, uncommitted helpers (the quickstart driver; .git/info/exclude).
+      '.local/**',
       'backend/src/generated/**',
       // Generated from the committed OpenAPI document by openapi-typescript.
       'frontend/src/api/schema.d.ts',

@@ -1,0 +1,6 @@
+-- SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt", created_at AS "createdAt", version FROM users WHERE roles = '{}' ORDER BY name, id LIMIT $1 OFFSET $2
+-- values: [20,0]
+
+Limit
+  ->  Index Scan using users_name_id_idx on users
+        Filter: (roles = '{}'::text[])

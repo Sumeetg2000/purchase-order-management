@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM users WHERE roles = '{}'
+-- values: []
+
+Aggregate
+  ->  Seq Scan on users
+        Filter: (roles = '{}'::text[])

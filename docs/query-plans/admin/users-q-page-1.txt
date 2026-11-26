@@ -1,0 +1,6 @@
+-- SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt", created_at AS "createdAt", version FROM users WHERE (lower(name) LIKE $1 OR lower(email) LIKE $2) ORDER BY name, id LIMIT $3 OFFSET $4
+-- values: ["wil%","wil%",20,0]
+
+Limit
+  ->  Index Scan using users_name_id_idx on users
+        Filter: ((lower(name) ~~ 'wil%'::text) OR (lower(email) ~~ 'wil%'::text))

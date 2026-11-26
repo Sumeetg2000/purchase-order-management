@@ -100,7 +100,7 @@ export interface PlanQuery {
  * The SQL a list function sends, captured instead of run: its page query, then its count
  * (the repositories return both, RowsAndTotal).
  */
-function captured(run: (db: AppPrismaClient) => Promise<unknown>): {
+export function captured(run: (db: AppPrismaClient) => Promise<unknown>): {
   page: Prisma.Sql;
   count: Prisma.Sql;
 } {

@@ -1,0 +1,14 @@
+-- SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt", created_at AS "createdAt", version FROM users WHERE (lower(name) LIKE $1 OR lower(email) LIKE $2) ORDER BY name, id LIMIT $3 OFFSET $4
+-- values: ["wil%","wil%",20,1980]
+
+Limit
+  ->  Sort
+        Sort Key: name, id
+        ->  Bitmap Heap Scan on users
+              Recheck Cond: ((lower(name) ~~ 'wil%'::text) OR (lower(email) ~~ 'wil%'::text))
+              Filter: ((lower(name) ~~ 'wil%'::text) OR (lower(email) ~~ 'wil%'::text))
+              ->  BitmapOr
+                    ->  Bitmap Index Scan on users_lower_name_prefix_idx
+                          Index Cond: ((lower(name) ~>=~ 'wil'::text) AND (lower(name) ~<~ 'wim'::text))
+                    ->  Bitmap Index Scan on users_lower_email_prefix_idx
+                          Index Cond: ((lower(email) ~>=~ 'wil'::text) AND (lower(email) ~<~ 'wim'::text))

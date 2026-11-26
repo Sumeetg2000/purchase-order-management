@@ -18,6 +18,7 @@ export function Shell() {
   const logOutHere = useLogOutHere();
   const canListVendors = useCan('listVendors');
   const canListOrders = useCan('listOrders');
+  const canListOutstanding = useCan('listOutstandingOrders');
   const canListUsers = useCan('listUsers');
   const canApprove = useCan('listApprovalQueue');
 
@@ -40,6 +41,7 @@ export function Shell() {
           </NavLink>
           {canListVendors && <NavLink to="/vendors">Vendors</NavLink>}
           {canListOrders && <NavLink to="/orders">Orders</NavLink>}
+          {canListOutstanding && <NavLink to="/reports/outstanding">Outstanding</NavLink>}
           {canApprove && <ApprovalsLink />}
           {canListUsers && <UsersLink />}
           <NavLink to="/profile">Profile</NavLink>

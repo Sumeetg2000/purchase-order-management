@@ -14,7 +14,8 @@ build/
 # The end-to-end TLS edge's throwaway certificate and key (scripts/e2e-tls-cert.sh)
 .e2e-tls/
 coverage/
-reports/
+# The root output directory only: frontend/src/pages/reports is source.
+/reports/
 playwright-report/
 test-results/
 

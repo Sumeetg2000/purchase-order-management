@@ -1,0 +1,8 @@
+-- SELECT count(*) FROM (SELECT o.vendor_id, count(*)::int AS order_count, count(*) FILTER (WHERE o.approved_at >= (($1::date - $2::int)::timestamp AT TIME ZONE $3))::int AS "DAYS_0_30", count(*) FILTER (WHERE o.approved_at >= (($4::date - $5::int)::timestamp AT TIME ZONE $6) AND o.approved_at < (($7::date - $8::int)::timestamp AT TIME ZONE $9))::int AS "DAYS_31_60", count(*) FILTER (WHERE o.approved_at >= (($10::date - $11::int)::timestamp AT TIME ZONE $12) AND o.approved_at < (($13::date - $14::int)::timestamp AT TIME ZONE $15))::int AS "DAYS_61_90", count(*) FILTER (WHERE o.approved_at < (($16::date - $17::int)::timestamp AT TIME ZONE $18))::int AS "OVER_90", min(o.approved_at) AS oldest FROM purchase_orders o WHERE o.status = 'APPROVED' AND o.open_line_count > 0 AND o.owner_id = $19::uuid GROUP BY o.vendor_id) g
+-- values: ["2027-03-14",30,"Asia/Kolkata","2027-03-14",60,"Asia/Kolkata","2027-03-14",30,"Asia/Kolkata","2027-03-14",90,"Asia/Kolkata","2027-03-14",60,"Asia/Kolkata","2027-03-14",90,"Asia/Kolkata","884e6537-36f8-1205-cc4b-0dadeb0e3de1"]
+
+Aggregate
+  ->  HashAggregate
+        Group Key: o.vendor_id
+        ->  Index Only Scan using purchase_orders_outstanding_owner_idx on purchase_orders o
+              Index Cond: (owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)

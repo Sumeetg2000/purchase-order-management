@@ -12,8 +12,5 @@ Result
                 Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (status = 'PENDING_APPROVAL'::text))
   InitPlan 3
     ->  Aggregate
-          ->  Bitmap Heap Scan on purchase_orders purchase_orders_2
-                Recheck Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (status = 'APPROVED'::text))
-                Filter: (open_line_count > 0)
-                ->  Bitmap Index Scan on purchase_orders_owner_status_created_idx
-                      Index Cond: ((owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid) AND (status = 'APPROVED'::text))
+          ->  Index Only Scan using purchase_orders_outstanding_owner_idx on purchase_orders purchase_orders_2
+                Index Cond: (owner_id = '884e6537-36f8-1205-cc4b-0dadeb0e3de1'::uuid)

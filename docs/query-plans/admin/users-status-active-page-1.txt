@@ -1,0 +1,6 @@
+-- SELECT id, name, email, roles, status, last_login_at AS "lastLoginAt", created_at AS "createdAt", version FROM users WHERE status = $1 ORDER BY name, id LIMIT $2 OFFSET $3
+-- values: ["ACTIVE",20,0]
+
+Limit
+  ->  Index Scan using users_status_name_id_idx on users
+        Index Cond: (status = 'ACTIVE'::text)

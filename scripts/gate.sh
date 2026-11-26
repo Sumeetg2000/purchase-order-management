@@ -17,7 +17,7 @@ mkdir -p "$LOG_DIR"
 GITLEAKS_IMAGE=ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
 
 # Lines worth printing from a passing check: test totals and the tools' own verdicts.
-SUMMARY='Test Files |Tests  |^# (pass|fail) |^ℹ (pass|fail) |check-requirement-ids|passed \(|no leaks found|leaks found'
+SUMMARY='check-walkthrough|Test Files |Tests  |^# (pass|fail) |^ℹ (pass|fail) |check-requirement-ids|passed \(|no leaks found|leaks found'
 
 run() {
   local name=$1
@@ -42,7 +42,9 @@ gitleaks() {
 
 run ids npm run -s check:ids
 run lint npm run -s lint
+run format npm run -s format:check
 run typecheck npm run -s typecheck
+run walkthrough npm run -s check:walkthrough
 run test npm test
 if [[ "${GATE_SKIP_E2E:-0}" != 1 ]]; then
   run e2e npm run e2e:local

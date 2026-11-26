@@ -49,7 +49,9 @@ describe('[NFR-OPS-02] the local gate stops at the first failing check', () => {
     assert.deepEqual(result.calls, [
       'npm run -s check:ids',
       'npm run -s lint',
+      'npm run -s format:check',
       'npm run -s typecheck',
+      'npm run -s check:walkthrough',
       'npm test',
       'npm run e2e:local',
       'git fetch -q origin main',

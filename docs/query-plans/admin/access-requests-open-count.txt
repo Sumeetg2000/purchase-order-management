@@ -1,0 +1,5 @@
+-- SELECT count(*) FROM access_requests r WHERE r.status = $1
+-- values: ["OPEN"]
+
+Aggregate
+  ->  Index Only Scan using access_requests_one_open_idx on access_requests r

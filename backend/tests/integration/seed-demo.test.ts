@@ -8,6 +8,8 @@ import {
   seedDemoUsers,
   seedDemoVendors,
 } from '../../src/migrate/seed-demo.js';
+import { systemClock } from '../../src/lib/clock.js';
+import { createReportsService } from '../../src/reports/service.js';
 import { reconciliationViolations } from '../support/setup.js';
 import { accountsHarness } from '../support/accounts.js';
 import { testLogger } from '../support/log-capture.js';
@@ -373,6 +375,51 @@ describe('[FR-RCV-01] demo receipts', () => {
     await seedOrders();
     expect(await progress()).toEqual(seeded);
     expect(await reconciliationViolations(h.db)).toEqual([]);
+  });
+});
+
+describe('[FR-RPT-01] demo data in the outstanding report', () => {
+  it("[FR-RPT-01] each demo Buyer's partly received approved order is outstanding; the fully received and cancelled ones are not", async () => {
+    const { h, seed, seedVendors, seedOrders } = await setup();
+    await seed();
+    await seedVendors();
+    await seedOrders();
+    const prisma = createPrismaClient({
+      url: h.db.url('po_app'),
+      poolSize: 2,
+      connectionTimeoutMs: 2_000,
+    });
+    clients.push(prisma);
+    const reports = createReportsService({ prisma, clock: systemClock });
+    const page = await reports.listOutstandingOrders(
+      {
+        userId: '00000000-0000-7000-8000-000000000001',
+        sessionId: '00000000-0000-7000-8000-000000000002',
+        name: 'Ada Admin',
+        email: 'ada@example.local',
+        roles: ['ADMIN'],
+      },
+      { page: 1, pageSize: 50 },
+    );
+    expect(
+      page.items
+        .map((o) => ({
+          owner: o.owner.name,
+          openLineCount: o.openLineCount,
+          outstandingQuantity: o.outstandingQuantity,
+          ageBucket: o.ageBucket,
+        }))
+        .sort((a, b) => a.owner.localeCompare(b.owner)),
+    ).toEqual(
+      DEMO_USERS.filter((u) => u.roles.includes('BUYER'))
+        .map((u) => ({
+          owner: u.name,
+          openLineCount: 1,
+          outstandingQuantity: 1,
+          ageBucket: 'DAYS_0_30',
+        }))
+        .sort((a, b) => a.owner.localeCompare(b.owner)),
+    );
   });
 });
 
