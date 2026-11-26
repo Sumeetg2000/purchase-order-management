@@ -137,7 +137,7 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
 ## Phase 5: User Story 3 — Each caller sees only what they may read (P1)
 
-- [ ] T013 [US3] Authorization matrix rows for both reads × callers, seen failing on any
+- [X] T013 [US3] Authorization matrix rows for both reads × callers, seen failing on any
   cell not yet right: Buyer sees and counts only their own; another Buyer theirs; Approver,
   Admin and Buyer+Approver all; no role `403 NO_ROLE_ASSIGNED`; anonymous `401`;
   mutation-check the scope (make a Buyer see all; the cells fail) and record it in the
