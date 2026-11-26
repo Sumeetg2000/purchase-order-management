@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM users WHERE status = $1
+-- values: ["DEACTIVATED"]
+
+Aggregate
+  ->  Index Only Scan using users_status_name_id_idx on users
+        Index Cond: (status = 'DEACTIVATED'::text)

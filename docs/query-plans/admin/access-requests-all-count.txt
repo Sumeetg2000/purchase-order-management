@@ -1,0 +1,5 @@
+-- SELECT count(*) FROM access_requests r WHERE true
+-- values: []
+
+Aggregate
+  ->  Seq Scan on access_requests r

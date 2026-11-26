@@ -1,0 +1,6 @@
+-- SELECT count(*) FROM access_requests r WHERE r.status = $1
+-- values: ["DISMISSED"]
+
+Aggregate
+  ->  Index Only Scan using access_requests_status_updated_idx on access_requests r
+        Index Cond: (status = 'DISMISSED'::text)

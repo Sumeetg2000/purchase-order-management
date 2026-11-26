@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM users WHERE status = $1
+-- values: ["ACTIVE"]
+
+Aggregate
+  ->  Seq Scan on users
+        Filter: (status = 'ACTIVE'::text)

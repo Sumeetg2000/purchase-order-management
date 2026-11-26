@@ -119,4 +119,5 @@ ADR-0013. Slice 0 (`specs/001-foundation`) is the first to mark rows `Spec`.
 
 Withdrawn 2026-11-03 (POC scope, owner decision): `NFR-PRIV-02`, the 90-day phone purge.
 No phone is stored (ADR-0016, ADR-0020). The admin lists' committed query plans
-(`FR-ADM-01`, `FR-ADM-06`) move to slice 7 with the other load work.
+(`FR-ADM-01`, `FR-ADM-06`) moved to slice 7, which committed them at 10,000 users
+(`docs/query-plans/admin/`, scans accepted in ADR-0012; ADR-0021 closed 2026-11-26).

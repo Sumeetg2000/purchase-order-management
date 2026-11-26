@@ -172,18 +172,18 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
   snapshot), behaviour unchanged: the existing list tests stay green; a new test pins the
   order, filters and total — `backend/src/access-requests/repository.ts`,
   `backend/tests/integration/access-requests*.test.ts` — FR-017, R9.
-- [ ] T018 [US5] 10,000-user fixture (every status and role set, realistic name and email
+- [X] T018 [US5] 10,000-user fixture (every status and role set, realistic name and email
   prefixes, about 1,500 open and 4,000 closed access requests) and plan test, seen
   failing: user list page 1 and 100 and count, unfiltered and by role, status and prefix;
   access requests page 1 and count, unfiltered and by status; no Seq Scan, no Sort over
   the page, also under a generic plan — `backend/tests/plans/users-fixture.ts`,
   `backend/tests/plans/users.plan.test.ts` — FR-017, SC-006, R9.
-- [ ] T019 [US5] Plans writer and CI: `backend/scripts/plans-users.ts`, `plans:users`
+- [X] T019 [US5] Plans writer and CI: `backend/scripts/plans-users.ts`, `plans:users`
   scripts (backend and root), the `plans.yml` step and drift check; plans committed under
   `docs/query-plans/admin/` — FR-017.
-- [ ] T020 [US5] Timings: first page of each list, 50 timed after 3 warm-up, p95 ≤ 200 ms
+- [X] T020 [US5] Timings: first page of each list, 50 timed after 3 warm-up, p95 ≤ 200 ms
   — `backend/tests/plans/users.timing.test.ts` — SC-006.
-- [ ] T021 [US5] Close ADR-0021 (status Closed, the commit named), drop it from the
+- [X] T021 [US5] Close ADR-0021 (status Closed, the commit named), drop it from the
   README's open deviations; traceability note for the admin lists' plans —
   `docs/adr/0021-*.md`, `docs/adr/README.md`, `docs/traceability.md` — FR-017.
 

@@ -15,6 +15,8 @@
     "preplans:vendors": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "plans:orders": "tsx scripts/plans-orders.ts",
     "preplans:orders": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
+    "plans:users": "tsx scripts/plans-users.ts",
+    "preplans:users": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json",
     "generate": "prisma generate",
     "migrate": "node dist/migrate/run.js",
     "pretest": "prisma generate && tsc -b ../packages/contracts/tsconfig.build.json"

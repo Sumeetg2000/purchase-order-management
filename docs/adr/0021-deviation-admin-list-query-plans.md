@@ -1,6 +1,7 @@
 # ADR-0021: Deviation: admin-list query plans deferred to slice 7
 
-- **Status:** Accepted (deviation) · 2026-11-03 (POC scope, owner decision)
+- **Status:** Closed · 2026-11-26 (slice 7: plans committed, scans accepted in ADR-0012)
+  · opened 2026-11-03 as Accepted (deviation) (POC scope, owner decision)
 - **Brief:** §6 ("filter and paginate without loading everything")
 - **Principles:** VII
 
@@ -34,6 +35,13 @@ A 10,000-user plan fixture; the access-request list rewritten as one raw stateme
 both lists with each filter, committed under `docs/query-plans/admin/`, with a test that
 fails on a Seq Scan or an over-page Sort; first pages timed at p95 ≤ 200 ms. This ADR is
 marked Closed in the commit that adds them.
+
+## Closed (2026-11-26)
+Slice 7 committed the page, page 100 and `COUNT` plans for both lists at 10,000
+users (`docs/query-plans/admin/`, `npm run plans:users`, drift-checked in CI), with a
+test that fails on any Seq Scan or over-page Sort not accepted by the owner. The
+scans that remain were timed (every first page and count p95 at most 7.5 ms, target
+200 ms) and accepted as plan exceptions in ADR-0012 (owner decision, 2026-11-26).
 
 ## Revisit condition
 Closed when slice 7 commits the page and `COUNT` plans for both lists at the ADR-0012

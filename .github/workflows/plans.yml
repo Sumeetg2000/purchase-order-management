@@ -25,6 +25,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npm run test:plans
       - run: npm run plans:vendors
+      - run: npm run plans:users
       - run: npm run plans:orders
       - name: Plan drift check
         run: |
@@ -32,7 +33,7 @@ jobs:
           if [[ -n "$drift" ]]; then
             echo "$drift"
             git diff -- docs/query-plans
-            echo "::error::The query plans differ from the committed ones. Run npm run plans:vendors and npm run plans:orders, review the change and commit it."
+            echo "::error::The query plans differ from the committed ones. Run npm run plans:vendors, plans:orders and plans:users, review the change and commit it."
             exit 1
           fi
       - name: Upload test reports

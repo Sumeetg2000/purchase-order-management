@@ -1,0 +1,6 @@
+-- SELECT count(*) AS total FROM users WHERE $1 = ANY (roles)
+-- values: ["BUYER"]
+
+Aggregate
+  ->  Seq Scan on users
+        Filter: ('BUYER'::text = ANY (roles))

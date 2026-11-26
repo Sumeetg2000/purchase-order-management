@@ -68,6 +68,21 @@
   may sort its vendor groups (bounded by the vendor count), since it must aggregate before
   ordering vendors by oldest approval (ADR-0015); it may not scan orders, lines or
   receipts.
+- **Admin list plan exceptions** (*amended 2026-11-26, owner decision, closing ADR-0021*):
+  at 10,000 users these plans scan more than their page, and are accepted as committed
+  (`docs/query-plans/admin/`, named in `PLAN_EXCEPTIONS`); any other admin-list scan
+  fails the plan test. p95 of each, 50 timed runs after 3 warm-up, target 200 ms:
+  - users with no role, pages 1 and 100: filtered out of name order (no index on
+    `roles`); page 1 0.5 ms, count 1.3 ms
+  - users by name-or-email prefix, pages 1 and 100: filtered out of name order (the `OR`
+    defeats both prefix indexes); page 1 7.5 ms, count 2.5 ms
+  - users-by-role count: 3.4 ms; active-users count (about 90% of users, a scan beats
+    the index): 0.8 ms
+  - open and dismissed access requests, page 100: past or at the end of 1,500 and 2,000
+    requests, so nothing to stop at (page 100 has no target)
+
+  Every other admin list first page and count is at most 1.3 ms. Revisit if an admin list
+  grows past 10,000 rows or a first page passes 50 ms.
 - Page 100 (offset about 5,000) is measured and recorded with no target.
 - **Frontend targets** (Playwright, 4× CPU throttling, production build):
   - 500-line editor: keystroke in a cell → next paint p95 ≤ 50 ms; add or remove a line
