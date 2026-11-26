@@ -15,8 +15,9 @@ axe clean. No dialog (the report changes nothing).
 
 - Heading "Outstanding orders"; under it "Ages as of {d MMMM yyyy} (India time)" from
   `asOf`. A Buyer-only caller sees "Your orders" in the subheading.
-- Filters in the URL (`useListParams`): **Vendor** (the vendor combobox, inactive vendors
-  included and marked), **Age** (select: All ages, 0–30 days, 31–60 days, 61–90 days,
+- Filters in the URL (`useListParams`): **Vendor** (as the order list does it: a row's vendor
+  name, or a By vendor row, links to the report filtered to that vendor, with "Show every
+  vendor" to clear it), **Age** (select: All ages, 0–30 days, 31–60 days, 61–90 days,
   Over 90 days); Clear filters. A link with an invalid value shows the list's "This link
   has a filter we don't recognise" state, as the order list does.
 - Table "Outstanding orders": PO number (link to the order), Vendor (name, "inactive" if

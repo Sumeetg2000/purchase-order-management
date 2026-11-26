@@ -100,14 +100,14 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 - [X] T007 [US1] Query count, seen failing until T006: one statement per report request,
   whatever the page size or line counts — `backend/tests/integration/reports-query-count.test.ts`
   — FR-011, NFR-PERF-01.
-- [ ] T008 [P] [US1] Web component tests, seen failing: Orders view heading and as-of
+- [X] T008 [P] [US1] Web component tests, seen failing: Orders view heading and as-of
   line; filters in the URL (vendor, age) and the bad-link state; table columns; empty
   states; pagination; **Show lines** fetches `GET /orders/{id}` with its own loading and
   error state and shows each line's ordered, received and outstanding; nav item for
   Buyer, Approver, Admin, not for no role; axe —
   `frontend/tests/outstanding-report.test.tsx` — FR-004, FR-010, SC-008, ui.md,
   FR-RPT-01.
-- [ ] T009 [US1] Orders view, route (lazy, `RequireRole operation="listOutstandingOrders"`)
+- [X] T009 [US1] Orders view, route (lazy, `RequireRole operation="listOutstandingOrders"`)
   and nav item — `frontend/src/pages/reports/OutstandingReport.tsx`,
   `frontend/src/app/router.tsx`, `frontend/src/app/Shell.tsx` — FR-010.
 
