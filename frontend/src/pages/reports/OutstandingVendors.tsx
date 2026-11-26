@@ -1,4 +1,4 @@
-import { AGE_BUCKETS } from '@po/contracts';
+import { AGE_BUCKETS, ROLE } from '@po/contracts';
 import { Link } from 'react-router';
 import { useCurrentUser } from '../../auth/current-user';
 import { Pager } from '../../components/Pager';
@@ -20,8 +20,10 @@ const styles = classes(css, 'header', 'lines', 'number', 'hint');
  */
 export function OutstandingVendors() {
   const { params, setPage } = useListParams({});
-  const roles = useCurrentUser().data?.roles ?? [];
-  const ownOnly = !roles.includes('APPROVER') && !roles.includes('ADMIN');
+  // Only a caller who is just a Buyer reads their own orders; said once the user is known.
+  const user = useCurrentUser().data;
+  const ownOnly =
+    user != null && !user.roles.includes(ROLE.APPROVER) && !user.roles.includes(ROLE.ADMIN);
   const states = useQueryStates(useOutstandingVendors({ page: params.page }), {
     loadingLabel: 'Loading outstanding orders by vendor',
     isEmpty: (page) => page.items.length === 0,

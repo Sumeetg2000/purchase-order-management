@@ -1,15 +1,22 @@
-import type { AgeBucket } from '@po/contracts';
+import { AGE_BUCKET_UPPER_DAYS, AGE_BUCKETS, type AgeBucket } from '@po/contracts';
 import { formatDate } from '../../format/date';
 
 // The outstanding report's words, in one place (specs/008-outstanding-report/contracts/
-// ui.md). A Record over AgeBucket, so a new band fails the type check until it is named.
+// ui.md). The band labels are built from AGE_BUCKET_UPPER_DAYS, so they always say the
+// bounds the API counts with.
 
-export const AGE_BUCKET_LABELS: Record<AgeBucket, string> = {
-  DAYS_0_30: '0–30 days',
-  DAYS_31_60: '31–60 days',
-  DAYS_61_90: '61–90 days',
-  OVER_90: 'Over 90 days',
-};
+/** "0–30 days", "31–60 days", "61–90 days", "Over 90 days". */
+export const AGE_BUCKET_LABELS = Object.fromEntries(
+  AGE_BUCKETS.map((bucket, i) => {
+    const upper = AGE_BUCKET_UPPER_DAYS[i];
+    const lower = i === 0 ? 0 : (AGE_BUCKET_UPPER_DAYS[i - 1] ?? 0) + 1;
+    const last = AGE_BUCKET_UPPER_DAYS[AGE_BUCKET_UPPER_DAYS.length - 1] ?? 0;
+    return [
+      bucket,
+      upper === undefined ? `Over ${String(last)} days` : `${String(lower)}–${String(upper)} days`,
+    ];
+  }),
+) as Record<AgeBucket, string>;
 
 /** An order's age in whole India days: "today", "1 day", "{n} days". */
 export function ageText(days: number): string {

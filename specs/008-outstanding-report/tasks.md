@@ -257,7 +257,7 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 - [X] T034 Traceability: FR-RPT-01, FR-RPT-02, FR-RPT-03 (report half), NFR-PERF-01,
   NFR-PERF-02, NFR-PERF-04, FR-OWN-01 (report rows), the §7.1–7.3 walkthrough row, the
   admin lists' plans; `npm run check:traceability` green — `docs/traceability.md`.
-- [ ] T035 Quickstart run with the local driver (`.local/quickstart/`, extended for this
+- [X] T035 Quickstart run with the local driver (`.local/quickstart/`, extended for this
   slice) and results; slice-end `/code-review`, `/security-review`, constitution pass,
   open-deviation re-check (none left); fix findings; gate green —
   `specs/008-outstanding-report/quickstart-results.md`.

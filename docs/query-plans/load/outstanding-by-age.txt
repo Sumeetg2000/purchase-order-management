@@ -1,5 +1,7 @@
 -- The outstanding report, over 90 days, as the Admin sees it, on the load test's data
 -- (10,000 orders, 200 vendors; as of 2026-11-26). Page with its count, then the count.
+-- Values are inlined as literals (a custom plan); the generic plan, as the API's
+-- prepared statement may use it, is checked at 100,000 orders by orders.plan.test.ts.
 
 Result (actual time=2.111..2.113 rows=1 loops=1)
   Buffers: shared hit=3220

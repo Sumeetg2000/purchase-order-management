@@ -1,4 +1,10 @@
-import { AGE_BUCKETS, lineNumber, outstandingReportQuery, type AgeBucket } from '@po/contracts';
+import {
+  AGE_BUCKETS,
+  lineNumber,
+  outstandingReportQuery,
+  ROLE,
+  type AgeBucket,
+} from '@po/contracts';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useCurrentUser } from '../../auth/current-user';
@@ -40,8 +46,10 @@ export function OutstandingReport() {
   );
   const ageBucket = badLink ? undefined : pickOne(params.ageBucket ?? null, AGE_BUCKETS);
   const filtered = params.vendorId !== undefined || params.ageBucket !== undefined;
-  const roles = useCurrentUser().data?.roles ?? [];
-  const ownOnly = !roles.includes('APPROVER') && !roles.includes('ADMIN');
+  // Only a caller who is just a Buyer reads their own orders; said once the user is known.
+  const user = useCurrentUser().data;
+  const ownOnly =
+    user != null && !user.roles.includes(ROLE.APPROVER) && !user.roles.includes(ROLE.ADMIN);
   const states = useQueryStates(
     useOutstandingReport(
       { vendorId: params.vendorId, ageBucket, page: params.page },

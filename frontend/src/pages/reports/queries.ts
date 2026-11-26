@@ -5,10 +5,11 @@ import { dataOrThrow } from '../../api/client';
 import { definedParams } from '../../api/query-params';
 import { ORDERS_KEY } from '../orders/queries';
 
-// The outstanding report's reads (ADR-0018). Keyed under the orders' key, so a receipt,
-// a cancel or an approval (which invalidate ORDERS_KEY) refreshes the report too.
+// The outstanding report's reads (ADR-0018). Keyed under the order lists' key, which every
+// order action refreshes (a save, a receipt, an approval, a cancel), so the report never
+// keeps an order that is now fully received or cancelled.
 
-export const OUTSTANDING_KEY = [...ORDERS_KEY, 'outstanding'] as const;
+export const OUTSTANDING_KEY = [...ORDERS_KEY, 'list', 'outstanding'] as const;
 
 export interface OutstandingParams {
   vendorId?: string | undefined;

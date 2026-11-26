@@ -8,6 +8,8 @@ package-lock.json
 *.md
 .specify/
 .claude/
+# Local, uncommitted helpers (the quickstart driver; .git/info/exclude).
+.local/
 specs/
 docs/
 # Generated and committed; CI compares a fresh generation byte for byte.

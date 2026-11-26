@@ -101,7 +101,9 @@ export function outstandingReportSql(
       JOIN purchase_orders o ON o.id = k.id`;
   const count = Prisma.sql`SELECT count(*) FROM purchase_orders o WHERE ${where}`;
   const approvedOn = Prisma.sql`(p.approved_at AT TIME ZONE ${RECEIPT_TIME_ZONE})::date`;
-  const age = Prisma.sql`(${asOf}::date - ${approvedOn})`;
+  // Never below 0: approved_at is the database's clock and asOf the API's, and near India
+  // midnight the database may already be on the next day.
+  const age = Prisma.sql`greatest(${asOf}::date - ${approvedOn}, 0)`;
   const statement = Prisma.sql`
     SELECT (${count})::int AS total,
            coalesce((

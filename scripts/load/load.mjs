@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { RECEIPT_TIME_ZONE, ROLE } from '@po/contracts';
 import { backdate, LOAD_PROJECT, queryLoadDb } from './backdate.mjs';
 import { checkIndexUsage, INDEX_USAGE_SQL } from './indexes.mjs';
 import { buildLoadPlan, LOAD_SIZES } from './plan.mjs';
@@ -141,7 +142,7 @@ const password = () => randomBytes(18).toString('base64url');
 const etag = (version) => `"${String(version)}"`;
 const indiaToday = () =>
   new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
+    timeZone: RECEIPT_TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -290,7 +291,7 @@ async function main() {
       isBuyer
         ? `Load Buyer ${String(i + 1)}`
         : `Load Approver ${String(i - LOAD_SIZES.buyers + 1)}`,
-      [isBuyer ? 'BUYER' : 'APPROVER'],
+      [isBuyer ? ROLE.BUYER : ROLE.APPROVER],
     );
     (isBuyer ? buyers : approvers).push(who);
   }
@@ -409,9 +410,11 @@ async function main() {
   for (const [client, path] of reads) await client.ok('GET', path);
 
   log('outstanding-by-age plan');
+  // The as-of date the API counts with now (a run may cross India midnight after `today`).
+  const { asOf } = await adminClient.ok('GET', '/reports/outstanding?pageSize=1');
   const explain = execFileSync(
     'npx',
-    ['tsx', 'backend/scripts/outstanding-sql.ts', '--as-of', today, '--bucket', 'OVER_90'],
+    ['tsx', 'backend/scripts/outstanding-sql.ts', '--as-of', asOf, '--bucket', 'OVER_90'],
     {
       cwd: ROOT,
       encoding: 'utf8',
@@ -422,7 +425,9 @@ async function main() {
   writeFileSync(
     `${ROOT}docs/query-plans/load/outstanding-by-age.txt`,
     `-- The outstanding report, over 90 days, as the Admin sees it, on the load test's data\n` +
-      `-- (10,000 orders, 200 vendors; as of ${today}). Page with its count, then the count.\n\n${plan90}`,
+      `-- (10,000 orders, 200 vendors; as of ${asOf}). Page with its count, then the count.\n` +
+      `-- Values are inlined as literals (a custom plan); the generic plan, as the API's\n` +
+      `-- prepared statement may use it, is checked at 100,000 orders by orders.plan.test.ts.\n\n${plan90}`,
   );
 
   log('index usage and reconciliation');

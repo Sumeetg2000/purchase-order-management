@@ -119,6 +119,17 @@ describe('[FR-RPT-01] the outstanding orders report', () => {
     expect(byId.get(lateYesterday.id)).toMatchObject({ ageDays: 1, ageBucket: 'DAYS_0_30' });
   });
 
+  it('[FR-RPT-01] an approval stamped after the as-of date (the database clock ahead) reads as age 0, never negative', async () => {
+    const h = await reportsHarness();
+    const admin = await adminOf(h);
+    const order = await h.approvedOn(h.vendorId);
+    // Tomorrow 00:00:05 India time: the database's clock ran past midnight, the API's not.
+    await h.plantApproval(order.id, new Date(indiaMidnight(indiaDaysAgo(-1)).getTime() + 5_000));
+    const row = (await page(h, admin)).items[0];
+    expect(row).toMatchObject({ id: order.id, ageDays: 0, ageBucket: 'DAYS_0_30' });
+    expect(ids(await page(h, admin, { ageBucket: 'DAYS_0_30' }))).toEqual([order.id]);
+  });
+
   it('[FR-RPT-01] filters by age band, by vendor, and by both', async () => {
     const h = await reportsHarness();
     const admin = await adminOf(h);
