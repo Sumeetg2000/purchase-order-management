@@ -31,6 +31,8 @@ jobs:
       - run: npm run lint
       - name: Requirement-ID ban
         run: npm run check:ids
+      - name: Walkthrough paths (ADR-0013)
+        run: npm run check:walkthrough
       - run: npm run format:check
       - run: npm run typecheck
       - name: Script tests (compose file, check scripts)

@@ -1,0 +1,126 @@
+[
+  {
+    "index": "access_requests_pkey",
+    "reason": "Primary key: backs uniqueness; this run sends no access requests, so none is read by id."
+  },
+  {
+    "index": "access_requests_status_updated_idx",
+    "reason": "Admin access-request list by status: used by its committed plans at 10,000 users; this run's table is empty."
+  },
+  {
+    "index": "access_requests_updated_idx",
+    "reason": "Admin access-request list: used by its committed plans at 10,000 users; this run's table is empty."
+  },
+  {
+    "index": "access_requests_user_latest_idx",
+    "reason": "A no-role user's own latest request (GET /me/access-request): every user in this run is given a role first."
+  },
+  {
+    "index": "approval_rounds_policy_version_idx",
+    "reason": "Foreign key to approval_policies: serves policy deletes, which never happen (policies are versioned, ADR-0002)."
+  },
+  {
+    "index": "approval_steps_decided_by_idx",
+    "reason": "Foreign key to users: serves user deletes, which never happen (users are deactivated, ADR-0016)."
+  },
+  {
+    "index": "audit_entries_entity_idx",
+    "reason": "Vendor history and order timeline: used by their committed plans at 2M entries; at this run's size the planner reads the few entries another way."
+  },
+  {
+    "index": "audit_entries_occurred_at_id_idx",
+    "reason": "The 8-year audit retention purge (maintenance service, purge.ts), which does not run during a load test."
+  },
+  {
+    "index": "audit_entries_pkey",
+    "reason": "Primary key: backs uniqueness of append-only entries, which are never read by id."
+  },
+  {
+    "index": "goods_receipt_lines_line_idx",
+    "reason": "Foreign key to order_lines: serves line deletes, which only drafts allow, and drafts have no receipts."
+  },
+  {
+    "index": "goods_receipts_pkey",
+    "reason": "Primary key: backs uniqueness; one receipt is read by its id and order, which the planner serves with this key or the order's receipt index."
+  },
+  {
+    "index": "goods_receipts_recorded_by_idx",
+    "reason": "Foreign key to users: serves user deletes, which never happen (users are deactivated, ADR-0016)."
+  },
+  {
+    "index": "purchase_orders_cancelled_by_idx",
+    "reason": "Foreign key to users: serves user deletes, which never happen (users are deactivated, ADR-0016)."
+  },
+  {
+    "index": "purchase_orders_created_idx",
+    "reason": "Admin order list, newest first: used by its committed plans at 100,000 orders; at 10,000 the planner sorts instead."
+  },
+  {
+    "index": "purchase_orders_nondraft_created_idx",
+    "reason": "Approver order list: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "purchase_orders_nondraft_po_number_idx",
+    "reason": "PO-number prefix search for Approvers: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "purchase_orders_owner_po_number_idx",
+    "reason": "A Buyer's PO-number prefix search: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "purchase_orders_owner_vendor_created_idx",
+    "reason": "A Buyer's orders by vendor: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "purchase_orders_pending_po_number_idx",
+    "reason": "Approval queue by PO-number prefix: used by its committed plans at 100,000 orders; this run's queue is empty when read."
+  },
+  {
+    "index": "purchase_orders_pending_submitted_idx",
+    "reason": "Approval queue: used by its committed plans at 100,000 orders; every routed order in this run is decided before the queue is read."
+  },
+  {
+    "index": "purchase_orders_pending_vendor_submitted_idx",
+    "reason": "Approval queue by vendor: used by its committed plans at 100,000 orders; this run's queue is empty when read."
+  },
+  {
+    "index": "purchase_orders_status_created_idx",
+    "reason": "Order lists by status: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "purchase_orders_vendor_created_idx",
+    "reason": "Order lists by vendor: used by its committed plans at 100,000 orders; at 10,000 the planner chooses another path."
+  },
+  {
+    "index": "rate_limit_counters_window_end_idx",
+    "reason": "The expired rate-limit counter purge (maintenance service), which does not run during a load test."
+  },
+  {
+    "index": "refresh_tokens_pkey",
+    "reason": "Primary key: backs uniqueness; no session in this short run needed a refresh."
+  },
+  {
+    "index": "refresh_tokens_session_id_idx",
+    "reason": "Revoking a session's tokens and the session purge: neither happens during a load test."
+  },
+  {
+    "index": "refresh_tokens_token_hash_key",
+    "reason": "Unique token hash: backs reuse detection; no session in this short run needed a refresh."
+  },
+  {
+    "index": "sessions_ended_idx",
+    "reason": "The 90-day session purge (maintenance service, purge.ts), which does not run during a load test."
+  },
+  {
+    "index": "users_name_id_idx",
+    "reason": "Admin user list: used by its committed plans at 10,000 users; this run has 23 users, which the planner reads directly."
+  },
+  {
+    "index": "users_status_name_id_idx",
+    "reason": "Admin user list by status: used by its committed plans at 10,000 users; this run has 23 users, which the planner reads directly."
+  },
+  {
+    "index": "vendors_status_name_key_idx",
+    "reason": "Vendor list by status: used by its committed plans at 2,000 vendors; this run has 200, which the planner reads directly."
+  }
+]

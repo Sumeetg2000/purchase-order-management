@@ -1,0 +1,59 @@
+-- The outstanding report, over 90 days, as the Admin sees it, on the load test's data
+-- (10,000 orders, 200 vendors; as of 2026-11-26). Page with its count, then the count.
+
+Result (actual time=2.111..2.113 rows=1 loops=1)
+  Buffers: shared hit=3220
+  InitPlan 1
+    ->  Aggregate (actual time=1.595..1.596 rows=1 loops=1)
+          Buffers: shared hit=2979
+          ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o (actual time=0.029..1.483 rows=3042 loops=1)
+                Index Cond: (approved_at < '2026-08-27 18:30:00+00'::timestamp with time zone)
+                Heap Fetches: 3042
+                Buffers: shared hit=2979
+  InitPlan 2
+    ->  Aggregate (actual time=0.509..0.510 rows=1 loops=1)
+          Buffers: shared hit=241
+          ->  Sort (actual time=0.288..0.290 rows=20 loops=1)
+                Sort Key: o_1.approved_at, o_1.id
+                Sort Method: quicksort  Memory: 27kB
+                Buffers: shared hit=241
+                ->  Nested Loop (actual time=0.043..0.261 rows=20 loops=1)
+                      Buffers: shared hit=235
+                      ->  Nested Loop (actual time=0.032..0.142 rows=20 loops=1)
+                            Buffers: shared hit=175
+                            ->  Nested Loop (actual time=0.025..0.118 rows=20 loops=1)
+                                  Buffers: shared hit=135
+                                  ->  Nested Loop (actual time=0.019..0.088 rows=20 loops=1)
+                                        Buffers: shared hit=95
+                                        ->  Limit (actual time=0.011..0.018 rows=20 loops=1)
+                                              Buffers: shared hit=23
+                                              ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o_2 (actual time=0.010..0.015 rows=20 loops=1)
+                                                    Index Cond: (approved_at < '2026-08-27 18:30:00+00'::timestamp with time zone)
+                                                    Heap Fetches: 20
+                                                    Buffers: shared hit=23
+                                        ->  Index Scan using purchase_orders_pkey on purchase_orders o_1 (actual time=0.003..0.003 rows=1 loops=20)
+                                              Index Cond: (id = o_2.id)
+                                              Buffers: shared hit=66
+                                  ->  Index Scan using vendors_pkey on vendors v (actual time=0.001..0.001 rows=1 loops=20)
+                                        Index Cond: (id = o_1.vendor_id)
+                                        Buffers: shared hit=40
+                            ->  Index Scan using users_pkey on users u (actual time=0.001..0.001 rows=1 loops=20)
+                                  Index Cond: (id = o_1.owner_id)
+                                  Buffers: shared hit=40
+                      ->  Aggregate (actual time=0.006..0.006 rows=1 loops=20)
+                            Buffers: shared hit=60
+                            ->  Index Scan using order_lines_order_position_key on order_lines ol (actual time=0.005..0.005 rows=3 loops=20)
+                                  Index Cond: (order_id = o_1.id)
+                                  Buffers: shared hit=60
+Planning:
+  Buffers: shared hit=837 read=9
+Planning Time: 2.024 ms
+Execution Time: 2.201 ms
+Aggregate (actual time=1.683..1.683 rows=1 loops=1)
+  Buffers: shared hit=2979
+  ->  Index Only Scan using purchase_orders_outstanding_idx on purchase_orders o (actual time=0.019..1.500 rows=3042 loops=1)
+        Index Cond: (approved_at < '2026-08-27 18:30:00+00'::timestamp with time zone)
+        Heap Fetches: 3042
+        Buffers: shared hit=2979
+Planning Time: 0.208 ms
+Execution Time: 1.699 ms

@@ -144,3 +144,19 @@ export async function backdate({
   }
   log('backdate: reconciliation clean');
 }
+
+/**
+ * Runs read-only SQL as the superuser on the po-load stack's database, under the same
+ * guards as the shift (project name, the db container's label, the password from the env
+ * file, in the environment only): the load test's plan capture, index usage and
+ * reconciliation. Returns psql's unaligned, tuples-only output.
+ */
+export function queryLoadDb({ projectName, envFile, sql, docker = 'docker' }) {
+  if (projectName !== LOAD_PROJECT) {
+    throw new Error(
+      `load: COMPOSE_PROJECT_NAME is ${String(projectName)}, not ${LOAD_PROJECT}. Refusing.`,
+    );
+  }
+  const container = loadDbContainer(docker);
+  return psql(docker, container, superuserPassword(envFile), sql);
+}

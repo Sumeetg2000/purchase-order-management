@@ -206,39 +206,39 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
   output; runs reconciliation right after the shift and fails on any row —
   `scripts/load/backdate.mjs`, `scripts/tests/load-backdate.test.mjs` — R7 (owner
   guards, 2026-11-26).
-- [ ] T025 [US4] Stack and driver: `scripts/load/run.sh` (compose project `po-load`, own
+- [X] T025 [US4] Stack and driver: `scripts/load/run.sh` (compose project `po-load`, own
   ports, throwaway env from `scripts/ci-env.sh`, TLS edge, `trap` down -v and env file
   removal), `scripts/load/load.mjs` (accounts via CLI, signup, Mailpit and role
   assignment, per-address limits cleared; 200 vendors; 10,000 orders by 20 virtual users
   through the API; receipts, cancels and rejections; error counts by status; fails on any
   5xx or timeout); `npm run load` — FR-013, FR-016a, R7.
-- [ ] T026 [US4] Measurement and evidence: after the backdate, 50 timed after 3 warm-up for
+- [X] T026 [US4] Measurement and evidence: after the backdate, 50 timed after 3 warm-up for
   the R7 requests (p95 against 200/300 ms, recorded); every UI read exercised once (R8);
   the outstanding-by-age `EXPLAIN (ANALYZE, BUFFERS)` via
   `backend/scripts/outstanding-sql.ts` in the db container; the index check; a run record
   writer (test first for the record's shape) — `scripts/load/*.mjs`,
   `backend/scripts/outstanding-sql.ts`, `scripts/tests/load-record.test.mjs` — FR-014,
   FR-015, FR-016, R7, R8.
-- [ ] T027 [US4] The expected-unused list from the first run, each entry with its
+- [X] T027 [US4] The expected-unused list from the first run, each entry with its
   one-line reason (maintenance-only, delete-only foreign keys, uniqueness backing). **Any
   index that is neither used nor justifiable: stop and show the owner before dropping
   it** — `scripts/load/expected-unused-indexes.json` — FR-016, SC-005.
-- [ ] T028 [US4] One recorded run committed: `docs/perf/load-run.md` and
+- [X] T028 [US4] One recorded run committed: `docs/perf/load-run.md` and
   `docs/query-plans/load/outstanding-by-age.txt` — FR-014, FR-015, SC-002, SC-003,
   NFR-PERF-02, NFR-PERF-04.
-- [ ] T029 [US4] Nightly `load` job (`npm run load`, upload `reports/load/`), never on
+- [X] T029 [US4] Nightly `load` job (`npm run load`, upload `reports/load/`), never on
   pull requests — `.github/workflows/nightly.yml` — FR-013.
 
 ---
 
 ## Phase 9: User Story 6 — Walkthrough (P3)
 
-- [ ] T030 [US6] Walkthrough check, test first (`node --test`): every backticked
+- [X] T030 [US6] Walkthrough check, test first (`node --test`): every backticked
   repository path in the document must exist; a missing one fails with its line —
   `scripts/check-walkthrough.mjs`, `scripts/tests/check-walkthrough.test.mjs`,
   `package.json` (`check:walkthrough`), `scripts/gate.sh` (and its test), `ci.yml`
   (`static`) — FR-019, R11, ADR-0013.
-- [ ] T031 [US6] Rewrite `docs/walkthrough.md` for a new reader: purpose and users; an
+- [X] T031 [US6] Rewrite `docs/walkthrough.md` for a new reader: purpose and users; an
   order's life; where each guarantee lives; the three §7 answers and likely follow-ups,
   each naming files, tests and committed plans (the load plan for §7.3) — FR-018, SC-007,
   §7.1–7.3 row.
@@ -247,14 +247,14 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
 ## Phase 10: Polish
 
-- [ ] T032 E2E: the Admin opens the report, filters by vendor and age, expands a row's
+- [X] T032 E2E: the Admin opens the report, filters by vendor and age, expands a row's
   lines, opens By vendor and follows a vendor to the filtered report; a Buyer sees only
   their own; axe on both views — `frontend/e2e/report.spec.ts` — FR-010, SC-004, SC-008,
   NFR-FE-07.
-- [ ] T033 Demo data in the report: each demo Buyer's partly received approved order is
+- [X] T033 Demo data in the report: each demo Buyer's partly received approved order is
   outstanding, the fully received and cancelled ones are not —
   `backend/tests/integration/seed-demo.test.ts` — FR-001.
-- [ ] T034 Traceability: FR-RPT-01, FR-RPT-02, FR-RPT-03 (report half), NFR-PERF-01,
+- [X] T034 Traceability: FR-RPT-01, FR-RPT-02, FR-RPT-03 (report half), NFR-PERF-01,
   NFR-PERF-02, NFR-PERF-04, FR-OWN-01 (report rows), the §7.1–7.3 walkthrough row, the
   admin lists' plans; `npm run check:traceability` green — `docs/traceability.md`.
 - [ ] T035 Quickstart run with the local driver (`.local/quickstart/`, extended for this
