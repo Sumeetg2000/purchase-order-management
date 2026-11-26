@@ -56,7 +56,12 @@ import {
   recordedReceipt,
   recordReceiptBody,
 } from './schemas/receipts.js';
-import { outstandingReportPage, outstandingReportQuery } from './schemas/reports.js';
+import {
+  outstandingReportPage,
+  outstandingReportQuery,
+  outstandingVendorsPage,
+  outstandingVendorsQuery,
+} from './schemas/reports.js';
 
 /**
  * Who may call an operation (Principle III, deny by default; research R1):
@@ -803,5 +808,16 @@ export const OPERATIONS = {
     roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
     request: { query: outstandingReportQuery },
     responses: { 200: outstandingReportPage },
+  },
+  listOutstandingVendors: {
+    method: 'get',
+    path: '/reports/outstanding/vendors',
+    operationId: 'listOutstandingVendors',
+    summary:
+      'Per vendor with anything outstanding: its outstanding orders, the count per age band and the oldest approval, oldest first; scoped like the report.',
+    access: 'role',
+    roles: [ROLE.BUYER, ROLE.APPROVER, ROLE.ADMIN],
+    request: { query: outstandingVendorsQuery },
+    responses: { 200: outstandingVendorsPage },
   },
 } as const satisfies Record<string, OperationContract>;

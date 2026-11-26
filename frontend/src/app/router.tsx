@@ -102,6 +102,13 @@ export function buildRoutes({ includeDemo }: { includeDemo: boolean }): RouteObj
           ),
           errorElement: <RouteErrorBoundary />,
         },
+        {
+          path: 'vendors',
+          lazy: lazyPage(() =>
+            import('../pages/reports/OutstandingVendors').then((m) => m.OutstandingVendors),
+          ),
+          errorElement: <RouteErrorBoundary />,
+        },
       ],
     },
     // Orders: raised by Buyers, read by those ADR-0004 lets read them (slice 3).

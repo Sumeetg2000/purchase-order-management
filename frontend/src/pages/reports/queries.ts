@@ -26,3 +26,13 @@ export function useOutstandingReport(params: OutstandingParams, { enabled = true
     placeholderData: keepPreviousData,
   });
 }
+
+export function useOutstandingVendors(params: { page?: number | undefined }) {
+  const query = definedParams(params);
+  return useQuery({
+    queryKey: [...OUTSTANDING_KEY, 'vendors', query],
+    queryFn: async () =>
+      dataOrThrow(await api.GET('/reports/outstanding/vendors', { params: { query } })),
+    placeholderData: keepPreviousData,
+  });
+}

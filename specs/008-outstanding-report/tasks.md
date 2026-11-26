@@ -118,16 +118,16 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 **Goal**: per vendor with anything outstanding, counts per band and oldest approval.
 **Independent test**: spec US2.
 
-- [ ] T010 [US2] Integration tests, seen failing: one row per vendor with outstanding
+- [X] T010 [US2] Integration tests, seen failing: one row per vendor with outstanding
   orders (none for a vendor with only fully received orders); `orderCount`, `byBucket`
   and `oldestApprovedOn` exact; inactive vendor kept and marked; paged oldest approval
   first then vendor name; `asOf`; a receipt that completes an order updates the counts —
   `backend/tests/integration/reports-vendors.test.ts` — FR-005, FR-008, R5, FR-RPT-01.
-- [ ] T011 [US2] `listOutstandingVendors`: operation, route, service, repository (group
+- [X] T011 [US2] `listOutstandingVendors`: operation, route, service, repository (group
   over the scope's partial index, bucket counts, oldest, then page the groups and join
   vendors); OpenAPI regenerated; pins grown — `backend/src/reports/*`,
   `packages/contracts/src/operations.ts` — FR-005, R5.
-- [ ] T012 [US2] Web, tests first: By vendor view (table, links to the Orders view
+- [X] T012 [US2] Web, tests first: By vendor view (table, links to the Orders view
   filtered to the vendor, empty state, as-of line, axe) and the two tab links —
   `frontend/src/pages/reports/OutstandingVendors.tsx`,
   `frontend/tests/outstanding-vendors.test.tsx`, `frontend/src/app/router.tsx` — FR-010,

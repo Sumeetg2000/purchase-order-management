@@ -4,6 +4,7 @@ import {
   RECEIPT_TIME_ZONE,
   type AgeBucket,
   type OutstandingOrder,
+  type OutstandingVendor,
 } from '@po/contracts';
 import { Prisma } from '../generated/prisma/client.js';
 import type { AppPrismaClient } from '../db/client.js';
@@ -140,6 +141,64 @@ export async function listOutstandingOrders(
 ): Promise<{ items: OutstandingOrder[]; total: number }> {
   const [row] = await db.$queryRaw<{ total: number; items: OutstandingOrder[] }[]>(
     outstandingReportSql(scope, filter, asOf, page).statement,
+  );
+  return { items: row?.items ?? [], total: row?.total ?? 0 };
+}
+
+/**
+ * The vendor summary's SQL (research R5): the scope's outstanding orders grouped by vendor
+ * over the partial index (index-only), a count per band from the same band ranges as the
+ * report, and the oldest approval; then the groups (at most the vendors with anything
+ * outstanding) are sorted oldest first and paged, and only the page's vendors are read.
+ * Sorting the groups is the accepted exception to "no Sort over more than the page"
+ * (ADR-0012, ADR-0015 amended 2026-11-26).
+ */
+export function outstandingVendorsSql(
+  scope: ReportScope,
+  asOf: string,
+  { offset, limit }: PageArgs,
+): ReportSql {
+  const where = outstandingWhere(scope, {}, asOf);
+  const bands = AGE_BUCKETS.map(
+    (bucket) =>
+      Prisma.sql`count(*) FILTER (WHERE ${bandRange(asOf, bucket)})::int AS ${Prisma.raw(`"${bucket}"`)}`,
+  );
+  const groups = Prisma.sql`SELECT o.vendor_id, count(*)::int AS order_count, ${Prisma.join(bands, ', ')},
+           min(o.approved_at) AS oldest
+      FROM purchase_orders o WHERE ${where} GROUP BY o.vendor_id`;
+  const page = Prisma.sql`SELECT g.*, v.name, v.status
+      FROM (${groups}) g JOIN vendors v ON v.id = g.vendor_id
+     ORDER BY g.oldest, v.name, v.id
+     LIMIT ${pageNumber(limit)} OFFSET ${pageNumber(offset)}`;
+  const count = Prisma.sql`SELECT count(*) FROM (${groups}) g`;
+  const byBucket = Prisma.join(
+    AGE_BUCKETS.map((bucket) => Prisma.sql`${bucket}::text, p.${Prisma.raw(`"${bucket}"`)}`),
+    ', ',
+  );
+  const statement = Prisma.sql`
+    SELECT (${count})::int AS total,
+           coalesce((
+             SELECT json_agg(json_build_object(
+                      'vendor', json_build_object('id', p.vendor_id::text, 'name', p.name,
+                                                  'status', p.status),
+                      'orderCount', p.order_count,
+                      'byBucket', json_build_object(${byBucket}),
+                      'oldestApprovedOn',
+                        ((p.oldest AT TIME ZONE ${RECEIPT_TIME_ZONE})::date)::text)
+                    ORDER BY p.oldest, p.name, p.vendor_id)
+               FROM (${page}) p), '[]'::json) AS items`;
+  return { statement, page, count };
+}
+
+/** One page of the vendor summary and its total, from one statement. */
+export async function listOutstandingVendors(
+  db: AppPrismaClient,
+  scope: ReportScope,
+  asOf: string,
+  page: PageArgs,
+): Promise<{ items: OutstandingVendor[]; total: number }> {
+  const [row] = await db.$queryRaw<{ total: number; items: OutstandingVendor[] }[]>(
+    outstandingVendorsSql(scope, asOf, page).statement,
   );
   return { items: row?.items ?? [], total: row?.total ?? 0 };
 }
