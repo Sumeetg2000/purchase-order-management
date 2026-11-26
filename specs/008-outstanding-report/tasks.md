@@ -191,16 +191,16 @@ band, paged, ages as of a shown India date. **Independent test**: spec US1.
 
 ## Phase 8: User Story 4 — 10,000-order load test (P2)
 
-- [ ] T022 [P] [US4] Seeded load plan, test first (`node --test`): 10,000 orders, 200
+- [X] T022 [P] [US4] Seeded load plan, test first (`node --test`): 10,000 orders, 200
   vendors, 20 Buyers, 2 Approvers; line counts 1–5 with 1 in 100 at 50–100; about 85%
   at or below the tier; approve/reject and receipt/cancel draws in the R7 ranges; the same
   seed gives the same plan — `scripts/load/plan.mjs`, `scripts/tests/load-plan.test.mjs`
   — FR-013, R7, NFR-PERF-02.
-- [ ] T023 [P] [US4] Unused-index comparison, test first: an unused index not in the
+- [X] T023 [P] [US4] Unused-index comparison, test first: an unused index not in the
   expected list fails; an expected one that was used is reported; the list's entries each
   need a one-line reason — `scripts/load/indexes.mjs`,
   `scripts/tests/load-indexes.test.mjs` — FR-016, R8.
-- [ ] T024 [P] [US4] Backdate guard, test first (stub `docker`): refuses unless
+- [X] T024 [P] [US4] Backdate guard, test first (stub `docker`): refuses unless
   `COMPOSE_PROJECT_NAME` is `po-load` and the one `db` container has that project label;
   reads the superuser password from the throwaway env file and never puts it in argv or
   output; runs reconciliation right after the shift and fails on any row —
