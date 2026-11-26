@@ -1,8 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axeViolations } from './support/axe';
 import { fakeApi, json, ME, problem } from './support/fake-api';
-import { approvedOrder, order, orderLine, ORDER_ID } from './support/orders';
+import { approvedOrder, order, orderLine, ORDER_ID, pendingOrder } from './support/orders';
 import { renderApp } from './support/render-app';
 import { page } from './support/vendors';
 
@@ -95,6 +95,18 @@ describe('[FR-RCV-01] received and outstanding on the order page', () => {
       .map((h) => h.textContent);
     expect(headers).not.toContain('Received');
     expect(screen.queryByRole('region', { name: 'Receipts' })).not.toBeInTheDocument();
+  });
+
+  it('[FR-RCV-01] a pending or rejected order shows no Received or Outstanding columns, as nothing can be received', async () => {
+    for (const status of ['PENDING_APPROVAL', 'REJECTED'] as const) {
+      show(pendingOrder({ status }));
+      await heading();
+      const headers = within(screen.getByRole('table', { name: 'Lines' }))
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent);
+      expect(headers, status).toEqual(['Description', 'Quantity', 'Unit price', 'Line total']);
+      cleanup();
+    }
   });
 
   it('[FR-RCV-01] a fully received order says so beside its status', async () => {

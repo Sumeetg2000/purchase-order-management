@@ -2,7 +2,8 @@
 
 ## Order detail (`frontend/src/pages/orders/OrderDetail.tsx`)
 
-- Line table: Ordered, Received, Outstanding columns on every non-draft order.
+- Line table: Ordered, Received, Outstanding columns on an approved or cancelled order (the
+  only states that can have receipts); none on a draft, pending or rejected one.
 - Status area: the receipt badge (approved: "Partly received" / "Fully received";
   cancelled with receipts: "Cancelled · partly received"); the cancelled summary line
   "Cancelled · 2 of 5 lines complete, 1 partly received".

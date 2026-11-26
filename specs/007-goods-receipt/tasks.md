@@ -271,7 +271,8 @@ follow. **Independent test**: spec US1's independent test.
   `backend/tests/integration/orders-read.test.ts`, `receipts-history.test.ts` (new),
   `orders-timeline.test.ts` — FR-005, FR-021, FR-RCV-03, R7, R8.
 - [X] T021 [P] [US1] Order detail, component tests first: Ordered, Received, Outstanding
-  columns on non-draft orders; the progress badge by the status; `ReceiptsSection`
+  columns on approved and cancelled orders (owner review, 2026-11-26); the progress badge
+  by the status; `ReceiptsSection`
   (per receipt summary: receipt date, recorded by, recorded at, note, "N lines"; newest
   first; paginated; expanding a receipt loads its lines, with loading and error states;
   "No goods received yet."); the "Record receipt" button lands with the form it opens

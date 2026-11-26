@@ -264,7 +264,7 @@ export function OrderDetail() {
             <th scope="col">Quantity</th>
             <th scope="col">Unit price</th>
             <th scope="col">Line total</th>
-            {order.status !== 'DRAFT' && (
+            {receivable && (
               <>
                 <th scope="col">Received</th>
                 <th scope="col">Outstanding</th>
@@ -279,7 +279,7 @@ export function OrderDetail() {
               <td className={styles.number}>{line.quantity}</td>
               <td className={styles.number}>{formatInr(toMoney(line.unitPrice))}</td>
               <td className={styles.number}>{formatInr(toMoney(line.lineTotal))}</td>
-              {order.status !== 'DRAFT' && (
+              {receivable && (
                 <>
                   <td className={styles.number}>{line.receivedQuantity}</td>
                   <td className={styles.number}>{line.outstandingQuantity}</td>

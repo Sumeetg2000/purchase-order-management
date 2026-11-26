@@ -53,7 +53,8 @@ its receipts, the list with badges and the cancel dialog with receipts (e2e, Chr
   code comment (removed); the gate exited 1 instead of the failing check's status
   (fixed); the dated "before approval" message from errors.md was never shown (now shown
   in the receipt dialog); Received and Outstanding columns on pending and rejected orders
-  (kept: ui.md asks for them on every non-draft order).
+  (first kept, as ui.md asked; then, on the owner's review, shown only on approved and
+  cancelled orders, and ui.md changed to match).
 - Constitution pass: derived values (received quantities, the open-line count) are
   written only by the database and reconciled; every receipt path is tested first against
   real PostgreSQL; layering holds (routes → service → repository); new numbers and
